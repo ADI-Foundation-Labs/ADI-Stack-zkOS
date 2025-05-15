@@ -30,12 +30,16 @@ use zk_ee::{
 /// NOTE: "pure" here means that we do not expect to trigger any state changes (and calling with static flag is ok),
 /// so for all the purposes we remain in the callee frame in terms of memory for efficiency
 ///
-pub fn pure_system_function_hook_impl<'a, F: SystemFunction<S::Resources>, S: EthereumLikeTypes>(
+pub fn pure_system_function_hook_impl<'a, F: SystemFunctionInvocation<S>, S: EthereumLikeTypes>(
     request: ExternalCallRequest<S>,
     _caller_ee: u8,
     system: &mut System<S>,
     return_memory: &'a mut [MaybeUninit<u8>],
-) -> Result<(CompletedExecution<'a, S>, &'a mut [MaybeUninit<u8>]), FatalError> {
+) -> Result<(CompletedExecution<'a, S>, &'a mut [MaybeUninit<u8>]), FatalError> 
+where 
+    S::Memory: MemorySubsystemExt,
+    S::IO: IOSubsystemExt,
+{
     let ExternalCallRequest {
         available_resources,
         calldata,
@@ -53,7 +57,8 @@ pub fn pure_system_function_hook_impl<'a, F: SystemFunction<S::Resources>, S: Et
     let allocator = system.get_allocator();
 
     let mut return_vec = SliceVec::new(return_memory);
-    let result = F::execute(&calldata, &mut return_vec, &mut resources, allocator);
+    // let result = F::execute(&calldata, &mut return_vec, &mut resources, allocator);
+    let result = F::invoke(io.oracle(), &mut logger, &calldata, &mut buffer, &mut resources, allocator);
 
     match result {
         Ok(()) => {

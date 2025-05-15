@@ -210,6 +210,21 @@ impl U256 {
         self.0.bit_len()
     }
 
+    pub fn leading_zeros(&self) -> usize {
+        let mut cnt = 0;
+
+        for el in self.0.iter().rev() {
+            if *el == 0 {
+                cnt += 64
+            } else {
+                cnt += el.leading_zeros() as usize;
+                return cnt;
+            }
+        }
+
+        cnt
+    }
+
     pub fn byte(&self, byte_idx: usize) -> u8 {
         assert!(byte_idx < 32);
         self.0.byte(byte_idx)

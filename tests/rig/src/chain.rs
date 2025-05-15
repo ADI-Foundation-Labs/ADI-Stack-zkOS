@@ -296,10 +296,10 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         // forward run
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
 
-        run_forward::<BasicBootloaderForwardSimulationConfig, _, _, _>(
-            oracle.clone(),
-            &mut result_keeper,
-        );
+        // run_forward::<BasicBootloaderForwardSimulationConfig, _, _, _>(
+        //     oracle.clone(),
+        //     &mut result_keeper,
+        // );
 
         let block_output: BatchOutput = result_keeper.into();
         trace!(
