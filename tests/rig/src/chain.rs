@@ -296,10 +296,10 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         // forward run
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
 
-        // run_forward::<BasicBootloaderForwardSimulationConfig, _, _, _>(
-        //     oracle.clone(),
-        //     &mut result_keeper,
-        // );
+        run_forward::<BasicBootloaderForwardSimulationConfig, _, _, _>(
+            oracle.clone(),
+            &mut result_keeper,
+        );
 
         let block_output: BatchOutput = result_keeper.into();
         trace!(
@@ -312,6 +312,16 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         let mut stats = BlockExtraStats {
             native_used: None,
             effective_used: None,
+
+        // proof run
+        let oracle_wrapper = BasicZkEEOracleWrapper::<EthereumIOTypesConfig, _>::new(oracle);
+
+        #[cfg(feature = "simulate_witness_gen")]
+        let source_for_witness_bench = {
+            let mut non_determinism_source = ZkEENonDeterminismSource::default();
+            non_determinism_source.add_external_processor(oracle_wrapper.clone());
+
+            non_determinism_source
         };
 
         #[cfg(feature = "report_native")]
