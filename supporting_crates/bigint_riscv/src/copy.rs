@@ -16,7 +16,7 @@ impl Clone for DelegatedU256 {
         // upon the call of `assume_init` in general, but we know that all underlying data will be overwritten and initialized
         unsafe {
             // We have to do `uninit().assume_init()` because calling `assume_init()` later may trigger a stack-to-stack copy
-            // And this is safe becasue there are no references to result, and on risc-v all memory is init by default
+            // And this is safe because there are no references to result, and on risc-v all memory is init by default
             #[allow(invalid_value)]
             #[allow(clippy::uninit_assumed_init)]
             let mut result = MaybeUninit::<Self>::uninit().assume_init();
