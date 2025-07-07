@@ -68,7 +68,7 @@ impl DelegatedU256 {
         #[allow(invalid_value)]
         #[allow(clippy::uninit_assumed_init)]
         // `result.assume_init()` may trigger stack-to-stack copy, so we can't do it later
-        // This is safe because there are no references to result and it's initialized immidiatly
+        // This is safe because there are no references to result and it's initialized immediately
         // (and on RISC-V all memory is init by default)
         let mut result: Self = unsafe { MaybeUninit::uninit().assume_init() };
         result.write_zero();
@@ -79,7 +79,7 @@ impl DelegatedU256 {
         #[allow(invalid_value)]
         #[allow(clippy::uninit_assumed_init)]
         // `result.assume_init()` may trigger stack-to-stack copy, so we can't do it later
-        // This is safe because there are no references to result and it's initialized immidiatly
+        // This is safe because there are no references to result and it's initialized immediately
         // (and on RISC-V all memory is init by default)
         let mut result: Self = unsafe { MaybeUninit::uninit().assume_init() };
         result.write_one();
@@ -218,7 +218,7 @@ impl DelegatedU256 {
             #[allow(invalid_value)]
             #[allow(clippy::uninit_assumed_init)]
             // `result.assume_init()` may trigger stack-to-stack copy, so we can't do it later
-            // This is safe because there are no references to result and it's initialized immidiatly
+            // This is safe because there are no references to result and it's initialized immediately
             // (and on RISC-V all memory is init by default)
             let mut result = MaybeUninit::uninit().assume_init();
             // no need to copy to scratch since self cannot be in ROM

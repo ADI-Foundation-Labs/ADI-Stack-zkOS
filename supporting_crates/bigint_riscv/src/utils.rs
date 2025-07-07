@@ -24,7 +24,7 @@ impl DelegatedU256 {
             #[allow(invalid_value)]
             #[allow(clippy::uninit_assumed_init)]
             // `result.assume_init()` may trigger stack-to-stack copy, so we can't do it later
-            // This is safe because there are no references to result and it's initialized immidiatly
+            // This is safe because there are no references to result and it's initialized immediately
             // (and on RISC-V all memory is init by default)
             let mut result: DelegatedU256 = MaybeUninit::uninit().assume_init();
             let ptr = &mut result.0[0] as *mut u64;
@@ -50,7 +50,7 @@ impl DelegatedU256 {
             #[allow(invalid_value)]
             #[allow(clippy::uninit_assumed_init)]
             // `result.assume_init()` may trigger stack-to-stack copy, so we can't do it later
-            // This is safe because there are no references to result and it's initialized immidiatly
+            // This is safe because there are no references to result and it's initialized immediately
             // (and on RISC-V all memory is init by default)
             let mut result: DelegatedU256 = MaybeUninit::uninit().assume_init();
             let ptr = &mut result.0[0] as *mut u64;
