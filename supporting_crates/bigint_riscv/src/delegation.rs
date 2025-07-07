@@ -12,7 +12,7 @@ pub const MEMCOPY_BIT_IDX: usize = 7;
 
 #[inline(always)]
 /// # Safety
-/// `a` andd `b` must be 32 bytes aligned and point to 32 bytes of accessible memory.
+/// `a` and `b` must be 32 bytes aligned and point to 32 bytes of accessible memory.
 pub unsafe fn bigint_op_delegation<const OP_SHIFT: usize>(
     a: *mut DelegatedU256,
     b: *const DelegatedU256,
@@ -23,7 +23,7 @@ pub unsafe fn bigint_op_delegation<const OP_SHIFT: usize>(
 #[cfg(target_arch = "riscv32")]
 #[inline(always)]
 /// # Safety
-/// `a` andd `b` must be 32 bytes aligned and point to 32 bytes of accessible memory.
+/// `a` and `b` must be 32 bytes aligned and point to 32 bytes of accessible memory.
 pub unsafe fn bigint_op_delegation_with_carry_bit<const OP_SHIFT: usize>(
     a: *mut DelegatedU256,
     b: *const DelegatedU256,
@@ -48,7 +48,7 @@ pub unsafe fn bigint_op_delegation_with_carry_bit<const OP_SHIFT: usize>(
 #[cfg(not(target_arch = "riscv32"))]
 #[inline(always)]
 /// # Safety
-/// `a` andd `b` must be 32 bytes aligned and point to 32 bytes of accessible memory.
+/// `a` and `b` must be 32 bytes aligned and point to 32 bytes of accessible memory.
 pub unsafe fn bigint_op_delegation_with_carry_bit<const OP_SHIFT: usize>(
     _a: *mut DelegatedU256,
     _b: *const DelegatedU256,
