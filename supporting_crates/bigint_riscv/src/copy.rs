@@ -40,6 +40,8 @@ impl Clone for DelegatedU256 {
     }
 }
 
+/// # Safety
+/// `dst` must be 32 bytes aligned and point to 32 bytes of accessible memory.
 pub unsafe fn write_into_ptr(dst: *mut DelegatedU256, source: &DelegatedU256) {
     unsafe {
         with_ram_operand(source as *const DelegatedU256, |src| {
@@ -48,8 +50,8 @@ pub unsafe fn write_into_ptr(dst: *mut DelegatedU256, source: &DelegatedU256) {
     }
 }
 
-/// # Saftey
-/// TODO
+/// # Safety
+/// `operand` must be 32 bytes aligned and point to 32 bytes of accessible memory.
 #[inline(always)]
 pub(super) unsafe fn with_ram_operand<T, F: FnMut(*const DelegatedU256) -> T>(
     operand: *const DelegatedU256,
@@ -76,7 +78,8 @@ pub(super) unsafe fn with_ram_operand<T, F: FnMut(*const DelegatedU256) -> T>(
 }
 
 #[inline(always)]
-/// Safety: `operand` must be 32 bytes aligned and point to 32 bytes of accessible memory.
+/// # Safety
+/// `operand` must be 32 bytes aligned and point to 32 bytes of accessible memory.
 pub(super) unsafe fn copy_to_scratch(operand: *const DelegatedU256) -> *mut DelegatedU256 {
     #[cfg(target_arch = "riscv32")]
     {
@@ -102,6 +105,8 @@ pub(super) unsafe fn copy_to_scratch(operand: *const DelegatedU256) -> *mut Dele
 }
 
 #[inline(always)]
+/// # Safety
+/// `operand` must be 32 bytes aligned and point to 32 bytes of accessible memory.
 pub unsafe fn copy_if_needed(operand: *const DelegatedU256) -> *const DelegatedU256 {
     #[cfg(target_arch = "riscv32")]
     unsafe {
