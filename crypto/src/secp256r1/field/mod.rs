@@ -51,27 +51,27 @@ impl FieldElement {
 
     // https://github.com/RustCrypto/elliptic-curves/blob/master/p256/src/arithmetic/field.rs#L118
     pub(super) fn invert_assign(&mut self) {
-        let mut t111 = *self;
+        let mut t111 = self.clone();
         t111.square_assign();
         t111.mul_assign(&*self);
         t111.square_assign();
         t111.mul_assign(&*self);
 
-        let mut t111111 = t111;
+        let mut t111111 = t111.clone();
         t111111.sqn_assign(3);
         t111111.mul_assign(&t111);
 
-        let mut x15 = t111111;
+        let mut x15 = t111111.clone();
         x15.sqn_assign(6);
         x15.mul_assign(&t111111);
         x15.sqn_assign(3);
         x15.mul_assign(&t111);
 
-        let mut x16 = x15;
+        let mut x16 = x15.clone();
         x16.square_assign();
         x16.mul_assign(&*self);
 
-        let mut i53 = x16;
+        let mut i53 = x16.clone();
         i53.sqn_assign(16);
         i53.mul_assign(&x16);
         i53.sqn_assign(15);
@@ -126,7 +126,7 @@ impl FieldElementConst {
 
     /// Returns self^(2^n) mod p
     const fn sqn(&self, n: usize) -> Self {
-        let mut x = *self;
+        let mut x = FieldElementConst(self.0);
         let mut i = 0;
         while i < n {
             x = x.square();
@@ -142,9 +142,9 @@ impl FieldElementConst {
 
     #[cfg(all(target_arch = "riscv32", feature = "bigint_ops"))]
     pub(super) const fn to_fe(self) -> FieldElement {
-        use crate::ark_ff_delegation::BigInt;
+        use bigint_riscv::DelegatedU256;
 
-        FieldElement(BigInt::<4>(self.0))
+        FieldElement(DelegatedU256::from_limbs(self.0))
     }
 }
 
@@ -172,25 +172,25 @@ mod tests {
             let mut c;
 
             // x * 1 = x
-            a = x;
+            a = x.clone();
             a *= &FieldElement::ONE;
-            prop_assert_eq!(a, x);
+            prop_assert_eq!(a, x.clone());
 
             // x * 0 = 0
-            a = x;
+            a = x.clone();
             a *= &FieldElement::ZERO;
             prop_assert_eq!(a, FieldElement::ZERO);
 
             // x * y = y * x
-            a = x;
-            b = y;
+            a = x.clone();
+            b = y.clone();
             a *= &y;
             b *= &x;
             prop_assert_eq!(a, b);
 
             // (x * y) * z = x * (y * z)
-            a = x;
-            b = y;
+            a = x.clone();
+            b = y.clone();
             a *= &y;
             a *= &z;
             b *= &z;
@@ -198,9 +198,9 @@ mod tests {
             prop_assert_eq!(a, b);
 
             // x * (y + z) = x * y + x * z
-            a = y;
-            b = x;
-            c = x;
+            a = y.clone();
+            b = x.clone();
+            c = x.clone();
             a += &z;
             a *= &x;
             b *= &y;
@@ -219,40 +219,40 @@ mod tests {
             let mut a;
             let mut b;
 
-            a = x;
+            a = x.clone();
             a += &FieldElement::ZERO;
-            prop_assert_eq!(a, x);
+            prop_assert_eq!(a, x.clone());
 
-            a = x;
-            b = x;
+            a = x.clone();
+            b = x.clone();
             b.negate_assign();
             a += &b;
             prop_assert_eq!(a, FieldElement::ZERO);
 
-            a = x;
-            b = y;
+            a = x.clone();
+            b = y.clone();
             a += &y;
             b += &x;
             prop_assert_eq!(a, b);
 
-            a = x;
-            b = y;
+            a = x.clone();
+            b = y.clone();
             a += &y;
             a += &z;
             b += &z;
             b += &x;
             prop_assert_eq!(a, b);
 
-            a = x;
+            a = x.clone();
             a -= &x;
             prop_assert_eq!(a, FieldElement::ZERO);
 
-            a = x;
+            a = x.clone();
             a += &y;
             a -= &y;
-            prop_assert_eq!(a, x);
+            prop_assert_eq!(a, x.clone());
 
-            a = x;
+            a = x.clone();
             a -= &y;
             a += &y;
             prop_assert_eq!(a, x);
@@ -266,12 +266,12 @@ mod tests {
 
         proptest!(|(x: FieldElement)| {
 
-            let mut a = x;
+            let mut a = x.clone();
             a.invert_assign();
             a.invert_assign();
-            prop_assert_eq!(a, x);
+            prop_assert_eq!(a, x.clone());
 
-            a = x;
+            a = x.clone();
             a.invert_assign();
             a.mul_assign(&x);
             if x.is_zero() {
@@ -285,7 +285,7 @@ mod tests {
     #[test]
     fn test_const_invert() {
         proptest!(|(x: FieldElementConst)| {
-            prop_assert_eq!(x.invert().invert(), x);
+            prop_assert_eq!(x.clone().invert().invert(), x.clone());
             prop_assert_eq!(x.invert().mul(&x), FieldElementConst::ONE);
         })
     }
@@ -308,12 +308,12 @@ mod tests {
 
         let two = FieldElement::from_words([2, 0, 0, 0]);
         proptest!(|(x: FieldElement)| {
-            let mut a = x;
-            let mut b = x;
+            let mut a = x.clone();
+            let mut b = x.clone();
 
             a.mul_assign(&two);
             b.double_assign();
-            prop_assert_eq!(a, b);
+            prop_assert_eq!(a, b.clone());
 
             b.mul_assign(&FieldElement::HALF);
             prop_assert_eq!(b, x);
@@ -326,37 +326,37 @@ mod tests {
         init();
 
         proptest!(|(x: FieldElement)| {
-            let mut a = x;
-            let mut b = x;
+            let mut a = x.clone();
+            let mut b = x.clone();
 
             b *= 2;
             a.double_assign();
             prop_assert_eq!(a, b);
 
-            b = x;
-            a = x;
+            b = x.clone();
+            a = x.clone();
             b *= 3;
             a.double_assign();
             a.add_assign(&x);
             prop_assert_eq!(a, b);
 
-            b = x;
-            a = x;
+            b = x.clone();
+            a = x.clone();
             b *= 4;
             a.double_assign();
             a.double_assign();
             prop_assert_eq!(a, b);
 
-            b = x;
-            a = x;
+            b = x.clone();
+            a = x.clone();
             b *= 5;
             a.double_assign();
             a.double_assign();
             a.add_assign(&x);
             prop_assert_eq!(a, b);
 
-            b = x;
-            a = x;
+            b = x.clone();
+            a = x.clone();
             b *= 6;
             a.double_assign();
             a.add_assign(&x);
@@ -371,8 +371,8 @@ mod tests {
         init();
 
         proptest!(|(x: FieldElement)| {
-            prop_assert_eq!(x.to_integer().to_representation(), x);
-            prop_assert_eq!(x.to_representation().to_integer(), x);
+            prop_assert_eq!(x.clone().to_integer().to_representation(), x.clone());
+            prop_assert_eq!(x.clone().to_representation().to_integer(), x);
         })
     }
 
@@ -388,7 +388,7 @@ mod tests {
         });
 
         proptest!(|(x: FieldElement)| {
-            prop_assert_eq!(FieldElement::from_be_bytes(&x.to_be_bytes()).unwrap(), x);
+            prop_assert_eq!(FieldElement::from_be_bytes(&x.clone().to_be_bytes()).unwrap(), x);
         });
     }
 }

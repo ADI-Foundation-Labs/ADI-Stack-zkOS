@@ -3,8 +3,8 @@ use crate::system_implementation::flat_storage_model::{
 };
 use alloc::alloc::Allocator;
 use crypto::MiniDigest;
-use ruint::aliases::U256;
 use storage_models::common_structs::PreimageCacheModel;
+use u256::U256;
 use zk_ee::common_structs::{PreimageType, ValueDiffCompressionStrategy};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::system::errors::{InternalError, SystemError};
@@ -123,7 +123,7 @@ impl AccountPropertiesMetadata {
 /// observable_bytecode_hash: Bytes32,    @ [88..120]
 /// observable_bytecode_len:      u32, BE @ [120..124]
 ///
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(C)]
 pub struct AccountProperties {
     pub versioning_data: VersioningData<DEFAULT_ADDRESS_SPECIFIC_IMMUTABLE_DATA_VERSION>,
@@ -162,7 +162,7 @@ impl AccountProperties {
         let mut buffer = [0u8; Self::ENCODED_SIZE];
         buffer[0..8].copy_from_slice(&self.versioning_data.into_u64().to_be_bytes());
         buffer[8..16].copy_from_slice(&self.nonce.to_be_bytes());
-        buffer[16..48].copy_from_slice(&self.balance.to_be_bytes::<32>());
+        buffer[16..48].copy_from_slice(&self.balance.to_be_bytes());
         buffer[48..80].copy_from_slice(self.bytecode_hash.as_u8_ref());
         buffer[80..84].copy_from_slice(&self.bytecode_len.to_be_bytes());
         buffer[84..88].copy_from_slice(&self.artifacts_len.to_be_bytes());
@@ -177,7 +177,7 @@ impl AccountProperties {
                 <&[u8] as TryInto<[u8; 8]>>::try_into(&input[0..8]).unwrap(),
             )),
             nonce: u64::from_be_bytes(input[8..16].try_into().unwrap()),
-            balance: U256::from_be_slice(&input[16..48]),
+            balance: U256::from_be_bytes(&input[16..48].try_into().unwrap()),
             bytecode_hash: Bytes32::from(
                 <&[u8] as TryInto<[u8; 32]>>::try_into(&input[48..80]).unwrap(),
             ),
@@ -197,7 +197,7 @@ impl AccountProperties {
         let mut hasher = Blake2s256::new();
         hasher.update(self.versioning_data.into_u64().to_be_bytes());
         hasher.update(self.nonce.to_be_bytes());
-        hasher.update(self.balance.to_be_bytes::<32>());
+        hasher.update(self.balance.to_be_bytes());
         hasher.update(self.bytecode_hash.as_u8_ref());
         hasher.update(self.bytecode_len.to_be_bytes());
         hasher.update(self.artifacts_len.to_be_bytes());
@@ -227,7 +227,7 @@ impl AccountProperties {
                 1u32 // metadata byte
                     + 8 // versioning data
                     + ValueDiffCompressionStrategy::optimal_compression_length_u256(initial.nonce.try_into().map_err(|_| InternalError("u64 into U256"))?, r#final.nonce.try_into().map_err(|_| InternalError("u64 into U256"))?) as u32 // nonce diff
-                    + ValueDiffCompressionStrategy::optimal_compression_length_u256(initial.balance, r#final.balance) as u32 // balance diff
+                    + ValueDiffCompressionStrategy::optimal_compression_length_u256(initial.balance.clone(), r#final.balance.clone()) as u32 // balance diff
                     + 32 // bytecode hash
                     + 4 // artifacts len
                     + 4 // observable bytecode len
@@ -235,7 +235,7 @@ impl AccountProperties {
                 1u32 // metadata byte
                     + 8 // versioning data
                     + ValueDiffCompressionStrategy::optimal_compression_length_u256(initial.nonce.try_into().map_err(|_| InternalError("u64 into U256"))?, r#final.nonce.try_into().map_err(|_| InternalError("u64 into U256"))?) as u32 // nonce diff
-                    + ValueDiffCompressionStrategy::optimal_compression_length_u256(initial.balance, r#final.balance) as u32 // balance diff
+                    + ValueDiffCompressionStrategy::optimal_compression_length_u256(initial.balance.clone(), r#final.balance.clone()) as u32 // balance diff
                     + 4 // bytecode len
                     + r#final.bytecode_len // bytecode
                     + 4 // artifacts len
@@ -261,8 +261,8 @@ impl AccountProperties {
             }
             if initial.balance != r#final.balance {
                 length += ValueDiffCompressionStrategy::optimal_compression_length_u256(
-                    initial.balance,
-                    r#final.balance,
+                    initial.balance.clone(),
+                    r#final.balance.clone(),
                 ) as u32; // balance diff
             }
             Ok(length)
@@ -329,8 +329,8 @@ impl AccountProperties {
                 result_keeper,
             );
             ValueDiffCompressionStrategy::optimal_compression_u256(
-                initial.balance,
-                r#final.balance,
+                initial.balance.clone(),
+                r#final.balance.clone(),
                 hasher,
                 result_keeper,
             );
@@ -401,8 +401,8 @@ impl AccountProperties {
             }
             if initial.balance != r#final.balance {
                 ValueDiffCompressionStrategy::optimal_compression_u256(
-                    initial.balance,
-                    r#final.balance,
+                    initial.balance.clone(),
+                    r#final.balance.clone(),
                     hasher,
                     result_keeper,
                 );
@@ -421,9 +421,9 @@ mod tests {
     use crypto::blake2s::Blake2s256;
     use crypto::sha3::Keccak256;
     use crypto::MiniDigest;
-    use ruint::aliases::U256;
     use std::alloc::Global;
     use storage_models::common_structs::PreimageCacheModel;
+    use u256::U256;
     use zk_ee::common_structs::PreimageType;
     use zk_ee::execution_environment_type::ExecutionEnvironmentType;
     use zk_ee::reference_implementations::{BaseResources, DecreasingNative};

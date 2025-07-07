@@ -116,11 +116,23 @@ impl U256 {
     }
 
     #[inline(always)]
+    pub fn overflowing_add(self, rhs: Self) -> (Self, bool) {
+        let (t, of) = self.0.overflowing_add(rhs.0);
+        (Self(t), of)
+    }
+
+    #[inline(always)]
     pub fn overflowing_sub_assign(&mut self, rhs: &Self) -> bool {
         let (t, of) = self.0.overflowing_sub(rhs.0);
         self.0 = t;
 
         of
+    }
+
+    #[inline(always)]
+    pub fn overflowing_sub(self, rhs: Self) -> (Self, bool) {
+        let (t, of) = self.0.overflowing_sub(rhs.0);
+        (Self(t), of)
     }
 
     #[inline(always)]

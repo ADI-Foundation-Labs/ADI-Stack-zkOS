@@ -5,7 +5,7 @@ mod copy;
 mod delegation;
 mod utils;
 
-#[derive(Hash)]
+#[derive(Hash, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(align(32))]
 pub struct DelegatedU256([u64; 4]);

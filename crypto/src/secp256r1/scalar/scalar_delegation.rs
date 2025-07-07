@@ -1,43 +1,43 @@
 use core::mem::MaybeUninit;
 
-use crate::ark_ff_delegation::BigInt;
-use crate::bigint_delegation::{u256, DelegatedModParams, DelegatedMontParams};
+use crate::bigint_arithmatic::u256::{self, DelegatedModParams, DelegatedMontParams};
 use crate::secp256r1::Secp256r1Err;
+use bigint_riscv::DelegatedU256;
 
-static mut MODULUS: MaybeUninit<BigInt<4>> = MaybeUninit::uninit();
-static mut REDUCTION_CONST: MaybeUninit<BigInt<4>> = MaybeUninit::uninit();
-static mut R2: MaybeUninit<BigInt<4>> = MaybeUninit::uninit();
+static mut MODULUS: MaybeUninit<DelegatedU256> = MaybeUninit::uninit();
+static mut REDUCTION_CONST: MaybeUninit<DelegatedU256> = MaybeUninit::uninit();
+static mut R2: MaybeUninit<DelegatedU256> = MaybeUninit::uninit();
 
 pub(crate) fn init() {
     unsafe {
-        MODULUS.write(BigInt::<4>(super::MODULUS));
-        REDUCTION_CONST.write(BigInt::<4>(super::REDUCTION_CONST));
-        R2.write(BigInt::<4>(super::R2));
+        MODULUS.write(DelegatedU256::from_limbs(super::MODULUS));
+        REDUCTION_CONST.write(DelegatedU256::from_limbs(super::REDUCTION_CONST));
+        R2.write(DelegatedU256::from_limbs(super::R2));
     }
 }
 
 #[derive(Default, Debug)]
 pub struct ScalarParams;
 
-impl DelegatedModParams<4> for ScalarParams {
-    unsafe fn modulus() -> &'static BigInt<4> {
+impl DelegatedModParams for ScalarParams {
+    unsafe fn modulus() -> &'static DelegatedU256 {
         MODULUS.assume_init_ref()
     }
 }
 
-impl DelegatedMontParams<4> for ScalarParams {
-    unsafe fn reduction_const() -> &'static BigInt<4> {
+impl DelegatedMontParams for ScalarParams {
+    unsafe fn reduction_const() -> &'static DelegatedU256 {
         REDUCTION_CONST.assume_init_ref()
     }
 }
 
-#[derive(Default, Clone, Copy, Debug)]
-pub struct Scalar(BigInt<4>);
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
+pub struct Scalar(DelegatedU256);
 
 impl Scalar {
-    pub(crate) const ZERO: Self = Self(BigInt::zero());
+    pub(crate) const ZERO: Self = Self(DelegatedU256::ZERO);
     // montgomerry form
-    pub(crate) const ONE: Self = Self(BigInt::<4>([
+    pub(crate) const ONE: Self = Self(DelegatedU256::from_limbs([
         884452912994769583,
         4834901526196019579,
         0,
@@ -53,7 +53,7 @@ impl Scalar {
 
     pub(super) fn to_integer(mut self) -> Self {
         unsafe {
-            u256::mul_assign_montgomery::<ScalarParams>(&mut self.0, &BigInt::one());
+            u256::mul_assign_montgomery::<ScalarParams>(&mut self.0, &DelegatedU256::one());
         }
         self
     }
@@ -63,7 +63,7 @@ impl Scalar {
     }
 
     pub(super) fn from_be_bytes_unchecked(bytes: &[u8; 32]) -> Self {
-        Self(u256::from_bytes_unchecked(bytes))
+        Self(DelegatedU256::from_be_bytes(bytes))
     }
 
     pub(crate) fn from_be_bytes(bytes: &[u8; 32]) -> Result<Self, Secp256r1Err> {
@@ -72,15 +72,15 @@ impl Scalar {
     }
 
     pub(crate) fn from_words(words: [u64; 4]) -> Self {
-        Self(BigInt::<4>(words)).to_repressentation()
+        Self(DelegatedU256::from_limbs(words)).to_repressentation()
     }
 
     pub(super) fn to_words(self) -> [u64; 4] {
-        self.to_integer().0 .0
+        self.to_integer().0.to_limbs()
     }
 
     pub(crate) fn is_zero(&self) -> bool {
-        u256::is_zero(&self.0)
+        self.0.is_zero()
     }
 
     pub(super) fn square_assign(&mut self) {
@@ -99,10 +99,6 @@ impl Scalar {
         unsafe {
             u256::neg_mod_assign::<ScalarParams>(&mut self.0);
         }
-    }
-
-    pub(super) fn eq_inner(&self, other: &Self) -> bool {
-        u256::eq(&self.0, &other.0)
     }
 }
 

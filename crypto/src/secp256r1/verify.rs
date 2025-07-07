@@ -25,7 +25,7 @@ pub fn verify(
     s_inv.invert_assign();
 
     let u1 = z * &s_inv;
-    let u2 = r * &s_inv;
+    let u2 = r.clone() * &s_inv;
 
     let x = ecmult(pk, u2, u1, &TABLE_G).to_affine().x;
 
@@ -75,14 +75,14 @@ impl OddMultiplesTable {
 
         let mut table = [const { MaybeUninit::uninit() }; ECMULT_TABLE_SIZE_A];
 
-        let mut p = *p;
-        table[0].write(p);
-        let mut p_double = p;
+        let mut p = p.clone();
+        table[0].write(p.clone());
+        let mut p_double = p.clone();
         p_double.double_assign();
 
         for x in table.iter_mut().skip(1) {
             p.add_assign(&p_double);
-            x.write(p);
+            x.write(p.clone());
         }
 
         Self(unsafe {
@@ -95,9 +95,9 @@ impl OddMultiplesTable {
 
     fn get(&self, n: i32) -> Jacobian {
         if n > 0 {
-            self.0[(n - 1) as usize / 2]
+            self.0[(n - 1) as usize / 2].clone()
         } else {
-            -self.0[(-n - 1) as usize / 2]
+            -self.0[(-n - 1) as usize / 2].clone()
         }
     }
 }
@@ -204,8 +204,8 @@ mod test {
                 z: FieldElement::ONE,
             };
 
-            let result = ecmult(Jacobian::default(), Scalar::ZERO, k, &TABLE_G);
-            assert_eq!(result.to_affine(), expected.to_affine());
+            let result = ecmult(Jacobian::default(), Scalar::ZERO, k.clone(), &TABLE_G);
+            assert_eq!(result.to_affine(), expected.clone().to_affine());
 
             let result = ecmult(Jacobian::GENERATOR, k, Scalar::ZERO, &TABLE_G);
             assert_eq!(result.to_affine(), expected.to_affine());

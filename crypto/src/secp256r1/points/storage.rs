@@ -1,7 +1,7 @@
 use super::Affine;
 use crate::secp256r1::field::FieldElement;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub(crate) struct Storage {
     pub(super) x: FieldElement,
     pub(super) y: FieldElement,

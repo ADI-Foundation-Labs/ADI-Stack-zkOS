@@ -14,7 +14,7 @@ pub(crate) struct FieldElement(pub [u64; 4]);
 impl core::fmt::Debug for FieldElement {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("0x")?;
-        let bytes = self.to_be_bytes();
+        let bytes = self.clone().to_be_bytes();
         for b in bytes.as_slice().iter() {
             f.write_fmt(format_args!("{:02x}", b))?;
         }
@@ -104,8 +104,7 @@ impl FieldElement {
     }
 
     pub(crate) const fn square(&self) -> Self {
-        let other = *self;
-        self.mul(&other)
+        self.mul(&self)
     }
 
     pub(crate) fn square_assign(&mut self) {
@@ -117,7 +116,7 @@ impl FieldElement {
     }
 
     pub(crate) fn double_assign(&mut self) {
-        let other = *self;
+        let other = self.clone();
         self.add_assign(&other);
     }
 

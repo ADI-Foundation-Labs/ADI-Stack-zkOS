@@ -3,7 +3,7 @@ use crate::secp256r1::{u64_arithmatic::*, Secp256r1Err};
 
 use super::{MODULUS, MU};
 
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub struct Scalar([u64; 4]);
 
 impl Scalar {
@@ -61,10 +61,6 @@ impl Scalar {
         }
     }
 
-    pub(super) fn eq_inner(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-
     fn subtract_modulus(&mut self) {
         let borrow;
         (self.0, borrow) = overflowing_sub(&self.0, &MODULUS);
@@ -75,7 +71,7 @@ impl Scalar {
     }
 
     pub(super) fn square_assign(&mut self) {
-        let rhs = *self;
+        let rhs = self.clone();
         self.mul_assign(&rhs);
     }
 

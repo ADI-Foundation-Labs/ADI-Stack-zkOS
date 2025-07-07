@@ -1668,8 +1668,9 @@ mod test {
 
     use super::*;
     use proptest::{prelude::*, sample::Index};
-    use ruint::aliases::{B160, U256};
+    use ruint::aliases::B160;
     use std::{any, collections::HashMap, ops};
+    use u256::U256;
     use zk_ee::common_structs::derive_flat_storage_key;
     use zk_ee::{system::NullLogger, system_io_oracle::dyn_usize_iterator::DynUsizeIterator};
 

@@ -4,7 +4,7 @@ use crate::secp256r1::{field::FieldElement, Secp256r1Err};
 
 use super::Jacobian;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub(crate) struct Affine {
     pub(crate) x: FieldElement,
     pub(crate) y: FieldElement,
@@ -31,14 +31,14 @@ impl Affine {
             return Ok(Affine::INFINITY);
         }
 
-        let mut lhs = y;
+        let mut lhs = y.clone();
         lhs.square_assign();
 
-        let mut rhs = x;
+        let mut rhs = x.clone();
         rhs.square_assign();
         rhs *= &x;
 
-        let mut a = x;
+        let mut a = x.clone();
         a *= &FieldElement::EQUATION_A;
 
         rhs += &a;

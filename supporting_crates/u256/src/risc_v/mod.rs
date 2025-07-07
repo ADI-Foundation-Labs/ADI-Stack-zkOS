@@ -100,6 +100,12 @@ impl U256 {
     }
 
     #[inline(always)]
+    pub fn overflowing_add(mut self, rhs: Self) -> (Self, bool) {
+        let carry = self.0.overflowing_add_assign(&rhs.0);
+        (self, carry)
+    }
+
+    #[inline(always)]
     pub fn overflowing_add_assign_with_carry_propagation(
         &mut self,
         rhs: &Self,
@@ -111,6 +117,12 @@ impl U256 {
     #[inline(always)]
     pub fn overflowing_sub_assign(&mut self, rhs: &Self) -> bool {
         self.0.overflowing_sub_assign(&rhs.0)
+    }
+
+    #[inline(always)]
+    pub fn overflowing_sub(mut self, rhs: Self) -> (Self, bool) {
+        let borrow = self.0.overflowing_sub_assign(&rhs.0);
+        (self, borrow)
     }
 
     #[inline(always)]

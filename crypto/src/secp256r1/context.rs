@@ -19,9 +19,9 @@ impl GeneratorMultiplesTable {
 
     pub(super) fn get_ge(&self, n: i32) -> Affine {
         if n > 0 {
-            self.0[(n - 1) as usize / 2].to_affine()
+            self.0[(n - 1) as usize / 2].clone().to_affine()
         } else {
-            -(self.0[(-n - 1) as usize / 2].to_affine())
+            -(self.0[(-n - 1) as usize / 2].clone().to_affine())
         }
     }
 }

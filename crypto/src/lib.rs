@@ -37,6 +37,7 @@ pub fn init_lib() {
         bn254::fields::init();
         bls12_381::fields::init();
         secp256k1::init();
+        secp256r1::init();
     }
 }
 

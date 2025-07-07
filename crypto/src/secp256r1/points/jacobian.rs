@@ -2,7 +2,7 @@ use super::{Affine, Storage};
 use crate::secp256r1::field::{FieldElement, FieldElementConst};
 use core::{fmt::Debug, ops::Neg};
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone)]
 pub(crate) struct Jacobian {
     pub(crate) x: FieldElement,
     pub(crate) y: FieldElement,
@@ -39,10 +39,10 @@ impl Jacobian {
             return;
         }
         // T1 = Z1^2
-        let mut t1 = self.z;
+        let mut t1 = self.z.clone();
         t1.square_assign();
         // T2 = X1-T1
-        let mut t2 = self.x;
+        let mut t2 = self.x.clone();
         t2 -= &t1;
         // T1 = X1+T1
         t1 += &self.x;
@@ -57,17 +57,17 @@ impl Jacobian {
         // Y3 = Y3^2
         self.y.square_assign();
         // T3 = Y3*X1
-        let mut t3 = self.x;
+        let mut t3 = self.x.clone();
         t3 *= &self.y;
         // Y3 = Y3^2
         self.y.square_assign();
         // Y3 = half*Y3
         self.y *= &FieldElement::HALF;
         // X3 = T2^2
-        self.x = t2;
+        self.x = t2.clone();
         self.x.square_assign();
         // T1 = 2*T3
-        t1 = t3;
+        t1 = t3.clone();
         t1.double_assign();
         // X3 = X3-T1
         self.x -= &t1;
@@ -83,7 +83,7 @@ impl Jacobian {
     // https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-add-2007-bl
     pub(crate) fn add_assign(&mut self, other: &Self) {
         if self.is_infinity() {
-            *self = *other;
+            *self = other.clone();
             return;
         }
 
@@ -91,16 +91,16 @@ impl Jacobian {
             return;
         }
 
-        let mut z1z1 = self.z;
+        let mut z1z1 = self.z.clone();
         z1z1.square_assign();
 
-        let mut z2z2 = other.z;
+        let mut z2z2 = other.z.clone();
         z2z2.square_assign();
 
-        let mut u1 = z2z2;
+        let mut u1 = z2z2.clone();
         u1 *= &self.x;
 
-        let mut u2 = z1z1;
+        let mut u2 = z1z1.clone();
         u2 *= &other.x;
 
         let mut s1 = z2z2;
@@ -125,17 +125,17 @@ impl Jacobian {
 
         r.double_assign();
 
-        let mut i = h;
+        let mut i = h.clone();
         i.double_assign();
         i.square_assign();
 
-        let mut j = h;
+        let mut j = h.clone();
         j *= &i;
 
         let mut v = u1;
         v *= &i;
 
-        self.x = r;
+        self.x.clone_from(&r);
         self.x.square_assign();
         self.x -= &j;
         self.x -= &v;
@@ -158,7 +158,7 @@ impl Jacobian {
     // https://www.hyperelliptic.org/EFD/g1p/auto-shortw-jacobian-3.html#addition-madd-2007-bl
     pub(crate) fn add_ge_assign(&mut self, other: &Affine) {
         if self.is_infinity() {
-            *self = other.to_jacobian();
+            *self = other.clone().to_jacobian();
             return;
         }
 
@@ -166,10 +166,10 @@ impl Jacobian {
             return;
         }
 
-        let mut z1z1 = self.z;
+        let mut z1z1 = self.z.clone();
         z1z1.square_assign();
 
-        let mut u2 = z1z1;
+        let mut u2 = z1z1.clone();
         u2 *= &other.x;
 
         let mut s2 = z1z1;
@@ -189,19 +189,20 @@ impl Jacobian {
 
         r.double_assign();
 
-        let mut hh = h;
+        let mut hh = h.clone();
         hh.square_assign();
 
         let mut i = hh;
         i *= 4;
 
-        let mut j = h;
+        let mut j = h.clone();
         j *= &i;
 
         let mut v = i;
         v *= &self.x;
 
-        self.x = r;
+        self.x.clone_from(&r);
+
         self.x.square_assign();
         self.x -= &j;
         self.x -= &v;
@@ -386,7 +387,7 @@ mod tests {
         for _ in 0..100 {
             g_const = g_const.double();
             g.double_assign();
-            assert_eq!(g_const.to_affine(), g.to_affine())
+            assert_eq!(g_const.to_affine(), g.clone().to_affine())
         }
     }
 
@@ -406,8 +407,8 @@ mod tests {
             c.add_ge_assign(&ge);
             b = b.add(&JacobianConst::GENERATOR);
 
-            assert_eq!(a.to_affine(), b.to_affine());
-            assert_eq!(a.to_affine(), c.to_affine());
+            assert_eq!(a.clone().to_affine(), b.clone().to_affine());
+            assert_eq!(a.clone().to_affine(), c.clone().to_affine());
         }
     }
 
@@ -425,7 +426,7 @@ mod tests {
                 infinity: false,
             };
 
-            assert_eq!(g.to_affine(), expected);
+            assert_eq!(g.clone().to_affine(), expected);
             g.add_assign(&Jacobian::GENERATOR);
         }
     }

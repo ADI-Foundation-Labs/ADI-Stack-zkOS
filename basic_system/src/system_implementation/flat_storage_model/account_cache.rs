@@ -15,10 +15,10 @@ use core::alloc::Allocator;
 use core::marker::PhantomData;
 use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::B160;
-use ruint::aliases::U256;
 use storage_models::common_structs::AccountAggregateDataHash;
 use storage_models::common_structs::PreimageCacheModel;
 use storage_models::common_structs::StorageCacheModel;
+use u256::U256;
 use zk_ee::common_structs::cache_record::Appearance;
 use zk_ee::common_structs::cache_record::CacheRecord;
 use zk_ee::common_structs::history_map::CacheSnapshotId;
@@ -252,7 +252,7 @@ where
             WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
         )))?;
 
-        let cur = account_data.current().value().balance;
+        let cur = account_data.current().value().balance.clone();
         let new = update_fn(&cur)?;
         account_data.update(|cache_record| {
             cache_record.update(|v, _| {
@@ -282,7 +282,7 @@ where
                 resources,
                 addr,
                 move |old_balance: &U256| {
-                    let (new_value, of) = op(*old_balance, *amount);
+                    let (new_value, of) = op(old_balance.clone(), amount.clone());
                     if of {
                         Err(UpdateQueryError::NumericBoundsError)
                     } else {
@@ -413,7 +413,7 @@ where
         }
 
         match self.cache.get(address.into()) {
-            Some(cache_item) => Ok(cache_item.current().value().balance),
+            Some(cache_item) => Ok(cache_item.current().value().balance.clone()),
             None => Err(InternalError("Balance assumed warm but not in cache").into()),
         }
     }
@@ -513,7 +513,7 @@ where
             bytecode_hash: Maybe::construct(|| full_data.bytecode_hash),
             bytecode_len: Maybe::construct(|| full_data.bytecode_len),
             artifacts_len: Maybe::construct(|| full_data.artifacts_len),
-            nominal_token_balance: Maybe::construct(|| full_data.balance),
+            nominal_token_balance: Maybe::construct(|| full_data.balance.clone()),
             bytecode: Maybe::try_construct(|| {
                 // we charged for "cold" behavior already, so we just ask for preimage
 
@@ -823,7 +823,7 @@ where
         )))?;
 
         let same_address = at_address == nominal_token_beneficiary;
-        let transfer_amount = account_data.current().value().balance;
+        let transfer_amount = account_data.current().value().balance.clone();
 
         // We consider two cases: either deconstruction happens within the same
         // tx as the address was deployed or it happens in constructor code.
