@@ -10,7 +10,6 @@ use ruint::aliases::B160;
 use u256::U256;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::system::errors::SystemError;
-use zk_ee::utils::Bytes32;
 
 pub fn contract_deployer_hook<'a, S: EthereumLikeTypes>(
     request: ExternalCallRequest<S>,
@@ -93,9 +92,9 @@ where
     ))
 }
 
-// setBytecodeDetailsEVM(address,bytes32,uint32,bytes32) - f6eca0b0
-const SET_EVM_BYTECODE_DETAILS: &[u8] = &[0xf6, 0xec, 0xa0, 0xb0];
-const L2_COMPLEX_UPGRADER_ADDRESS: B160 = B160::from_limbs([0x800f, 0, 0]);
+// setDeployedCodeEVM(address,bytes) - 1223adc7
+const SET_DEPLOYED_CODE_EVM_SELECTOR: &[u8] = &[0x12, 0x23, 0xad, 0xc7];
+const L2_GENESIS_UPGRADE_ADDRESS: B160 = B160::from_limbs([0x10001, 0, 0]);
 
 fn contract_deployer_hook_inner<S: EthereumLikeTypes>(
     mut calldata: &[u8],
@@ -121,31 +120,31 @@ where
     selector.copy_from_slice(&calldata[..4]);
 
     match selector {
-        s if s == SET_EVM_BYTECODE_DETAILS => {
+        s if s == SET_DEPLOYED_CODE_EVM_SELECTOR => {
             if is_static {
                 return Ok(Err(
-                    "Contract deployer failure: setBytecodeDetailsEVM called with static context",
+                    "Contract deployer failure: setDeployedCodeEVM called with static context",
                 ));
             }
             // in future we need to handle regular(not genesis) protocol upgrades
-            if caller != L2_COMPLEX_UPGRADER_ADDRESS {
+            if caller != L2_GENESIS_UPGRADE_ADDRESS {
                 return Ok(Err(
-                    "Contract deployer failure: unauthorized caller for setBytecodeDetailsEVM",
+                    "Contract deployer failure: unauthorized caller for setDeployedCodeEVM",
                 ));
             }
 
-            // decoding according to setBytecodeDetailsEVM(address,bytes32,uint32,bytes32)
+            // decoding according to setDeployedCodeEVM(address,bytes)
             calldata = &calldata[4..];
-            if calldata.len() < 128 {
+            if calldata.len() < 64 {
                 return Ok(Err(
-                    "Contract deployer failure: setBytecodeDetailsEVM called with invalid calldata",
+                    "Contract deployer failure: setDeployedCodeEVM called with invalid calldata",
                 ));
             }
 
             // check that first 12 bytes in address encoding are zero
             if calldata[0..12].iter().any(|byte| *byte != 0) {
                 return Ok(Err(
-                    "Contract deployer failure: setBytecodeDetailsEVM called with invalid calldata",
+                    "Contract deployer failure: setDeployedCodeEVM called with invalid calldata",
                 ));
             }
             let address = B160::try_from_be_slice(&calldata[12..32]).ok_or(
@@ -176,32 +175,36 @@ where
             {
                 Ok(length) => length,
                 Err(_) => return Ok(Err(
-                    "Contract deployer failure: setBytecodeDetailsEVM called with invalid calldata",
+                    "Contract deployer failure: setDeployedCodeEVM called with invalid calldata",
                 )),
             };
 
-            let observable_bytecode_hash =
-                Bytes32::from_array(calldata[96..128].try_into().expect("Always valid"));
+            if calldata.len() < bytecode_length_encoding_end + bytecode_length {
+                return Ok(Err(
+                    "Contract deployer failure: setDeployedCodeEVM called with invalid calldata",
+                ));
+            }
+
+            let bytecode = &calldata
+                [bytecode_length_encoding_end..bytecode_length_encoding_end + bytecode_length];
 
             // Although this can be called as a part of protocol upgrade,
             // we are checking the next invariants, just in case
+            // EIP-3541: reject code starting with 0xEF.
             // EIP-158: reject code of length > 24576.
-            if bytecode_length as usize > MAX_CODE_SIZE {
+            if !bytecode.is_empty() && bytecode[0] == 0xEF || bytecode.len() > MAX_CODE_SIZE {
                 return Ok(Err(
-                    "Contract deployer failure: setBytecodeDetailsEVM called with invalid bytecode(length > 24576)",
+                    "Contract deployer failure: setDeployedCodeEVM called with invalid bytecode(it starts with 0xEF or length > 24576)",
                 ));
             }
-            // Also EIP-3541(reject code starting with 0xEF) should be validated by governance.
 
-            system.set_bytecode_details(
+            system.io.deploy_code(
+                ExecutionEnvironmentType::EVM,
                 resources,
                 &address,
-                ExecutionEnvironmentType::EVM,
-                bytecode_hash,
-                bytecode_length,
+                bytecode,
+                bytecode.len() as u32,
                 0,
-                observable_bytecode_hash,
-                bytecode_length,
             )?;
 
             Ok(Ok(&[]))
