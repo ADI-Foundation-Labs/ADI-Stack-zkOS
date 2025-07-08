@@ -3,17 +3,16 @@
 //! It implements a `sendToL1` method, works same way as in Era.
 //!
 use super::*;
-use arrayvec::ArrayVec;
+use ::u256::U256;
 use core::fmt::Write;
 use errors::FatalError;
-use ruint::aliases::{B160, U256};
+use ruint::aliases::B160;
 use zk_ee::{
     execution_environment_type::ExecutionEnvironmentType,
-    kv_markers::MAX_EVENT_TOPICS,
     system::{
         errors::SystemError, logger::Logger, CallModifier, CompletedExecution, ExternalCallRequest,
     },
-    utils::{b160_to_u256, Bytes32},
+    utils::Bytes32,
 };
 
 pub fn l1_messenger_hook<'a, S: EthereumLikeTypes>(
@@ -40,7 +39,7 @@ where
 
     let mut error = false;
     // There is no "payable" methods
-    error |= nominal_token_value != U256::ZERO;
+    error |= !nominal_token_value.is_zero();
     let mut is_static = false;
     match modifier {
         CallModifier::Constructor => {
@@ -103,11 +102,6 @@ where
 // sendToL1(bytes) - 62f84b24
 const SEND_TO_L1_SELECTOR: &[u8] = &[0x62, 0xf8, 0x4b, 0x24];
 
-const L1_MESSAGE_SENT_TOPIC: [u8; 32] = [
-    0x3a, 0x36, 0xe4, 0x72, 0x91, 0xf4, 0x20, 0x1f, 0xaf, 0x13, 0x7f, 0xab, 0x08, 0x1d, 0x92, 0x29,
-    0x5b, 0xce, 0x2d, 0x53, 0xbe, 0x2c, 0x6c, 0xa6, 0x8b, 0xa8, 0x2c, 0x7f, 0xaa, 0x9c, 0xe2, 0x41,
-];
-
 fn l1_messenger_hook_inner<S: EthereumLikeTypes>(
     calldata: &[u8],
     resources: &mut S::Resources,
@@ -147,23 +141,15 @@ where
                     "L1 messenger failure: sendToL1 called with invalid calldata",
                 ));
             }
-            let message_offset: usize = match U256::from_be_slice(&calldata[4..36]).try_into() {
-                Ok(offset) => offset,
-                Err(_) => {
-                    return Ok(Err(
-                        "L1 messenger failure: sendToL1 called with invalid calldata",
-                    ))
-                }
-            };
-            // Note, that in general, Solidity allows to have non-strict offsets, i.e. it should be possible
-            // to call a function with offset pointing to a faraway point in calldata. However,
-            // when explicitly calling a contract Solidity encodes it via a strict encoding and allowing
-            // only standard encoding here allows for cheaper and easier implementation.
-            if message_offset != 32 {
-                return Ok(Err(
-                    "L1 messenger failure: sendToL1 expects strict message offset",
-                ));
-            }
+            let message_offset: usize =
+                match U256::from_be_bytes(&calldata[4..36].try_into().unwrap()).try_into() {
+                    Ok(offset) => offset,
+                    Err(_) => {
+                        return Ok(Err(
+                            "L1 messenger failure: sendToL1 called with invalid calldata",
+                        ))
+                    }
+                };
             // length located at 4+message_offset..4+message_offset+32
             // we want to check that 4+message_offset+32 will not overflow usize
             let length_encoding_end = match message_offset.checked_add(36) {
@@ -179,17 +165,20 @@ where
                     "L1 messenger failure: sendToL1 called with invalid calldata",
                 ));
             }
-            let length =
-                match U256::from_be_slice(&calldata[length_encoding_end - 32..length_encoding_end])
+            let length = match U256::from_be_bytes(
+                &calldata[length_encoding_end - 32..length_encoding_end]
                     .try_into()
-                {
-                    Ok(length) => length,
-                    Err(_) => {
-                        return Ok(Err(
-                            "L1 messenger failure: sendToL1 called with invalid calldata",
-                        ))
-                    }
-                };
+                    .unwrap(),
+            )
+            .try_into()
+            {
+                Ok(length) => length,
+                Err(_) => {
+                    return Ok(Err(
+                        "L1 messenger failure: sendToL1 called with invalid calldata",
+                    ))
+                }
+            };
             // to check that it will not overflow
             let message_end = match length_encoding_end.checked_add(length) {
                 Some(message_end) => message_end,
@@ -204,15 +193,6 @@ where
                     "L1 messenger failure: sendToL1 called with invalid calldata",
                 ));
             }
-
-            // Note, that in general, Solidity allows to have non-strict offsets, i.e. it should be possible
-            // to call a function with offset pointing to a faraway point in calldata. However,
-            // when explicitly calling a contract Solidity encodes it via a strict encoding and allowing
-            // only standard encoding here allows for cheaper and easier implementation.
-            if (calldata.len() - 4) % 32 != 0 {
-                return Ok(Err("Calldata is not well formed"));
-            }
-
             let message = &calldata[length_encoding_end..message_end];
             let message_hash = system.io.emit_l1_message(
                 ExecutionEnvironmentType::parse_ee_version_byte(caller_ee)
@@ -221,22 +201,6 @@ where
                 &caller,
                 message,
             )?;
-
-            let mut topics = ArrayVec::<Bytes32, MAX_EVENT_TOPICS>::new();
-            topics.push(Bytes32::from_array(L1_MESSAGE_SENT_TOPIC));
-            topics.push(Bytes32::from_u256_be(&b160_to_u256(caller)));
-            topics.push(message_hash);
-
-            system.io.emit_event(
-                ExecutionEnvironmentType::parse_ee_version_byte(caller_ee)
-                    .map_err(SystemError::Internal)?,
-                resources,
-                &L1_MESSENGER_ADDRESS,
-                &topics,
-                // We are lucky that the encoding of the event is exactly same as encoding of the bytes in the calldata
-                &calldata[4..],
-            )?;
-
             Ok(Ok(message_hash))
         }
         _ => Ok(Err("L1 messenger: unknown selector")),

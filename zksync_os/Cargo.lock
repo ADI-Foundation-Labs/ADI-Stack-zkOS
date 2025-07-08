@@ -187,6 +187,7 @@ dependencies = [
  "ruint",
  "seq-macro",
  "system_hooks",
+ "u256",
  "zk_ee",
 ]
 
@@ -204,7 +205,16 @@ dependencies = [
  "ruint",
  "storage_models",
  "system_hooks",
+ "u256",
  "zk_ee",
+]
+
+[[package]]
+name = "bigint_riscv"
+version = "0.1.0"
+dependencies = [
+ "ruint",
+ "serde",
 ]
 
 [[package]]
@@ -225,7 +235,7 @@ dependencies = [
 [[package]]
 name = "blake2s_u32"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender.git?tag=v0.3.1#44a1721e4597af363c1da7dfc9d01c2f6b9b61c1"
+source = "git+https://github.com/matter-labs/zksync-airbender?tag=v0.3.1#44a1721e4597af363c1da7dfc9d01c2f6b9b61c1"
 dependencies = [
  "unroll",
 ]
@@ -338,6 +348,14 @@ name = "cycle_marker"
 version = "0.0.0"
 
 [[package]]
+name = "delegated_u256"
+version = "0.1.0"
+dependencies = [
+ "ruint",
+ "serde",
+]
+
+[[package]]
 name = "der"
 version = "0.7.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -443,6 +461,7 @@ dependencies = [
  "cycle_marker",
  "either",
  "ruint",
+ "u256",
  "zk_ee",
 ]
 
@@ -806,7 +825,7 @@ dependencies = [
 [[package]]
 name = "riscv_common"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender.git?tag=v0.3.1#44a1721e4597af363c1da7dfc9d01c2f6b9b61c1"
+source = "git+https://github.com/matter-labs/zksync-airbender.git?tag=0.2.0#30635bd7d9bb2aedf9c67450d8a7e1a7ff3c7ee3"
 
 [[package]]
 name = "ruint"
@@ -959,6 +978,7 @@ dependencies = [
  "cycle_marker",
  "evm_interpreter",
  "ruint",
+ "u256",
  "zk_ee",
 ]
 
@@ -976,6 +996,15 @@ name = "typenum"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1dccffe3ce07af9386bfd29e80c0ab1a8205a2fc34e4bcd40364df902cfa8f3f"
+
+[[package]]
+name = "u256"
+version = "0.1.0"
+dependencies = [
+ "delegated_u256",
+ "ruint",
+ "serde",
+]
 
 [[package]]
 name = "unarray"
@@ -1061,16 +1090,19 @@ dependencies = [
  "crypto",
  "cycle_marker",
  "ruint",
+ "u256",
 ]
 
 [[package]]
 name = "zksync_os"
 version = "0.1.0"
 dependencies = [
+ "bigint_riscv",
  "crypto",
  "heapless",
  "proof_running_system",
  "r0",
  "riscv",
  "riscv_common",
+ "u256",
 ]

@@ -6,6 +6,1099 @@ Spent ergs for [prepare_for_call]: 0
 
 Spent native for [prepare_for_call]: 250240
 
+Spent ergs for [modexp]: 0
+
+Spent native for [modexp]: 0
+
+Spent ergs SpentSpent ergs for [process_transaction]: 6144000
+Spent native for [process_transacSpent ergs for [run_prepared]: 12800000
+Spent ergs forSpent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [process_transaction]: 6275072
+Spent native for [process_transaction]: 1777580
+Spent ergs Spent ergs for [ecrecover]: Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [process_transaction]: 6560768
+Spent native for [process_transaction]: 17775Spent ergs for [ecrecover]: 768000
+
+Spent Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [process_transaction]: 6585344
+Spent native for [process_transaction]: 1777580
+Spent ergs for [run_prepared]: 6585344
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [process_transaction]: 6573056
+Spent native for [process_transaction]: 1777580
+Spent ergs for [run_prepared]: 6573056
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [process_transaction]: 6573056
+Spent native for [process_transaction]: 1777580
+Spent ergs for [run_prepared]: 6573056
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [process_transaction]: 6573056
+Spent native for [process_transaction]: 1777580
+Spent ergs for [run_prepared]: 6573056
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [process_transaction]: 6474752
+Spent native for [process_transaction]: 1777580
+Spent ergs for [run_prepared]: 6474752
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [process_transaction]: 6573056
+Spent native for [process_transaction]: 1777580
+Spent ergs for [run_prepared]: 6573056
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [sha256]: 27648
+
+Spent native for [sha256]: 14200
+
+Spent ergs for [process_transaction]: 5832704
+Spent native for [process_transaction]: 1269780
+Spent ergs for [run_prepared]: 5832704
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [sha256]: 18432
+
+Spent native for [sha256]: 5800
+
+Spent ergs for [process_transaction]: 5406720
+Spent native for [process_transaction]: 1226380
+Spent ergs for [run_prepared]: 5406720
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [ripemd]: 276480
+
+Spent native for [ripemd]: 14200
+
+Spent ergs for [process_transaction]: 6081536
+Spent native for [process_transaction]: 1269780
+Spent ergs for [run_prepared]: 6081536
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [ripemd]: 184320
+
+Spent native for [ripemd]: 5800
+
+Spent ergs for [process_transaction]: 5572608
+Spent native for [process_transaction]: 1226380
+Spent ergs for [run_prepared]: 5572608
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [id]: 6912
+
+Spent native for [id]: 1300
+
+Spent ergs for [process_transaction]: 5811968
+Spent native for [process_transaction]: 1256880
+Spent ergs for [run_prepared]: 5811968
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 11508224
+
+Spent native for [modexp]: 2301644800
+
+Spent ergs for [process_transaction]: 23581952
+Spent native for [process_transaction]: 2302935380
+Spent ergs for [run_prepared]: 23581952
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 348160
+
+Spent native for [modexp]: 69632000
+
+Spent ergs for [process_transaction]: 6056960
+Spent native for [process_transaction]: 70887580
+Spent ergs for [run_prepared]: 6056960
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 348160
+
+Spent native for [modexp]: 69632000
+
+Spent ergs for [process_transaction]: 6097920
+Spent native for [process_transaction]: 70887580
+Spent ergs for [run_prepared]: 6097920
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 348160
+
+Spent native for [modexp]: 69632000
+
+Spent ergs for [process_transaction]: 6090752
+Spent native for [process_transaction]: 70887580
+Spent ergs for [run_prepared]: 6090752
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 51200
+
+Spent native for [modexp]: 10240000
+
+Spent ergs for [process_transaction]: 6063104
+Spent native for [process_transaction]: 11513080
+Spent ergs for [run_prepared]: 6063104
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 51200
+
+Spent native for [modexp]: 10240000
+
+Spent ergs for [process_transaction]: 6063104
+Spent native for [process_transaction]: 11513080
+Spent ergs for [run_prepared]: 6063104
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 87296
+
+Spent native for [modexp]: 17459200
+
+Spent ergs for [process_transaction]: 6104320
+Spent native for [process_transaction]: 18732280
+Spent ergs for [run_prepared]: 6104320
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 51200
+
+Spent native for [modexp]: 10240000
+
+Spent ergs for [process_transaction]: 6578176
+Spent native for [process_transaction]: 11548080
+Spent ergs for [run_prepared]: 6578176
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 51200
+
+Spent native for [modexp]: 10240000
+
+Spent ergs for [process_transaction]: 6578176
+Spent native for [process_transaction]: 11548080
+Spent ergs for [run_prepared]: 6578176
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 349440
+
+Spent native for [modexp]: 69888000
+
+Spent ergs for [process_transaction]: 6881536
+Spent native for [process_transaction]: 71196080
+Spent ergs for [run_prepared]: 6881536
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 87296
+
+Spent native for [modexp]: 17459200
+
+Spent ergs for [process_transaction]: 7668992
+Spent native for [process_transaction]: 18837280
+Spent ergs for [run_prepared]: 7668992
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 87296
+
+Spent native for [modexp]: 17459200
+
+Spent ergs for [process_transaction]: 7668992
+Spent native for [process_transaction]: 18837280
+Spent ergs for [run_prepared]: 7668992
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 1398016
+
+Spent native for [modexp]: 279603200
+
+Spent ergs for [process_transaction]: 8984832
+Spent native for [process_transaction]: 280981280
+Spent ergs for [run_prepared]: 8984832
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 349440
+
+Spent native for [modexp]: 69888000
+
+Spent ergs for [process_transaction]: 10019072
+Spent native for [process_transaction]: 71406080
+Spent ergs for [run_prepared]: 10019072
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 349440
+
+Spent native for [modexp]: 69888000
+
+Spent ergs for [process_transaction]: 10019072
+Spent native for [process_transaction]: 71406080
+Spent ergs for [run_prepared]: 10019072
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 5592320
+
+Spent native for [modexp]: 1118464000
+
+Spent ergs for [process_transaction]: 15267072
+Spent native for [process_transaction]: 1119982080
+Spent ergs for [run_prepared]: 15267072
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 1398016
+
+Spent native for [modexp]: 279603200
+
+Spent ergs for [process_transaction]: 15234304
+Spent native for [process_transaction]: 281383780
+Spent ergs for [run_prepared]: 15234304
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 1398016
+
+Spent native for [modexp]: 279603200
+
+Spent ergs for [process_transaction]: 15234304
+Spent native for [process_transaction]: 281383780
+Spent ergs for [run_prepared]: 15234304
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [modexp]: 22369536
+
+Spent native for [modexp]: 4473907200
+
+Spent ergs for [process_transaction]: 45830912
+Spent native for [process_transaction]: 4475687780
+Spent ergs for [run_prepared]: 45830912
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5414400
+Spent native for [process_transaction]: 1273180
+Spent ergs for [run_prepared]: 5414400
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5545472
+Spent native for [process_transaction]: 1308180
+Spent ergs for [run_prepared]: 5545472
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5938688
+Spent native for [process_transaction]: 1308180
+Spent ergs for [run_prepared]: 5938688
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5938688
+Spent native for [process_transaction]: 1308180
+Spent ergs for [run_prepared]: 5938688
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5545472
+Spent native for [process_transaction]: 1308180
+Spent ergs for [run_prepared]: 5545472
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5479936
+Spent native for [process_transaction]: 1290680
+Spent ergs for [run_prepared]: 5479936
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5496320
+Spent native for [process_transaction]: 1290680
+Spent ergs for [run_prepared]: 5496320
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5414400
+Spent native for [process_transaction]: 1273180
+Spent ergs for [run_prepared]: 5414400
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5611008
+Spent native for [process_transaction]: 1325680
+Spent ergs for [run_prepared]: 5611008
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5551616
+Spent native for [process_transaction]: 1308180
+Spent ergs for [run_prepared]: 5551616
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5617152
+Spent native for [process_transaction]: 1325680
+Spent ergs for [run_prepared]: 5617152
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5486080
+Spent native for [process_transaction]: 1290680
+Spent ergs for [run_prepared]: 5486080
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5551616
+Spent native for [process_transaction]: 1308180
+Spent ergs for [run_prepared]: 5551616
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5617152
+Spent native for [process_transaction]: 1325680
+Spent ergs for [run_prepared]: 5617152
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5557760
+Spent native for [process_transaction]: 1308180
+Spent ergs for [run_prepared]: 5557760
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5623296
+Spent native for [process_transaction]: 1325680
+Spent ergs for [run_prepared]: 5623296
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 5938688
+Spent native for [process_transaction]: 1308180
+Spent ergs for [run_prepared]: 5938688
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecadd]: 38400
+
+Spent native for [bn254_ecadd]: 52600
+
+Spent ergs for [process_transaction]: 6004224
+Spent native for [process_transaction]: 1325680
+Spent ergs for [run_prepared]: 6004224
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecmul]: 1536000
+
+Spent native for [bn254_ecmul]: 1073000
+
+Spent ergs for [process_transaction]: 7010304
+Spent native for [process_transaction]: 2311080
+Spent ergs for [run_prepared]: 7010304
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecmul]: 1536000
+
+Spent native for [bn254_ecmul]: 1073000
+
+Spent ergs for [process_transaction]: 6912000
+Spent native for [process_transaction]: 2293580
+Spent ergs for [run_prepared]: 6912000
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecmul]: 1536000
+
+Spent native for [bn254_ecmul]: 1073000
+
+Spent ergs for [process_transaction]: 7231488
+Spent native for [process_transaction]: 2311080
+Spent ergs for [run_prepared]: 7231488
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecmul]: 1536000
+
+Spent native for [bn254_ecmul]: 1073000
+
+Spent ergs for [process_transaction]: 7305216
+Spent native for [process_transaction]: 2311080
+Spent ergs for [run_prepared]: 7305216
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecmul]: 1536000
+
+Spent native for [bn254_ecmul]: 1073000
+
+Spent ergs for [process_transaction]: 7305216
+Spent native for [process_transaction]: 2311080
+Spent ergs for [run_prepared]: 7305216
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecmul]: 1536000
+
+Spent native for [bn254_ecmul]: 1073000
+
+Spent ergs for [process_transaction]: 7302144
+Spent native for [process_transaction]: 2311080
+Spent ergs for [run_prepared]: 7302144
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecmul]: 1536000
+
+Spent native for [bn254_ecmul]: 1073000
+
+Spent ergs for [process_transaction]: 7305216
+Spent native for [process_transaction]: 2311080
+Spent ergs for [run_prepared]: 7305216
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_ecmul]: 1536000
+
+Spent native for [bn254_ecmul]: 1073000
+
+Spent ergs for [process_transaction]: 7305216
+Spent native for [process_transaction]: 2311080
+Spent ergs for [run_prepared]: 7305216
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_pairing]: 28928000
+
+Spent native for [bn254_pairing]: 45000000
+
+Spent ergs for [process_transaction]: 35870720
+Spent native for [process_transaction]: 46325580
+Spent ergs for [run_prepared]: 35870720
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_pairing]: 28928000
+
+Spent native for [bn254_pairing]: 45000000
+
+Spent ergs for [process_transaction]: 35864576
+Spent native for [process_transaction]: 46325580
+Spent ergs for [run_prepared]: 35864576
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_pairing]: 28928000
+
+Spent native for [bn254_pairing]: 45000000
+
+Spent ergs for [process_transaction]: 35870720
+Spent native for [process_transaction]: 46325580
+Spent ergs for [run_prepared]: 35870720
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_pairing]: 37632000
+
+Spent native for [bn254_pairing]: 60000000
+
+Spent ergs for [process_transaction]: 45358080
+Spent native for [process_transaction]: 61360580
+Spent ergs for [run_prepared]: 45358080
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_pairing]: 37632000
+
+Spent native for [bn254_pairing]: 60000000
+
+Spent ergs for [process_transaction]: 45355008
+Spent native for [process_transaction]: 61360580
+Spent ergs for [run_prepared]: 45355008
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_pairing]: 28928000
+
+Spent native for [bn254_pairing]: 45000000
+
+Spent ergs for [process_transaction]: 35870720
+Spent native for [process_transaction]: 46325580
+Spent ergs for [run_prepared]: 35870720
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_pairing]: 11520000
+
+Spent native for [bn254_pairing]: 15000000
+
+Spent ergs for [process_transaction]: 16896000
+Spent native for [process_transaction]: 16220580
+Spent ergs for [run_prepared]: 16896000
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_pairing]: 20224000
+
+Spent native for [bn254_pairing]: 30000000
+
+Spent ergs for [process_transaction]: 26189824
+Spent native for [process_transaction]: 31273080
+Spent ergs for [run_prepared]: 26189824
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_pairing]: 28928000
+
+Spent native for [bn254_pairing]: 45000000
+
+Spent ergs for [process_transaction]: 35483648
+Spent native for [process_transaction]: 46325580
+Spent ergs for [run_prepared]: 35483648
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_pairing]: 28928000
+
+Spent native for [bn254_pairing]: 45000000
+
+Spent ergs for [process_transaction]: 35680256
+Spent native for [process_transaction]: 46325580
+Spent ergs for [run_prepared]: 35680256
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_pairing]: 28928000
+
+Spent native for [bn254_pairing]: 45000000
+
+Spent ergs for [process_transaction]: 35680256
+Spent native for [process_transaction]: 46325580
+Spent ergs for [run_prepared]: 35680256
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_pairing]: 98560000
+
+Spent native for [bn254_pairing]: 165000000
+
+Spent ergs for [process_transaction]: 109834240
+Spent native for [process_transaction]: 166710580
+Spent ergs for [run_prepared]: 109834240
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_pairing]: 98560000
+
+Spent native for [bn254_pairing]: 165000000
+
+Spent ergs for [process_transaction]: 110817280
+Spent native for [process_transaction]: 166710580
+Spent ergs for [run_prepared]: 110817280
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
+Spent ergs for [bn254_pairing]: 28928000
+
+Spent native for [bn254_pairing]: 45000000
+
+Spent ergs for [process_transaction]: 35680256
+Spent native for [process_transaction]: 46325580
+Spent ergs for [run_prepared]: 35680256
+Spent ergs for [ecrecover]: 768000
+
+Spent native for [ecrecover]: 522000
+
+Spent ergs for [prepare_for_call]: 0
+
+Spent native for [prepare_for_call]: 250240
+
 Spent ergs for [p256_verify]: 1280000
 
 Spent native for [p256_verify]: 0

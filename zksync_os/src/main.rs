@@ -171,6 +171,8 @@ unsafe fn workload() -> ! {
 
     #[cfg(any(feature = "delegation", feature = "proving"))]
     crypto::init_lib();
+    #[cfg(any(feature = "delegation", feature = "proving"))]
+    ::bigint_riscv::init();
 
     // and crunch
     let output = proof_running_system::system::bootloader::run_proving::<
