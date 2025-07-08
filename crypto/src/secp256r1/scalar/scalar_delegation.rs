@@ -75,7 +75,7 @@ impl Scalar {
         Self(DelegatedU256::from_limbs(words)).to_repressentation()
     }
 
-    pub(super) fn to_words(self) -> [u64; 4] {
+    pub(super) fn into_words(self) -> [u64; 4] {
         self.to_integer().0.to_limbs()
     }
 
