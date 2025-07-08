@@ -113,7 +113,7 @@ impl FieldElementConst {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct FieldElement(pub(crate) FieldElementImpl);
 
 impl FieldElement {
@@ -164,59 +164,59 @@ impl FieldElement {
     }
 
     pub(crate) fn sqrt_in_place_unchecked(&mut self) {
-        let x1 = *self;
+        let x1 = self.clone();
 
         self.pow2k_in_place(1);
-        *self *= x1;
-        let x2 = *self;
+        *self *= &x1;
+        let x2 = self.clone();
 
         self.pow2k_in_place(1);
-        *self *= x1;
-        let x3 = *self;
+        *self *= &x1;
+        let x3 = self.clone();
 
         self.pow2k_in_place(3);
-        *self *= x3;
+        *self *= &x3;
 
         self.pow2k_in_place(3);
-        *self *= x3;
+        *self *= &x3;
 
         self.pow2k_in_place(2);
-        *self *= x2;
-        let x11 = *self;
+        *self *= &x2;
+        let x11 = self.clone();
 
         self.pow2k_in_place(11);
-        *self *= x11;
-        let x22 = *self;
+        *self *= &x11;
+        let x22 = self.clone();
 
         self.pow2k_in_place(22);
-        *self *= x22;
-        let x44 = *self;
+        *self *= &x22;
+        let x44 = self.clone();
 
         self.pow2k_in_place(44);
-        *self *= x44;
-        let x88 = *self;
+        *self *= &x44;
+        let x88 = self.clone();
 
         self.pow2k_in_place(88);
-        *self *= x88;
+        *self *= &x88;
 
         self.pow2k_in_place(44);
-        *self *= x44;
+        *self *= &x44;
 
         self.pow2k_in_place(3);
-        *self *= x3;
+        *self *= &x3;
 
         self.pow2k_in_place(23);
-        *self *= x22;
+        *self *= &x22;
         self.pow2k_in_place(6);
-        *self *= x2;
+        *self *= &x2;
         self.pow2k_in_place(2);
     }
 
     pub(crate) fn sqrt_in_place(&mut self) -> bool {
-        let original = *self;
+        let original = self.clone();
         self.sqrt_in_place_unchecked();
 
-        let mut is_root = *self;
+        let mut is_root = self.clone();
         is_root.square_in_place();
         is_root.negate_in_place(1);
         is_root.add_in_place(&original);
@@ -246,7 +246,7 @@ impl FieldElement {
         }
     }
 
-    pub(crate) fn to_bytes(mut self) -> FieldBytes {
+    pub(crate) fn into_bytes(mut self) -> FieldBytes {
         self.normalize_in_place();
         self.0.to_bytes()
     }
@@ -254,12 +254,6 @@ impl FieldElement {
     #[cfg(test)]
     pub(crate) const fn to_storage(self) -> FieldStorage {
         FieldStorage(self.0.to_storage())
-    }
-}
-
-impl MulAssign for FieldElement {
-    fn mul_assign(&mut self, rhs: Self) {
-        self.mul_in_place(&rhs);
     }
 }
 
@@ -275,9 +269,9 @@ impl MulAssign<u32> for FieldElement {
     }
 }
 
-impl AddAssign for FieldElement {
-    fn add_assign(&mut self, rhs: Self) {
-        self.add_in_place(&rhs);
+impl AddAssign<&FieldElement> for FieldElement {
+    fn add_assign(&mut self, rhs: &Self) {
+        self.add_in_place(rhs);
     }
 }
 
@@ -287,9 +281,9 @@ impl AddAssign<u32> for FieldElement {
     }
 }
 
-impl SubAssign for FieldElement {
-    fn sub_assign(&mut self, rhs: Self) {
-        self.sub_in_place(&rhs);
+impl SubAssign<&FieldElement> for FieldElement {
+    fn sub_assign(&mut self, rhs: &Self) {
+        self.sub_in_place(rhs);
     }
 }
 
@@ -355,7 +349,7 @@ mod tests {
         super::field_8x32::init();
 
         proptest!(|(x: FieldElement)| {
-             prop_assert_eq!(x.to_storage().to_field_elem(), x);
+             prop_assert_eq!(x.clone().to_storage().to_field_elem(), x);
         })
     }
 
@@ -365,7 +359,7 @@ mod tests {
         super::field_8x32::init();
 
         proptest!(|(x: FieldElement)| {
-            let bytes: [u8; 32] = x.to_bytes().as_slice().try_into().unwrap();
+            let bytes: [u8; 32] = x.clone().into_bytes().as_slice().try_into().unwrap();
             prop_assert_eq!(
                 FieldElement::from_bytes(&bytes),
                 Some(x)
@@ -380,7 +374,7 @@ mod tests {
 
         proptest!(|(bytes: [u8; 32])| {
             prop_assert_eq!(
-                &*FieldElement::from_bytes(&bytes).unwrap().to_bytes(),
+                &*FieldElement::from_bytes(&bytes).unwrap().into_bytes(),
                 bytes
             )
         })
@@ -392,33 +386,33 @@ mod tests {
         super::field_8x32::init();
 
         proptest!(|(x: FieldElement, y: FieldElement, z: FieldElement)| {
-            let mut a = x;
-            let mut b = y;
+            let mut a = x.clone();
+            let mut b = y.clone();
             a.mul_in_place(&y);
             b.mul_in_place(&x);
             prop_assert_eq!(a, b);
 
-            a = x;
-            b = y;
+            a = x.clone();
+            b = y.clone();
             a.mul_in_place(&y);
             a.mul_in_place(&z);
             b.mul_in_place(&z);
             b.mul_in_place(&x);
             prop_assert_eq!(a, b);
 
-            a = x;
+            a = x.clone();
             a.mul_in_place(&FieldElement::ONE);
-            prop_assert_eq!(a, x);
+            prop_assert_eq!(a.clone(), x.clone());
 
             a.mul_in_place(&FieldElement::ZERO);
             prop_assert_eq!(a, FieldElement::ZERO);
 
-            a = y;
+            a = y.clone();
             a.add_in_place(&z);
             a.mul_in_place(&x);
 
-            b = x;
-            let mut c = x;
+            b = x.clone();
+            let mut c = x.clone();
             b.mul_in_place(&y);
             c.mul_in_place(&z);
             b.add_in_place(&c);
@@ -444,10 +438,10 @@ mod tests {
         super::field_8x32::init();
 
         proptest!(|(x: FieldElement)| {
-            let mut a = x;
+            let mut a = x.clone();
             a.invert_in_place();
             a.invert_in_place();
-            prop_assert_eq!(a, x);
+            prop_assert_eq!(a.clone(), x.clone());
 
             a.invert_in_place();
             a.mul_in_place(&x);
@@ -478,29 +472,29 @@ mod tests {
         super::field_8x32::init();
 
         proptest!(|(x: FieldElement, y: FieldElement, z: FieldElement)| {
-            let mut a = x;
-            let mut b = y;
+            let mut a = x.clone();
+            let mut b = y.clone();
             a.add_in_place(&y);
             b.add_in_place(&x);
             prop_assert_eq!(a, b);
 
-            a = x;
+            a = x.clone();
             a.add_in_place(&FieldElement::ZERO);
-            prop_assert_eq!(a, x);
+            prop_assert_eq!(a.clone(), x.clone());
 
-            b = y;
+            b = y.clone();
             a.add_in_place(&y);
             a.add_in_place(&z);
             b.add_in_place(&z);
             b.add_in_place(&x);
             prop_assert_eq!(a, b);
 
-            a = x;
+            a = x.clone();
             a.negate_in_place(1);
             a.add_in_place(&x);
             prop_assert_eq!(a, FieldElement::ZERO);
 
-            a = x;
+            a = x.clone();
             a.sub_in_place(&x);
             prop_assert_eq!(a, FieldElement::ZERO);
         });
@@ -522,22 +516,22 @@ mod tests {
         super::field_8x32::init();
 
         proptest!(|(x: FieldElement)| {
-            let mut x_neg = x;
+            let mut x_neg = x.clone();
             x_neg.negate_in_place(1);
 
-            let mut a = x;
-            let mut b = x;
+            let mut a = x.clone();
+            let mut b = x.clone();
             a.square_in_place();
             b.mul_in_place(&x);
             prop_assert_eq!(a, b);
 
-            a = x;
+            a = x.clone();
             a.square_in_place();
             a.sqrt_in_place();
 
             prop_assert!(a == x || a == x_neg);
 
-            a = x;
+            a = x.clone();
             a.sqrt_in_place();
             a.square_in_place();
 

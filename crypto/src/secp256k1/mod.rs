@@ -86,7 +86,7 @@ pub fn ecrecover_test() {
 
     let recovered_key = recover(&msg, &signature, &recovery_id).unwrap();
 
-    assert_eq!(recovered_key.to_bytes(), public_key.to_bytes());
+    assert_eq!(recovered_key.into_bytes(), public_key.to_bytes());
 }
 
 #[cfg(test)]
