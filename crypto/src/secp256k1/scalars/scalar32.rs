@@ -178,7 +178,7 @@ impl ScalarInner {
     }
 
     fn mul_inner(&mut self, mut rhs: Self) {
-        const MODULUS: [u32; 8] = ScalarInner::ORDER.0.into_words();
+        const MODULUS: [u32; 8] = ScalarInner::ORDER.0.to_words();
         const NEG_MODULUS: [u32; 8] = [
             !MODULUS[0] + 1,
             !MODULUS[1],
@@ -360,8 +360,8 @@ impl ScalarInner {
     }
 
     fn mul_wide(&mut self, rhs: &mut Self) {
-        let a: [u32; 8] = self.0.into_words();
-        let b: [u32; 8] = rhs.0.into_words();
+        let a: [u32; 8] = self.0.to_words();
+        let b: [u32; 8] = rhs.0.to_words();
 
         // 96 bit accumulator.
         let c0 = 0;

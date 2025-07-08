@@ -38,6 +38,7 @@ pub fn init_lib() {
         bls12_381::fields::init();
         secp256k1::init();
         secp256r1::init();
+        delegated_u256::init();
     }
 }
 
