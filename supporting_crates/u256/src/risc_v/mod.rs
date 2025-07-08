@@ -211,6 +211,7 @@ impl U256 {
     }
 
     pub fn byte(&self, byte_idx: usize) -> u8 {
+        assert!(byte_idx < 32);
         self.0.byte(byte_idx)
     }
 
