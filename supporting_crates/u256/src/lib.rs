@@ -341,9 +341,7 @@ mod tests {
             let x1 = naive::U256::from_le_bytes(&bytes);
             let x2 = risc_v::U256::from_le_bytes(&bytes);
 
-            // TODO: naive and risc-v implementation don't behave the same when called with out-of-bounds indices
             let byte_idx = byte_idx % 32;
-            let bit_idx = bit_idx % 256;
 
             prop_assert_eq!(x1.byte(byte_idx), x2.byte(byte_idx));
             prop_assert_eq!(x1.bit(bit_idx), x2.bit(bit_idx));
