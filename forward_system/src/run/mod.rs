@@ -23,6 +23,7 @@ use zk_ee::utils::Bytes32;
 pub use tree::LeafProof;
 pub use tree::ReadStorage;
 pub use tree::ReadStorageTree;
+pub use tree::SimpleReadStorageTree;
 pub use zk_ee::types_config::EthereumIOTypesConfig;
 
 pub use preimage_source::PreimageSource;

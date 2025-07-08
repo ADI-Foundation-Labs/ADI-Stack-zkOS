@@ -921,8 +921,8 @@ pub struct LeafProof<const N: usize, H: FlatStorageHasher, A: Allocator = Global
     _marker: core::marker::PhantomData<H>,
 }
 
-impl LeafProof<32, Blake2sStorageHasher> {
-    pub fn new(index: u64, leaf: FlatStorageLeaf<32>, path: Box<[Bytes32; 32]>) -> Self {
+impl LeafProof<64, Blake2sStorageHasher> {
+    pub fn new(index: u64, leaf: FlatStorageLeaf<64>, path: Box<[Bytes32; 64]>) -> Self {
         Self {
             index,
             leaf,

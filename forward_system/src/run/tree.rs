@@ -17,6 +17,26 @@ pub trait ReadStorageTree: ReadStorage {
     fn prev_tree_index(&mut self, key: Bytes32) -> u64;
 }
 
+// Implementing ReadStorageTree directly consistently results in ICEs.
+// This questionable workaround somehow works.
 pub trait SimpleReadStorageTree  {
-    fn merkle_proof(&mut self, tree_index: u64) -> (u64, FlatStorageLeaf<64>, Box<[Bytes32; 64]>); 
+    fn simple_merkle_proof(&mut self, tree_index: u64) -> (u64, FlatStorageLeaf<64>, Box<[Bytes32; 64]>);
+    fn simple_tree_index(&mut self, key: Bytes32) -> Option<u64>;
+    fn simple_prev_tree_index(&mut self, key: Bytes32) -> u64;
+}
+
+
+impl<T> ReadStorageTree for T where T: SimpleReadStorageTree + ReadStorage{
+    fn tree_index(&mut self, key: Bytes32) -> Option<u64> {
+        self.simple_tree_index(key)
+    }
+
+    fn merkle_proof(&mut self, tree_index: u64) -> LeafProof {
+        let (a,b,c) = self.simple_merkle_proof(tree_index);
+        LeafProof::new(a, b, c)
+    }
+
+    fn prev_tree_index(&mut self, key: Bytes32) -> u64 {
+        self.simple_prev_tree_index(key)
+    }
 }
