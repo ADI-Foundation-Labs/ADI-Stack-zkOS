@@ -294,6 +294,15 @@ mod tests {
 
             prop_assert_eq!(x1.as_limbs(), x2.as_limbs());
         });
+
+        proptest!(|(x_limbs: [u64; 4])| {
+            let (mut x1, mut x2) = from_limbs(x_limbs);
+
+            x1.not_mut();
+            x2.not_mut();
+
+            prop_assert_eq!(x1.as_limbs(), x2.as_limbs());
+        })
     }
 
     #[test]

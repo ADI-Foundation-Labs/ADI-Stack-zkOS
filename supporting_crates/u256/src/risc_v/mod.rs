@@ -3,6 +3,8 @@ use core::ops::{
 };
 use delegated_u256::*;
 
+// Even though we derive, internally we use delegation circuit for equality, ordering and cloning
+// See DelegatedU256 implementations for details
 #[derive(Clone, Hash, PartialEq, Eq, Ord, PartialOrd, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct U256(DelegatedU256);
