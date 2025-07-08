@@ -76,7 +76,7 @@ mod tests {
     }
 
     #[test]
-    fn compare_arithmatic() {
+    fn compare_arithmetic() {
         delegated_u256::init();
 
         assert_eq!(naive::U256::ZERO.as_limbs(), risc_v::U256::ZERO.as_limbs());
