@@ -225,20 +225,24 @@ impl U256 {
             Self::write_zero(self);
             return;
         }
-        if (&*self).le(modulus) {
+        if (&*self) >= modulus {
             let mut modulus = modulus.clone();
             Self::div_rem(self, &mut modulus);
-            Clone::clone_from(self, &modulus);
+            self.clone_from(&modulus);
         }
     }
 
     pub fn add_mod(a: &mut Self, b: &mut Self, modulus_or_result: &mut Self) {
-        a.reduce_mod(&*modulus_or_result);
-        b.reduce_mod(&*modulus_or_result);
+        a.reduce_mod(&modulus_or_result);
+        b.reduce_mod(&modulus_or_result);
+
         let of = unsafe { bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut a.0, &b.0) != 0 };
-        if of || (&*a).gt(&*modulus_or_result) {
-            let _ = Self::overflowing_sub_assign_reversed(modulus_or_result, &*a);
+
+        if of || a >= modulus_or_result {
+            unsafe { bigint_op_delegation::<SUB_OP_BIT_IDX>(&mut a.0, &modulus_or_result.0) };
         }
+
+        modulus_or_result.clone_from(a);
     }
 
     pub fn mul_mod(a: &mut Self, b: &mut Self, modulus_or_result: &mut Self) {

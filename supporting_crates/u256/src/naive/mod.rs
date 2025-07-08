@@ -42,7 +42,7 @@ impl core::fmt::LowerHex for U256 {
 
 impl U256 {
     pub const ZERO: Self = Self(ruint::aliases::U256::ZERO);
-    const ONE: Self = Self(ruint::aliases::U256::ONE);
+    pub const ONE: Self = Self(ruint::aliases::U256::ONE);
 
     pub const BYTES: usize = 32;
 

@@ -57,7 +57,7 @@ impl DelegatedU256 {
             let src: *const [u8; 8] = input.as_ptr().cast();
 
             ptr.write(u64::from_le_bytes(src.read()));
-            ptr.add(1).write(u64::from_be_bytes(src.add(1).read()));
+            ptr.add(1).write(u64::from_le_bytes(src.add(1).read()));
             ptr.add(2).write(u64::from_le_bytes(src.add(2).read()));
             ptr.add(3).write(u64::from_le_bytes(src.add(3).read()));
 

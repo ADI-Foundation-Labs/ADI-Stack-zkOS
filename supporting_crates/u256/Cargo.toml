@@ -17,3 +17,6 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 [features]
 serde = ["ruint/serde", "delegated_u256/serde"]
 delegation = []
+
+[dev-dependencies]
+proptest = "1.7.0"
