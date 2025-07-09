@@ -280,7 +280,7 @@ pub unsafe fn mul_assign_montgomery<T: DelegatedMontParams>(
 
     bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut a.1, &carry2);
 
-    debug_assert!(a.0.as_limbs()[6..8].iter().all(|&x| x == 0));
+    debug_assert!(a.1.as_limbs()[3..4].iter().all(|&x| x == 0));
 }
 
 /// Compute `self = self^2 mod modulus` using montgomerry reduction.
