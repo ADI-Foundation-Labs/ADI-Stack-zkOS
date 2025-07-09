@@ -19,17 +19,17 @@ pub fn verify(
     let Signature { r, s } = Signature::from_scalars(r, s)?;
     let pk = Affine::from_be_bytes(x, y)?
         .reject_identity()?
-        .into_jacobian();
+        .to_jacobian();
     let z = Scalar::reduce_be_bytes(digest);
     let mut s_inv = s;
     s_inv.invert_assign();
 
     let u1 = z * &s_inv;
-    let u2 = r.clone() * &s_inv;
+    let u2 = r * &s_inv;
 
-    let x = ecmult(pk, u2, u1, &TABLE_G).into_affine().x;
+    let x = ecmult(pk, u2, u1, &TABLE_G).to_affine().x;
 
-    let recovered = Scalar::reduce_be_bytes(&x.into_be_bytes());
+    let recovered = Scalar::reduce_be_bytes(&x.to_be_bytes());
 
     let bool = r == recovered;
     Ok(bool)
@@ -75,14 +75,14 @@ impl OddMultiplesTable {
 
         let mut table = [const { MaybeUninit::uninit() }; ECMULT_TABLE_SIZE_A];
 
-        let mut p = p.clone();
-        table[0].write(p.clone());
-        let mut p_double = p.clone();
+        let mut p = *p;
+        table[0].write(p);
+        let mut p_double = p;
         p_double.double_assign();
 
         for x in table.iter_mut().skip(1) {
             p.add_assign(&p_double);
-            x.write(p.clone());
+            x.write(p);
         }
 
         Self(unsafe {
@@ -95,9 +95,9 @@ impl OddMultiplesTable {
 
     fn get(&self, n: i32) -> Jacobian {
         if n > 0 {
-            self.0[(n - 1) as usize / 2].clone()
+            self.0[(n - 1) as usize / 2]
         } else {
-            -self.0[(-n - 1) as usize / 2].clone()
+            -self.0[(-n - 1) as usize / 2]
         }
     }
 }
@@ -125,69 +125,69 @@ mod test {
         init();
 
         assert_eq!(
-            JacobianConst::GENERATOR.double().into_affine(),
-            ecmult(Jacobian::GENERATOR, Scalar::ONE, Scalar::ONE, &TABLE_G).into_affine()
+            JacobianConst::GENERATOR.double().to_affine(),
+            ecmult(Jacobian::GENERATOR, Scalar::ONE, Scalar::ONE, &TABLE_G).to_affine()
         );
 
         assert_eq!(
             JacobianConst::GENERATOR
                 .double()
                 .add(&JacobianConst::GENERATOR)
-                .into_affine(),
+                .to_affine(),
             ecmult(
                 Jacobian::GENERATOR,
                 Scalar::from_words([2, 0, 0, 0]),
                 Scalar::ONE,
                 &TABLE_G
             )
-            .into_affine()
+            .to_affine()
         );
 
         assert_eq!(
             JacobianConst::GENERATOR
                 .double()
                 .add(&JacobianConst::GENERATOR)
-                .into_affine(),
+                .to_affine(),
             ecmult(
                 Jacobian::GENERATOR,
                 Scalar::ONE,
                 Scalar::from_words([2, 0, 0, 0]),
                 &TABLE_G
             )
-            .into_affine()
+            .to_affine()
         );
 
         assert_eq!(
-            JacobianConst::GENERATOR.double().double().into_affine(),
+            JacobianConst::GENERATOR.double().double().to_affine(),
             ecmult(
                 Jacobian::GENERATOR,
                 Scalar::from_words([2, 0, 0, 0]),
                 Scalar::from_words([2, 0, 0, 0]),
                 &TABLE_G
             )
-            .into_affine()
+            .to_affine()
         );
 
         assert_eq!(
-            JacobianConst::GENERATOR.double().double().into_affine(),
+            JacobianConst::GENERATOR.double().double().to_affine(),
             ecmult(
                 Jacobian::GENERATOR,
                 Scalar::from_words([3, 0, 0, 0]),
                 Scalar::ONE,
                 &TABLE_G
             )
-            .into_affine()
+            .to_affine()
         );
 
         assert_eq!(
-            JacobianConst::GENERATOR.double().double().into_affine(),
+            JacobianConst::GENERATOR.double().double().to_affine(),
             ecmult(
                 Jacobian::GENERATOR,
                 Scalar::ONE,
                 Scalar::from_words([3, 0, 0, 0]),
                 &TABLE_G
             )
-            .into_affine()
+            .to_affine()
         );
     }
 
@@ -204,11 +204,11 @@ mod test {
                 z: FieldElement::ONE,
             };
 
-            let result = ecmult(Jacobian::default(), Scalar::ZERO, k.clone(), &TABLE_G);
-            assert_eq!(result.into_affine(), expected.clone().into_affine());
+            let result = ecmult(Jacobian::default(), Scalar::ZERO, k, &TABLE_G);
+            assert_eq!(result.to_affine(), expected.to_affine());
 
             let result = ecmult(Jacobian::GENERATOR, k, Scalar::ZERO, &TABLE_G);
-            assert_eq!(result.into_affine(), expected.into_affine());
+            assert_eq!(result.to_affine(), expected.to_affine());
         }
     }
 }

@@ -69,6 +69,6 @@ fn selftest() {
 
         let recovered_key = recover(&msg, &signature, &recovery_id).unwrap();
 
-        prop_assert_eq!(recovered_key.into_bytes(), public_key.to_bytes());
+        prop_assert_eq!(recovered_key.to_bytes(), public_key.to_bytes());
     })
 }

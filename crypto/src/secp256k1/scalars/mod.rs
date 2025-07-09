@@ -28,7 +28,7 @@ cfg_if! {
 
 const ORDER_HEX: &str = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141";
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Scalar(pub(crate) ScalarInner);
 
 impl Scalar {
@@ -61,7 +61,7 @@ impl Scalar {
         (Self::from_k256_scalar(*r), Self::from_k256_scalar(*s))
     }
 
-    pub(crate) fn into_repr(self) -> FieldBytes {
+    pub(crate) fn to_repr(self) -> FieldBytes {
         self.0.to_be_bytes().into()
     }
 
@@ -103,9 +103,21 @@ impl Scalar {
     }
 }
 
+impl MulAssign for Scalar {
+    fn mul_assign(&mut self, rhs: Self) {
+        self.0.mul_in_place(&rhs.0);
+    }
+}
+
 impl MulAssign<&Scalar> for Scalar {
     fn mul_assign(&mut self, rhs: &Scalar) {
         self.0.mul_in_place(&rhs.0);
+    }
+}
+
+impl AddAssign for Scalar {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0.add_in_place(&rhs.0);
     }
 }
 
@@ -208,12 +220,12 @@ mod tests {
         init();
 
         proptest!(|(x: Scalar, y: Scalar, z: Scalar)| {
-            prop_assert_eq!(x.clone() * y.clone(), y.clone() * x.clone());
-            prop_assert_eq!((x.clone() * y.clone()) * z.clone(), x.clone() * (y.clone() * z.clone()));
-            prop_assert_eq!(x.clone() * Scalar::ONE, x.clone());
-            prop_assert_eq!(x.clone() * Scalar::ZERO, Scalar::ZERO);
+            prop_assert_eq!(x * y, y * x);
+            prop_assert_eq!((x * y) * z, x * (y * z));
+            prop_assert_eq!(x * Scalar::ONE, x);
+            prop_assert_eq!(x * Scalar::ZERO, Scalar::ZERO);
 
-            prop_assert_eq!(x.clone() * (y.clone() + z.clone()), (x.clone() * y.clone()) + (x.clone() * z.clone()));
+            prop_assert_eq!(x * (y + z), (x * y) + (x * z));
         })
     }
 
@@ -222,10 +234,10 @@ mod tests {
         init();
 
         proptest!(|(x: Scalar, y: Scalar, z: Scalar)| {
-            prop_assert_eq!(x.clone() + y.clone(), y.clone() + x.clone());
-            prop_assert_eq!(x.clone() + Scalar::ZERO, x.clone());
-            prop_assert_eq!(x.clone() + (y.clone() + z.clone()), (x.clone() + y.clone()) + z);
-            prop_assert_eq!(x.clone() - x, Scalar::ZERO);
+            prop_assert_eq!(x + y, y + x);
+            prop_assert_eq!(x + Scalar::ZERO, x);
+            prop_assert_eq!(x + (y + z), (x + y) + z);
+            prop_assert_eq!(x - x, Scalar::ZERO);
         })
     }
 
@@ -234,7 +246,7 @@ mod tests {
         init();
 
         proptest!(|(k: Scalar)| {
-            let (mut r1, mut r2) = k.clone().decompose();
+            let (mut r1, mut r2) = k.decompose();
             let lambda = -Scalar::MINUS_LAMBDA;
 
             #[cfg(feature = "bigint_ops")]
@@ -243,7 +255,7 @@ mod tests {
                 r2 = Scalar(r2.0.to_representation());
             }
 
-            prop_assert_eq!(r1.clone() + r2.clone() * lambda, k);
+            prop_assert_eq!(r1 + r2 * lambda, k);
 
             #[cfg(feature = "bigint_ops")]
             {

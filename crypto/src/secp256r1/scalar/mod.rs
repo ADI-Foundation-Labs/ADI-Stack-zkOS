@@ -115,11 +115,17 @@ impl Neg for Scalar {
     }
 }
 
+impl PartialEq for Scalar {
+    fn eq(&self, other: &Self) -> bool {
+        self.eq_inner(other)
+    }
+}
+
 impl ToWnaf for Scalar {
     fn bits(&self, offset: usize, count: usize) -> u32 {
         // check requested bits must be from the same limb
         debug_assert!((offset + count - 1) >> 6 == offset >> 6);
-        let limbs = self.clone().into_words();
+        let limbs = self.to_words();
         ((limbs[offset >> 6] >> (offset & 0x3F)) & ((1 << count) - 1)) as u32
     }
 
@@ -131,7 +137,7 @@ impl ToWnaf for Scalar {
             self.bits(offset, count)
         } else {
             debug_assert!((offset >> 6) + 1 < 4);
-            let limbs = self.clone().into_words();
+            let limbs = self.to_words();
             (((limbs[offset >> 6] >> (offset & 0x3F))
                 | (limbs[(offset >> 6) + 1] << (64 - (offset & 0x3F))))
                 & ((1 << count) - 1)) as u32
@@ -175,10 +181,10 @@ mod tests {
         init();
 
         proptest!(|(x: Scalar, y: Scalar, z: Scalar)| {
-            prop_assert_eq!(x.clone() * &Scalar::ONE, x.clone());
-            prop_assert_eq  !(x.clone() * &Scalar::ZERO, Scalar::ZERO);
-            prop_assert_eq!(x.clone() * &y, y.clone() * &x);
-            prop_assert_eq!((x.clone() * &y) * &z, x * &(y * &z))
+            prop_assert_eq!(x * &Scalar::ONE, x);
+            prop_assert_eq  !(x * &Scalar::ZERO, Scalar::ZERO);
+            prop_assert_eq!(x * &y, y * &x);
+            prop_assert_eq!((x * &y) * &z, x * &(y * &z))
         })
     }
 
@@ -188,10 +194,10 @@ mod tests {
         init();
 
         proptest!(|(s: Scalar)| {
-            let mut a = s.clone();
+            let mut a = s;
             a.invert_assign();
             a.invert_assign();
-            prop_assert_eq!(a.clone(), s.clone());
+            prop_assert_eq!(a, s);
 
             a.invert_assign();
             a.mul_assign(&s);

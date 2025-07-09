@@ -78,7 +78,7 @@ impl PartialEq for AffineConst {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Affine {
     pub(crate) x: FieldElement,
     pub(crate) y: FieldElement,
@@ -148,7 +148,7 @@ impl Affine {
     }
 
     fn set_xo(&mut self, x: &FieldElement, y_is_odd: bool) -> bool {
-        self.y = x.clone();
+        self.y = *x;
         self.y.square_in_place();
         self.y *= x;
         self.y += 7;
@@ -160,7 +160,7 @@ impl Affine {
             self.y.negate_in_place(1);
         }
 
-        self.x = x.clone();
+        self.x = *x;
         self.infinity = false;
 
         ret
@@ -179,8 +179,8 @@ impl Affine {
         } else {
             self.set_ge_zinv(
                 &Affine {
-                    x: a.x.clone(),
-                    y: a.y.clone(),
+                    x: a.x,
+                    y: a.y,
                     infinity: false,
                 },
                 z,
@@ -191,22 +191,22 @@ impl Affine {
     pub(crate) fn set_ge_zinv(&mut self, a: &Affine, z: &FieldElement) {
         a.assert_verify();
 
-        let mut z2 = z.clone();
+        let mut z2 = *z;
         z2.square_in_place();
 
-        let mut z3 = z2.clone();
+        let mut z3 = z2;
         z3 *= z;
 
-        self.x = a.x.clone();
-        self.x *= &z2;
+        self.x = a.x;
+        self.x *= z2;
 
-        self.y = a.y.clone();
-        self.y *= &z3;
+        self.y = a.y;
+        self.y *= z3;
 
         self.infinity = a.infinity;
     }
 
-    pub(crate) const fn into_jacobian(self) -> Jacobian {
+    pub(crate) const fn to_jacobian(self) -> Jacobian {
         Jacobian {
             x: self.x,
             y: self.y,
@@ -214,23 +214,22 @@ impl Affine {
         }
     }
 
-    pub fn into_encoded_point(self, compress: bool) -> EncodedPoint {
+    pub fn to_encoded_point(self, compress: bool) -> EncodedPoint {
         use crate::k256::elliptic_curve::subtle::ConditionallySelectable;
 
-        let is_infinity = self.is_infinity();
         EncodedPoint::conditional_select(
             &EncodedPoint::from_affine_coordinates(
-                &self.x.into_bytes(),
-                &self.y.into_bytes(),
+                &self.x.to_bytes(),
+                &self.y.to_bytes(),
                 compress,
             ),
             &EncodedPoint::identity(),
-            Choice::from(is_infinity as u8),
+            Choice::from(self.is_infinity() as u8),
         )
     }
 
-    pub fn into_bytes(self) -> CompressedPoint {
-        let encoded = self.into_encoded_point(true);
+    pub fn to_bytes(self) -> CompressedPoint {
+        let encoded = self.to_encoded_point(true);
         let mut result = CompressedPoint::default();
         result[..encoded.len()].copy_from_slice(encoded.as_bytes());
         result
@@ -274,7 +273,7 @@ mod tests {
         crate::secp256k1::init();
 
         let g = Affine::GENERATOR;
-        let x = g.x.clone();
+        let x = g.x;
         let y_is_odd = false;
         let mut a = Affine::DEFAULT;
         a.set_xo(&x, y_is_odd);
@@ -287,7 +286,7 @@ mod tests {
         crate::secp256k1::init();
 
         proptest!(|(x: Affine)| {
-            prop_assert_eq!(x.clone().into_jacobian().into_affine(), x);
+            prop_assert_eq!(x.to_jacobian().to_affine(), x);
         });
     }
 }
