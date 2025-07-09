@@ -2,27 +2,16 @@
 
 // Custom types below are NOT Copy in Rust's sense, even though Clone internally would use copy
 
-#[cfg(any(not(feature = "delegation"), test))]
-// #[cfg(not(all(target_arch = "riscv32", feature = "delegation")))]
-// #[cfg(not(any(all(target_arch = "riscv32", feature = "delegation"), test)))]
+#[cfg(any(not(feature = "delegation"), not(target_arch = "riscv32"), test))]
 mod naive;
 
-#[cfg(not(feature = "delegation"))]
-// #[cfg(not(all(target_arch = "riscv32", feature = "delegation")))]
-// #[cfg(not(any(all(target_arch = "riscv32", feature = "delegation"), test)))]
+#[cfg(not(all(feature = "delegation", target_arch = "riscv32")))]
 pub use self::naive::U256;
 
-// #[cfg(all(not(target_arch = "riscv32"), feature = "delegation"))]
-// const _: () = { compile_error!("`delegation` feature can only be used on RISC-V arch") };
-
-#[cfg(any(feature = "delegation", test))]
-// #[cfg(all(target_arch = "riscv32", feature = "delegation"))]
-// #[cfg(any(all(target_arch = "riscv32", feature = "delegation"), test))]
+#[cfg(any(all(target_arch = "riscv32", feature = "delegation"), test))]
 mod risc_v;
 
-#[cfg(feature = "delegation")]
-// #[cfg(all(target_arch = "riscv32", feature = "delegation"))]
-// #[cfg(any(all(target_arch = "riscv32", feature = "delegation"), test))]
+#[cfg(all(feature = "delegation", target_arch = "riscv32"))]
 pub use self::risc_v::U256;
 
 #[derive(Debug)]
@@ -65,8 +54,10 @@ impl<Slice: AsRef<[u64]>> Iterator for BitIteratorBE<Slice> {
 
 #[cfg(test)]
 mod tests {
+    use std::panic;
+
     use super::{naive, risc_v};
-    use proptest::{prop_assert_eq, proptest};
+    use proptest::{prop_assert, prop_assert_eq, proptest};
 
     fn from_limbs(limbs: [u64; 4]) -> (naive::U256, risc_v::U256) {
         (
@@ -341,9 +332,20 @@ mod tests {
             let x1 = naive::U256::from_le_bytes(&bytes);
             let x2 = risc_v::U256::from_le_bytes(&bytes);
 
-            let byte_idx = byte_idx % 32;
+            let res1 = panic::catch_unwind(|| {
+                x1.byte(byte_idx)
+            });
 
-            prop_assert_eq!(x1.byte(byte_idx), x2.byte(byte_idx));
+            let res2 = panic::catch_unwind(|| {
+                x2.byte(byte_idx)
+            });
+
+            if byte_idx >= 32 {
+                prop_assert!(res1.is_err() && res2.is_err());
+            } else {
+                prop_assert_eq!(res1.unwrap(), res2.unwrap());
+            }
+            
             prop_assert_eq!(x1.bit(bit_idx), x2.bit(bit_idx));
         });
 
