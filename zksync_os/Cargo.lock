@@ -185,7 +185,6 @@ dependencies = [
  "either",
  "evm_interpreter",
  "ruint",
- "seq-macro",
  "system_hooks",
  "u256",
  "zk_ee",
@@ -196,25 +195,14 @@ name = "basic_system"
 version = "0.1.0"
 dependencies = [
  "arrayvec",
- "cfg-if",
- "const_for",
  "crypto",
  "cycle_marker",
  "either",
  "evm_interpreter",
  "ruint",
  "storage_models",
- "system_hooks",
  "u256",
  "zk_ee",
-]
-
-[[package]]
-name = "bigint_riscv"
-version = "0.1.0"
-dependencies = [
- "ruint",
- "serde",
 ]
 
 [[package]]
@@ -308,7 +296,6 @@ dependencies = [
  "blake2s_u32",
  "cfg-if",
  "const_for",
- "delegated_u256",
  "educe",
  "itertools 0.14.0",
  "k256",
@@ -935,9 +922,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 name = "storage_models"
 version = "0.1.0"
 dependencies = [
- "arrayvec",
  "crypto",
- "either",
  "ruint",
  "zk_ee",
 ]
@@ -1098,7 +1083,6 @@ dependencies = [
 name = "zksync_os"
 version = "0.1.0"
 dependencies = [
- "bigint_riscv",
  "crypto",
  "heapless",
  "proof_running_system",

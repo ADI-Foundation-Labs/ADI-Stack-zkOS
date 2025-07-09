@@ -8,11 +8,16 @@ Spent ergs for [ecrecover]: 768000
 
 Spent native for [ecrecover]: 522000
 
-SSpent ergs for [prepare_for_call]: 0
-SSpent native for [prepare_for_call]: 4500
-SSpent ergs for [prepare_for_call]: 25600
+Spent ergs for [prepare_for_call]: 0
 
-Spent native for [prepSpent ergs for [keccaSpent ergs Spent native for [keccak]: 375
+Spent native for [prepare_for_call]: 4500
+
+Spent ergs for [keccak]: 9216
+
+Spent native for [keccak]: 20000
+
+Spent ergs for [keccaSpent ergs for [prepare_for_call]: 25600
+
 SpeSpent ergs for [process_transaction]: 65831168
 Spent native for [process_transaction]: 2707083
 Spent ergs for [run_prepared]: 115399680
