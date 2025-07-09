@@ -366,4 +366,58 @@ mod tests {
             prop_assert_eq!(format!("{x1}"), format!("{x2}"));
         })
     }
+
+    #[test]
+    #[should_panic]
+    fn naive_byte_panics_oob() {
+        let x1 = naive::U256::one();
+        let byte_idx = 32;
+
+        let _ = x1.byte(byte_idx);
+    }
+
+    #[test]
+    #[should_panic]
+    fn riscv_byte_panics_oob() {
+        let x2 = risc_v::U256::one();
+        let byte_idx = 32;
+
+        let _ = x2.byte(byte_idx);
+    }
+
+    #[test]
+    #[should_panic]
+    fn naive_divrem_by_zero_panics() {
+        let mut x = naive::U256::one();
+        let mut y = naive::U256::zero();
+
+        naive::U256::div_rem(&mut x, &mut y);
+    }
+
+    #[test]
+    #[should_panic]
+    fn riscv_divrem_by_zero_panics() {
+        let mut x = risc_v::U256::one();
+        let mut y = risc_v::U256::zero();
+
+        risc_v::U256::div_rem(&mut x, &mut y);
+    }
+
+    #[test]
+    #[should_panic]
+    fn riscv_divceil_by_zero_panics() {
+        let mut x = risc_v::U256::one();
+        let mut y = risc_v::U256::zero();
+
+        risc_v::U256::div_ceil(&mut x, &mut y);
+    }
+
+    #[test]
+    #[should_panic]
+    fn naive_divceil_by_zero_panics() {
+        let mut x = naive::U256::one();
+        let mut y = naive::U256::zero();
+
+        naive::U256::div_ceil(&mut x, &mut y);
+    }
 }
