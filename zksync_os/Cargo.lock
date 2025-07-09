@@ -1084,6 +1084,7 @@ name = "zksync_os"
 version = "0.1.0"
 dependencies = [
  "crypto",
+ "delegated_u256",
  "heapless",
  "proof_running_system",
  "r0",

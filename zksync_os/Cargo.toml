@@ -18,6 +18,7 @@ heapless = { version = "*", default-features = false }
 proof_running_system = { path = "../proof_running_system", default-features = false}
 crypto = { path = "../crypto", optional = true }
 u256 = { path = "../supporting_crates/u256", optional = true }
+delegated_u256 = { path = "../supporting_crates/delegated_u256", optional = true }
 riscv_common = {git = "https://github.com/matter-labs/zksync-airbender.git", tag = "0.2.0" , features = ["custom_panic", "custom_allocator"]}
 #riscv_common = {path = "../../zksync-airbender/riscv_common" , features = ["custom_panic", "custom_allocator"]}
 
@@ -54,9 +55,9 @@ scalloc = ["proof_running_system/scalloc"]
 no_exception_handling = []
 print_debug_info = ["proof_running_system/global-alloc", "proof_running_system/error_origins"]
 single_round_with_control = ["crypto", "crypto/single_round_with_control"]
-bigint_delegation = ["crypto", "crypto/bigint_ops"]
-delegation = ["bigint_delegation", "single_round_with_control"]
-proving = ["crypto/proving", "u256/delegation"]
+bigint_delegation = ["crypto", "crypto/bigint_ops", "delegated_u256"]
+delegation = ["bigint_delegation", "single_round_with_control", "delegated_u256"]
+proving = ["crypto/proving", "u256/delegation", "delegated_u256"]
 default = ["proof_running_system/evm-compatibility", "print_debug_info"]
 cycle_marker = ["proof_running_system/cycle_marker"]
 unlimited_native = ["proof_running_system/unlimited_native"]

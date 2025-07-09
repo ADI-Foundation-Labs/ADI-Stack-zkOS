@@ -346,19 +346,34 @@ impl Into<ruint::aliases::U256> for U256 {
     }
 }
 
+impl TryInto<u32> for U256 {
+    type Error = ruint::FromUintError<()>;
+
+    fn try_into(self) -> Result<u32, Self::Error> {
+        if self.as_limbs()[3] != 0
+            || self.as_limbs()[2] != 0
+            || self.as_limbs()[1] != 0
+            || self.as_limbs()[0] > u32::MAX as u64
+        {
+            Err(ruint::FromUintError::Overflow(usize::BITS as usize, (), ()))
+        } else {
+            Ok(self.as_limbs()[0] as u32)
+        }
+    }
+}
+
 impl TryInto<usize> for U256 {
     type Error = ruint::FromUintError<()>;
 
     fn try_into(self) -> Result<usize, Self::Error> {
-        let limbs = self.0.to_limbs();
-        if limbs[3] != 0 || limbs[2] != 0 || limbs[1] != 0 {
+        if self.as_limbs()[3] != 0
+            || self.as_limbs()[2] != 0
+            || self.as_limbs()[1] != 0
+            || self.as_limbs()[0] > usize::MAX as u64
+        {
             Err(ruint::FromUintError::Overflow(usize::BITS as usize, (), ()))
         } else {
-            if limbs[0] > usize::MAX as u64 {
-                Err(ruint::FromUintError::Overflow(usize::BITS as usize, (), ()))
-            } else {
-                Ok(limbs[0] as usize)
-            }
+            Ok(self.as_limbs()[0] as usize)
         }
     }
 }
