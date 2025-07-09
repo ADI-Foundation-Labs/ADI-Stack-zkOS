@@ -143,10 +143,7 @@ impl U256 {
     }
 
     #[inline(always)]
-<<<<<<< HEAD
     /// Compute the wide product of `self * rhs`. Stores the low 256 bits in `self` and returns the high bits
-=======
->>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
     pub fn widening_mul_assign(&mut self, rhs: &Self) -> Self {
         let result = self.0.widening_mul_assign(&rhs.0);
         Self(result)

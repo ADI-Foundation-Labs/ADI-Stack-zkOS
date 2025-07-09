@@ -85,8 +85,6 @@ mod tests {
         });
 
         proptest!(|(x_limbs: [u64; 4], y_limbs: [u64; 4])| {
-<<<<<<< HEAD
-=======
             let (x1, x2) = from_limbs(x_limbs);
             let (y1, y2) = from_limbs(y_limbs);
 
@@ -98,7 +96,6 @@ mod tests {
         });
 
         proptest!(|(x_limbs: [u64; 4], y_limbs: [u64; 4])| {
->>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
             let (mut x1, mut x2) = from_limbs(x_limbs);
             let (y1, y2) = from_limbs(y_limbs);
 
@@ -110,8 +107,6 @@ mod tests {
         });
 
         proptest!(|(x_limbs: [u64; 4], y_limbs: [u64; 4])| {
-<<<<<<< HEAD
-=======
             let (x1, x2) = from_limbs(x_limbs);
             let (y1, y2) = from_limbs(y_limbs);
 
@@ -123,7 +118,6 @@ mod tests {
         });
 
         proptest!(|(x_limbs: [u64; 4], y_limbs: [u64; 4])| {
->>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
             let (mut x1, mut x2) = from_limbs(x_limbs);
             let (y1, y2) = from_limbs(y_limbs);
 
@@ -335,8 +329,6 @@ mod tests {
         });
 
         proptest!(|(bytes: [u8; 32])| {
-<<<<<<< HEAD
-=======
             let bytes1 = naive::U256::try_from_be_slice(&bytes).expect("Should succeed").to_be_bytes();
             let bytes2 = risc_v::U256::try_from_be_slice(&bytes).expect("Should succeed").to_be_bytes();
 
@@ -345,7 +337,6 @@ mod tests {
         });
 
         proptest!(|(bytes: [u8; 32])| {
->>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
             let bytes1 = naive::U256::from_le_bytes(&bytes).to_le_bytes();
             let bytes2 = risc_v::U256::from_le_bytes(&bytes).to_le_bytes();
 
@@ -354,8 +345,6 @@ mod tests {
         });
 
         proptest!(|(bytes: [u8; 32])| {
-<<<<<<< HEAD
-=======
             let x1 = naive::U256::from_le_bytes(&bytes);
             let x2 = risc_v::U256::from_le_bytes(&bytes);
             let bytes1 = x1.as_le_bytes_ref();
@@ -366,7 +355,6 @@ mod tests {
         });
 
         proptest!(|(bytes: [u8; 32])| {
->>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
             let mut x1 = naive::U256::from_le_bytes(&bytes);
             let mut x2 = risc_v::U256::from_le_bytes(&bytes);
 
@@ -420,8 +408,6 @@ mod tests {
     }
 
     #[test]
-<<<<<<< HEAD
-=======
     fn compare_bytes_constant() {
         assert_eq!(naive::U256::BYTES, risc_v::U256::BYTES);
     }
@@ -444,7 +430,6 @@ mod tests {
     }
 
     #[test]
->>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
     #[should_panic]
     fn naive_byte_panics_oob() {
         let x1 = naive::U256::one();
