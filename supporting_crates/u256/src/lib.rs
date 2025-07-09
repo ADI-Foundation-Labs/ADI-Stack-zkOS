@@ -2,6 +2,7 @@
 
 // Custom types below are NOT Copy in Rust's sense, even though Clone internally would use copy
 
+<<<<<<< HEAD
 #[cfg(any(not(feature = "delegation"), test))]
 // #[cfg(not(all(target_arch = "riscv32", feature = "delegation")))]
 // #[cfg(not(any(all(target_arch = "riscv32", feature = "delegation"), test)))]
@@ -23,6 +24,18 @@ mod risc_v;
 #[cfg(feature = "delegation")]
 // #[cfg(all(target_arch = "riscv32", feature = "delegation"))]
 // #[cfg(any(all(target_arch = "riscv32", feature = "delegation"), test))]
+=======
+#[cfg(any(not(feature = "delegation"), not(target_arch = "riscv32"), test))]
+mod naive;
+
+#[cfg(not(all(feature = "delegation", target_arch = "riscv32")))]
+pub use self::naive::U256;
+
+#[cfg(any(all(target_arch = "riscv32", feature = "delegation"), test))]
+mod risc_v;
+
+#[cfg(all(feature = "delegation", target_arch = "riscv32"))]
+>>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
 pub use self::risc_v::U256;
 
 #[derive(Debug)]
@@ -65,8 +78,10 @@ impl<Slice: AsRef<[u64]>> Iterator for BitIteratorBE<Slice> {
 
 #[cfg(test)]
 mod tests {
+    use std::panic;
+
     use super::{naive, risc_v};
-    use proptest::{prop_assert_eq, proptest};
+    use proptest::{prop_assert, prop_assert_eq, proptest};
 
     fn from_limbs(limbs: [u64; 4]) -> (naive::U256, risc_v::U256) {
         (
@@ -94,6 +109,20 @@ mod tests {
         });
 
         proptest!(|(x_limbs: [u64; 4], y_limbs: [u64; 4])| {
+<<<<<<< HEAD
+=======
+            let (x1, x2) = from_limbs(x_limbs);
+            let (y1, y2) = from_limbs(y_limbs);
+
+            let (res, carry1) = naive::U256::overflowing_add(x1, y1);
+            let (res2, carry2) = risc_v::U256::overflowing_add(x2, y2);
+
+            prop_assert_eq!(res.as_limbs(), res2.as_limbs());
+            prop_assert_eq!(carry1, carry2);
+        });
+
+        proptest!(|(x_limbs: [u64; 4], y_limbs: [u64; 4])| {
+>>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
             let (mut x1, mut x2) = from_limbs(x_limbs);
             let (y1, y2) = from_limbs(y_limbs);
 
@@ -105,6 +134,20 @@ mod tests {
         });
 
         proptest!(|(x_limbs: [u64; 4], y_limbs: [u64; 4])| {
+<<<<<<< HEAD
+=======
+            let (x1, x2) = from_limbs(x_limbs);
+            let (y1, y2) = from_limbs(y_limbs);
+
+            let (res, borrow1) = naive::U256::overflowing_sub(x1, y1);
+            let (res2, borrow2) = risc_v::U256::overflowing_sub(x2, y2);
+
+            prop_assert_eq!(res.as_limbs(), res2.as_limbs());
+            prop_assert_eq!(borrow1, borrow2);
+        });
+
+        proptest!(|(x_limbs: [u64; 4], y_limbs: [u64; 4])| {
+>>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
             let (mut x1, mut x2) = from_limbs(x_limbs);
             let (y1, y2) = from_limbs(y_limbs);
 
@@ -316,6 +359,17 @@ mod tests {
         });
 
         proptest!(|(bytes: [u8; 32])| {
+<<<<<<< HEAD
+=======
+            let bytes1 = naive::U256::try_from_be_slice(&bytes).expect("Should succeed").to_be_bytes();
+            let bytes2 = risc_v::U256::try_from_be_slice(&bytes).expect("Should succeed").to_be_bytes();
+
+            prop_assert_eq!(bytes1, bytes);
+            prop_assert_eq!(bytes1, bytes2);
+        });
+
+        proptest!(|(bytes: [u8; 32])| {
+>>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
             let bytes1 = naive::U256::from_le_bytes(&bytes).to_le_bytes();
             let bytes2 = risc_v::U256::from_le_bytes(&bytes).to_le_bytes();
 
@@ -324,6 +378,19 @@ mod tests {
         });
 
         proptest!(|(bytes: [u8; 32])| {
+<<<<<<< HEAD
+=======
+            let x1 = naive::U256::from_le_bytes(&bytes);
+            let x2 = risc_v::U256::from_le_bytes(&bytes);
+            let bytes1 = x1.as_le_bytes_ref();
+            let bytes2 = x2.as_le_bytes_ref();
+
+            prop_assert_eq!(*bytes1, bytes);
+            prop_assert_eq!(bytes1, bytes2);
+        });
+
+        proptest!(|(bytes: [u8; 32])| {
+>>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
             let mut x1 = naive::U256::from_le_bytes(&bytes);
             let mut x2 = risc_v::U256::from_le_bytes(&bytes);
 
@@ -341,9 +408,26 @@ mod tests {
             let x1 = naive::U256::from_le_bytes(&bytes);
             let x2 = risc_v::U256::from_le_bytes(&bytes);
 
+<<<<<<< HEAD
             let byte_idx = byte_idx % 32;
 
             prop_assert_eq!(x1.byte(byte_idx), x2.byte(byte_idx));
+=======
+            let res1 = panic::catch_unwind(|| {
+                x1.byte(byte_idx)
+            });
+
+            let res2 = panic::catch_unwind(|| {
+                x2.byte(byte_idx)
+            });
+
+            if byte_idx >= 32 {
+                prop_assert!(res1.is_err() && res2.is_err());
+            } else {
+                prop_assert_eq!(res1.unwrap(), res2.unwrap());
+            }
+
+>>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
             prop_assert_eq!(x1.bit(bit_idx), x2.bit(bit_idx));
         });
 
@@ -364,4 +448,83 @@ mod tests {
             prop_assert_eq!(format!("{x1}"), format!("{x2}"));
         })
     }
+<<<<<<< HEAD
+=======
+
+    #[test]
+    fn compare_bytes_constant() {
+        assert_eq!(naive::U256::BYTES, risc_v::U256::BYTES);
+    }
+
+    #[test]
+    fn compare_is_zero_is_one() {
+        proptest!(|(bytes: [u8; 32])| {
+            let x1 = naive::U256::from_le_bytes(&bytes);
+            let x2 = risc_v::U256::from_le_bytes(&bytes);
+
+            prop_assert_eq!(x1.is_one(), x2.is_one());
+            prop_assert_eq!(x1.is_zero(), x2.is_zero());
+        });
+
+        assert!(naive::U256::zero().is_zero());
+        assert!(risc_v::U256::zero().is_zero());
+
+        assert!(naive::U256::one().is_one());
+        assert!(risc_v::U256::one().is_one());
+    }
+
+    #[test]
+    #[should_panic]
+    fn naive_byte_panics_oob() {
+        let x1 = naive::U256::one();
+        let byte_idx = 32;
+
+        let _ = x1.byte(byte_idx);
+    }
+
+    #[test]
+    #[should_panic]
+    fn riscv_byte_panics_oob() {
+        let x2 = risc_v::U256::one();
+        let byte_idx = 32;
+
+        let _ = x2.byte(byte_idx);
+    }
+
+    #[test]
+    #[should_panic]
+    fn naive_divrem_by_zero_panics() {
+        let mut x = naive::U256::one();
+        let mut y = naive::U256::zero();
+
+        naive::U256::div_rem(&mut x, &mut y);
+    }
+
+    #[test]
+    #[should_panic]
+    fn riscv_divrem_by_zero_panics() {
+        let mut x = risc_v::U256::one();
+        let mut y = risc_v::U256::zero();
+
+        risc_v::U256::div_rem(&mut x, &mut y);
+    }
+
+    #[test]
+    #[should_panic]
+    fn riscv_divceil_by_zero_panics() {
+        let mut x = risc_v::U256::one();
+        let mut y = risc_v::U256::zero();
+
+        risc_v::U256::div_ceil(&mut x, &mut y);
+    }
+
+    #[test]
+    #[should_panic]
+    fn naive_divceil_by_zero_panics() {
+        let mut x = naive::U256::one();
+        let mut y = naive::U256::zero();
+
+        naive::U256::div_ceil(&mut x, &mut y);
+    }
+>>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
 }
