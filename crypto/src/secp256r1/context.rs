@@ -1,3 +1,5 @@
+use crate::secp256r1::field::FieldElementConst;
+
 use super::{
     points::{Affine, JacobianConst, Storage},
     ECMULT_TABLE_SIZE_G,
@@ -19,23 +21,36 @@ impl GeneratorMultiplesTable {
 
     pub(super) fn get_ge(&self, n: i32) -> Affine {
         if n > 0 {
-            self.0[(n - 1) as usize / 2].to_affine()
+            self.0[(n - 1) as usize / 2].clone().into_affine()
         } else {
-            -(self.0[(-n - 1) as usize / 2].to_affine())
+            -(self.0[(-n - 1) as usize / 2].clone().into_affine())
         }
     }
 }
 
 const fn odd_multiples(table: &mut [Storage; ECMULT_TABLE_SIZE_G], gen: &JacobianConst) {
     use const_for::const_for;
-    let mut gj = *gen;
+    let mut gj = JacobianConst {
+        x: FieldElementConst(gen.x.0),
+        y: FieldElementConst(gen.y.0),
+        z: FieldElementConst(gen.z.0),
+    };
 
-    table[0] = gj.to_storage();
+    table[0] = JacobianConst {
+        x: FieldElementConst(gj.x.0),
+        y: FieldElementConst(gj.y.0),
+        z: FieldElementConst(gj.z.0),
+    }
+    .into_storage();
 
     let g_double = gen.double();
 
     const_for!(i in 1..ECMULT_TABLE_SIZE_G => {
         gj = gj.add(&g_double);
-        table[i] = gj.to_storage();
+        table[i] = JacobianConst {
+            x: FieldElementConst(gj.x.0),
+            y: FieldElementConst(gj.y.0),
+            z: FieldElementConst(gj.z.0),
+        }.into_storage();
     });
 }

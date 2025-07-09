@@ -1,6 +1,7 @@
 #![cfg_attr(not(test), no_std)]
 #![feature(array_chunks)]
 #![allow(static_mut_refs)]
+#![feature(ptr_as_ref_unchecked)]
 #![allow(clippy::uninit_assumed_init)]
 #![allow(clippy::new_without_default)]
 
@@ -8,7 +9,7 @@
 mod ark_ff_delegation;
 #[allow(unused_imports)]
 #[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
-mod bigint_delegation;
+mod bigint_arithmatic;
 #[allow(unexpected_cfgs)]
 pub mod blake2s;
 #[allow(clippy::all)]
@@ -36,8 +37,8 @@ pub fn init_lib() {
         bn254::fields::init();
         bls12_381::fields::init();
         secp256k1::init();
-        bigint_delegation::init();
         secp256r1::init();
+        delegated_u256::init();
     }
 }
 

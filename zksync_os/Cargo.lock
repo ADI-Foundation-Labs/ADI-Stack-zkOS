@@ -308,6 +308,7 @@ dependencies = [
  "blake2s_u32",
  "cfg-if",
  "const_for",
+ "delegated_u256",
  "educe",
  "itertools 0.14.0",
  "k256",

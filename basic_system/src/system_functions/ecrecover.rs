@@ -104,7 +104,7 @@ pub fn ecrecover_inner(
     };
 
     // represent as bytes, and we do not need compression
-    let encoded = pk.to_encoded_point(false);
+    let encoded = pk.into_encoded_point(false);
 
     Ok(encoded)
 }

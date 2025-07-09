@@ -8,13 +8,13 @@ use crate::secp256r1::u64_arithmatic::*;
 
 use super::{MODULUS, R2};
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Default)]
 pub(crate) struct FieldElement(pub [u64; 4]);
 
 impl core::fmt::Debug for FieldElement {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_str("0x")?;
-        let bytes = self.to_be_bytes();
+        let bytes = self.clone().into_be_bytes();
         for b in bytes.as_slice().iter() {
             f.write_fmt(format_args!("{:02x}", b))?;
         }
@@ -28,13 +28,13 @@ impl FieldElement {
     pub(crate) const ONE: Self =
         Self::from_words_unchecked([1, 18446744069414584320, 18446744073709551615, 4294967294]);
 
-    pub(crate) fn to_integer(self) -> Self {
+    pub(crate) fn into_integer(self) -> Self {
         FieldElement(montgomery_reduce(&[
             self.0[0], self.0[1], self.0[2], self.0[3], 0, 0, 0, 0,
         ]))
     }
 
-    pub(super) const fn to_representation(self) -> Self {
+    pub(super) const fn into_representation(self) -> Self {
         FieldElement(fe_mul(&self.0, &R2))
     }
 
@@ -63,11 +63,11 @@ impl FieldElement {
     }
 
     pub(crate) const fn from_words(words: [u64; 4]) -> Self {
-        Self::from_words_unchecked(words).to_representation()
+        Self::from_words_unchecked(words).into_representation()
     }
 
-    pub(crate) fn to_be_bytes(mut self) -> [u8; 32] {
-        self = self.to_integer();
+    pub(crate) fn into_be_bytes(mut self) -> [u8; 32] {
+        self = self.into_integer();
         let mut r: [MaybeUninit<u8>; 32] = unsafe { MaybeUninit::uninit().assume_init() };
 
         r[0..8].copy_from_slice(&self.0[3].to_be_bytes().map(MaybeUninit::new));
@@ -104,8 +104,7 @@ impl FieldElement {
     }
 
     pub(crate) const fn square(&self) -> Self {
-        let other = *self;
-        self.mul(&other)
+        self.mul(self)
     }
 
     pub(crate) fn square_assign(&mut self) {
@@ -117,7 +116,7 @@ impl FieldElement {
     }
 
     pub(crate) fn double_assign(&mut self) {
-        let other = *self;
+        let other = self.clone();
         self.add_assign(&other);
     }
 
@@ -313,13 +312,13 @@ mod tests {
 
             any::<[u64; 4]>().prop_map(|limbs| {
                 if limbs < MODULUS {
-                    Self(limbs).to_representation()
+                    Self(limbs).into_representation()
                 } else {
                     Self(sub_inner(
                         &[limbs[0], limbs[1], limbs[2], limbs[3], 0],
                         &[MODULUS[0], MODULUS[1], MODULUS[2], MODULUS[3], 0],
                     ))
-                    .to_representation()
+                    .into_representation()
                 }
             })
         }
