@@ -213,6 +213,7 @@ impl DelegatedU256 {
         }
     }
 
+    /// Compute the wide product of `self * rhs`. Stores the low 256 bits in `self` and returns the high bits
     pub fn widening_mul_assign(&mut self, rhs: &Self) -> Self {
         unsafe {
             #[allow(invalid_value)]
