@@ -10,7 +10,6 @@ use ruint::aliases::B160;
 use zk_ee::{
     execution_environment_type::ExecutionEnvironmentType,
     internal_error,
-    kv_markers::MAX_EVENT_TOPICS,
     system::{
         errors::SystemError, logger::Logger, CallModifier, CompletedExecution, ExternalCallRequest,
     },

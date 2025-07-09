@@ -414,7 +414,7 @@ where
         }
 
         match self.cache.get(address.into()) {
-            Some(cache_item) => Ok(cache_item.current().value().balance),
+            Some(cache_item) => Ok(cache_item.current().value().balance.clone()),
             None => Err(internal_error!("Balance assumed warm but not in cache").into()),
         }
     }

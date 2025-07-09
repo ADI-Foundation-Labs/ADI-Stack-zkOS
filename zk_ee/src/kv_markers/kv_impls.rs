@@ -214,14 +214,14 @@ impl UsizeDeserializable for ruint::aliases::U256 {
                 compile_error!("unsupported architecture: big endian arch is not supported")
             } else if #[cfg(target_pointer_width = "32")] {
                 for dst in this.assume_init_mut().as_limbs_mut() {
-                    let low = src.next().ok_or(InternalError("u256 limb low deserialization failed"))?;
-                    let high = src.next().ok_or(InternalError("u256 limb high deserialization failed"))?;
+                    let low = src.next().ok_or(internal_error!("u256 limb low deserialization failed"))?;
+                    let high = src.next().ok_or(internal_error!("u256 limb high deserialization failed"))?;
                     *dst = ((high as u64) << 32) | (low as u64);
                 }
                 return Ok(())
             } else if #[cfg(target_pointer_width = "64")] {
                 for dst in this.assume_init_mut().as_limbs_mut() {
-                    *dst = src.next().ok_or(InternalError("u256 limb deserialization failed"))? as u64;
+                    *dst = src.next().ok_or(internal_error!("u256 limb deserialization failed"))? as u64;
                 }
                 return Ok(())
             } else {

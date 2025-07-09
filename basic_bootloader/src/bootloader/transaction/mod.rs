@@ -11,6 +11,7 @@ use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
 use errors::InvalidTransaction;
 use zk_ee::system::errors::{FatalError, InternalError, SystemError};
+use zk_ee::internal_error;
 
 mod abi_utils;
 pub mod access_list_parser;

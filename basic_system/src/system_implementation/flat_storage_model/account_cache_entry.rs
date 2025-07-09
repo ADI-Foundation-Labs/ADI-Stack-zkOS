@@ -227,16 +227,16 @@ impl AccountProperties {
             Ok(if not_publish_bytecode {
                 1u32 // metadata byte
                     + 8 // versioning data
-                    + ValueDiffCompressionStrategy::optimal_compression_length_u256(initial.nonce.try_into().map_err(|_| internal_error!("u64 into U256"))?, r#final.nonce.try_into().map_err(|_| internal_error!("u64 into U256"))?) as u32 // nonce diff
-                    + ValueDiffCompressionStrategy::optimal_compression_length_u256(initial.balance, r#final.balance) as u32 // balance diff
+                    + ValueDiffCompressionStrategy::optimal_compression_length_u256(initial.nonce.into(), r#final.nonce.into()) as u32 // nonce diff
+                    + ValueDiffCompressionStrategy::optimal_compression_length_u256(initial.balance.clone(), r#final.balance.clone()) as u32 // balance diff
                     + 32 // bytecode hash
                     + 4 // artifacts len
                     + 4 // observable bytecode len
             } else {
                 1u32 // metadata byte
                     + 8 // versioning data
-                    + ValueDiffCompressionStrategy::optimal_compression_length_u256(initial.nonce.try_into().map_err(|_| internal_error!("u64 into U256"))?, r#final.nonce.try_into().map_err(|_| internal_error!("u64 into U256"))?) as u32 // nonce diff
-                    + ValueDiffCompressionStrategy::optimal_compression_length_u256(initial.balance, r#final.balance) as u32 // balance diff
+                    + ValueDiffCompressionStrategy::optimal_compression_length_u256(initial.nonce.into(), r#final.nonce.into()) as u32 // nonce diff
+                    + ValueDiffCompressionStrategy::optimal_compression_length_u256(initial.balance.clone(), r#final.balance.clone()) as u32 // balance diff
                     + 4 // bytecode len
                     + r#final.bytecode_len // bytecode
                     + 4 // artifacts len
@@ -252,12 +252,10 @@ impl AccountProperties {
                 length += ValueDiffCompressionStrategy::optimal_compression_length_u256(
                     initial
                         .nonce
-                        .try_into()
-                        .map_err(|_| internal_error!("u64 into U256"))?,
+                        .into(),
                     r#final
                         .nonce
-                        .try_into()
-                        .map_err(|_| internal_error!("u64 into U256"))?,
+                        .into(),
                 ) as u32; // nonce diff
             }
             if initial.balance != r#final.balance {
@@ -320,12 +318,10 @@ impl AccountProperties {
             ValueDiffCompressionStrategy::optimal_compression_u256(
                 initial
                     .nonce
-                    .try_into()
-                    .map_err(|_| internal_error!("u64 into U256"))?,
+                    .into(),
                 r#final
                     .nonce
-                    .try_into()
-                    .map_err(|_| internal_error!("u64 into U256"))?,
+                    .into(),
                 hasher,
                 result_keeper,
             );
@@ -392,12 +388,10 @@ impl AccountProperties {
                 ValueDiffCompressionStrategy::optimal_compression_u256(
                     initial
                         .nonce
-                        .try_into()
-                        .map_err(|_| internal_error!("u64 into U256"))?,
+                        .into(),
                     r#final
                         .nonce
-                        .try_into()
-                        .map_err(|_| internal_error!("u64 into U256"))?,
+                        .into(),
                     hasher,
                     result_keeper,
                 );

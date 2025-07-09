@@ -220,8 +220,8 @@ where
         // Mint fee to bootloader
         // We already checked that total_gas_refund <= gas_limit
         let pay_to_operator = U256::from(gas_used)
-            .checked_mul(U256::from(gas_price))
-            .ok_or(InternalError("gu*gp"))?;
+            .checked_mul(&U256::from(gas_price))
+            .ok_or(internal_error!("gu*gp"))?;
         let mut inf_resources = S::Resources::FORMAL_INFINITE;
 
         BasicBootloader::mint_token(
@@ -445,7 +445,7 @@ where
             U256::div_ceil(&mut native_per_gas, &native_price);
             native_per_gas
         };
-        let native_per_pubdata = U256::from(gas_per_pubdata)
+        let native_per_pubdata = gas_per_pubdata.clone()
             .checked_mul(&native_per_gas)
             .ok_or(internal_error!("gpp*npg"))?;
 
