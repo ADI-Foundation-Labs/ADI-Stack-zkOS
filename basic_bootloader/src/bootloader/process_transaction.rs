@@ -445,7 +445,8 @@ where
             U256::div_ceil(&mut native_per_gas, &native_price);
             native_per_gas
         };
-        let native_per_pubdata = gas_per_pubdata.clone()
+        let native_per_pubdata = gas_per_pubdata
+            .clone()
             .checked_mul(&native_per_gas)
             .ok_or(internal_error!("gpp*npg"))?;
 

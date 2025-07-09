@@ -250,12 +250,8 @@ impl AccountProperties {
             let mut length = 1u32; // metadata byte
             if initial.nonce != r#final.nonce {
                 length += ValueDiffCompressionStrategy::optimal_compression_length_u256(
-                    initial
-                        .nonce
-                        .into(),
-                    r#final
-                        .nonce
-                        .into(),
+                    initial.nonce.into(),
+                    r#final.nonce.into(),
                 ) as u32; // nonce diff
             }
             if initial.balance != r#final.balance {
@@ -316,12 +312,8 @@ impl AccountProperties {
             hasher.update(r#final.versioning_data.into_u64().to_be_bytes());
             result_keeper.pubdata(&r#final.versioning_data.into_u64().to_be_bytes());
             ValueDiffCompressionStrategy::optimal_compression_u256(
-                initial
-                    .nonce
-                    .into(),
-                r#final
-                    .nonce
-                    .into(),
+                initial.nonce.into(),
+                r#final.nonce.into(),
                 hasher,
                 result_keeper,
             );
@@ -386,12 +378,8 @@ impl AccountProperties {
             result_keeper.pubdata(&[metadata_byte]);
             if initial.nonce != r#final.nonce {
                 ValueDiffCompressionStrategy::optimal_compression_u256(
-                    initial
-                        .nonce
-                        .into(),
-                    r#final
-                        .nonce
-                        .into(),
+                    initial.nonce.into(),
+                    r#final.nonce.into(),
                     hasher,
                     result_keeper,
                 );
