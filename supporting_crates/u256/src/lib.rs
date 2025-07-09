@@ -2,29 +2,6 @@
 
 // Custom types below are NOT Copy in Rust's sense, even though Clone internally would use copy
 
-<<<<<<< HEAD
-#[cfg(any(not(feature = "delegation"), test))]
-// #[cfg(not(all(target_arch = "riscv32", feature = "delegation")))]
-// #[cfg(not(any(all(target_arch = "riscv32", feature = "delegation"), test)))]
-mod naive;
-
-#[cfg(not(feature = "delegation"))]
-// #[cfg(not(all(target_arch = "riscv32", feature = "delegation")))]
-// #[cfg(not(any(all(target_arch = "riscv32", feature = "delegation"), test)))]
-pub use self::naive::U256;
-
-// #[cfg(all(not(target_arch = "riscv32"), feature = "delegation"))]
-// const _: () = { compile_error!("`delegation` feature can only be used on RISC-V arch") };
-
-#[cfg(any(feature = "delegation", test))]
-// #[cfg(all(target_arch = "riscv32", feature = "delegation"))]
-// #[cfg(any(all(target_arch = "riscv32", feature = "delegation"), test))]
-mod risc_v;
-
-#[cfg(feature = "delegation")]
-// #[cfg(all(target_arch = "riscv32", feature = "delegation"))]
-// #[cfg(any(all(target_arch = "riscv32", feature = "delegation"), test))]
-=======
 #[cfg(any(not(feature = "delegation"), not(target_arch = "riscv32"), test))]
 mod naive;
 
@@ -35,7 +12,6 @@ pub use self::naive::U256;
 mod risc_v;
 
 #[cfg(all(feature = "delegation", target_arch = "riscv32"))]
->>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
 pub use self::risc_v::U256;
 
 #[derive(Debug)]
@@ -109,8 +85,6 @@ mod tests {
         });
 
         proptest!(|(x_limbs: [u64; 4], y_limbs: [u64; 4])| {
-<<<<<<< HEAD
-=======
             let (x1, x2) = from_limbs(x_limbs);
             let (y1, y2) = from_limbs(y_limbs);
 
@@ -122,7 +96,6 @@ mod tests {
         });
 
         proptest!(|(x_limbs: [u64; 4], y_limbs: [u64; 4])| {
->>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
             let (mut x1, mut x2) = from_limbs(x_limbs);
             let (y1, y2) = from_limbs(y_limbs);
 
@@ -134,8 +107,6 @@ mod tests {
         });
 
         proptest!(|(x_limbs: [u64; 4], y_limbs: [u64; 4])| {
-<<<<<<< HEAD
-=======
             let (x1, x2) = from_limbs(x_limbs);
             let (y1, y2) = from_limbs(y_limbs);
 
@@ -147,7 +118,6 @@ mod tests {
         });
 
         proptest!(|(x_limbs: [u64; 4], y_limbs: [u64; 4])| {
->>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
             let (mut x1, mut x2) = from_limbs(x_limbs);
             let (y1, y2) = from_limbs(y_limbs);
 
@@ -359,8 +329,6 @@ mod tests {
         });
 
         proptest!(|(bytes: [u8; 32])| {
-<<<<<<< HEAD
-=======
             let bytes1 = naive::U256::try_from_be_slice(&bytes).expect("Should succeed").to_be_bytes();
             let bytes2 = risc_v::U256::try_from_be_slice(&bytes).expect("Should succeed").to_be_bytes();
 
@@ -369,7 +337,6 @@ mod tests {
         });
 
         proptest!(|(bytes: [u8; 32])| {
->>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
             let bytes1 = naive::U256::from_le_bytes(&bytes).to_le_bytes();
             let bytes2 = risc_v::U256::from_le_bytes(&bytes).to_le_bytes();
 
@@ -378,8 +345,6 @@ mod tests {
         });
 
         proptest!(|(bytes: [u8; 32])| {
-<<<<<<< HEAD
-=======
             let x1 = naive::U256::from_le_bytes(&bytes);
             let x2 = risc_v::U256::from_le_bytes(&bytes);
             let bytes1 = x1.as_le_bytes_ref();
@@ -390,7 +355,6 @@ mod tests {
         });
 
         proptest!(|(bytes: [u8; 32])| {
->>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
             let mut x1 = naive::U256::from_le_bytes(&bytes);
             let mut x2 = risc_v::U256::from_le_bytes(&bytes);
 
@@ -408,11 +372,6 @@ mod tests {
             let x1 = naive::U256::from_le_bytes(&bytes);
             let x2 = risc_v::U256::from_le_bytes(&bytes);
 
-<<<<<<< HEAD
-            let byte_idx = byte_idx % 32;
-
-            prop_assert_eq!(x1.byte(byte_idx), x2.byte(byte_idx));
-=======
             let res1 = panic::catch_unwind(|| {
                 x1.byte(byte_idx)
             });
@@ -427,7 +386,6 @@ mod tests {
                 prop_assert_eq!(res1.unwrap(), res2.unwrap());
             }
 
->>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
             prop_assert_eq!(x1.bit(bit_idx), x2.bit(bit_idx));
         });
 
@@ -448,8 +406,6 @@ mod tests {
             prop_assert_eq!(format!("{x1}"), format!("{x2}"));
         })
     }
-<<<<<<< HEAD
-=======
 
     #[test]
     fn compare_bytes_constant() {
@@ -526,5 +482,4 @@ mod tests {
 
         naive::U256::div_ceil(&mut x, &mut y);
     }
->>>>>>> 69fbb7ee964f7960b6aa2326b1c77e35c3f23819
 }
