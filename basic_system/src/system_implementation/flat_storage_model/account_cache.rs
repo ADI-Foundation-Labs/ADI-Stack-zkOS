@@ -26,6 +26,7 @@ use zk_ee::common_structs::history_map::HistoryMap;
 use zk_ee::common_structs::history_map::HistoryMapItemRefMut;
 use zk_ee::common_structs::PreimageType;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
+use zk_ee::internal_error;
 use zk_ee::memory::stack_trait::StackCtor;
 use zk_ee::system::Computational;
 use zk_ee::system::Resource;
@@ -97,7 +98,15 @@ where
         is_access_list: bool,
     ) -> Result<AddressItem<A>, SystemError> {
         let ergs = match ee_type {
-            ExecutionEnvironmentType::NoEE => Ergs::empty(),
+            ExecutionEnvironmentType::NoEE => {
+                if is_access_list {
+                    // For access lists, EVM charges the full cost as many
+                    // times as an account is in the list.
+                    Ergs(2400 * ERGS_PER_GAS)
+                } else {
+                    Ergs::empty()
+                }
+            }
             ExecutionEnvironmentType::EVM =>
             // For selfdestruct, there's no warm access cost
             {
@@ -107,7 +116,7 @@ where
                     WARM_PROPERTIES_ACCESS_COST_ERGS
                 }
             }
-            _ => return Err(InternalError("Unsupported EE").into()),
+            _ => return Err(internal_error!("Unsupported EE").into()),
         };
         let native = R::Native::from_computational(WARM_ACCOUNT_CACHE_ACCESS_NATIVE_COST);
         resources.charge(&R::from_ergs_and_native(ergs, native))?;
@@ -121,14 +130,7 @@ where
 
                 // - first get a hash of properties from storage
                 match ee_type {
-                    ExecutionEnvironmentType::NoEE => {
-                        // Access list accesses are always done in NoEE.
-                        // Note that, for that reason, the warm cost isn't charged,
-                        // so here we charge full cold cost.
-                        if is_access_list {
-                            resources.charge(&R::from_ergs(Ergs(2400 * ERGS_PER_GAS)))?
-                        }
-                    }
+                    ExecutionEnvironmentType::NoEE => {}
                     ExecutionEnvironmentType::EVM => {
                         let mut cost: R = if evm_interpreter::utils::is_precompile(&address) {
                             R::empty() // We've charged the access already.
@@ -142,7 +144,7 @@ where
                         };
                         resources.charge(&cost)?;
                     }
-                    _ => return Err(InternalError("Unsupported EE").into()),
+                    _ => return Err(internal_error!("Unsupported EE").into()),
                 }
 
                 // to avoid divergence we read as-if infinite ergs
@@ -174,7 +176,7 @@ where
 
                         let props =
                             AccountProperties::decode(preimage.try_into().map_err(|_| {
-                                InternalError("Unexpected preimage length for AccountProperties")
+                                internal_error!("Unexpected preimage length for AccountProperties")
                             })?);
 
                         (props, Appearance::Retrieved)
@@ -195,14 +197,7 @@ where
                     if initialized_element == false {
                         // Element exists in cache, but wasn't touched in current tx yet
                         match ee_type {
-                            ExecutionEnvironmentType::NoEE => {
-                                // Access list accesses are always done in NoEE.
-                                // Note that, for that reason, the warm cost isn't charged,
-                                // so here we charge full cold cost.
-                                if is_access_list {
-                                    resources.charge(&R::from_ergs(Ergs(2400 * ERGS_PER_GAS)))?
-                                }
-                            }
+                            ExecutionEnvironmentType::NoEE => {}
                             ExecutionEnvironmentType::EVM => {
                                 let mut cost: R = if evm_interpreter::utils::is_precompile(&address)
                                 {
@@ -217,7 +212,7 @@ where
                                 };
                                 resources.charge(&cost)?;
                             }
-                            _ => return Err(InternalError("Unsupported EE").into()),
+                            _ => return Err(internal_error!("Unsupported EE").into()),
                         }
                     }
 
@@ -366,11 +361,15 @@ where
             }
             visited_elements.insert(element_key);
 
-            let current_value = element_history.current().value();
-            let initial_value = element_history.initial().value();
+            let current = element_history.current();
+            let initial = element_history.initial();
 
-            pubdata_used +=
-                AccountProperties::diff_compression_length(initial_value, current_value).unwrap();
+            pubdata_used += AccountProperties::diff_compression_length(
+                initial.value(),
+                current.value(),
+                current.metadata().not_publish_bytecode,
+            )
+            .unwrap();
         }
 
         pubdata_used
@@ -411,12 +410,12 @@ where
             ExecutionEnvironmentType::EVM => {
                 resources.charge(&R::from_ergs(KNOWN_TO_BE_WARM_PROPERTIES_ACCESS_COST_ERGS))?
             }
-            _ => return Err(InternalError("Unsupported EE").into()),
+            _ => return Err(internal_error!("Unsupported EE").into()),
         }
 
         match self.cache.get(address.into()) {
             Some(cache_item) => Ok(cache_item.current().value().balance),
-            None => Err(InternalError("Balance assumed warm but not in cache").into()),
+            None => Err(internal_error!("Balance assumed warm but not in cache").into()),
         }
     }
 
@@ -684,7 +683,7 @@ where
                 Bytes32::from_array(digest)
             }
             _ => {
-                return Err(InternalError("Unsupported EE").into());
+                return Err(internal_error!("Unsupported EE").into());
             }
         };
 
@@ -697,7 +696,7 @@ where
                 Bytes32::from_array(digest)
             }
             _ => {
-                return Err(InternalError("Unsupported EE").into());
+                return Err(internal_error!("Unsupported EE").into());
             }
         };
 
@@ -731,13 +730,71 @@ where
                 v.versioning_data
                     .set_code_version(DEFAULT_CODE_VERSION_BYTE);
 
-                m.deployed_in_tx = cur_tx;
+                m.deployed_in_tx = Some(cur_tx);
+                // This is unlikely to happen, this case shouldn't be reachable by higher level logic
+                // but just in case if force deployed contract was redeployed with regular deployment we want to publish it
+                m.not_publish_bytecode = false;
 
                 Ok(())
             })
         })?;
 
         Ok(bytecode)
+    }
+
+    pub fn set_bytecode_details<const PROOF_ENV: bool>(
+        &mut self,
+        resources: &mut R,
+        at_address: &B160,
+        ee: ExecutionEnvironmentType,
+        bytecode_hash: Bytes32,
+        bytecode_len: u32,
+        artifacts_len: u32,
+        observable_bytecode_hash: Bytes32,
+        observable_bytecode_len: u32,
+        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
+        preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
+        oracle: &mut impl IOOracle,
+    ) -> Result<(), SystemError> {
+        let cur_tx = self.current_tx_number;
+
+        let mut account_data = resources.with_infinite_ergs(|inf_resources| {
+            self.materialize_element::<PROOF_ENV>(
+                ExecutionEnvironmentType::NoEE,
+                inf_resources,
+                at_address,
+                storage,
+                preimages_cache,
+                oracle,
+                false,
+                false,
+            )
+        })?;
+
+        resources.charge(&R::from_native(R::Native::from_computational(
+            WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
+        )))?;
+
+        account_data.update(|cache_record| {
+            cache_record.update(|v, m| {
+                v.observable_bytecode_hash = observable_bytecode_hash;
+                v.observable_bytecode_len = observable_bytecode_len;
+                v.bytecode_hash = bytecode_hash;
+                v.bytecode_len = bytecode_len;
+                v.artifacts_len = artifacts_len;
+                v.versioning_data.set_as_deployed();
+                v.versioning_data.set_ee_version(ee as u8);
+                v.versioning_data
+                    .set_code_version(DEFAULT_CODE_VERSION_BYTE);
+
+                m.deployed_in_tx = Some(cur_tx);
+                m.not_publish_bytecode = true;
+
+                Ok(())
+            })
+        })?;
+
+        Ok(())
     }
 
     pub fn mark_for_deconstruction<const PROOF_ENV: bool>(
@@ -775,7 +832,7 @@ where
         // constructor, so in the second case `deployed_in_tx` won't be set
         // yet.
         let should_be_deconstructed =
-            account_data.current().metadata().deployed_in_tx == cur_tx || in_constructor;
+            account_data.current().metadata().deployed_in_tx == Some(cur_tx) || in_constructor;
 
         if should_be_deconstructed {
             account_data.update::<_, SystemError>(|cache_record| {
@@ -800,7 +857,7 @@ where
             )
             .map_err(|e| match e {
                 UpdateQueryError::NumericBoundsError => {
-                    InternalError("Impossible, not enough balance in deconstruction").into()
+                    internal_error!("Impossible, not enough balance in deconstruction").into()
                 }
                 UpdateQueryError::System(e) => e,
             })?
@@ -820,7 +877,7 @@ where
                 ExecutionEnvironmentType::EVM => {
                     let entry = match self.cache.get(nominal_token_beneficiary.into()) {
                         Some(entry) => Ok(entry),
-                        None => Err(InternalError("Account assumed warm but not in cache")),
+                        None => Err(internal_error!("Account assumed warm but not in cache")),
                     }?;
                     let beneficiary_properties = entry.current().value();
 
@@ -835,7 +892,7 @@ where
                         resources.charge(&R::from_ergs(ergs_to_spend))?;
                     }
                 }
-                _ => return Err(InternalError("Unsupported EE").into()),
+                _ => return Err(internal_error!("Unsupported EE").into()),
             }
         }
 
@@ -851,8 +908,7 @@ where
             .apply_to_last_record_of_pending_changes(|key, head_history_record| {
                 if head_history_record.value.appearance() == Appearance::Deconstructed {
                     head_history_record.value.update(|x, _| {
-                        x.nonce = 0;
-                        x.balance = U256::ZERO;
+                        *x = AccountProperties::TRIVIAL_VALUE;
                         Ok(())
                     })?;
                     storage

@@ -3,6 +3,7 @@
 //! - user messages (sent via l1 messenger system hook).
 //! - l1 -> l2 txs logs, to prove execution result on l1.
 use super::history_list::HistoryList;
+use crate::internal_error;
 use crate::system::errors::InternalError;
 use crate::system::IOResultKeeper;
 use crate::{
@@ -31,34 +32,34 @@ pub struct L2ToL1Log {
     /// Shard id.
     /// Deprecated, kept for compatibility, always set to 0.
     ///
-    l2_shard_id: u8,
+    pub l2_shard_id: u8,
     ///
     /// Boolean flag.
     /// Deprecated, kept for compatibility, always set to `true`.
     ///
-    is_service: bool,
+    pub is_service: bool,
     ///
     /// The L2 transaction number in a block, in which the log was sent
     ///
-    tx_number_in_block: u16,
+    pub tx_number_in_block: u16,
     ///
     /// The L2 address which sent the log.
     /// For user messages set to `L1Messenger` system hook address,
     /// for l1 -> l2 txs logs - `BootloaderFormalAddress`.
     ///
-    sender: B160,
+    pub sender: B160,
     ///
     /// The 32 bytes of information that was sent in the log.
     /// For user messages used to save message sender address(padded),
     /// for l1 -> l2 txs logs - transaction hash.
     ///
-    key: Bytes32,
+    pub key: Bytes32,
     ///
     /// The 32 bytes of information that was sent in the log.
     /// For user messages used to save message hash.
     /// for l1 -> l2 txs logs - success flag(padded).
     ///
-    value: Bytes32,
+    pub value: Bytes32,
 }
 
 ///
@@ -268,7 +269,9 @@ where
         let total_pubdata_used = self.list.top().map_or(0, |(_, m)| *m);
 
         if total_pubdata_used < self.pubdata_used_by_committed_logs {
-            Err(InternalError("Pubdata used by logs unexpectedly decreased"))
+            Err(internal_error!(
+                "Pubdata used by logs unexpectedly decreased"
+            ))
         } else {
             Ok(total_pubdata_used - self.pubdata_used_by_committed_logs)
         }
@@ -516,12 +519,15 @@ impl<A: Allocator> From<&LogContent<A>> for L2ToL1Log {
                 address.into(),
                 data_hash,
             ),
-            GenericLogContentData::L1TxLog(L1TxLog { tx_hash, success }) => (
-                // TODO: move into const
-                B160::from_limbs([0x8001, 0, 0]),
-                tx_hash,
-                Bytes32::from_u256_be(if success { U256::from(1) } else { U256::ZERO }),
-            ),
+            GenericLogContentData::L1TxLog(L1TxLog { tx_hash, success }) => {
+                let data = if success { U256::from(1) } else { U256::ZERO };
+                (
+                    // TODO: move into const
+                    B160::from_limbs([0x8001, 0, 0]),
+                    tx_hash,
+                    Bytes32::from_u256_be(&data),
+                )
+            }
         };
         Self {
             l2_shard_id: 0,

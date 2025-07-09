@@ -4,6 +4,7 @@
 //! - Native resource: model for prover complexity.
 
 use super::errors::SystemError;
+use crate::out_of_ergs_error;
 
 ///
 /// Single resource, both resources will implement this, as well as
@@ -55,7 +56,7 @@ pub trait Computational: 'static + Sized + Clone + core::fmt::Debug + PartialEq 
 ///
 /// Ergs, the resource for EEs.
 ///
-#[derive(Clone, Copy, core::fmt::Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, core::fmt::Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Ergs(pub u64);
 
 impl core::ops::Add for Ergs {
@@ -89,7 +90,7 @@ impl Resource for Ergs {
     fn charge(&mut self, to_charge: &Self) -> Result<(), SystemError> {
         if self.0 < to_charge.0 {
             self.0 = 0;
-            return Err(SystemError::OutOfErgs);
+            return Err(out_of_ergs_error!());
         }
         self.0 -= to_charge.0;
         Ok(())

@@ -42,6 +42,7 @@ pub trait StorageAccessPolicy<R: Resources, V>: 'static + Sized {
         &self,
         ee_type: ExecutionEnvironmentType,
         resources: &mut R,
+        is_access_list: bool,
     ) -> Result<(), SystemError>;
 
     /// Charge the extra cost of reading a key
@@ -52,7 +53,6 @@ pub trait StorageAccessPolicy<R: Resources, V>: 'static + Sized {
         ee_type: ExecutionEnvironmentType,
         resources: &mut R,
         is_new_slot: bool,
-        is_access_list: bool,
     ) -> Result<(), SystemError>;
 
     /// Charge the additional cost of performing a write.
@@ -173,7 +173,7 @@ where
         oracle: &mut impl IOOracle,
         is_access_list: bool,
     ) -> Result<(AddressItem<'a, K, V, A>, IsWarmRead), SystemError> {
-        resources_policy.charge_warm_storage_read(ee_type, resources)?;
+        resources_policy.charge_warm_storage_read(ee_type, resources, is_access_list)?;
 
         let mut initialized_element = false;
 
@@ -198,7 +198,7 @@ where
                 // correctly.
                 let data_from_oracle = unsafe { dst.assume_init() } ;
 
-                resources_policy.charge_cold_storage_read_extra(ee_type, resources, data_from_oracle.is_new_storage_slot, is_access_list)?;
+                resources_policy.charge_cold_storage_read_extra(ee_type, resources, data_from_oracle.is_new_storage_slot)?;
 
                 let appearance = match data_from_oracle.is_new_storage_slot {
                     true => Appearance::Unset,
@@ -215,7 +215,7 @@ where
                 if is_warm_read == false {
                     if initialized_element == false {
                         // Element exists in cache, but wasn't touched in current tx yet
-                        resources_policy.charge_cold_storage_read_extra(ee_type, resources,false, is_access_list)?;
+                        resources_policy.charge_cold_storage_read_extra(ee_type, resources,false)?;
                     }
 
                     x.update(|cache_record| {

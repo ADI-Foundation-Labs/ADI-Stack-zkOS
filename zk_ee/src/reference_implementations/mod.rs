@@ -4,10 +4,13 @@
 //! - EE resource: measured in ergs. Includes EVM gas, converted as 1 gas = ERGS_PER_GAS ergs.
 //! - Native resource: model for prover complexity.
 
-use crate::system::{errors::SystemError, Computational, Ergs, Resource, Resources};
+use crate::{
+    out_of_native_resources_system_error,
+    system::{errors::SystemError, Computational, Ergs, Resource, Resources},
+};
 
 /// Native resource that counts down, as done for ergs.
-#[derive(Clone, core::fmt::Debug, PartialEq, Eq)]
+#[derive(Clone, core::fmt::Debug, Default, PartialEq, Eq)]
 pub struct DecreasingNative(u64);
 
 impl Resource for DecreasingNative {
@@ -24,7 +27,7 @@ impl Resource for DecreasingNative {
     fn charge(&mut self, to_charge: &Self) -> Result<(), SystemError> {
         if self.0 < to_charge.0 {
             self.0 = 0;
-            return Err(SystemError::OutOfNativeResources);
+            return Err(out_of_native_resources_system_error!());
         }
         self.0 -= to_charge.0;
         Ok(())
@@ -67,7 +70,7 @@ impl Computational for DecreasingNative {
     }
 }
 
-#[derive(Clone, core::fmt::Debug, PartialEq, Eq)]
+#[derive(Clone, core::fmt::Debug, PartialEq, Eq, Default)]
 pub struct BaseResources<Native: Resource> {
     ergs: Ergs,
     native: Native,

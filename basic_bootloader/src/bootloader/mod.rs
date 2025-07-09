@@ -1,4 +1,3 @@
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 use constants::{MAX_TX_LEN_WORDS, TX_OFFSET_WORDS};
 use result_keeper::ResultKeeperExt;
@@ -26,6 +25,7 @@ pub mod errors;
 pub mod result_keeper;
 mod rlp;
 
+use alloc::boxed::Box;
 use core::alloc::Allocator;
 use core::fmt::Write;
 use core::mem::MaybeUninit;
@@ -36,9 +36,10 @@ use zk_ee::oracle::*;
 use crate::bootloader::account_models::{ExecutionOutput, ExecutionResult, TxProcessingResult};
 use crate::bootloader::block_header::BlockHeader;
 use crate::bootloader::config::BasicBootloaderExecutionConfig;
-use crate::bootloader::constants::{MAX_CALLSTACK_DEPTH, TX_OFFSET};
+use crate::bootloader::constants::TX_OFFSET;
 use crate::bootloader::errors::TxError;
 use crate::bootloader::result_keeper::*;
+use crate::bootloader::runner::RunnerMemoryBuffers;
 use system_hooks::HooksStorage;
 use zk_ee::system::*;
 use zk_ee::utils::*;
@@ -173,7 +174,6 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
     ) -> Result<<S::IO as IOSubsystemExt>::FinalData, InternalError>
     where
         S::IO: IOSubsystemExt,
-        S::Memory: MemorySubsystemExt,
     {
         cycle_marker::start!("run_prepared");
         // we will model initial calldata buffer as just another "heap"
@@ -182,17 +182,30 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
 
         let mut initial_calldata_buffer = TxDataBuffer::new(system.get_allocator());
 
-        // TODO: extend stack trait to construct it or use a provided function to generate it
+        pub const MAX_HEAP_BUFFER_SIZE: usize = 1 << 27; // 128 MB
+        pub const MAX_RETURN_BUFFER_SIZE: usize = 1 << 27; // 128 MB
 
-        let mut callstack_memory =
-            Box::new_uninit_slice_in(MAX_CALLSTACK_DEPTH, system.get_allocator());
-        let mut callstack = SliceVec::new(&mut callstack_memory);
+        let mut heaps = Box::new_uninit_slice_in(MAX_HEAP_BUFFER_SIZE, system.get_allocator());
+        let mut return_data =
+            Box::new_uninit_slice_in(MAX_RETURN_BUFFER_SIZE, system.get_allocator());
+        //let callstack = Box::new_uninit_slice_in(MAX_CALLSTACK_DEPTH, system.get_allocator());
+
+        let mut memories = RunnerMemoryBuffers {
+            heaps: &mut heaps,
+            return_data: &mut return_data,
+            //callstack: &mut callstack,
+        };
+
         let mut system_functions = HooksStorage::new_in(system.get_allocator());
 
         system_functions.add_precompiles();
-        system_functions.add_l1_messenger();
-        system_functions.add_l2_base_token();
-        system_functions.add_contract_deployer();
+
+        #[cfg(not(feature = "disable_system_contracts"))]
+        {
+            system_functions.add_l1_messenger();
+            system_functions.add_l2_base_token();
+            system_functions.add_contract_deployer();
+        }
 
         let mut tx_rolling_hash = [0u8; 32];
         let mut l1_to_l2_txs_hasher = crypto::blake2s::Blake2s256::new();
@@ -231,7 +244,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                 initial_calldata_buffer,
                 &mut system,
                 &mut system_functions,
-                &mut callstack,
+                memories.reborrow(),
                 first_tx,
             );
             cycle_marker::end!("process_transaction");
@@ -273,6 +286,8 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                         contract_address,
                         gas_used: tx_processing_result.gas_used,
                         gas_refunded: tx_processing_result.gas_refunded,
+                        #[cfg(feature = "report_native")]
+                        native_used: tx_processing_result.native_used,
                     }));
 
                     let mut keccak = Keccak256::new();
@@ -297,34 +312,36 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
 
             first_tx = false;
 
+            let coinbase = system.get_coinbase();
+            let mut inf_resources = S::Resources::FORMAL_INFINITE;
+            let bootloader_balance = system
+                .io
+                .read_account_properties(
+                    ExecutionEnvironmentType::NoEE,
+                    &mut inf_resources,
+                    &BOOTLOADER_FORMAL_ADDRESS,
+                    AccountDataRequest::empty().with_nominal_token_balance(),
+                )
+                .expect("must read bootloader balance")
+                .nominal_token_balance
+                .0;
+            if !bootloader_balance.is_zero() {
+                system
+                    .io
+                    .transfer_nominal_token_value(
+                        ExecutionEnvironmentType::NoEE,
+                        &mut inf_resources,
+                        &BOOTLOADER_FORMAL_ADDRESS,
+                        &coinbase,
+                        &bootloader_balance,
+                    )
+                    .expect("must be able to move funds to coinbase");
+            }
+
             let mut logger = system.get_logger();
             let _ = logger.write_fmt(format_args!("TX execution ends\n"));
             let _ = logger.write_fmt(format_args!("====================================\n"));
         }
-
-        let coinbase = system.get_coinbase();
-        let mut inf_resources = S::Resources::FORMAL_INFINITE;
-        let bootloader_balance = system
-            .io
-            .read_account_properties(
-                ExecutionEnvironmentType::NoEE,
-                &mut inf_resources,
-                &BOOTLOADER_FORMAL_ADDRESS,
-                AccountDataRequest::empty().with_nominal_token_balance(),
-            )
-            .expect("must read bootloader balance")
-            .nominal_token_balance
-            .0;
-        system
-            .io
-            .transfer_nominal_token_value(
-                ExecutionEnvironmentType::NoEE,
-                &mut inf_resources,
-                &BOOTLOADER_FORMAL_ADDRESS,
-                &coinbase,
-                &bootloader_balance,
-            )
-            .expect("must be able to move funds to coinbase");
 
         let block_number = system.get_block_number();
         let previous_block_hash = system.get_blockhash(block_number);

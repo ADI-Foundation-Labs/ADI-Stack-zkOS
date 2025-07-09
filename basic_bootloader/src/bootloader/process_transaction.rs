@@ -6,8 +6,8 @@ use crate::bootloader::account_models::AA;
 use crate::bootloader::config::BasicBootloaderExecutionConfig;
 use crate::bootloader::constants::UPGRADE_TX_NATIVE_PER_GAS;
 use crate::bootloader::errors::TxError::Validation;
-use crate::bootloader::errors::{InvalidAA, InvalidTransaction, TxError};
-use crate::bootloader::supported_ees::SupportedEEVMState;
+use crate::bootloader::errors::{InvalidTransaction, TxError};
+use crate::bootloader::runner::RunnerMemoryBuffers;
 use crate::{require, require_internal};
 use constants::L1_TX_INTRINSIC_NATIVE_COST;
 use constants::L1_TX_NATIVE_PRICE;
@@ -22,7 +22,7 @@ use gas_helpers::check_enough_resources_for_pubdata;
 use gas_helpers::get_resources_to_charge_for_pubdata;
 use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
 use system_hooks::HooksStorage;
-use zk_ee::memory::slice_vec::SliceVec;
+use zk_ee::internal_error;
 use zk_ee::system::errors::{FatalError, InternalError, SystemError, UpdateQueryError};
 use zk_ee::system::{EthereumLikeTypes, Resources};
 
@@ -35,7 +35,6 @@ struct ValidationResult {
 impl<S: EthereumLikeTypes> BasicBootloader<S>
 where
     S::IO: IOSubsystemExt,
-    S::Memory: MemorySubsystemExt,
 {
     ///
     /// Process transaction.
@@ -43,13 +42,13 @@ where
     /// We are passing callstack from outside to reuse its memory space between different transactions.
     /// It's expected to be empty.
     ///
-    pub fn process_transaction<Config: BasicBootloaderExecutionConfig>(
+    pub fn process_transaction<'a, Config: BasicBootloaderExecutionConfig>(
         initial_calldata_buffer: &mut [u8],
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
-        callstack: &mut SliceVec<SupportedEEVMState<S>>,
+        memories: RunnerMemoryBuffers<'a>,
         is_first_tx: bool,
-    ) -> Result<TxProcessingResult<S>, TxError> {
+    ) -> Result<TxProcessingResult<'a>, TxError> {
         let transaction = ZkSyncTransaction::try_from_slice(initial_calldata_buffer)
             .map_err(|_| TxError::Validation(InvalidTransaction::InvalidEncoding))?;
 
@@ -65,31 +64,31 @@ where
                     Self::process_l1_transaction(
                         system,
                         system_functions,
-                        callstack,
+                        memories,
                         transaction,
                         false,
                     )
                 }
             }
             ZkSyncTransaction::L1_L2_TX_TYPE => {
-                Self::process_l1_transaction(system, system_functions, callstack, transaction, true)
+                Self::process_l1_transaction(system, system_functions, memories, transaction, true)
             }
             _ => Self::process_l2_transaction::<Config>(
                 system,
                 system_functions,
-                callstack,
+                memories,
                 transaction,
             ),
         }
     }
 
-    fn process_l1_transaction(
+    fn process_l1_transaction<'a>(
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
-        callstack: &mut SliceVec<SupportedEEVMState<S>>,
+        memories: RunnerMemoryBuffers<'a>,
         transaction: ZkSyncTransaction,
         is_priority_op: bool,
-    ) -> Result<TxProcessingResult<S>, TxError> {
+    ) -> Result<TxProcessingResult<'a>, TxError> {
         // The work done by the bootloader (outside of EE or EOA specific
         // computation) is charged as part of the intrinsic gas cost.
         let gas_limit = transaction.gas_limit.read();
@@ -115,7 +114,7 @@ where
         };
         let native_per_pubdata = U256::from(gas_per_pubdata)
             .checked_mul(native_per_gas)
-            .ok_or(InternalError("gpp*npg"))?;
+            .ok_or(internal_error!("gpp*npg"))?;
 
         let (mut resources, withheld_resources) = get_resources_for_tx::<S>(
             gas_limit,
@@ -129,12 +128,12 @@ where
 
         let tx_internal_cost = gas_price
             .checked_mul(gas_limit as u128)
-            .ok_or(InternalError("gp*gl"))?;
+            .ok_or(internal_error!("gp*gl"))?;
         let value = transaction.value.read();
         let total_deposited = transaction.reserved[0].read();
         let needed_amount = value
             .checked_add(U256::from(tx_internal_cost))
-            .ok_or(InternalError("v+tic"))?;
+            .ok_or(internal_error!("v+tic"))?;
         require_internal!(
             total_deposited >= needed_amount,
             "Deposited amount too low",
@@ -148,7 +147,7 @@ where
             match transaction.calculate_hash(chain_id, &mut resources) {
                 Ok(h) => (h.into(), false),
                 Err(FatalError::Internal(e)) => return Err(e.into()),
-                Err(FatalError::OutOfNativeResources) => {
+                Err(FatalError::OutOfNativeResources(_)) => {
                     resources.exhaust_ergs();
                     // We need to compute the hash anyways, we do with inf resources
                     let mut inf_resources = S::Resources::FORMAL_INFINITE;
@@ -172,7 +171,7 @@ where
             match Self::execute_l1_transaction_and_notify_result(
                 system,
                 system_functions,
-                callstack,
+                memories,
                 &transaction,
                 from,
                 to,
@@ -192,26 +191,22 @@ where
                 }
                 // Out of native is converted to a top-level revert and
                 // gas is exhausted.
-                Err(FatalError::OutOfNativeResources) => {
+                Err(FatalError::OutOfNativeResources(_)) => {
                     resources.exhaust_ergs();
                     system.finish_global_frame(Some(&rollback_handle))?;
-                    callstack.clear();
-                    ExecutionResult::Revert {
-                        output: system.memory.empty_immutable_slice(),
-                    }
+                    ExecutionResult::Revert { output: &[] }
                 }
                 Err(FatalError::Internal(e)) => return Err(e.into()),
             }
         } else {
-            ExecutionResult::Revert {
-                output: system.memory.empty_immutable_slice(),
-            }
+            ExecutionResult::Revert { output: &[] }
         };
 
         // Compute gas to refund
         // TODO: consider operator refund
         let (_pubdata_spent, to_charge_for_pubdata) =
             get_resources_to_charge_for_pubdata(system, native_per_pubdata, None)?;
+        #[allow(unused_variables)]
         let (_, gas_used) = Self::compute_gas_refund(
             system,
             to_charge_for_pubdata,
@@ -224,7 +219,7 @@ where
         // We already checked that total_gas_refund <= gas_limit
         let pay_to_operator = U256::from(gas_used)
             .checked_mul(U256::from(gas_price))
-            .ok_or(InternalError("gu*gp"))?;
+            .ok_or(internal_error!("gu*gp"))?;
         let mut inf_resources = S::Resources::FORMAL_INFINITE;
 
         BasicBootloader::mint_token(
@@ -234,8 +229,8 @@ where
             &mut inf_resources,
         )
         .map_err(|e| match e {
-            SystemError::OutOfErgs => InternalError("Out of ergs on infinite ergs"),
-            SystemError::OutOfNativeResources => InternalError("Out of native on infinite"),
+            SystemError::OutOfErgs(_) => internal_error!("Out of ergs on infinite ergs"),
+            SystemError::OutOfNativeResources(_) => internal_error!("Out of native on infinite"),
             SystemError::Internal(i) => i,
         })?;
 
@@ -251,7 +246,7 @@ where
                 // that the user has deposited to the refund recipient
                 total_deposited
                     .checked_sub(pay_to_operator)
-                    .ok_or(InternalError("td-pto"))
+                    .ok_or(internal_error!("td-pto"))
             }
             ExecutionResult::Success { .. } => {
                 // If the transaction succeeds, then it is assumed that msg.value
@@ -260,10 +255,10 @@ where
                 // the refund recipient.
                 let value_plus_fee = value
                     .checked_add(pay_to_operator)
-                    .ok_or(InternalError("v+pto"))?;
+                    .ok_or(internal_error!("v+pto"))?;
                 total_deposited
                     .checked_sub(value_plus_fee)
-                    .ok_or(InternalError("td-vpf"))
+                    .ok_or(internal_error!("td-vpf"))
             }
         }?;
         if to_refund_recipient > U256::ZERO {
@@ -275,8 +270,10 @@ where
                 &mut inf_resources,
             )
             .map_err(|e| match e {
-                SystemError::OutOfErgs => InternalError("Out of ergs on infinite ergs"),
-                SystemError::OutOfNativeResources => InternalError("Out of native on infinite"),
+                SystemError::OutOfErgs(_) => internal_error!("Out of ergs on infinite ergs"),
+                SystemError::OutOfNativeResources(_) => {
+                    internal_error!("Out of native on infinite")
+                }
                 SystemError::Internal(i) => i,
             })?;
         }
@@ -298,13 +295,15 @@ where
             is_upgrade_tx: !is_priority_op,
             gas_used,
             gas_refunded: 0,
+            #[cfg(feature = "report_native")]
+            native_used: 0,
         })
     }
 
-    fn execute_l1_transaction_and_notify_result(
+    fn execute_l1_transaction_and_notify_result<'a>(
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
-        callstack: &mut SliceVec<SupportedEEVMState<S>>,
+        memories: RunnerMemoryBuffers<'a>,
         transaction: &ZkSyncTransaction,
         from: B160,
         to: B160,
@@ -312,7 +311,7 @@ where
         native_per_pubdata: U256,
         resources: &mut S::Resources,
         withheld_resources: S::Resources,
-    ) -> Result<ExecutionResult<S>, FatalError> {
+    ) -> Result<ExecutionResult<'a>, FatalError> {
         let _ = system
             .get_logger()
             .write_fmt(format_args!("Executing L1 transaction\n"));
@@ -330,10 +329,10 @@ where
                     BasicBootloader::mint_token(system, &value, &from, inf_resources)
                 })
                 .map_err(|e| match e {
-                    SystemError::OutOfErgs => {
-                        FatalError::Internal(InternalError("Out of ergs on infinite ergs"))
+                    SystemError::OutOfErgs(_) => {
+                        FatalError::Internal(internal_error!("Out of ergs on infinite ergs"))
                     }
-                    SystemError::OutOfNativeResources => FatalError::OutOfNativeResources,
+                    SystemError::OutOfNativeResources(loc) => FatalError::OutOfNativeResources(loc),
                     SystemError::Internal(i) => FatalError::Internal(i),
                 })?;
         }
@@ -354,7 +353,7 @@ where
         } = BasicBootloader::run_single_interaction(
             system,
             system_functions,
-            callstack,
+            memories,
             calldata,
             &from,
             &to,
@@ -399,12 +398,12 @@ where
         Ok(execution_result)
     }
 
-    fn process_l2_transaction<Config: BasicBootloaderExecutionConfig>(
+    fn process_l2_transaction<'a, Config: BasicBootloaderExecutionConfig>(
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
-        callstack: &mut SliceVec<SupportedEEVMState<S>>,
+        mut memories: RunnerMemoryBuffers<'a>,
         mut transaction: ZkSyncTransaction,
-    ) -> Result<TxProcessingResult<S>, TxError> {
+    ) -> Result<TxProcessingResult<'a>, TxError> {
         let from = transaction.from.read();
         let gas_limit = transaction.gas_limit.read();
         let calldata = transaction.calldata();
@@ -433,7 +432,7 @@ where
             transaction.max_priority_fee_per_gas.read(),
         )?;
         if native_price.is_zero() {
-            return Err(InternalError("Native price cannot be 0").into());
+            return Err(internal_error!("Native price cannot be 0").into());
         };
         let native_per_gas = if cfg!(feature = "resources_for_tester") {
             U256::from(crate::bootloader::constants::TESTER_NATIVE_PER_GAS)
@@ -444,7 +443,7 @@ where
         };
         let native_per_pubdata = U256::from(gas_per_pubdata)
             .checked_mul(native_per_gas)
-            .ok_or(InternalError("gpp*npg"))?;
+            .ok_or(internal_error!("gpp*npg"))?;
 
         let (mut resources, withheld_resources) = get_resources_for_tx::<S>(
             gas_limit,
@@ -509,7 +508,7 @@ where
             Self::transaction_validation::<Config>(
                 system,
                 system_functions,
-                callstack,
+                memories.reborrow(),
                 tx_hash,
                 suggested_signed_hash,
                 &mut transaction,
@@ -533,7 +532,7 @@ where
         let execution_result = match Self::transaction_execution(
             system,
             system_functions,
-            callstack,
+            memories,
             tx_hash,
             suggested_signed_hash,
             &mut transaction,
@@ -554,20 +553,18 @@ where
             }
             // Out of native is converted to a top-level revert and
             // gas is exhausted.
-            Err(FatalError::OutOfNativeResources) => {
+            Err(FatalError::OutOfNativeResources(_)) => {
                 let _ = system
                     .get_logger()
                     .write_fmt(format_args!("Transaction ran out of native resource\n"));
                 resources.exhaust_ergs();
                 system.finish_global_frame(Some(&rollback_handle))?;
-                callstack.clear();
-                ExecutionResult::Revert {
-                    output: system.memory.empty_immutable_slice(),
-                }
+                ExecutionResult::Revert { output: &[] }
             }
             Err(FatalError::Internal(e)) => return Err(e.into()),
         };
 
+        let resources_before_refund = resources.clone();
         // After the transaction is executed, we reclaim the withheld resources.
         // This is needed to ensure correct "gas_used" calculation, also these
         // resources could be spent for pubdata.
@@ -577,7 +574,6 @@ where
             Self::refund_transaction::<Config>(
                 system,
                 system_functions,
-                callstack,
                 tx_hash,
                 suggested_signed_hash,
                 &mut transaction,
@@ -606,7 +602,11 @@ where
         cycle_marker::log_marker(
             format!(
                 "Spent native for [process_transaction]: {}",
-                resources.diff(initial_resources).native().as_u64()
+                resources_before_refund
+                    .clone()
+                    .diff(initial_resources.clone())
+                    .native()
+                    .as_u64()
             )
             .as_str(),
         );
@@ -618,6 +618,11 @@ where
             is_upgrade_tx: false,
             gas_used,
             gas_refunded: 0,
+            #[cfg(feature = "report_native")]
+            native_used: resources_before_refund
+                .diff(initial_resources)
+                .native()
+                .as_u64(),
         })
     }
 
@@ -625,7 +630,7 @@ where
     fn transaction_validation<Config: BasicBootloaderExecutionConfig>(
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
-        callstack: &mut SliceVec<SupportedEEVMState<S>>,
+        mut memories: RunnerMemoryBuffers,
         tx_hash: Bytes32,
         suggested_signed_hash: Bytes32,
         transaction: &mut ZkSyncTransaction,
@@ -662,7 +667,7 @@ where
         account_model.validate(
             system,
             system_functions,
-            callstack,
+            memories.reborrow(),
             tx_hash,
             suggested_signed_hash,
             transaction,
@@ -689,7 +694,7 @@ where
         Self::ensure_payment::<Config>(
             system,
             system_functions,
-            callstack,
+            memories,
             tx_hash,
             suggested_signed_hash,
             transaction,
@@ -713,10 +718,10 @@ where
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn transaction_execution(
+    fn transaction_execution<'a>(
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
-        callstack: &mut SliceVec<SupportedEEVMState<S>>,
+        memories: RunnerMemoryBuffers<'a>,
         tx_hash: Bytes32,
         suggested_signed_hash: Bytes32,
         transaction: &mut ZkSyncTransaction,
@@ -725,7 +730,7 @@ where
         validation_pubdata: u64,
         current_tx_nonce: u64,
         resources: &mut S::Resources,
-    ) -> Result<ExecutionResult<S>, FatalError> {
+    ) -> Result<ExecutionResult<'a>, FatalError> {
         let _ = system
             .get_logger()
             .write_fmt(format_args!("Start of execution\n"));
@@ -736,7 +741,7 @@ where
         let execution_result = account_model.execute(
             system,
             system_functions,
-            callstack,
+            memories,
             tx_hash,
             suggested_signed_hash,
             transaction,
@@ -767,7 +772,7 @@ where
     fn ensure_payment<Config: BasicBootloaderExecutionConfig>(
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
-        callstack: &mut SliceVec<SupportedEEVMState<S>>,
+        mut memories: RunnerMemoryBuffers,
         tx_hash: Bytes32,
         suggested_signed_hash: Bytes32,
         transaction: &mut ZkSyncTransaction,
@@ -789,7 +794,7 @@ where
         })?;
         let required_funds = gas_price
             .checked_mul(U256::from(transaction.gas_limit.read()))
-            .ok_or(InternalError("gp*gl"))?;
+            .ok_or(internal_error!("gp*gl"))?;
         // First we charge the fees, then we verify the bootloader got
         // the funds.
         // Paymaster flow is only allowed when AA is enabled.
@@ -799,7 +804,7 @@ where
             account_model.pre_paymaster(
                 system,
                 system_functions,
-                callstack,
+                memories.reborrow(),
                 tx_hash,
                 suggested_signed_hash,
                 transaction,
@@ -812,7 +817,7 @@ where
             let return_values = Self::validate_and_pay_for_paymaster_transaction(
                 system,
                 system_functions,
-                callstack,
+                memories.reborrow(),
                 transaction,
                 tx_hash,
                 suggested_signed_hash,
@@ -829,7 +834,7 @@ where
             account_model.pay_for_transaction(
                 system,
                 system_functions,
-                callstack,
+                memories,
                 tx_hash,
                 suggested_signed_hash,
                 transaction,
@@ -850,20 +855,20 @@ where
         })?;
         let bootloader_received_funds = bootloader_balance_after
             .checked_sub(bootloader_balance_before)
-            .ok_or(InternalError("bba-bbb"))?;
+            .ok_or(internal_error!("bba-bbb"))?;
         // If the amount of funds provided to the bootloader is less than the minimum required one
         // then this transaction should be rejected.
         require!(
             bootloader_received_funds >= required_funds,
-            InvalidTransaction::AAValidationError(InvalidAA::ReceivedInsufficientFees {
+            InvalidTransaction::ReceivedInsufficientFees {
                 received: bootloader_received_funds,
                 required: required_funds
-            }),
+            },
             system
         )?;
         let excessive_funds = bootloader_received_funds
             .checked_sub(required_funds)
-            .ok_or(InternalError("brf-rf"))?;
+            .ok_or(internal_error!("brf-rf"))?;
         if excessive_funds > U256::ZERO {
             resources
                 .with_infinite_ergs(|inf_resources| {
@@ -876,7 +881,7 @@ where
                     )
                 })
                 .map_err(|e| match e {
-                    UpdateQueryError::NumericBoundsError => SystemError::Internal(InternalError(
+                    UpdateQueryError::NumericBoundsError => SystemError::Internal(internal_error!(
                         "Bootloader cannot return excessive funds",
                     )),
                     UpdateQueryError::System(e) => e,
@@ -915,12 +920,11 @@ where
     fn refund_transaction<Config: BasicBootloaderExecutionConfig>(
         system: &mut System<S>,
         _system_functions: &mut HooksStorage<S, S::Allocator>,
-        _callstack: &mut SliceVec<SupportedEEVMState<S>>,
         _tx_hash: Bytes32,
         _suggested_signed_hash: Bytes32,
         transaction: &mut ZkSyncTransaction,
         from: B160,
-        execution_result: &ExecutionResult<S>,
+        execution_result: &ExecutionResult,
         gas_price: U256,
         native_per_gas: U256,
         native_per_pubdata: U256,
@@ -975,7 +979,7 @@ where
         )?;
         let token_to_refund = total_gas_refund
             .checked_mul(gas_price)
-            .ok_or(InternalError("tgf*gp"))?;
+            .ok_or(internal_error!("tgf*gp"))?;
         let mut inf_resources = S::Resources::FORMAL_INFINITE;
         system
             .io
@@ -988,13 +992,13 @@ where
             )
             .map_err(|e| match e {
                 UpdateQueryError::NumericBoundsError => {
-                    InternalError("Bootloader cannot pay for refund")
+                    internal_error!("Bootloader cannot pay for refund")
                 }
-                UpdateQueryError::System(SystemError::OutOfErgs) => {
-                    InternalError("should transfer refund")
+                UpdateQueryError::System(SystemError::OutOfErgs(_)) => {
+                    internal_error!("should transfer refund")
                 }
-                UpdateQueryError::System(SystemError::OutOfNativeResources) => {
-                    InternalError("should transfer refund")
+                UpdateQueryError::System(SystemError::OutOfNativeResources(_)) => {
+                    internal_error!("should transfer refund")
                 }
                 UpdateQueryError::System(SystemError::Internal(e)) => e,
             })?;

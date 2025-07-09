@@ -17,6 +17,7 @@ use zk_ee::common_structs::EventContent;
 use zk_ee::common_structs::LogContent;
 use zk_ee::common_structs::WarmStorageKey;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
+use zk_ee::internal_error;
 use zk_ee::utils::Bytes32;
 use zk_ee::utils::NopHasher;
 use zk_ee::{
@@ -41,11 +42,20 @@ impl<R: Resources> StorageAccessPolicy<R, Bytes32> for EthereumLikeStorageAccess
         &self,
         ee_type: ExecutionEnvironmentType,
         resources: &mut R,
+        is_access_list: bool,
     ) -> Result<(), SystemError> {
         let ergs = match ee_type {
-            ExecutionEnvironmentType::NoEE => Ergs::empty(),
+            ExecutionEnvironmentType::NoEE => {
+                // For access lists, EVM charges the full cost as many
+                // times as a slot is in the list.
+                if is_access_list {
+                    Ergs(1900 * ERGS_PER_GAS)
+                } else {
+                    Ergs::empty()
+                }
+            }
             ExecutionEnvironmentType::EVM => Ergs(WARM_STORAGE_READ_COST * ERGS_PER_GAS),
-            _ => return Err(InternalError("Unsupported EE").into()),
+            _ => return Err(internal_error!("Unsupported EE").into()),
         };
         let native = R::Native::from_computational(
             crate::system_implementation::flat_storage_model::cost_constants::WARM_STORAGE_READ_NATIVE_COST,
@@ -58,23 +68,13 @@ impl<R: Resources> StorageAccessPolicy<R, Bytes32> for EthereumLikeStorageAccess
         ee_type: ExecutionEnvironmentType,
         resources: &mut R,
         is_new_slot: bool,
-        is_access_list: bool,
     ) -> Result<(), SystemError> {
         let ergs = match ee_type {
-            ExecutionEnvironmentType::NoEE => {
-                // Access list accesses are always done in NoEE.
-                // Note that, for that reason, the warm cost isn't charged,
-                // so here we charge full cold cost.
-                if is_access_list {
-                    Ergs(1900 * ERGS_PER_GAS)
-                } else {
-                    Ergs::empty()
-                }
-            }
+            ExecutionEnvironmentType::NoEE => Ergs::empty(),
             ExecutionEnvironmentType::EVM => {
                 Ergs((COLD_SLOAD_COST - WARM_STORAGE_READ_COST) * ERGS_PER_GAS)
             }
-            _ => return Err(InternalError("Unsupported EE").into()),
+            _ => return Err(internal_error!("Unsupported EE").into()),
         };
         let native = if is_new_slot {
             R::Native::from_computational(
@@ -121,7 +121,7 @@ impl<R: Resources> StorageAccessPolicy<R, Bytes32> for EthereumLikeStorageAccess
 
                 Ergs(total_cost * ERGS_PER_GAS)
             }
-            _ => return Err(InternalError("Unsupported EE").into()),
+            _ => return Err(internal_error!("Unsupported EE").into()),
         };
         let native = if is_new_slot {
             R::Native::from_computational(

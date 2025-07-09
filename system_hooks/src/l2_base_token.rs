@@ -8,16 +8,17 @@ use core::fmt::Write;
 use errors::UpdateQueryError;
 use ruint::aliases::{B160, U256};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
+use zk_ee::internal_error;
 use zk_ee::system::errors::SystemError;
 use zk_ee::system::logger::Logger;
 
-pub fn l2_base_token_hook<S: EthereumLikeTypes>(
+pub fn l2_base_token_hook<'a, S: EthereumLikeTypes>(
     request: ExternalCallRequest<S>,
     caller_ee: u8,
     system: &mut System<S>,
-) -> Result<CompletedExecution<S>, FatalError>
+    return_memory: &'a mut [MaybeUninit<u8>],
+) -> Result<(CompletedExecution<'a, S>, &'a mut [MaybeUninit<u8>]), FatalError>
 where
-    S::Memory: MemorySubsystemExt,
     S::IO: IOSubsystemExt,
 {
     let ExternalCallRequest {
@@ -38,7 +39,9 @@ where
     let mut is_static = false;
     match modifier {
         CallModifier::Constructor => {
-            return Err(InternalError("L2 base token hook called with constructor modifier").into())
+            return Err(
+                internal_error!("L2 base token hook called with constructor modifier").into(),
+            )
         }
         CallModifier::Delegate
         | CallModifier::DelegateStatic
@@ -53,7 +56,7 @@ where
     }
 
     if error {
-        return Ok(make_error_return_state(system, available_resources));
+        return Ok((make_error_return_state(available_resources), return_memory));
     }
 
     let mut resources = available_resources;
@@ -70,7 +73,6 @@ where
 
     match result {
         Ok(Ok(return_data)) => Ok(make_return_state_from_returndata_region(
-            system,
             resources,
             return_data,
         )),
@@ -78,17 +80,18 @@ where
             let _ = system
                 .get_logger()
                 .write_fmt(format_args!("Revert: {:?}\n", e));
-            Ok(make_error_return_state(system, resources))
+            Ok(make_error_return_state(resources))
         }
-        Err(SystemError::OutOfErgs) => {
+        Err(SystemError::OutOfErgs(_)) => {
             let _ = system
                 .get_logger()
                 .write_fmt(format_args!("Out of gas during system hook\n"));
-            Ok(make_error_return_state(system, resources))
+            Ok(make_error_return_state(resources))
         }
-        Err(SystemError::OutOfNativeResources) => Err(FatalError::OutOfNativeResources),
+        Err(SystemError::OutOfNativeResources(loc)) => Err(FatalError::OutOfNativeResources(loc)),
         Err(SystemError::Internal(e)) => Err(e.into()),
     }
+    .map(|x| (x, return_memory))
 }
 
 // withdraw(address) - 51cff8d9
@@ -108,13 +111,7 @@ fn l2_base_token_hook_inner<S: EthereumLikeTypes>(
     caller_ee: u8,
     nominal_token_value: U256,
     is_static: bool,
-) -> Result<
-    Result<
-        <<S::Memory as MemorySubsystem>::ManagedRegion as OSManagedRegion>::OSManagedImmutableSlice,
-        &'static str,
-    >,
-    SystemError,
->
+) -> Result<Result<&'static [u8], &'static str>, SystemError>
 where
     S::IO: IOSubsystemExt,
 {
@@ -158,7 +155,7 @@ where
             ) {
                 Ok(_) => Ok(()),
                 Err(UpdateQueryError::NumericBoundsError) => Err(SystemError::Internal(
-                    InternalError("L2 base token must have withdrawal amount"),
+                    internal_error!("L2 base token must have withdrawal amount"),
                 )),
                 Err(UpdateQueryError::System(e)) => Err(e),
             }?;
@@ -187,8 +184,7 @@ where
             )?;
 
             // TODO: emit event for withdrawal for Era compatibility
-            let return_data = system.memory.empty_immutable_slice();
-            Ok(Ok(return_data))
+            Ok(Ok(&[]))
         }
         s if s == WITHDRAW_WITH_MESSAGE_SELECTOR => {
             if is_static {
@@ -258,7 +254,7 @@ where
             ) {
                 Ok(_) => Ok(()),
                 Err(UpdateQueryError::NumericBoundsError) => Err(SystemError::Internal(
-                    InternalError("L2 base token must have withdrawal amount"),
+                    internal_error!("L2 base token must have withdrawal amount"),
                 )),
                 Err(UpdateQueryError::System(e)) => Err(e),
             }?;
@@ -288,8 +284,7 @@ where
             )?;
 
             // TODO: emit event for Era compatibility
-            let return_data = system.memory.empty_immutable_slice();
-            Ok(Ok(return_data))
+            Ok(Ok(&[]))
         }
         _ => Ok(Err("L2 base token: unknown selector")),
     }

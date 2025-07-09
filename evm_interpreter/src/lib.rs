@@ -5,6 +5,7 @@
 #![feature(generic_const_exprs)]
 #![feature(vec_push_within_capacity)]
 #![feature(slice_swap_unchecked)]
+#![feature(ptr_as_ref_unchecked)]
 #![allow(clippy::new_without_default)]
 #![allow(clippy::needless_lifetimes)]
 #![allow(clippy::needless_borrow)]
@@ -19,19 +20,21 @@ extern crate alloc;
 
 use core::ops::Range;
 
+use evm_stack::EvmStack;
+use gas::Gas;
 use ruint::aliases::U256;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
+use zk_ee::memory::slice_vec::SliceVec;
 use zk_ee::system::errors::{FatalError, InternalError, SystemError};
-use zk_ee::system::{
-    EthereumLikeTypes, MemorySubsystem, OSImmutableSlice, OSResizableSlice, Resource, System,
-    SystemTypes,
-};
+use zk_ee::system::{EthereumLikeTypes, Resource, System, SystemTypes};
 
 use alloc::vec::Vec;
-use zk_ee::types_config::*;
 use zk_ee::utils::*;
+use zk_ee::{internal_error, types_config::*};
 
 mod ee_trait_impl;
+mod evm_stack;
+pub mod gas;
 pub mod gas_constants;
 pub mod i256;
 pub mod instructions;
@@ -48,10 +51,10 @@ pub(crate) const THIS_EE_TYPE: ExecutionEnvironmentType = ExecutionEnvironmentTy
 pub struct Interpreter<'a, S: EthereumLikeTypes> {
     /// Instruction pointer.
     pub instruction_pointer: usize,
-    /// Generic resources
-    pub resources: S::Resources,
+    /// Implementation of gas accounting on top of system resources.
+    pub gas: Gas<S>,
     /// Stack.
-    pub stack: Vec<U256, <S::Memory as MemorySubsystem>::Allocator>,
+    pub stack: EvmStack<S::Allocator>,
     /// Caller address
     pub caller: <S::IOTypes as SystemIOTypesConfig>::Address,
     /// Contract information and invoking data
@@ -59,9 +62,9 @@ pub struct Interpreter<'a, S: EthereumLikeTypes> {
     /// calldata
     pub calldata: &'a [u8],
     /// returndata is available from here if it exists
-    pub returndata: OSImmutableSlice<S>,
+    pub returndata: &'a [u8],
     /// Heap that belongs to this interpreter, can be resided
-    pub heap: OSResizableSlice<S>,
+    pub heap: SliceVec<'a, u8>,
     /// returndata location serves to save range information at various points
     pub returndata_location: Range<usize>,
     /// Bytecode
@@ -74,8 +77,6 @@ pub struct Interpreter<'a, S: EthereumLikeTypes> {
     pub is_static: bool,
     /// Is interpreter call executing construction code.
     pub is_constructor: bool,
-    /// Keep track of gas spent on heap resizes
-    pub gas_paid_for_heap_growth: u64,
 }
 
 pub const STACK_SIZE: usize = 1024;
@@ -126,13 +127,13 @@ impl<S: SystemTypes> BytecodePreprocessingData<S> {
             .charge(&S::Resources::from_native(native_cost))
             .map_err(|e| match e {
                 SystemError::Internal(e) => FatalError::Internal(e),
-                SystemError::OutOfErgs => {
-                    FatalError::Internal(InternalError("OOE when charging only native"))
+                SystemError::OutOfErgs(_) => {
+                    FatalError::Internal(internal_error!("OOE when charging only native"))
                 }
-                SystemError::OutOfNativeResources => FatalError::OutOfNativeResources,
+                SystemError::OutOfNativeResources(loc) => FatalError::OutOfNativeResources(loc),
             })?;
         let jump_map = analyze::<S>(padded_bytecode, system)
-            .map_err(|_| InternalError("Could not preprocess bytecode"))?;
+            .map_err(|_| internal_error!("Could not preprocess bytecode"))?;
         let new = Self {
             original_bytecode_len: original_len as usize,
             jumpdest_bitmap: jump_map,
@@ -143,7 +144,7 @@ impl<S: SystemTypes> BytecodePreprocessingData<S> {
 }
 
 pub struct BitMap<S: SystemTypes> {
-    inner: Vec<usize, <S::Memory as MemorySubsystem>::Allocator>,
+    inner: Vec<usize, S::Allocator>,
 }
 
 impl<S: SystemTypes> BitMap<S> {
@@ -276,8 +277,10 @@ impl From<SystemError> for ExitCode {
     fn from(e: SystemError) -> Self {
         match e {
             SystemError::Internal(e) => Self::FatalError(FatalError::Internal(e)),
-            SystemError::OutOfNativeResources => Self::FatalError(FatalError::OutOfNativeResources),
-            SystemError::OutOfErgs => Self::OutOfGas,
+            SystemError::OutOfNativeResources(loc) => {
+                Self::FatalError(FatalError::OutOfNativeResources(loc))
+            }
+            SystemError::OutOfErgs(_) => Self::OutOfGas,
         }
     }
 }
