@@ -345,7 +345,7 @@ mod tests {
             } else {
                 prop_assert_eq!(res1.unwrap(), res2.unwrap());
             }
-            
+
             prop_assert_eq!(x1.bit(bit_idx), x2.bit(bit_idx));
         });
 
