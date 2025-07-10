@@ -19,7 +19,7 @@ fn run_precompile(
     precompile_id: &str,
     gas: Option<impl Into<rig::ethers::prelude::U256>>,
     input: &[u8],
-    path: Option<PathBuf>
+    path: Option<PathBuf>,
 ) -> BatchOutput {
     let gas = match gas {
         Some(x) => x.into(),
@@ -622,7 +622,6 @@ fn create_flamegraph_dir(_path: &str) -> Option<PathBuf> {
 
 #[test]
 fn test_precompiles() {
-
     let flamegraphs_dir = create_flamegraph_dir("flamegraphs");
 
     for test in TESTS.iter() {
@@ -630,7 +629,9 @@ fn test_precompiles() {
         let expected = hex::decode(test.expected).unwrap();
         dbg!(test.name);
 
-        let path = flamegraphs_dir.clone().map(|p| p.join(format!("/{}.svg", test.name)));
+        let path = flamegraphs_dir
+            .clone()
+            .map(|p| p.join(format!("/{}.svg", test.name)));
         let tx_result = run_precompile(test.precompile_id, None::<u64>, &input, path)
             .tx_results
             .first()
@@ -682,7 +683,7 @@ fn test_modexp_out_of_gas() {
         "0000000000000000000000000000000000000005",
         Some(50_000),
         &input,
-        None
+        None,
     );
     let res = b.tx_results.first().unwrap().clone().unwrap();
 
@@ -708,7 +709,7 @@ fn test_modexp_out_of_gas_ref() {
         "0000000000000000000000000000000000000005",
         Some(50_000),
         &input,
-        None
+        None,
     )
     .tx_results
     .first()
@@ -732,7 +733,7 @@ fn test_modexp_out_of_gas_ref() {
         "0000000000000000000000000000000000000005",
         Some(50_000),
         &input,
-        None
+        None,
     )
     .tx_results
     .first()
@@ -756,7 +757,7 @@ fn test_modexp_out_of_gas_ref() {
         "0000000000000000000000000000000000000005",
         Some(50_000),
         &input,
-        None
+        None,
     )
     .tx_results
     .first()
@@ -780,7 +781,7 @@ fn test_modexp_out_of_gas_ref() {
         "0000000000000000000000000000000000000005",
         Some(50_000),
         &input,
-        None
+        None,
     )
     .tx_results
     .first()
@@ -847,7 +848,7 @@ fn test_ecpairing_precompile_invalid_input() {
         "0000000000000000000000000000000000000008",
         Some(50_000),
         &input,
-        None
+        None,
     )
     .tx_results
     .first()
@@ -882,7 +883,7 @@ fn test_modexp_gas_cost_correct() {
         "0000000000000000000000000000000000000005",
         None::<u64>,
         &input,
-        None
+        None,
     )
     .tx_results
     .first()
@@ -914,7 +915,7 @@ fn test_ecpairing_gas_burned_if_input_invalid() {
         "0000000000000000000000000000000000000005",
         Some(50_000),
         &input,
-        None
+        None,
     )
     .tx_results
     .first()
@@ -937,7 +938,7 @@ fn bench_sha() {
             "0000000000000000000000000000000000000002",
             None::<u64>,
             &input,
-            None
+            None,
         )
         .tx_results
         .first()
@@ -958,7 +959,7 @@ fn bench_ripemd() {
             "0000000000000000000000000000000000000003",
             None::<u64>,
             &input,
-            None
+            None,
         )
         .tx_results
         .first()
@@ -979,7 +980,7 @@ fn bench_id() {
             "0000000000000000000000000000000000000004",
             None::<u64>,
             &input,
-            None
+            None,
         )
         .tx_results
         .first()
@@ -1000,7 +1001,7 @@ fn bench_keccak() {
             "000000000000000000000000000000000000000b",
             None::<u64>,
             &input,
-            None
+            None,
         )
         .tx_results
         .first()
@@ -1029,7 +1030,7 @@ fn bench_ecpairing() {
             "0000000000000000000000000000000000000008",
             None::<u64>,
             &input,
-            None
+            None,
         )
         .tx_results
         .first()
@@ -1086,7 +1087,7 @@ fn bench_modexp() {
             "0000000000000000000000000000000000000005",
             None::<u64>,
             &input,
-            None
+            None,
         )
         .tx_results
         .first()
