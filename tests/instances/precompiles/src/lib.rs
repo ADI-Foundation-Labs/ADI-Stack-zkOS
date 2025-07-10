@@ -630,8 +630,9 @@ fn test_precompiles() {
         dbg!(test.name);
 
         let path = flamegraphs_dir
-            .clone()
-            .map(|p| p.join(format!("/{}.svg", test.name)));
+            .as_ref()
+            .map(|p| p.join(format!("{}.svg", test.name)));
+        
         let tx_result = run_precompile(test.precompile_id, None::<u64>, &input, path)
             .tx_results
             .first()
