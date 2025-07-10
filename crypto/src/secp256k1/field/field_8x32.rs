@@ -1,8 +1,8 @@
 use crate::ark_ff_delegation::BigIntMacro;
 use crate::bigint_arithmatic::u256::*;
 use crate::k256::FieldBytes;
-use bigint_riscv::DelegatedU256;
 use core::mem::MaybeUninit;
+use delegated_u256::DelegatedU256;
 
 use super::field_10x26::FieldStorage10x26;
 
@@ -259,7 +259,7 @@ mod tests {
 
     fn init() {
         crate::secp256k1::init();
-        bigint_riscv::init();
+        delegated_u256::init();
     }
 
     #[ignore = "requires single threaded runner"]

@@ -1,7 +1,7 @@
 use crate::bigint_arithmatic::u256::{self, DelegatedModParams, DelegatedMontParams};
-use bigint_riscv::DelegatedU256;
 use core::mem::MaybeUninit;
 use core::ops::{AddAssign, MulAssign, SubAssign};
+use delegated_u256::DelegatedU256;
 
 #[derive(Clone, Default, PartialEq, Eq, Debug)]
 pub struct FieldElement(pub(super) DelegatedU256);

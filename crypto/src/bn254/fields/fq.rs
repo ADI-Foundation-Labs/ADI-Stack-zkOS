@@ -14,8 +14,8 @@ use crate::ark_ff_delegation::{BigInt, BigIntMacro, Fp, Fp256, MontBackend, Mont
 use crate::bigint_arithmatic::u256::*;
 use ark_ff::ark_ff_macros::unroll_for_loops;
 use ark_ff::{AdditiveGroup, Zero};
-use bigint_riscv::DelegatedU256;
 use core::mem::MaybeUninit;
+use delegated_u256::DelegatedU256;
 
 type B = BigInt<4>;
 type F = Fp<MontBackend<FqConfig, 4usize>, 4usize>;

@@ -2,7 +2,7 @@ use crate::ark_ff_delegation::BigInt;
 use core::{borrow, mem::MaybeUninit};
 
 use super::u256;
-use bigint_riscv::*;
+use delegated_u256::*;
 
 #[inline(always)]
 pub fn from_ark_ref(a: &BigInt<8>) -> &DelegatedU512 {

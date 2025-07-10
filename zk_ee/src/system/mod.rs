@@ -87,10 +87,10 @@ impl<S: SystemTypes> System<S> {
         self.metadata.block_level_metadata.block_number
     }
 
-    pub fn get_mix_hash(&self) -> &U256 {
+    pub fn get_mix_hash(&self) -> U256 {
         #[cfg(feature = "prevrandao")]
         {
-            self.metadata.block_level_metadata.mix_hash
+            self.metadata.block_level_metadata.mix_hash.clone()
         }
 
         #[cfg(not(feature = "prevrandao"))]

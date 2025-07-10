@@ -6,7 +6,7 @@ use core::mem::MaybeUninit;
 use crate::ark_ff_delegation::{BigInt, BigIntMacro, Fp, Fp256, MontBackend, MontConfig};
 use crate::bigint_arithmatic::u256::*;
 use ark_ff::{AdditiveGroup, Zero};
-use bigint_riscv::DelegatedU256;
+use delegated_u256::DelegatedU256;
 
 #[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
 pub fn init() {

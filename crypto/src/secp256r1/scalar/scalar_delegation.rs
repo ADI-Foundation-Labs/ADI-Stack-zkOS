@@ -2,7 +2,7 @@ use core::mem::MaybeUninit;
 
 use crate::bigint_arithmatic::u256::{self, DelegatedModParams, DelegatedMontParams};
 use crate::secp256r1::Secp256r1Err;
-use bigint_riscv::DelegatedU256;
+use delegated_u256::DelegatedU256;
 
 static mut MODULUS: MaybeUninit<DelegatedU256> = MaybeUninit::uninit();
 static mut REDUCTION_CONST: MaybeUninit<DelegatedU256> = MaybeUninit::uninit();

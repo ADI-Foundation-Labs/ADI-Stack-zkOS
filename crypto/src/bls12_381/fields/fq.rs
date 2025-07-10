@@ -40,8 +40,8 @@ pub type Fq = Fp512<MontBackend<FqConfig, NUM_LIMBS>>;
 use crate::ark_ff_delegation::{BigInt, BigIntMacro, Fp, Fp512, MontBackend, MontConfig};
 use crate::bigint_arithmatic::u512::*;
 use ark_ff::{AdditiveGroup, Field, Zero};
-use bigint_riscv::DelegatedU256;
 use core::mem::MaybeUninit;
+use delegated_u256::DelegatedU256;
 
 type B = BigInt<NUM_LIMBS>;
 type F = Fp<MontBackend<FqConfig, NUM_LIMBS>, NUM_LIMBS>;

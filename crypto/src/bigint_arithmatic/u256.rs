@@ -1,7 +1,7 @@
 use crate::ark_ff_delegation::BigInt;
 use core::{borrow, fmt::Debug, marker::PhantomData, mem::MaybeUninit};
 
-use bigint_riscv::*;
+use delegated_u256::*;
 
 #[inline(always)]
 pub fn from_ark_ref(a: &BigInt<4>) -> &DelegatedU256 {

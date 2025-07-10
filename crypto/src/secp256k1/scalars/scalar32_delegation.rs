@@ -1,6 +1,6 @@
 use crate::bigint_arithmatic::u256::*;
-use bigint_riscv::DelegatedU256;
 use core::mem::MaybeUninit;
+use delegated_u256::DelegatedU256;
 
 const _: () = const {
     assert!(core::mem::size_of::<crate::k256::Scalar>() == core::mem::size_of::<ScalarInner>());
