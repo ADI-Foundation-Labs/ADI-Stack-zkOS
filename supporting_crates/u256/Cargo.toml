@@ -11,9 +11,12 @@ categories.workspace = true
 
 [dependencies]
 ruint = { version = "1.14", default-features = false }
-bigint_riscv = { path = "../bigint_riscv" }
+delegated_u256 = { path = "../delegated_u256" }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 
 [features]
-serde = ["ruint/serde", "bigint_riscv/serde"]
+serde = ["ruint/serde", "delegated_u256/serde"]
 delegation = []
+
+[dev-dependencies]
+proptest = "1.7.0"

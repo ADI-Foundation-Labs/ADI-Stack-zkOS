@@ -11,8 +11,7 @@ categories.workspace = true
 
 [dependencies]
 zk_ee = { path = "../zk_ee", default-features = false }
-ruint = { version = "1.14", default-features = false, features = ["alloc"] }
-crypto = { path = "../crypto", default-features = false }
+ruint = { version = "1.12.3", default-features = false, features = ["alloc"] }
 evm_interpreter = { path = "../evm_interpreter", default-features = false }
 cycle_marker = { path = "../cycle_marker" }
 u256 = { path = "../supporting_crates/u256" }

@@ -42,7 +42,7 @@ impl core::fmt::LowerHex for U256 {
 
 impl U256 {
     pub const ZERO: Self = Self(ruint::aliases::U256::ZERO);
-    const ONE: Self = Self(ruint::aliases::U256::ONE);
+    pub const ONE: Self = Self(ruint::aliases::U256::ONE);
 
     pub const BYTES: usize = 32;
 
@@ -50,6 +50,8 @@ impl U256 {
         Self(ruint::aliases::U256::from_limbs(limbs))
     }
 
+    /// # Safety
+    /// `dst` must by 32 byte aligned and point to 32 bytes of accessible memory.
     pub unsafe fn write_into_ptr(dst: *mut Self, source: &Self) {
         unsafe {
             dst.write(Self(source.0));
@@ -202,6 +204,8 @@ impl U256 {
     }
 
     #[inline(always)]
+    /// # Safety
+    /// `into` must be 32 byte aligned and point to 32 bytes of accessible memory
     pub unsafe fn write_zero_into_ptr(into: *mut Self) {
         unsafe {
             into.write(Self::ZERO);
@@ -209,6 +213,8 @@ impl U256 {
     }
 
     #[inline(always)]
+    /// # Safety
+    /// `into` must be 32 byte aligned and point to 32 bytes of accessible memory
     pub unsafe fn write_one_into_ptr(into: *mut Self) {
         unsafe {
             into.write(Self::ONE);
@@ -251,15 +257,15 @@ impl U256 {
     }
 
     pub fn checked_add(&self, rhs: &Self) -> Option<Self> {
-        self.0.checked_add(rhs.0).map(|el| Self(el))
+        self.0.checked_add(rhs.0).map(Self)
     }
 
     pub fn checked_sub(&self, rhs: &Self) -> Option<Self> {
-        self.0.checked_sub(rhs.0).map(|el| Self(el))
+        self.0.checked_sub(rhs.0).map(Self)
     }
 
     pub fn checked_mul(&self, rhs: &Self) -> Option<Self> {
-        self.0.checked_mul(rhs.0).map(|el| Self(el))
+        self.0.checked_mul(rhs.0).map(Self)
     }
 }
 
@@ -301,10 +307,9 @@ impl From<u128> for U256 {
     }
 }
 
-impl Into<ruint::aliases::U256> for U256 {
-    #[inline(always)]
-    fn into(self) -> ruint::aliases::U256 {
-        self.0
+impl From<U256> for ruint::aliases::U256 {
+    fn from(value: U256) -> Self {
+        value.0
     }
 }
 
@@ -312,14 +317,14 @@ impl TryInto<usize> for U256 {
     type Error = ruint::FromUintError<()>;
 
     fn try_into(self) -> Result<usize, Self::Error> {
-        if self.as_limbs()[3] != 0 || self.as_limbs()[2] != 0 || self.as_limbs()[1] != 0 {
+        if self.as_limbs()[3] != 0
+            || self.as_limbs()[2] != 0
+            || self.as_limbs()[1] != 0
+            || self.as_limbs()[0] > usize::MAX as u64
+        {
             Err(ruint::FromUintError::Overflow(usize::BITS as usize, (), ()))
         } else {
-            if self.as_limbs()[0] > usize::MAX as u64 {
-                Err(ruint::FromUintError::Overflow(usize::BITS as usize, (), ()))
-            } else {
-                Ok(self.as_limbs()[0] as usize)
-            }
+            Ok(self.as_limbs()[0] as usize)
         }
     }
 }

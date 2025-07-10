@@ -9,6 +9,7 @@ use errors::UpdateQueryError;
 use ruint::aliases::B160;
 use u256::U256;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
+use zk_ee::internal_error;
 use zk_ee::system::errors::SystemError;
 use zk_ee::system::logger::Logger;
 
@@ -39,7 +40,9 @@ where
     let mut is_static = false;
     match modifier {
         CallModifier::Constructor => {
-            return Err(InternalError("L2 base token hook called with constructor modifier").into())
+            return Err(
+                internal_error!("L2 base token hook called with constructor modifier").into(),
+            )
         }
         CallModifier::Delegate
         | CallModifier::DelegateStatic
@@ -80,13 +83,13 @@ where
                 .write_fmt(format_args!("Revert: {:?}\n", e));
             Ok(make_error_return_state(resources))
         }
-        Err(SystemError::OutOfErgs) => {
+        Err(SystemError::OutOfErgs(_)) => {
             let _ = system
                 .get_logger()
                 .write_fmt(format_args!("Out of gas during system hook\n"));
             Ok(make_error_return_state(resources))
         }
-        Err(SystemError::OutOfNativeResources) => Err(FatalError::OutOfNativeResources),
+        Err(SystemError::OutOfNativeResources(loc)) => Err(FatalError::OutOfNativeResources(loc)),
         Err(SystemError::Internal(e)) => Err(e.into()),
     }
     .map(|x| (x, return_memory))
@@ -153,7 +156,7 @@ where
             ) {
                 Ok(_) => Ok(()),
                 Err(UpdateQueryError::NumericBoundsError) => Err(SystemError::Internal(
-                    InternalError("L2 base token must have withdrawal amount"),
+                    internal_error!("L2 base token must have withdrawal amount"),
                 )),
                 Err(UpdateQueryError::System(e)) => Err(e),
             }?;
@@ -258,7 +261,7 @@ where
             ) {
                 Ok(_) => Ok(()),
                 Err(UpdateQueryError::NumericBoundsError) => Err(SystemError::Internal(
-                    InternalError("L2 base token must have withdrawal amount"),
+                    internal_error!("L2 base token must have withdrawal amount"),
                 )),
                 Err(UpdateQueryError::System(e)) => Err(e),
             }?;

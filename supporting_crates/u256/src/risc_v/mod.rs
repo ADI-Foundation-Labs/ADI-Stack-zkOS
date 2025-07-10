@@ -1,8 +1,10 @@
-use bigint_riscv::*;
 use core::ops::{
     AddAssign, BitAndAssign, BitOrAssign, BitXorAssign, ShlAssign, ShrAssign, SubAssign,
 };
+use delegated_u256::*;
 
+// Even though we derive, internally we use delegation circuit for equality, ordering and cloning
+// See DelegatedU256 implementations for details
 #[derive(Clone, Hash, PartialEq, Eq, Ord, PartialOrd, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct U256(DelegatedU256);
@@ -37,7 +39,7 @@ impl U256 {
     }
 
     pub unsafe fn write_into_ptr(dst: *mut Self, source: &Self) {
-        bigint_riscv::write_into_ptr(dst.cast(), &source.0);
+        delegated_u256::write_into_ptr(dst.cast(), &source.0);
     }
 
     #[inline(always)]
@@ -66,12 +68,12 @@ impl U256 {
 
     #[inline(always)]
     pub unsafe fn write_zero_into_ptr(into: *mut Self) {
-        bigint_riscv::write_zero_into_ptr(into.cast());
+        delegated_u256::write_zero_into_ptr(into.cast());
     }
 
     #[inline(always)]
     pub unsafe fn write_one_into_ptr(into: *mut Self) {
-        bigint_riscv::write_one_into_ptr(into.cast());
+        delegated_u256::write_one_into_ptr(into.cast());
     }
 
     #[inline(always)]
@@ -209,6 +211,7 @@ impl U256 {
     }
 
     pub fn byte(&self, byte_idx: usize) -> u8 {
+        assert!(byte_idx < 32);
         self.0.byte(byte_idx)
     }
 
@@ -225,20 +228,24 @@ impl U256 {
             Self::write_zero(self);
             return;
         }
-        if (&*self).le(modulus) {
+        if (&*self) >= modulus {
             let mut modulus = modulus.clone();
             Self::div_rem(self, &mut modulus);
-            Clone::clone_from(self, &modulus);
+            self.clone_from(&modulus);
         }
     }
 
     pub fn add_mod(a: &mut Self, b: &mut Self, modulus_or_result: &mut Self) {
-        a.reduce_mod(&*modulus_or_result);
-        b.reduce_mod(&*modulus_or_result);
+        a.reduce_mod(&modulus_or_result);
+        b.reduce_mod(&modulus_or_result);
+
         let of = unsafe { bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut a.0, &b.0) != 0 };
-        if of || (&*a).gt(&*modulus_or_result) {
-            let _ = Self::overflowing_sub_assign_reversed(modulus_or_result, &*a);
+
+        if of || a >= modulus_or_result {
+            unsafe { bigint_op_delegation::<SUB_OP_BIT_IDX>(&mut a.0, &modulus_or_result.0) };
         }
+
+        modulus_or_result.clone_from(a);
     }
 
     pub fn mul_mod(a: &mut Self, b: &mut Self, modulus_or_result: &mut Self) {
