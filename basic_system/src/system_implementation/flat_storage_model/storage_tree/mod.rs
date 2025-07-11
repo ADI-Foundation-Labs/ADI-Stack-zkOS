@@ -15,6 +15,7 @@ use zk_ee::common_structs::derive_flat_storage_key;
 use zk_ee::common_structs::state_root_view::StateRootView;
 use zk_ee::common_structs::{WarmStorageKey, WarmStorageValue};
 use zk_ee::{
+    internal_error,
     kv_markers::{ExactSizeChain, ExactSizeChainN, UsizeDeserializable, UsizeSerializable},
     memory::stack_trait::Stack,
     system::{errors::InternalError, logger::Logger},
@@ -2325,7 +2326,7 @@ mod test {
     }
 
     fn to_be_bytes(value: u64) -> Bytes32 {
-        Bytes32::from_u256_be(U256::try_from(value).unwrap())
+        Bytes32::from_u256_be(&U256::try_from(value).unwrap())
     }
 
     #[test]
