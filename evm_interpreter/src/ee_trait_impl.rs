@@ -1,6 +1,6 @@
 use super::*;
+use crate::gas::gas_utils;
 use crate::interpreter::CreateScheme;
-use crate::utils::apply_63_64_rule;
 use alloc::boxed::Box;
 use core::any::Any;
 use core::fmt::Write;
@@ -36,8 +36,9 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         &self.address
     }
 
+    /// TODO unused
     fn resources_mut(&mut self) -> &mut <S as SystemTypes>::Resources {
-        &mut self.resources
+        self.gas.resources_mut()
     }
 
     fn is_static_context(&self) -> bool {
@@ -45,14 +46,14 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
     }
 
     fn new(system: &mut System<S>) -> Result<Self, InternalError> {
-        let empty_resources = S::Resources::empty();
+        let gas = Gas::new();
         let stack_space = EvmStack::new_in(system.get_allocator());
         let empty_address = <S::IOTypes as SystemIOTypesConfig>::Address::default();
-        let empty_preprocessing = BytecodePreprocessingData::<S>::empty(system);
+        let empty_preprocessing = BytecodePreprocessingData::empty();
 
         Ok(Self {
             instruction_pointer: 0,
-            resources: empty_resources,
+            gas,
             stack: stack_space,
             returndata: &[],
             is_static: false,
@@ -65,7 +66,6 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
             bytecode_preprocessing: empty_preprocessing,
             call_value: U256::ZERO,
             is_constructor: false,
-            gas_paid_for_heap_growth: 0u64,
         })
     }
 
@@ -93,13 +93,9 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         assert!(call_scratch_space.is_none());
 
         let EnvironmentParameters {
-            decommitted_bytecode,
-            bytecode_len,
-            scratch_space_len,
+            bytecode,
+            scratch_space_len: _,
         } = environment_parameters;
-        if scratch_space_len != 0 || decommitted_bytecode.len() != bytecode_len as usize {
-            panic!("invalid bytecode supplied, expected padding");
-        }
 
         let mut is_static = false;
         let mut is_constructor = false;
@@ -144,23 +140,53 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         }
 
         assert!(
-            self.resources == S::Resources::empty(),
+            *self.gas.resources_mut() == S::Resources::empty(),
             "for a fresh call resources of initial frame must be empty",
         );
 
         // we need to set bytecode, address of self and caller, static state
         // and calldata
-        let original_bytecode_len = bytecode_len;
-        let bytecode_preprocessing = BytecodePreprocessingData::<S>::from_raw_bytecode(
-            decommitted_bytecode,
-            original_bytecode_len,
-            system,
-            &mut available_resources,
-        )?;
 
-        self.resources = available_resources;
-        self.bytecode = decommitted_bytecode;
-        self.bytecode_preprocessing = bytecode_preprocessing;
+        match bytecode {
+            Bytecode::Constructor(constructor_code) => {
+                let bytecode_preprocessing = BytecodePreprocessingData::create_artifacts(
+                    system.get_allocator(),
+                    constructor_code,
+                    &mut available_resources,
+                )?;
+                self.bytecode = constructor_code;
+                self.bytecode_preprocessing = bytecode_preprocessing;
+            }
+            Bytecode::Decommitted {
+                bytecode,
+                artifacts_len,
+                unpadded_code_len,
+                code_version,
+            } => match code_version {
+                DEFAULT_CODE_VERSION_BYTE => {
+                    assert_eq!(artifacts_len, 0);
+                    let bytecode_preprocessing = BytecodePreprocessingData::create_artifacts(
+                        system.get_allocator(),
+                        bytecode,
+                        &mut available_resources,
+                    )?;
+                    self.bytecode = bytecode;
+                    self.bytecode_preprocessing = bytecode_preprocessing;
+                }
+                ARTIFACTS_CACHING_CODE_VERSION_BYTE => {
+                    let (code, bytecode_preprocessing) = BytecodePreprocessingData::parse_bytecode(
+                        bytecode,
+                        unpadded_code_len as usize,
+                        artifacts_len as usize,
+                    )?;
+                    self.bytecode = code;
+                    self.bytecode_preprocessing = bytecode_preprocessing;
+                }
+                _ => return Err(internal_error!("Unknown code version").into()),
+            },
+        }
+
+        *self.gas.resources_mut() = available_resources;
         self.address = this_address;
         self.caller = caller_address;
         self.is_static = is_static;
@@ -179,8 +205,8 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         call_result: CallResult<'res, S>,
     ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, FatalError> {
         assert!(!call_result.has_scratch_space());
-        assert!(self.resources.native().as_u64() == 0);
-        self.resources.reclaim(returned_resources);
+        assert!(self.gas.native() == 0);
+        self.gas.reclaim_resources(returned_resources);
         match call_result {
             CallResult::CallFailedToExecute => {
                 let _ = system
@@ -195,13 +221,11 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
                 // follow some not-true resource policy, it can make adjustments here before
                 // continuing the execution
                 self.copy_returndata_to_heap(return_values.returndata);
-                self.stack.push(U256::ZERO).expect("must have enough space");
+                self.stack.push_zero().expect("must have enough space");
             }
             CallResult::Successful { return_values } => {
                 self.copy_returndata_to_heap(return_values.returndata);
-                self.stack
-                    .push(U256::from(1u64))
-                    .expect("must have enough space");
+                self.stack.push_one().expect("must have enough space");
             }
         }
 
@@ -215,8 +239,8 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         deployment_result: DeploymentResult<'res, S>,
     ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, FatalError> {
         assert!(!deployment_result.has_scratch_space());
-        assert!(self.resources.native().as_u64() == 0);
-        self.resources.reclaim(returned_resources);
+        assert!(self.gas.native() == 0);
+        self.gas.reclaim_resources(returned_resources);
         match deployment_result {
             DeploymentResult::Failed {
                 return_values,
@@ -229,7 +253,7 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
                 }
                 self.returndata = return_values.returndata;
                 // we need to push 0 to stack
-                self.stack.push(U256::ZERO).expect("must have enough space");
+                self.stack.push_zero().expect("must have enough space");
             }
             DeploymentResult::Successful {
                 return_values,
@@ -242,7 +266,7 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
                 self.returndata = return_values.returndata;
                 // we need to push address to stack
                 self.stack
-                    .push(b160_to_u256(deployed_at))
+                    .push(&b160_to_u256(deployed_at))
                     .expect("must have enough space");
             }
         }
@@ -265,7 +289,8 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
     ) -> Result<S::Resources, FatalError> {
         // we just need to apply 63/64 rule, as System/IO is responsible for the rest
 
-        let max_passable_ergs = apply_63_64_rule(resources_available_in_caller_frame.ergs());
+        let max_passable_ergs =
+            gas_utils::apply_63_64_rule(resources_available_in_caller_frame.ergs());
         let ergs_to_pass = core::cmp::min(desired_ergs_to_pass, max_passable_ergs);
 
         // Charge caller frame
@@ -310,20 +335,20 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         assert!(call_scratch_space.is_none());
         let Some(ee_specific_deployment_processing_data) = ee_specific_deployment_processing_data
         else {
-            return Err(FatalError::Internal(InternalError(
-                "We need deployment scheme!",
+            return Err(FatalError::Internal(internal_error!(
+                "We need deployment scheme!"
             )));
         };
         let Ok(scheme) = <CreateScheme as EEDeploymentExtraParameters<S>>::from_box_dyn(
             ee_specific_deployment_processing_data,
         ) else {
-            return Err(FatalError::Internal(InternalError(
-                "Unknown EE specific deployment data",
+            return Err(FatalError::Internal(internal_error!(
+                "Unknown EE specific deployment data"
             )));
         };
 
         // Constructor gets 63/64 of available resources
-        let ergs_for_constructor = apply_63_64_rule(deployer_full_resources.ergs());
+        let ergs_for_constructor = gas_utils::apply_63_64_rule(deployer_full_resources.ergs());
 
         // We only charge after succeeding the following checks:
         // - Deployer has enough balance for token transfer
@@ -403,10 +428,10 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
                         )
                     })
                     .map_err(|e| match e {
-                        SystemFunctionError::System(SystemError::OutOfNativeResources) => {
-                            FatalError::OutOfNativeResources
+                        SystemFunctionError::System(SystemError::OutOfNativeResources(loc)) => {
+                            FatalError::OutOfNativeResources(loc)
                         }
-                        _ => InternalError("Keccak in create2 cannot fail").into(),
+                        _ => internal_error!("Keccak in create2 cannot fail").into(),
                     })?;
                 let initcode_hash = Bytes32::from_array(initcode_hash.build());
 
@@ -434,7 +459,7 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
 
         let AccountData {
             nonce: Just(deployee_nonce),
-            bytecode_len: Just(deployee_code_len),
+            unpadded_code_len: Just(deployee_code_len),
             ..
         } = deployer_remaining_resources
             .with_infinite_ergs(|inf_resources| {
@@ -442,7 +467,9 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
                     THIS_EE_TYPE,
                     inf_resources,
                     &deployed_address,
-                    AccountDataRequest::empty().with_nonce().with_bytecode_len(),
+                    AccountDataRequest::empty()
+                        .with_nonce()
+                        .with_unpadded_code_len(),
                 )
             })
             .map_err(SystemError::into_fatal)?;
@@ -463,10 +490,8 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         // resources from deployer.
         deployer_remaining_resources.give_native_to(&mut resources_for_constructor);
 
-        let deployment_code_len = deployment_code.len();
         let environment_parameters = EnvironmentParameters {
-            decommitted_bytecode: deployment_code,
-            bytecode_len: deployment_code_len as u32,
+            bytecode: Bytecode::Constructor(deployment_code),
             scratch_space_len: 0u32,
         };
 

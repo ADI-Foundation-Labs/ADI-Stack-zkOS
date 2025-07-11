@@ -20,6 +20,7 @@ pub mod modexp;
 pub mod p256;
 pub mod ripemd160;
 pub mod secp256k1;
+pub mod secp256r1;
 pub mod sha256;
 pub mod sha3;
 
@@ -36,6 +37,7 @@ pub fn init_lib() {
         bls12_381::fields::init();
         secp256k1::init();
         bigint_delegation::init();
+        secp256r1::init();
     }
 }
 
@@ -46,4 +48,5 @@ pub trait MiniDigest: Sized {
     fn digest(input: impl AsRef<[u8]>) -> Self::HashOutput;
     fn update(&mut self, input: impl AsRef<[u8]>);
     fn finalize(self) -> Self::HashOutput;
+    fn finalize_reset(&mut self) -> Self::HashOutput;
 }

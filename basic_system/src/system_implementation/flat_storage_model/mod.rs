@@ -23,7 +23,8 @@ use ruint::aliases::B160;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::StorageCacheModel;
 use storage_models::common_structs::StorageModel;
-use zk_ee::common_structs::{derive_flat_storage_key, ValueDiffCompressionStrategy};
+use zk_ee::common_structs::{derive_flat_storage_key_with_hasher, ValueDiffCompressionStrategy};
+use zk_ee::internal_error;
 use zk_ee::system::errors::InternalError;
 use zk_ee::system::Resources;
 use zk_ee::{
@@ -43,8 +44,6 @@ use zk_ee::{
 };
 
 use super::system::ExtraCheck;
-
-pub const DEFAULT_CODE_VERSION_BYTE: u8 = 1;
 
 pub fn address_into_special_storage_key(address: &B160) -> Bytes32 {
     let mut key = Bytes32::zero();
@@ -163,12 +162,14 @@ where
         pubdata_hasher.update(&encdoded_state_diffs_count);
         result_keeper.pubdata(&encdoded_state_diffs_count);
 
+        let mut hasher = crypto::blake2s::Blake2s256::new();
         storage_cache
             .0
             .cache
             .apply_to_all_updated_elements::<_, ()>(|l, r, k| {
                 // TODO(EVM-1074): use tree index instead of key for repeated writes
-                let derived_key = derive_flat_storage_key(&k.address, &k.key);
+                let derived_key =
+                    derive_flat_storage_key_with_hasher(&k.address, &k.key, &mut hasher);
                 pubdata_hasher.update(derived_key.as_u8_ref());
                 result_keeper.pubdata(derived_key.as_u8_ref());
 
@@ -185,6 +186,7 @@ where
                     AccountProperties::diff_compression::<PROOF_ENV, _, _>(
                         l.value(),
                         r.value(),
+                        r.metadata().not_publish_bytecode,
                         pubdata_hasher,
                         result_keeper,
                         &mut preimages_cache,
@@ -201,7 +203,7 @@ where
                 }
                 Ok(())
             })
-            .map_err(|_| InternalError("Failed to compute pubdata"))?;
+            .map_err(|_| internal_error!("Failed to compute pubdata"))?;
 
         // 3. Verify/apply reads and writes
         cycle_marker::wrap!("verify_and_apply_batch", {
@@ -263,6 +265,7 @@ where
         ArtifactsLen: Maybe<u32>,
         NominalTokenBalance: Maybe<<Self::IOTypes as SystemIOTypesConfig>::NominalTokenValue>,
         Bytecode: Maybe<&'static [u8]>,
+        CodeVersion: Maybe<u8>,
     >(
         &mut self,
         ee_type: ExecutionEnvironmentType,
@@ -279,6 +282,7 @@ where
                 ArtifactsLen,
                 NominalTokenBalance,
                 Bytecode,
+                CodeVersion,
             >,
         >,
         oracle: &mut impl IOOracle,
@@ -293,11 +297,12 @@ where
             ArtifactsLen,
             NominalTokenBalance,
             Bytecode,
+            CodeVersion,
         >,
         SystemError,
     > {
         self.account_data_cache
-            .read_account_properties::<PROOF_ENV, _, _, _, _, _, _, _, _, _>(
+            .read_account_properties::<PROOF_ENV, _, _, _, _, _, _, _, _, _, _>(
                 ee_type,
                 resources,
                 address,
@@ -343,8 +348,6 @@ where
         resources: &mut Self::Resources,
         at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         bytecode: &[u8],
-        bytecode_len: u32,
-        artifacts_len: u32,
         oracle: &mut impl IOOracle,
     ) -> Result<&'static [u8], SystemError> {
         self.account_data_cache.deploy_code::<PROOF_ENV>(
@@ -352,8 +355,33 @@ where
             resources,
             at_address,
             bytecode,
+            &mut self.storage_cache,
+            &mut self.preimages_cache,
+            oracle,
+        )
+    }
+
+    fn set_bytecode_details(
+        &mut self,
+        resources: &mut R,
+        at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
+        ee: ExecutionEnvironmentType,
+        bytecode_hash: Bytes32,
+        bytecode_len: u32,
+        artifacts_len: u32,
+        observable_bytecode_hash: Bytes32,
+        observable_bytecode_len: u32,
+        oracle: &mut impl IOOracle,
+    ) -> Result<(), SystemError> {
+        self.account_data_cache.set_bytecode_details::<PROOF_ENV>(
+            resources,
+            at_address,
+            ee,
+            bytecode_hash,
             bytecode_len,
             artifacts_len,
+            observable_bytecode_hash,
+            observable_bytecode_len,
             &mut self.storage_cache,
             &mut self.preimages_cache,
             oracle,

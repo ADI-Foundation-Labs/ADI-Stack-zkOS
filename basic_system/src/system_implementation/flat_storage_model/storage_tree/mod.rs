@@ -1483,7 +1483,7 @@ impl<const N: usize, H: FlatStorageHasher, A: Allocator + Default> UsizeDeserial
                 };
                 Ok(new)
             }
-            _ => Err(InternalError("ReadValueWithProof deserialization failed")),
+            _ => Err(internal_error!("ReadValueWithProof deserialization failed")),
         }
     }
 }
@@ -1535,7 +1535,7 @@ impl<const N: usize, H: FlatStorageHasher, A: Allocator + Default> UsizeDeserial
                 let new = Self::Insert { proof };
                 Ok(new)
             }
-            _ => Err(InternalError("WriteValueWithProof deserialization failed")),
+            _ => Err(internal_error!("WriteValueWithProof deserialization failed")),
         }
     }
 }

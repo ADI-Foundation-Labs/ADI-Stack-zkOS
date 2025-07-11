@@ -28,8 +28,8 @@ pub enum TxId {
 impl DiffTrace {
     fn collect_diffs(self, prestate_cache: &Cache, miner: B160) -> HashMap<B160, AccountState> {
         let mut updates: HashMap<B160, AccountState> = HashMap::new();
-        self.result.into_iter().for_each(|item| {
-            item.result.post.into_iter().for_each(|(address, account)| {
+        self.result.iter().for_each(|item| {
+            item.result.post.iter().for_each(|(address, account)| {
                 if address.0 != miner {
                     let entry = updates.entry(address.0).or_default();
                     account
@@ -40,11 +40,15 @@ impl DiffTrace {
                         .nonce
                         .into_iter()
                         .for_each(|x| entry.nonce = Some(x));
-                    account.code.into_iter().for_each(|x| entry.code = Some(x));
+                    account
+                        .code
+                        .clone()
+                        .into_iter()
+                        .for_each(|x| entry.code = Some(x));
 
                     // Populate storage slot clears (slots present in pre but
                     // absent in post). Write 0 to them.
-                    if let Some(pre_account) = item.result.pre.get(&address) {
+                    if let Some(pre_account) = item.result.pre.get(address) {
                         if let Some(pre_storage) = pre_account.storage.as_ref() {
                             let cleared_keys = pre_storage.keys().filter(|k| {
                                 account
@@ -60,15 +64,26 @@ impl DiffTrace {
                     }
 
                     // Populate storage slot writes
-                    if let Some(storage) = account.storage {
+                    if let Some(storage) = account.storage.as_ref() {
                         let entry_storage = entry.storage.get_or_insert_default();
-                        storage.into_iter().for_each(|(key, value)| {
-                            entry_storage.insert(key, value);
+                        storage.iter().for_each(|(key, value)| {
+                            entry_storage.insert(*key, *value);
                         })
                     }
                 }
+            });
+            // Add account clears
+            item.result.pre.iter().for_each(|(address, _)| {
+                if address.0 != miner && !updates.contains_key(&address.0) {
+                    let acc = AccountState {
+                        balance: Some(U256::ZERO),
+                        ..Default::default()
+                    };
+                    updates.insert(address.0, acc);
+                }
             })
         });
+
         // Filter out empty diffs
         // These can be empty because their value is the same as in the initial tree
         // or the post state was empty. Note that if the account was selfdestructed,
@@ -76,7 +91,6 @@ impl DiffTrace {
         // case where the logs add an empty entry for accounts that haven't been
         // modified.
 
-        // TODO: account for selfdestruct
         updates.retain(|address, account| {
             if let Some(storage) = account.storage.as_mut() {
                 storage.retain(|key, new_val| match prestate_cache.get_slot(address, key) {
@@ -126,21 +140,35 @@ impl DiffTrace {
             };
             if let Some(bal) = account.balance {
                 // Balance might differ due to refunds and access list gas charging
-                if bal != zk_account.balance.unwrap() {
+                if Some(bal) != zk_account.balance {
                     debug!(
                         "Balance for {} is {:?} but expected {:?}.\n  Difference: {:?}",
                         hex::encode(address.to_be_bytes_vec()),
-                        zk_account.balance.unwrap(),
+                        zk_account.balance,
                         bal,
-                        zk_account.balance.unwrap().abs_diff(bal),
+                        zk_account.balance.unwrap_or(U256::ZERO).abs_diff(bal),
                     )
                 };
             }
             if let Some(nonce) = account.nonce {
-                assert_eq!(nonce, zk_account.nonce.unwrap());
+                if nonce != zk_account.nonce.unwrap() {
+                    error!(
+                        "Nonce for address {} differed. ZKsync OS: {:?}, reference: {:?}",
+                        hex::encode(address.to_be_bytes_vec()),
+                        zk_account.nonce.unwrap(),
+                        nonce
+                    );
+                    return Err(PostCheckError::Internal);
+                }
             }
-            if account.code.is_some() {
-                assert_eq!(&account.code, &zk_account.code);
+            if account.code.is_some() && account.code != zk_account.code {
+                error!(
+                    "Code for address {} differed. ZKsync OS: {}, reference: {}",
+                    hex::encode(address.to_be_bytes_vec()),
+                    hex::encode(zk_account.code.as_ref().unwrap_or_default()),
+                    hex::encode(account.code.as_ref().unwrap_or_default())
+                );
+                return Err(PostCheckError::Internal);
             }
             if let Some(storage) = &account.storage {
                 for (key, value) in storage {
@@ -155,7 +183,14 @@ impl DiffTrace {
                             return Err(PostCheckError::Internal);
                         }
                     };
-                    assert_eq!(value, zksync_os_value);
+                    if value != zksync_os_value {
+                        error!(
+                          "Value for slot {} at address {} differed. ZKsync OS: {:?}, reference: {:?}",
+                          key,
+                          hex::encode(address.to_be_bytes_vec()),
+                          zksync_os_value, value);
+                        return Err(PostCheckError::Internal);
+                    }
                 }
 
                 for (k, v) in zk_account.storage.as_ref().unwrap().iter() {
@@ -177,18 +212,47 @@ impl DiffTrace {
                 match diffs.get(address) {
                     Some(_) => (),
                     None => {
-                        error!(
-                            "Reference must have write for account {} {:?}",
-                            hex::encode(address.to_be_bytes_vec()),
-                            acc
-                        );
-                        return Err(PostCheckError::Internal);
+                        // For some reason, selfdestruct is not correctly reported in the
+                        // traces. We could use calltrace, but for now we just check that
+                        // the ZKsync OS diff is consistent with selfdestruct.
+                        if !zksync_os_diff_consistent_with_selfdestruct(
+                            address,
+                            acc,
+                            &prestate_cache,
+                        ) {
+                            error!(
+                                "Reference must have write for account {} {:?}",
+                                hex::encode(address.to_be_bytes_vec()),
+                                acc
+                            );
+                            return Err(PostCheckError::Internal);
+                        }
                     }
                 }
             }
         }
         Ok(())
     }
+}
+
+fn zksync_os_diff_consistent_with_selfdestruct(
+    address: &B160,
+    acc: &AccountState,
+    prestate_cache: &Cache,
+) -> bool {
+    let diff_is_empty = acc.balance.is_none_or(|b| b.is_zero())
+        && acc.nonce.is_none_or(|n| n == 0)
+        && acc.code.as_ref().is_none_or(|c| c.is_empty())
+        && acc.storage.as_ref().is_none_or(|s| s.is_empty());
+    let pre = prestate_cache.0.get(address);
+    let prestate_can_be_deployed = || {
+        pre.is_none_or(|pre| {
+            pre.storage.as_ref().is_none_or(|s| s.is_empty())
+                && pre.code.as_ref().is_none_or(|c| c.is_empty())
+                && pre.nonce.is_none_or(|n| n == 0)
+        })
+    };
+    diff_is_empty && prestate_can_be_deployed()
 }
 
 fn zksync_os_output_into_account_state(
@@ -226,7 +290,8 @@ fn zksync_os_output_into_account_state(
                 entry.balance = Some(props.balance);
                 entry.nonce = Some(props.nonce);
                 if let Some(bytecode) = preimages.get(&props.bytecode_hash.as_u8_array()) {
-                    let owned = bytecode.clone();
+                    let owned: Vec<u8> =
+                        bytecode[..props.observable_bytecode_len as usize].to_owned();
                     entry.code = Some(owned.into());
                 }
             }

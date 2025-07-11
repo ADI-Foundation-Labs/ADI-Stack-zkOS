@@ -84,6 +84,18 @@ impl<S: SystemTypes> System<S> {
         self.metadata.block_level_metadata.block_number
     }
 
+    pub fn get_mix_hash(&self) -> ruint::aliases::U256 {
+        #[cfg(feature = "prevrandao")]
+        {
+            self.metadata.block_level_metadata.mix_hash
+        }
+
+        #[cfg(not(feature = "prevrandao"))]
+        {
+            ruint::aliases::U256::ONE
+        }
+    }
+
     pub fn get_blockhash(&self, block_number: u64) -> ruint::aliases::U256 {
         let current_block_number = self.metadata.block_level_metadata.block_number;
         if block_number >= current_block_number
@@ -252,21 +264,37 @@ where
         resources: &mut S::Resources,
         at_address: &<S::IOTypes as SystemIOTypesConfig>::Address,
         bytecode: &[u8],
-        bytecode_len: u32,
-        artifacts_len: u32,
     ) -> Result<&'static [u8], SystemError> {
         // IO is fully responsible to to deploy
         // and at the end we just need to remap slice
-        let bytecode = self.io.deploy_code(
-            for_ee,
-            resources,
-            at_address,
-            &bytecode,
-            bytecode_len,
-            artifacts_len,
-        )?;
+        let bytecode = self
+            .io
+            .deploy_code(for_ee, resources, at_address, &bytecode)?;
 
         Ok(bytecode)
+    }
+
+    pub fn set_bytecode_details(
+        &mut self,
+        resources: &mut S::Resources,
+        at_address: &<S::IOTypes as SystemIOTypesConfig>::Address,
+        ee: ExecutionEnvironmentType,
+        bytecode_hash: Bytes32,
+        bytecode_len: u32,
+        artifacts_len: u32,
+        observable_bytecode_hash: Bytes32,
+        observable_bytecode_len: u32,
+    ) -> Result<(), SystemError> {
+        self.io.set_bytecode_details(
+            resources,
+            at_address,
+            ee,
+            bytecode_hash,
+            bytecode_len,
+            artifacts_len,
+            observable_bytecode_hash,
+            observable_bytecode_len,
+        )
     }
 
     /// Finish system execution.
