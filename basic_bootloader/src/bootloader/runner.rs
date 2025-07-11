@@ -268,7 +268,8 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
             Ok(CallPreparationResult::Success {
                 next_ee_version,
                 bytecode,
-                bytecode_len,
+                code_version,
+                unpadded_code_len,
                 artifacts_len,
                 mut actual_resources_to_pass,
                 transfer_to_perform,
@@ -323,9 +324,13 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                             ..call_request
                         },
                         environment_parameters: EnvironmentParameters {
-                            decommitted_bytecode: bytecode,
-                            bytecode_len,
-                            scratch_space_len: artifacts_len,
+                            bytecode: Bytecode::Decommitted {
+                                bytecode,
+                                unpadded_code_len,
+                                artifacts_len,
+                                code_version,
+                            },
+                            scratch_space_len: 0,
                         },
                     },
                     heap,
@@ -749,9 +754,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
 
         let (deployment_success, deployment_result) = match deployment_result {
             DeploymentResult::Successful {
-                bytecode,
-                bytecode_len,
-                artifacts_len,
+                deployed_code,
                 return_values,
                 deployed_at,
             } => {
@@ -760,15 +763,11 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                     ee_type,
                     &mut resources_returned,
                     &deployed_at,
-                    bytecode,
-                    bytecode_len,
-                    artifacts_len,
+                    deployed_code,
                 ) {
-                    Ok(bytecode) => {
+                    Ok(deployed_code) => {
                         let deployment_result = DeploymentResult::Successful {
-                            bytecode,
-                            bytecode_len,
-                            artifacts_len,
+                            deployed_code,
                             return_values: ReturnValues::empty(),
                             deployed_at,
                         };
@@ -826,7 +825,8 @@ pub enum CallPreparationResult<'a, S: SystemTypes> {
     Success {
         next_ee_version: u8,
         bytecode: &'a [u8],
-        bytecode_len: u32,
+        code_version: u8,
+        unpadded_code_len: u32,
         artifacts_len: u32,
         actual_resources_to_pass: S::Resources,
         transfer_to_perform: Option<TransferInfo>,
@@ -879,7 +879,8 @@ where
     let CalleeParameters {
         next_ee_version,
         bytecode,
-        bytecode_len,
+        code_version,
+        unpadded_code_len,
         artifacts_len,
         stipend,
         transfer_to_perform,
@@ -927,7 +928,8 @@ where
     Ok(CallPreparationResult::Success {
         next_ee_version,
         bytecode,
-        bytecode_len,
+        code_version,
+        unpadded_code_len,
         artifacts_len,
         actual_resources_to_pass,
         transfer_to_perform,
@@ -955,11 +957,12 @@ where
         &call_request.callee,
         AccountDataRequest::empty()
             .with_ee_version()
-            .with_bytecode_len()
+            .with_unpadded_code_len()
             .with_artifacts_len()
             .with_bytecode()
             .with_nonce()
-            .with_nominal_token_balance(),
+            .with_nominal_token_balance()
+            .with_code_version(),
     ) {
         Ok(account_properties) => account_properties,
         Err(SystemError::OutOfErgs(_)) => {
@@ -994,7 +997,7 @@ where
 
                 // Account creation cost
                 let callee_is_empty = account_properties.nonce.0 == 0
-                    && account_properties.bytecode_len.0 == 0
+                    && account_properties.unpadded_code_len.0 == 0
                     && account_properties.nominal_token_balance.0.is_zero();
                 if !is_callcode_or_delegate
                     && !call_request.nominal_token_value.is_zero()
@@ -1037,19 +1040,27 @@ where
         };
 
     // Read required data to perform a call
-    let (next_ee_version, bytecode, bytecode_len, artifacts_len) = {
+    let (next_ee_version, bytecode, code_version, unpadded_code_len, artifacts_len) = {
         let ee_version = account_properties.ee_version.0;
-        let bytecode_len = account_properties.bytecode_len.0;
+        let unpadded_code_len = account_properties.unpadded_code_len.0;
         let artifacts_len = account_properties.artifacts_len.0;
         let bytecode = account_properties.bytecode.0;
+        let code_version = account_properties.code_version.0;
 
-        (ee_version, bytecode, bytecode_len, artifacts_len)
+        (
+            ee_version,
+            bytecode,
+            code_version,
+            unpadded_code_len,
+            artifacts_len,
+        )
     };
 
     Ok(CalleeParameters {
         next_ee_version,
         bytecode,
-        bytecode_len,
+        code_version,
+        unpadded_code_len,
         artifacts_len,
         stipend,
         transfer_to_perform,

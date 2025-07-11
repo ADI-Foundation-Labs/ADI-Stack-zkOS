@@ -264,19 +264,12 @@ where
         resources: &mut S::Resources,
         at_address: &<S::IOTypes as SystemIOTypesConfig>::Address,
         bytecode: &[u8],
-        bytecode_len: u32,
-        artifacts_len: u32,
     ) -> Result<&'static [u8], SystemError> {
         // IO is fully responsible to to deploy
         // and at the end we just need to remap slice
-        let bytecode = self.io.deploy_code(
-            for_ee,
-            resources,
-            at_address,
-            &bytecode,
-            bytecode_len,
-            artifacts_len,
-        )?;
+        let bytecode = self
+            .io
+            .deploy_code(for_ee, resources, at_address, &bytecode)?;
 
         Ok(bytecode)
     }
