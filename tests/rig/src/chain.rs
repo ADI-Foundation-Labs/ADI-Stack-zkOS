@@ -179,7 +179,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         let state_commitment = FlatStorageCommitment::<{ TREE_HEIGHT }> {
             root: *self.state_tree.storage_tree.root(),
             next_free_slot: self.state_tree.storage_tree.next_free_slot,
-            empty_slots_stack: Default::default()
+            empty_slots_stack: Default::default(),
         };
         let tx_source = TxListSource {
             transactions: transactions.into(),
