@@ -27,7 +27,8 @@ use gas::Gas;
 use ruint::aliases::U256;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::memory::slice_vec::SliceVec;
-use zk_ee::system::errors::{FatalError, InternalError, SystemError};
+use zk_ee::system::errors::runtime::RuntimeError;
+use zk_ee::system::errors::{internal::InternalError, system::SystemError};
 use zk_ee::system::{EthereumLikeTypes, Resource, Resources, System, SystemTypes};
 
 use alloc::vec::Vec;
@@ -35,6 +36,7 @@ use zk_ee::utils::*;
 use zk_ee::{internal_error, types_config::*};
 
 mod ee_trait_impl;
+pub mod errors;
 mod evm_stack;
 pub mod gas;
 pub mod gas_constants;
@@ -162,7 +164,7 @@ impl<'a, A: Allocator> BytecodePreprocessingData<'a, A> {
         allocator: A,
         deployed_code: &[u8],
         resources: &mut R,
-    ) -> Result<Self, FatalError> {
+    ) -> Result<Self, SystemError> {
         use crate::native_resource_constants::BYTECODE_PREPROCESSING_BYTE_NATIVE_COST;
         use zk_ee::system::Computational;
         let native_cost = R::Native::from_computational(
@@ -170,12 +172,14 @@ impl<'a, A: Allocator> BytecodePreprocessingData<'a, A> {
         );
         resources
             .charge(&R::from_native(native_cost))
-            .map_err(|e| match e {
-                SystemError::Internal(e) => FatalError::Internal(e),
-                SystemError::OutOfErgs(_) => {
-                    FatalError::Internal(internal_error!("OOE when charging only native"))
+            .map_err(|e| -> SystemError {
+                match e {
+                    e @ SystemError::LeafDefect(_) => e,
+                    SystemError::LeafRuntime(RuntimeError::OutOfErgs(_)) => {
+                        SystemError::LeafDefect(internal_error!("OOE when charging only native"))
+                    }
+                    e @ SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(_)) => e,
                 }
-                SystemError::OutOfNativeResources(loc) => FatalError::OutOfNativeResources(loc),
             })?;
         Ok(Self::create_artifacts_inner(allocator, deployed_code))
     }
@@ -366,17 +370,17 @@ pub enum ExitCode {
     FatalExternalError,
 
     // Fatal internal error
-    FatalError(FatalError),
+    FatalError(SystemError),
 }
 
 impl From<SystemError> for ExitCode {
     fn from(e: SystemError) -> Self {
         match e {
-            SystemError::Internal(e) => Self::FatalError(FatalError::Internal(e)),
-            SystemError::OutOfNativeResources(loc) => {
-                Self::FatalError(FatalError::OutOfNativeResources(loc))
+            e @ SystemError::LeafDefect(_) => Self::FatalError(e),
+            e @ SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(_)) => {
+                Self::FatalError(e)
             }
-            SystemError::OutOfErgs(_) => Self::OutOfGas,
+            SystemError::LeafRuntime(RuntimeError::OutOfErgs(_)) => Self::OutOfGas,
         }
     }
 }
