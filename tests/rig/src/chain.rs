@@ -136,10 +136,18 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         >,
         app: &Option<String>,
     ) -> Vec<u32> {
-        let oracle_wrapper =
-            BasicZkEEOracleWrapper::<EthereumIOTypesConfig, _>::new(oracle.clone());
+        let oracle_wrapper = 
+            BasicZkEEOracleWrapper::<EthereumIOTypesConfig, _>
+            ::new(oracle.clone());
+
         let mut non_determinism_source = ZkEENonDeterminismSource::default();
+
         non_determinism_source.add_external_processor(oracle_wrapper);
+        non_determinism_source.add_external_processor(
+            callable_oracles::arithmetic::ArithmeticQuery {
+                marker: std::marker::PhantomData
+            }
+        );
 
         // We'll wrap the source, to collect all the reads.
         let copy_source = ReadWitnessSource::new(non_determinism_source);
@@ -312,16 +320,6 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         let mut stats = BlockExtraStats {
             native_used: None,
             effective_used: None,
-
-        // proof run
-        let oracle_wrapper = BasicZkEEOracleWrapper::<EthereumIOTypesConfig, _>::new(oracle);
-
-        #[cfg(feature = "simulate_witness_gen")]
-        let source_for_witness_bench = {
-            let mut non_determinism_source = ZkEENonDeterminismSource::default();
-            non_determinism_source.add_external_processor(oracle_wrapper.clone());
-
-            non_determinism_source
         };
 
         #[cfg(feature = "report_native")]
@@ -353,12 +351,22 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             let source_for_witness_bench = {
                 let mut non_determinism_source = ZkEENonDeterminismSource::default();
                 non_determinism_source.add_external_processor(oracle_wrapper.clone());
+                non_determinism_source.add_external_processor(
+                    callable_oracles::arithmetic::ArithmeticQuery {
+                        marker: std::marker::PhantomData
+                    }
+                );
 
                 non_determinism_source
             };
 
             let mut non_determinism_source = ZkEENonDeterminismSource::default();
             non_determinism_source.add_external_processor(oracle_wrapper);
+            non_determinism_source.add_external_processor(
+                callable_oracles::arithmetic::ArithmeticQuery {
+                    marker: std::marker::PhantomData
+                }
+            );
             // We'll wrap the source, to collect all the reads.
             let copy_source = ReadWitnessSource::new(non_determinism_source);
             let items = copy_source.get_read_items();
