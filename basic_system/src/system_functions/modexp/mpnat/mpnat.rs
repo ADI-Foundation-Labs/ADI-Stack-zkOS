@@ -284,7 +284,7 @@ impl<A: Allocator + Clone> MPNatU256<A> {
                 // - Added `r_len`, which is asserted to be a multiple of 8.
                 // `i` is limited by `rhs.digits.len()`, which is the capacity for `r`.
                 // Addition will not overflow, since the resulting pointer lies within `rhs`.
-                unsafe { zero.clone_into_unchecked(unsafe { r_ptr.add(i) }) };
+                unsafe { zero.write_into_ptr_unchecked(unsafe { r_ptr.add(i) }) };
             }
 
             // Safety:
@@ -311,7 +311,7 @@ impl<A: Allocator + Clone> MPNatU256<A> {
                 let spare = check.spare_capacity_mut();
 
                 for i in 0..r.len() {
-                    r[i].clone_into(&mut spare[i]);
+                    unsafe { r[i].write_into_ptr_unchecked(spare[i].as_mut_ptr().cast()) };
                 }
 
                 // Safety: elems 0..r.len() were just written.

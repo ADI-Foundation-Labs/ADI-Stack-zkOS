@@ -37,7 +37,7 @@ pub fn pure_system_function_hook_impl<'a, F: SystemFunctionInvocation<S>, S: Eth
     return_memory: &'a mut [MaybeUninit<u8>],
 ) -> Result<(CompletedExecution<'a, S>, &'a mut [MaybeUninit<u8>]), FatalError> 
 where 
-    S::Memory: MemorySubsystemExt,
+    // S::Memory: MemorySubsystemExt,
     S::IO: IOSubsystemExt,
 {
     let ExternalCallRequest {
@@ -58,7 +58,8 @@ where
 
     let mut return_vec = SliceVec::new(return_memory);
     // let result = F::execute(&calldata, &mut return_vec, &mut resources, allocator);
-    let result = F::invoke(io.oracle(), &mut logger, &calldata, &mut buffer, &mut resources, allocator);
+    let mut logger = system.get_logger();
+    let result = F::invoke(system.io.oracle(), &mut logger, &calldata, &mut return_vec, &mut resources, allocator);
 
     match result {
         Ok(()) => {

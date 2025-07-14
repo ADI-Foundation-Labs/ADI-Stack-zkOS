@@ -104,7 +104,7 @@ mod csr {
     {
         #[inline(always)]
         fn csr_read_impl() -> usize {
-            csr_read_word()
+            csr_read_word().try_into().unwrap()
             // core::hint::black_box(csr_read_word().try_into().unwrap())
         }
         #[inline(always)]

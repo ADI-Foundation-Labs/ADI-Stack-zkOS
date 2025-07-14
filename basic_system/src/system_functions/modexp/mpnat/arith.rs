@@ -1,8 +1,10 @@
 // Adopted from https://github.com/aurora-is-near/aurora-engine
 
+use u256::U256;
 use zk_ee::system::logger::Logger;
 
-use super::{double::U512, mpnat::{MPNatU256, U256_ZERO}, U256};
+
+use super::{double::U512, mpnat::{MPNatU256, U256_ZERO}};
 use core::{alloc::Allocator, mem::MaybeUninit};
 
 static mut U512_SCRATCH: U512 = U512::zero_const();
@@ -23,7 +25,7 @@ pub unsafe  fn big_wrapping_mul<L: Logger>(
     let mut double = unsafe { &mut U512_SCRATCH };
     let mut c = MaybeUninit::uninit();
     for i in 0..s {
-        unsafe { zero.clone_into_unchecked(c.as_mut_ptr() as *mut _) };
+        unsafe { zero.write_into_ptr_unchecked(c.as_mut_ptr() as *mut _) };
         let c = unsafe { c.assume_init_mut() };
         for j in 0..(s - i) {
             let x = match x.get(j) {

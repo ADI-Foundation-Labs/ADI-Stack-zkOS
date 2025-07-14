@@ -47,8 +47,8 @@ impl U512 {
  
     /// Safety: lhs can't be placed in RO memory.
     pub(crate) unsafe fn from_narrow_mul_into<L: Logger>(logger: &mut L, lhs: &U256, rhs: &U256, out: &mut [MaybeUninit<U256>; 2]) {
-        unsafe { lhs.clone_into_unchecked(&raw mut out[0] as *mut _) };
-        unsafe { lhs.clone_into_unchecked(&raw mut out[1] as *mut _) };
+        unsafe { lhs.write_into_ptr_unchecked(&raw mut out[0] as *mut _) };
+        unsafe { lhs.write_into_ptr_unchecked(&raw mut out[1] as *mut _) };
 
         let out = unsafe { core::mem::transmute::<&mut [MaybeUninit<U256>; 2], &mut [U256; 2]>(out) };
 

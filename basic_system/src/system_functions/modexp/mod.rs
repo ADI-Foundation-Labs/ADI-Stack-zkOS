@@ -4,7 +4,6 @@ use crate::cost_constants::{MODEXP_MINIMAL_COST_ERGS, MODEXP_WORST_CASE_NATIVE_P
 use alloc::vec::Vec;
 use crypto::modexp::modexp;
 use evm_interpreter::ERGS_PER_GAS;
-use mpnat::MPNatU256;
 use ruint::aliases::U256;
 use zk_ee::{
     internal_error, out_of_ergs_error,
@@ -12,23 +11,22 @@ use zk_ee::{
         errors::{SystemError, SystemFunctionError},
         Computational, Ergs, SystemFunction,
     },
-use zk_ee::reference_implementations::BaseComputationalResources;
-use zk_ee::system::logger::Logger;
-use zk_ee::system::{logger, SystemFunctionExt};
-use zk_ee::system::{
-    errors::{InternalError, SystemError, SystemFunctionError},
-    Computational, Ergs, SystemFunction,
 };
+use zk_ee::system::logger::Logger;
+use zk_ee::system::{ SystemFunctionExt};
 use zk_ee::system_io_oracle::IOOracle;
 
+#[cfg(target_arch = "riscv32")]
 mod mpnat;
+#[cfg(target_arch = "riscv32")]
+use mpnat::MPNatU256;
 
 ///
 /// modexp system function implementation.
 ///
 pub struct ModExpImpl;
 
-impl SystemFunctionExt<BaseResources> for ModExpImpl {
+impl<R: Resources> SystemFunctionExt<R> for ModExpImpl {
     /// If the input size is less than expected - it will be padded with zeroes.
     /// If the input size is greater - redundant bytes will be ignored.
     ///
@@ -166,6 +164,7 @@ fn modexp_as_system_function_inner<O: IOOracle, L: Logger, D: ?Sized + Extend<u8
     for (dst, src) in modulus.iter_mut().zip(&mut input_it) {
         *dst = *src;
     }
+
 
     // Call the modexp.
 
