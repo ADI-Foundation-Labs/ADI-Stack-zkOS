@@ -14,6 +14,7 @@ FILES=(
     evm_replay.bin
     server_app.bin
     server_app_logging_enabled.bin
+    protocol_hash.txt
 )
 
 for FILE in "${FILES[@]}"; do

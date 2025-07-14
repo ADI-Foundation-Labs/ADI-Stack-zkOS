@@ -7,7 +7,8 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     git \
     libssl-dev \
-    pkg-config
+    pkg-config \
+    jq
 
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2025-05-24
 ENV PATH="/root/.cargo/bin:${PATH}"
@@ -25,3 +26,4 @@ RUN ./dump_bin.sh
 RUN ./dump_bin.sh --type evm-replay
 RUN ./dump_bin.sh --type server-logging-enabled
 RUN ./dump_bin.sh --type server
+RUN ./update_protocol_hash.sh
