@@ -33,6 +33,8 @@ use crate::contract_deployer::contract_deployer_hook;
 use crate::l1_messenger::l1_messenger_hook;
 use crate::l2_base_token::l2_base_token_hook;
 use alloc::collections::BTreeMap;
+use zk_ee::system::errors::subsystem::SubsystemError;
+use core::marker::PhantomData;
 use core::{alloc::Allocator, mem::MaybeUninit};
 use precompiles::{pure_system_function_hook_impl, IdentityPrecompile, IdentityPrecompileErrors};
 use zk_ee::system::errors::system::SystemError;
@@ -76,7 +78,7 @@ pub struct SystemHook<S: SystemTypes>(
     ) -> Result<(CompletedExecution<'a, S>, &'a mut [MaybeUninit<u8>]), SystemError>,
 );
 
-pub trait SystemFunctionInvocation<S: SystemTypes> 
+pub trait SystemFunctionInvocation<S: SystemTypes, E: Subsystem> 
 where S::IO: IOSubsystemExt
 {
     fn invoke<D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
@@ -86,13 +88,13 @@ where S::IO: IOSubsystemExt
         output: &mut D,
         resources: &mut S::Resources,
         allocator: A,
-    ) -> Result<(), errors::SystemFunctionError>;
+    ) -> Result<(), SubsystemError<E>>;
 }
 
-struct SystemFunctionInvocationUser<S: SystemTypes, F: SystemFunction<S::Resources>> (PhantomData<(S, F)>);
-struct SystemFunctionInvocationExt<S: SystemTypes, F: SystemFunctionExt<S::Resources>> (PhantomData<(S, F)>);
+struct SystemFunctionInvocationUser<S: SystemTypes, E: Subsystem, F: SystemFunction<S::Resources, E>> (PhantomData<(S, E, F)>);
+struct SystemFunctionInvocationExt<S: SystemTypes, E: Subsystem, F: SystemFunctionExt<S::Resources, E>> (PhantomData<(S, E, F)>);
 
-impl<S: SystemTypes, F: SystemFunction<S::Resources>> SystemFunctionInvocation<S> for SystemFunctionInvocationUser<S, F> 
+impl<S: SystemTypes, E: Subsystem, F: SystemFunction<S::Resources, E>> SystemFunctionInvocation<S, E> for SystemFunctionInvocationUser<S, E, F> 
     where S::IO: IOSubsystemExt
 {
     fn invoke<D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
@@ -102,12 +104,12 @@ impl<S: SystemTypes, F: SystemFunction<S::Resources>> SystemFunctionInvocation<S
         output: &mut D,
         resources: &mut S::Resources,
         allocator: A,
-    ) -> Result<(), errors::SystemFunctionError> {
+    ) -> Result<(), SubsystemError<E>> {
         F::execute(input, output, resources, allocator)
     }
 }
 
-impl<S: SystemTypes, F: SystemFunctionExt<S::Resources>> SystemFunctionInvocation<S> for SystemFunctionInvocationExt<S, F> 
+impl<S: SystemTypes, E: Subsystem, F: SystemFunctionExt<S::Resources, E>> SystemFunctionInvocation<S, E> for SystemFunctionInvocationExt<S, E, F> 
     where S::IO: IOSubsystemExt
 {
     fn invoke<D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
@@ -117,7 +119,7 @@ impl<S: SystemTypes, F: SystemFunctionExt<S::Resources>> SystemFunctionInvocatio
         output: &mut D,
         resources: &mut S::Resources,
         allocator: A,
-    ) -> Result<(), errors::SystemFunctionError> {
+    ) -> Result<(), SubsystemError<E>> {
         F::execute(input, output, resources, oracle, logger, allocator)
     }
 }
@@ -249,14 +251,14 @@ where
     {
         self.add_hook(
             address_low,
-            SystemHook(pure_system_function_hook_impl::<SystemFunctionInvocationUser<S, P>, E, S>),
+            SystemHook(pure_system_function_hook_impl::<SystemFunctionInvocationUser<S, E, P>, E, S>),
         )
     }
 
-    fn add_precompile_ext<P: SystemFunctionExt<S::Resources>>(&mut self, address_low: u16) {
+    fn add_precompile_ext<P: SystemFunctionExt<S::Resources, E>, E: Subsystem>(&mut self, address_low: u16) {
         self.add_hook(
             address_low,
-            SystemHook(pure_system_function_hook_impl::<SystemFunctionInvocationExt<S, P>, E, S>),
+            SystemHook(pure_system_function_hook_impl::<SystemFunctionInvocationExt<S, E, P>, E, S>),
         )
     }
 

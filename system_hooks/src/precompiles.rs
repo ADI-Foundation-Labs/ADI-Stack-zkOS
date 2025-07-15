@@ -43,7 +43,7 @@ pub fn pure_system_function_hook_impl<'a, F, E, S>(
 ) -> Result<(CompletedExecution<'a, S>, &'a mut [MaybeUninit<u8>]), SystemError> 
 where 
     // S::Memory: MemorySubsystemExt,
-    F: SystemFunctionInvocation<S>,
+    F: SystemFunctionInvocation<S, E>,
     S: EthereumLikeTypes,
     S::IO: IOSubsystemExt,
     E: Subsystem

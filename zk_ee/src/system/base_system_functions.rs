@@ -1,4 +1,4 @@
-use crate::{define_subsystem, internal_error};
+use crate::{define_subsystem, internal_error, system::logger::Logger, system_io_oracle::IOOracle};
 
 use super::{
     errors::subsystem::{Subsystem, SubsystemError},
@@ -145,18 +145,18 @@ impl<R: Resources> SystemFunction<R, Secp256r1MulProjectiveErrors> for MissingSy
 }
 
 pub trait SystemFunctions<R: Resources> {
-    type Keccak256: SystemFunction<R>;
-    type Sha256: SystemFunction<R>;
-    type Secp256k1ECRecover: SystemFunction<R>;
-    type Secp256k1AddProjective: SystemFunction<R>;
-    type Secp256k1MulProjective: SystemFunction<R>;
-    type Secp256r1AddProjective: SystemFunction<R>;
-    type Secp256r1MulProjective: SystemFunction<R>;
-    type P256Verify: SystemFunction<R>;
-    type Bn254Add: SystemFunction<R>;
-    type Bn254Mul: SystemFunction<R>;
-    type Bn254PairingCheck: SystemFunction<R>;
-    type RipeMd160: SystemFunction<R>;
+    type Keccak256: SystemFunction<R, Keccak256Errors>;
+    type Sha256: SystemFunction<R, Sha256Errors>;
+    type Secp256k1ECRecover: SystemFunction<R, Secp256k1ECRecoverErrors>;
+    type Secp256k1AddProjective: SystemFunction<R, Secp256k1AddProjectiveErrors>;
+    type Secp256k1MulProjective: SystemFunction<R, Secp256k1MulProjectiveErrors>;
+    type Secp256r1AddProjective: SystemFunction<R, Secp256r1AddProjectiveErrors>;
+    type Secp256r1MulProjective: SystemFunction<R, Secp256r1MulProjectiveErrors>;
+    type P256Verify: SystemFunction<R, P256VerifyErrors>;
+    type Bn254Add: SystemFunction<R, Bn254AddErrors>;
+    type Bn254Mul: SystemFunction<R, Bn254MulErrors>;
+    type Bn254PairingCheck: SystemFunction<R, Bn254PairingCheckErrors>;
+    type RipeMd160: SystemFunction<R, RipeMd160Errors>;
 
     fn keccak256<D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
         input: &[u8],
@@ -268,7 +268,7 @@ pub trait SystemFunctions<R: Resources> {
 }
 
 pub trait SystemFunctionsExt<R: Resources> {
-    type ModExp: SystemFunctionExt<R>;
+    type ModExp: SystemFunctionExt<R, ModExpErrors>;
 
     fn mod_exp<O: IOOracle, L: Logger, D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
         input: &[u8],
