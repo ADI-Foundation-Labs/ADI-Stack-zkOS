@@ -1495,11 +1495,9 @@ dependencies = [
  "basic_system",
  "crypto",
  "cycle_marker",
- "either",
  "evm_interpreter",
  "hex",
  "ruint",
- "seq-macro",
  "system_hooks",
  "zk_ee",
 ]
@@ -1509,8 +1507,6 @@ name = "basic_system"
 version = "0.1.0"
 dependencies = [
  "arrayvec",
- "cfg-if",
- "const_for",
  "crypto",
  "cycle_marker",
  "either",
@@ -1520,7 +1516,7 @@ dependencies = [
  "ruint",
  "serde",
  "storage_models",
- "system_hooks",
+ "u256",
  "zk_ee",
 ]
 
@@ -1770,6 +1766,19 @@ dependencies = [
  "libc",
  "once_cell",
  "serde",
+]
+
+[[package]]
+name = "callable_oracles"
+version = "0.1.0"
+dependencies = [
+ "crypto",
+ "num-bigint",
+ "num-traits",
+ "oracle_provider",
+ "risc_v_simulator",
+ "ruint",
+ "zk_ee",
 ]
 
 [[package]]
@@ -2254,6 +2263,14 @@ name = "data-encoding"
 version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2a2330da5de22e8a3cb63252ce2abb30116bf5265e89c0e01bc17015ce30a476"
+
+[[package]]
+name = "delegated_u256"
+version = "0.1.0"
+dependencies = [
+ "ruint",
+ "serde",
+]
 
 [[package]]
 name = "der"
@@ -3125,15 +3142,11 @@ dependencies = [
  "basic_bootloader",
  "basic_system",
  "bincode",
- "crypto",
- "either",
  "evm_interpreter",
  "hex",
  "oracle_provider",
  "ruint",
- "seq-macro",
  "serde",
- "system_hooks",
  "zk_ee",
  "zksync_os_runner",
 ]
@@ -4801,7 +4814,6 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 name = "oracle_provider"
 version = "0.1.0"
 dependencies = [
- "ringbuffer",
  "risc_v_simulator",
  "zk_ee",
 ]
@@ -5779,6 +5791,7 @@ dependencies = [
  "basic_bootloader",
  "basic_system",
  "bincode",
+ "callable_oracles",
  "crypto",
  "env_logger 0.11.8",
  "ethers",
@@ -6604,10 +6617,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 name = "storage_models"
 version = "0.1.0"
 dependencies = [
- "arrayvec",
  "crypto",
- "either",
- "ruint",
  "zk_ee",
 ]
 
@@ -6821,7 +6831,6 @@ name = "system_hooks"
 version = "0.1.0"
 dependencies = [
  "arrayvec",
- "crypto",
  "cycle_marker",
  "evm_interpreter",
  "ruint",
@@ -7395,6 +7404,15 @@ name = "typenum"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1dccffe3ce07af9386bfd29e80c0ab1a8205a2fc34e4bcd40364df902cfa8f3f"
+
+[[package]]
+name = "u256"
+version = "0.1.0"
+dependencies = [
+ "delegated_u256",
+ "ruint",
+ "serde",
+]
 
 [[package]]
 name = "ucd-trie"

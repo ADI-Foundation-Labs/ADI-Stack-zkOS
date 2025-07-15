@@ -9,7 +9,6 @@ use cost_constants::WARM_TSTORAGE_READ_NATIVE_COST;
 use cost_constants::WARM_TSTORAGE_WRITE_NATIVE_COST;
 use crypto::blake2s::Blake2s256;
 use crypto::MiniDigest;
-use errors::SystemFunctionError;
 use evm_interpreter::gas_constants::LOG;
 use evm_interpreter::gas_constants::LOGDATA;
 use evm_interpreter::gas_constants::LOGTOPIC;
@@ -28,7 +27,7 @@ use zk_ee::{
     kv_markers::UsizeDeserializable,
     memory::ArrayBuilder,
     system::{
-        errors::{SystemError, UpdateQueryError},
+        errors::{system::SystemError, UpdateQueryError},
         AccountData, AccountDataRequest, EthereumLikeIOSubsystem, IOResultKeeper, IOSubsystem,
         IOSubsystemExt, Maybe,
     },
@@ -216,12 +215,8 @@ where
         // TODO(EVM-1078): for Era backward compatibility we may need to add events for l2 to l1 log and l1 message
 
         let mut data_hash = ArrayBuilder::default();
-        Keccak256Impl::execute(&data, &mut data_hash, resources, self.allocator.clone()).map_err(
-            |e| match e {
-                SystemFunctionError::InvalidInput => unreachable!(),
-                SystemFunctionError::System(e) => e,
-            },
-        )?;
+        Keccak256Impl::execute(&data, &mut data_hash, resources, self.allocator.clone())
+            .map_err(SystemError::from)?;
         let data_hash = Bytes32::from_array(data_hash.build());
         let data = UsizeAlignedByteBox::from_slice_in(data, self.allocator.clone());
         self.logs_storage
@@ -814,6 +809,7 @@ where
         ArtifactsLen: Maybe<u32>,
         NominalTokenBalance: Maybe<<Self::IOTypes as SystemIOTypesConfig>::NominalTokenValue>,
         Bytecode: Maybe<&'static [u8]>,
+        CodeVersion: Maybe<u8>,
     >(
         &mut self,
         ee_type: ExecutionEnvironmentType,
@@ -830,6 +826,7 @@ where
                 ArtifactsLen,
                 NominalTokenBalance,
                 Bytecode,
+                CodeVersion,
             >,
         >,
     ) -> Result<
@@ -843,6 +840,7 @@ where
             ArtifactsLen,
             NominalTokenBalance,
             Bytecode,
+            CodeVersion,
         >,
         SystemError,
     > {
@@ -874,18 +872,9 @@ where
         resources: &mut Self::Resources,
         at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         bytecode: &[u8],
-        bytecode_len: u32,
-        artifacts_len: u32,
     ) -> Result<&'static [u8], SystemError> {
-        self.storage.deploy_code(
-            from_ee,
-            resources,
-            at_address,
-            bytecode,
-            bytecode_len,
-            artifacts_len,
-            &mut self.oracle,
-        )
+        self.storage
+            .deploy_code(from_ee, resources, at_address, bytecode, &mut self.oracle)
     }
 
     fn set_bytecode_details(
