@@ -1,12 +1,12 @@
-
-use core::alloc::Allocator;
 use alloc::vec::Vec;
+use core::alloc::Allocator;
 
-pub use u256::U256;
+// pub use super::delegation::u256::U256;
+use super::delegation::u256;
 
-mod mpnat;
 mod arith;
 mod double;
+mod mpnat;
 
 pub use mpnat::MPNatU256;
 use zk_ee::{system::logger::Logger, system_io_oracle::IOOracle};
@@ -19,6 +19,7 @@ pub(super) fn modexp<O: IOOracle, L: Logger, A: Allocator + Clone>(
     logger: &mut L,
     allocator: A,
 ) -> Vec<u8, A> {
+    super::delegation::u256::init();
 
     let m = MPNatU256::from_big_endian(&modulus, allocator.clone());
     let output = if m.digits.len() == 1 && m.digits[0] == u256::U256::ZERO {

@@ -2,14 +2,13 @@ use core::mem::MaybeUninit;
 
 use zk_ee::system::logger::Logger;
 
-use super::U256;
+use super::u256::U256;
 
 #[repr(transparent)]
 #[derive(Debug)]
 pub(crate) struct U512(pub(crate) [U256; 2]);
 
 impl From<&U256> for U512 {
-
     fn from(value: &U256) -> Self {
         Self([value.clone(), U256::ZERO])
     }
@@ -33,7 +32,9 @@ impl U512 {
     }
 
     pub(crate) fn to_words(&self) -> (U256, U256) {
-        match self.0 { [ref lo, ref hi] => (lo.clone(), hi.clone()) }
+        match self.0 {
+            [ref lo, ref hi] => (lo.clone(), hi.clone()),
+        }
     }
 
     pub(crate) fn add_assign_narrow(&mut self, rhs: &U256, one: &U256) -> bool {
@@ -41,16 +42,22 @@ impl U512 {
 
         match carry {
             true => self.0[1].overflowing_add_assign(&one),
-            false => false
+            false => false,
         }
     }
- 
+
     /// Safety: lhs can't be placed in RO memory.
-    pub(crate) unsafe fn from_narrow_mul_into<L: Logger>(logger: &mut L, lhs: &U256, rhs: &U256, out: &mut [MaybeUninit<U256>; 2]) {
+    pub(crate) unsafe fn from_narrow_mul_into<L: Logger>(
+        logger: &mut L,
+        lhs: &U256,
+        rhs: &U256,
+        out: &mut [MaybeUninit<U256>; 2],
+    ) {
         unsafe { lhs.write_into_ptr_unchecked(&raw mut out[0] as *mut _) };
         unsafe { lhs.write_into_ptr_unchecked(&raw mut out[1] as *mut _) };
 
-        let out = unsafe { core::mem::transmute::<&mut [MaybeUninit<U256>; 2], &mut [U256; 2]>(out) };
+        let out =
+            unsafe { core::mem::transmute::<&mut [MaybeUninit<U256>; 2], &mut [U256; 2]>(out) };
 
         let r = out;
 

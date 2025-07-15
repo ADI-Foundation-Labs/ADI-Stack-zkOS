@@ -1,14 +1,16 @@
 // Adapted from https://github.com/aurora-is-near/aurora-engine
 
-use super::{arith::*, U256};
+use super::arith::*;
+
+use super::u256::U256;
 
 extern crate alloc;
 use alloc::vec::Vec;
-use zk_ee::system::logger::Logger;
-use zk_ee::system_io_oracle::{ArithmeticsParam, IOOracle};
 use core::alloc::Allocator;
 use core::marker::PhantomData;
+use zk_ee::system::logger::Logger;
 use zk_ee::system_io_oracle::Arithmetics;
+use zk_ee::system_io_oracle::{ArithmeticsParam, IOOracle};
 
 use alloc::boxed::Box;
 
@@ -33,7 +35,11 @@ struct OpaqueRef<'a, T, A: Allocator + Clone> {
 
 impl<'a, T, A: Allocator + Clone> OpaqueRef<'a, T, A> {
     fn access(r: &'a mut *mut (), alloc: A) -> Self {
-        Self { ptr: r, alloc, phantom: PhantomData }
+        Self {
+            ptr: r,
+            alloc,
+            phantom: PhantomData,
+        }
     }
 
     /// Safety: If `self.ptr` isn't null, it must point to an initialized value of the provided
@@ -67,16 +73,24 @@ impl<'a, T, A: Allocator + Clone> OpaqueRef<'a, T, A> {
 impl<'a, T, A: Allocator + Clone> OpaqueRef<'a, Vec<T, A>, A> {
     /// Safety: If `self.ptr` isn't null, it must point to an initialized value of the provided
     /// type.
-    unsafe fn prepared<L: Logger>(&mut self, required_cap: usize, cap_factor: usize, logger: &mut L) -> &mut Vec<T, A> {
+    unsafe fn prepared<L: Logger>(
+        &mut self,
+        required_cap: usize,
+        cap_factor: usize,
+        logger: &mut L,
+    ) -> &mut Vec<T, A> {
         let alloc = self.alloc.clone();
 
         match self.as_mut() {
             Some(x) if x.capacity() < required_cap => {
                 *x = Vec::<T, A>::with_capacity_in(required_cap * cap_factor, alloc);
-            },
+            }
             None => {
-                self.set(Vec::<T, A>::with_capacity_in(required_cap * cap_factor, self.alloc.clone()), logger);
-            },
+                self.set(
+                    Vec::<T, A>::with_capacity_in(required_cap * cap_factor, self.alloc.clone()),
+                    logger,
+                );
+            }
             _ => {}
         };
 
@@ -93,13 +107,10 @@ pub struct MPNatU256<A: Allocator + Clone> {
 }
 
 impl<A: Allocator + Clone> MPNatU256<A> {
-
     pub fn from_big_endian(bytes: &[u8], allocator: A) -> Self {
         if bytes.is_empty() {
             let vec = Vec::with_capacity_in(0, allocator.clone());
-            return Self {
-                digits: vec,
-            };
+            return Self { digits: vec };
         }
         // Remainder on division by WORD_BYTES
         let r = bytes.len() & (U256::BYTES - 1);
@@ -162,12 +173,16 @@ impl<A: Allocator + Clone> MPNatU256<A> {
         let min = core::cmp::min(self.digits.len(), rhs.digits.len());
         let max = core::cmp::max(self.digits.len(), rhs.digits.len());
 
-        for i in 0..min  {
+        for i in 0..min {
             out.digits[i] = self.digits[i].clone();
 
             let uf1 = out.digits[i].overflowing_sub_assign(&rhs.digits[i]);
 
-            let uf2 = if carry { out.digits[i].overflowing_sub_assign(&U256::ONE) } else { false };
+            let uf2 = if carry {
+                out.digits[i].overflowing_sub_assign(&U256::ONE)
+            } else {
+                false
+            };
 
             carry = uf1 | uf2;
         }
@@ -175,9 +190,14 @@ impl<A: Allocator + Clone> MPNatU256<A> {
         for i in min..max {
             out.digits[i] = self.digits.get(i).unwrap_or(&U256::ZERO).clone();
 
-            let uf1 = out.digits[i].overflowing_sub_assign(&rhs.digits.get(i).unwrap_or(&U256::ZERO));
+            let uf1 =
+                out.digits[i].overflowing_sub_assign(&rhs.digits.get(i).unwrap_or(&U256::ZERO));
 
-            let uf2 = if carry { out.digits[i].overflowing_sub_assign(&U256::ONE) } else { false };
+            let uf2 = if carry {
+                out.digits[i].overflowing_sub_assign(&U256::ONE)
+            } else {
+                false
+            };
 
             carry = uf1 | uf2;
         }
@@ -188,7 +208,14 @@ impl<A: Allocator + Clone> MPNatU256<A> {
     /// Buffer swaps:
     /// `R_U256_SCRATCH` <-> `out`
     /// `Q_U256_SCRATCH` <-> `self`
-    pub fn div<O: IOOracle, L: Logger>(&mut self, rhs: &Self, out: &mut Vec<U256, A>, oracle: &mut O, logger: &mut L, allocator: A) {
+    pub fn div<O: IOOracle, L: Logger>(
+        &mut self,
+        rhs: &Self,
+        out: &mut Vec<U256, A>,
+        oracle: &mut O,
+        logger: &mut L,
+        allocator: A,
+    ) {
         let mut arg = {
             let lhs_len = self.digits.len();
             let lhs_ptr = self.digits.as_mut_ptr();
@@ -211,31 +238,28 @@ impl<A: Allocator + Clone> MPNatU256<A> {
 
         let zero = unsafe { ZERO.get_or_insert_with(|| U256::ZERO) };
 
-        let mut it = 
-            oracle
+        let mut it = oracle
             .create_oracle_access_iterator::<Arithmetics>(&raw mut arg as usize as u32)
             .unwrap();
 
         let q_len = it.next().expect("Quotient length.");
         let r_len = it.next().expect("Remainder length.");
 
+        #[allow(static_mut_refs)]
+        let mut q_ref =
+            OpaqueRef::<Vec<U256, A>, A>::access(unsafe { &mut Q_U256_SCRATCH }, allocator.clone());
 
         #[allow(static_mut_refs)]
-        let mut q_ref = OpaqueRef::<Vec<U256, A>, A>::access(
-            unsafe { &mut Q_U256_SCRATCH },
-            allocator.clone());
-
-        #[allow(static_mut_refs)]
-        let mut r_ref = OpaqueRef::<Vec<U256, A>, A>::access(
-            unsafe { &mut R_U256_SCRATCH },
-            allocator.clone());
+        let mut r_ref =
+            OpaqueRef::<Vec<U256, A>, A>::access(unsafe { &mut R_U256_SCRATCH }, allocator.clone());
 
         // Safety: the statics are accessed with `prepared` method only, which soundly handles the
         // referenced ptr.
         let q = unsafe { q_ref.prepared(self.digits.len(), 1, logger) };
         let r = unsafe { r_ref.prepared(rhs.digits.len(), 2, logger) };
 
-        { // Write q
+        {
+            // Write q
             assert_eq!(0, q_len % 8);
             assert!(q_len < isize::MAX as usize / core::mem::size_of::<U256>());
 
@@ -243,7 +267,7 @@ impl<A: Allocator + Clone> MPNatU256<A> {
 
             for i in 0..q_len {
                 let word = it.next().expect("Quotient word.");
-                // Safety: 
+                // Safety:
                 // `q_len` is asserted to be small enough not to cause wrapping.
                 // `q` capacity the numerator length at least, thus is large enought to hold the
                 // result.
@@ -253,7 +277,8 @@ impl<A: Allocator + Clone> MPNatU256<A> {
             unsafe { q.set_len(q_len / 8) };
         }
 
-        { // Write r
+        {
+            // Write r
             assert_eq!(0, r_len % 8);
             assert!(r_len < isize::MAX as usize / core::mem::size_of::<U256>());
 
@@ -266,7 +291,7 @@ impl<A: Allocator + Clone> MPNatU256<A> {
 
             for i in 0..r_len {
                 let word = it.next().expect("Remainder word.");
-                // Safety: 
+                // Safety:
                 // `r_len` is asserted to be small enough not to cause wrapping.
                 // `r` capacity the divisor length at least, thus is large enought to hold the
                 // result.
@@ -277,7 +302,7 @@ impl<A: Allocator + Clone> MPNatU256<A> {
             // `r_len` is asserted to be small enough not to cause wrapping.
             let r_ptr = unsafe { r_ptr.add(r_len).cast::<U256>() };
 
-            for i in 0 .. len - r_len / 8 {
+            for i in 0..len - r_len / 8 {
                 // Safety:
                 // `r_len` is 8 aligned:
                 // - The base ptr is for `Vec<U256>`
@@ -290,22 +315,29 @@ impl<A: Allocator + Clone> MPNatU256<A> {
             // Safety:
             // Elements within 0..r_len, r_len .. rhs.digits.len() are init due to two previous
             // `for` loops.
-            unsafe { r.set_len(len); }
+            unsafe {
+                r.set_len(len);
+            }
         }
 
         assert!(it.next().is_none(), "Oracle iterator not exhausted.");
 
-        { // Check oracle results.
+        {
+            // Check oracle results.
             let mut check_ref = OpaqueRef::<Vec<U256, A>, A>::access(
                 #[allow(static_mut_refs)]
-                unsafe { &mut RCHECK_U256_SCRATCH },
-                allocator.clone());
+                unsafe {
+                    &mut RCHECK_U256_SCRATCH
+                },
+                allocator.clone(),
+            );
 
             // Safety: the static is accessed with `prepared` method only, which soundly handles the
             // referenced ptr.
             let mut check = unsafe { check_ref.prepared(q.len() + rhs.digits.len(), 2, logger) };
 
-            { // Write check
+            {
+                // Write check
                 check.clear();
 
                 let spare = check.spare_capacity_mut();
@@ -330,14 +362,20 @@ impl<A: Allocator + Clone> MPNatU256<A> {
     }
 
     pub fn trim(&mut self) {
-        let cnt = self.digits.iter().rev().take_while(|x| **x == U256::ZERO).count();
+        let cnt = self
+            .digits
+            .iter()
+            .rev()
+            .take_while(|x| **x == U256::ZERO)
+            .count();
 
         let cnt = match cnt == self.digits.len() {
             false => cnt,
             true => cnt - 1, // Keep at least one word.
         };
 
-        self.digits.resize_with(self.digits.len() - cnt, || { unreachable!() });
+        self.digits
+            .resize_with(self.digits.len() - cnt, || unreachable!());
     }
 
     pub fn modpow<O: IOOracle, L: Logger>(
@@ -346,7 +384,7 @@ impl<A: Allocator + Clone> MPNatU256<A> {
         modulus: &Self,
         oracle: &mut O,
         logger: &mut L,
-        allocator: A
+        allocator: A,
     ) -> Self {
         // Initial reduction
 
@@ -360,7 +398,13 @@ impl<A: Allocator + Clone> MPNatU256<A> {
             // Widths after:
             // self: same.
             // scratch: len m, cap 2m.
-            self.div(modulus, &mut scratch_space, oracle, logger, allocator.clone());
+            self.div(
+                modulus,
+                &mut scratch_space,
+                oracle,
+                logger,
+                allocator.clone(),
+            );
             scratch_space.clone()
         } else {
             self.digits.clone()
@@ -386,13 +430,14 @@ impl<A: Allocator + Clone> MPNatU256<A> {
             };
             // let mut mask: u8 = 1 << 7;
             while mask > 0 {
-
                 outer += 1;
 
                 // result width: 2m
                 // scratch width: 2m
                 // Safety: `result` isn't referencing an RO memory.
-                unsafe { big_wrapping_mul(logger, &result.digits, &result.digits, &mut scratch_space) };
+                unsafe {
+                    big_wrapping_mul(logger, &result.digits, &result.digits, &mut scratch_space)
+                };
                 result.digits.clone_from_slice(&scratch_space);
 
                 // `scratch_space` isn't used inside `div`, an is only used as the result
@@ -400,7 +445,13 @@ impl<A: Allocator + Clone> MPNatU256<A> {
                 // contents of the buffer.
                 // At this point result and scratch are both 2m wide. Both are swapped by buffers of
                 // the same size.
-                result.div(modulus, &mut scratch_space, oracle, logger, allocator.clone());
+                result.div(
+                    modulus,
+                    &mut scratch_space,
+                    oracle,
+                    logger,
+                    allocator.clone(),
+                );
 
                 // Here, result and scratch buffers are swapped.
                 core::mem::swap(&mut result.digits, &mut scratch_space);
@@ -415,7 +466,13 @@ impl<A: Allocator + Clone> MPNatU256<A> {
                     unsafe { big_wrapping_mul(logger, &result.digits, &base, &mut scratch_space) };
                     result.digits.clone_from_slice(&scratch_space);
 
-                    result.div(modulus, &mut scratch_space, oracle, logger, allocator.clone());
+                    result.div(
+                        modulus,
+                        &mut scratch_space,
+                        oracle,
+                        logger,
+                        allocator.clone(),
+                    );
                     core::mem::swap(&mut result.digits, &mut scratch_space);
                     scratch_space.fill(U256::ZERO); // zero-out the scratch space
                 }
@@ -424,9 +481,14 @@ impl<A: Allocator + Clone> MPNatU256<A> {
             }
         }
 
-        logger.write_fmt(format_args!("modpow stats \n outer {} inner {}", outer, inner));
+        logger.write_fmt(format_args!(
+            "modpow stats \n outer {} inner {}",
+            outer, inner
+        ));
 
-        let mut scratch_space = MPNatU256 { digits: scratch_space };
+        let mut scratch_space = MPNatU256 {
+            digits: scratch_space,
+        };
 
         assert_eq!(false, modulus.sub(&result, &mut scratch_space));
 
@@ -453,7 +515,10 @@ impl<A: Allocator + Clone> MPNatU256<A> {
             tmp
         };
 
-        let mut result = Vec::with_capacity_in((self.digits.len() - 1) * U256::BYTES + be_initial_bytes.len(), allocator);
+        let mut result = Vec::with_capacity_in(
+            (self.digits.len() - 1) * U256::BYTES + be_initial_bytes.len(),
+            allocator,
+        );
         result.resize(result.capacity(), 0);
         result[0..be_initial_bytes.len()].copy_from_slice(be_initial_bytes);
         for (i, d) in self.digits.iter().take(self.digits.len() - 1).enumerate() {

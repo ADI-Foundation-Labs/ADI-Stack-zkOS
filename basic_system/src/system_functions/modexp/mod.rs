@@ -5,6 +5,9 @@ use alloc::vec::Vec;
 use crypto::modexp::modexp;
 use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::U256;
+use zk_ee::system::logger::Logger;
+use zk_ee::system::SystemFunctionExt;
+use zk_ee::system_io_oracle::IOOracle;
 use zk_ee::{
     internal_error, out_of_ergs_error,
     system::{
@@ -12,10 +15,9 @@ use zk_ee::{
         Computational, Ergs, SystemFunction,
     },
 };
-use zk_ee::system::logger::Logger;
-use zk_ee::system::{ SystemFunctionExt};
-use zk_ee::system_io_oracle::IOOracle;
 
+#[cfg(target_arch = "riscv32")]
+mod delegation;
 #[cfg(target_arch = "riscv32")]
 mod mpnat;
 #[cfg(target_arch = "riscv32")]
@@ -36,7 +38,12 @@ impl<R: Resources> SystemFunctionExt<R> for ModExpImpl {
     /// or `mod_len` > usize max value
     /// or (`exp_len` > usize max value and `base_len` != 0 and `mod_len` != 0).
     /// In practice, it shouldn't be possible as requires large resources amounts, at least ~1e10 EVM gas.
-    fn execute<O: IOOracle, L: Logger, D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
+    fn execute<
+        O: IOOracle,
+        L: Logger,
+        D: Extend<u8> + ?Sized,
+        A: core::alloc::Allocator + Clone,
+    >(
         input: &[u8],
         output: &mut D,
         resources: &mut R,
@@ -58,7 +65,13 @@ fn resources_from_ergs<R: Resources>(ergs: Ergs) -> R {
 }
 
 // Based on https://github.com/bluealloy/revm/blob/main/crates/precompile/src/modexp.rs
-fn modexp_as_system_function_inner<O: IOOracle, L: Logger, D: ?Sized + Extend<u8>, A: Allocator + Clone, R: Resources>(
+fn modexp_as_system_function_inner<
+    O: IOOracle,
+    L: Logger,
+    D: ?Sized + Extend<u8>,
+    A: Allocator + Clone,
+    R: Resources,
+>(
     input: &[u8],
     dst: &mut D,
     resources: &mut R,
@@ -165,29 +178,25 @@ fn modexp_as_system_function_inner<O: IOOracle, L: Logger, D: ?Sized + Extend<u8
         *dst = *src;
     }
 
-
     // Call the modexp.
 
-
     #[cfg(not(target_arch = "riscv32"))]
-    let output = 
-         modexp(
-            base.as_slice(),
-            exponent.as_slice(),
-            modulus.as_slice(),
-            allocator,
-        );
+    let output = modexp(
+        base.as_slice(),
+        exponent.as_slice(),
+        modulus.as_slice(),
+        allocator,
+    );
 
     #[cfg(target_arch = "riscv32")]
-    let output =
-        mpnat::modexp(
-            base.as_slice(),
-            exponent.as_slice(),
-            modulus.as_slice(),
-            oracle,
-            logger,
-            allocator,
-        );
+    let output = mpnat::modexp(
+        base.as_slice(),
+        exponent.as_slice(),
+        modulus.as_slice(),
+        oracle,
+        logger,
+        allocator,
+    );
 
     dst.extend(core::iter::repeat_n(0, mod_len - output.len()).chain(output));
 

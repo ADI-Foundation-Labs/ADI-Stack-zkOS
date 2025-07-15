@@ -1,7 +1,7 @@
 // Adopted from https://github.com/aurora-is-near/aurora-engine
 
-use u256::U256;
 use zk_ee::system::logger::Logger;
+use super::u256::U256;
 
 
 use super::{double::U512, mpnat::{MPNatU256, U256_ZERO}};
@@ -48,17 +48,17 @@ pub unsafe  fn big_wrapping_mul<L: Logger>(
 }
 
 // Performs a += b, returning if there was overflow
-pub fn in_place_add(a: &mut [U256], b: &[U256]) -> bool {
-    debug_assert!(a.len() == b.len());
-
-    let mut c = false;
-    for (a_digit, b_digit) in a.iter_mut().zip(b) {
-        let carry = a_digit.overflowing_add_assign_with_carry_propagation(&b_digit, c);
-        c = carry;
-    }
-
-    c
-}
+// pub fn in_place_add(a: &mut [U256], b: &[U256]) -> bool {
+//     debug_assert!(a.len() == b.len());
+//
+//     let mut c = false;
+//     for (a_digit, b_digit) in a.iter_mut().zip(b) {
+//         let carry = a_digit.overflowing_add_assign_with_carry_propagation(&b_digit, c);
+//         c = carry;
+//     }
+//
+//     c
+// }
 
 /// Computes `a + xy + c` where any overflow is captured as the "carry",
 /// the second part of the output. The arithmetic in this function is
