@@ -21,18 +21,6 @@ pub struct ElementWithHistory<V, A: Allocator + Clone> {
     alloc: A,
 }
 
-impl<V, A: Allocator + Clone> Drop for ElementWithHistory<V, A> {
-    fn drop(&mut self) {
-        let mut elem = unsafe { Box::from_raw_in(self.head.as_ptr(), self.alloc.clone()) };
-
-        while let Some(n) = elem.previous.take() {
-            let n = unsafe { Box::from_raw_in(n.as_ptr(), self.alloc.clone()) };
-
-            elem = n;
-        } // `n` is dropped here.
-    } // last elem is dropped here.
-}
-
 impl<V, A: Allocator + Clone> ElementWithHistory<V, A> {
     #[inline(always)]
     pub fn new(value: V, records_memory_pool: &mut ElementPool<V, A>, alloc: A) -> Self {
@@ -178,6 +166,7 @@ mod tests {
             ElementWithHistory::new(1, &mut element_pool, Global);
 
         check_that_head_is_initial_element(1, &element_with_history);
+        println!("CHECKED");
     }
 
     #[test]

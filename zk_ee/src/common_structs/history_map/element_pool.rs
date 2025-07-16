@@ -3,7 +3,7 @@ use super::{
     CacheSnapshotId,
 };
 use alloc::boxed::Box;
-use core::{alloc::Allocator, ptr::NonNull};
+use core::{alloc::Allocator, mem::MaybeUninit, ptr::NonNull};
 
 /// Manages memory allocations for history records, reuses old allocations for optimization
 pub struct ElementPool<V, A: Allocator + Clone> {
@@ -12,20 +12,8 @@ pub struct ElementPool<V, A: Allocator + Clone> {
     /// Tail of `recycled` sub-list
     last: Option<HistoryRecordLink<V>>,
     alloc: A,
-}
-
-impl<V, A: Allocator + Clone> Drop for ElementPool<V, A> {
-    fn drop(&mut self) {
-        if let Some(head) = self.head {
-            let mut elem = unsafe { Box::from_raw_in(head.as_ptr(), self.alloc.clone()) };
-
-            while let Some(n) = elem.previous.take() {
-                let n = unsafe { Box::from_raw_in(n.as_ptr(), self.alloc.clone()) };
-
-                elem = n;
-            } // `n` is dropped here.
-        } // Last elem is dropped here.
-    }
+    memory_buffer: Box<[MaybeUninit<HistoryRecord<V>>; 5000], A>,
+    mem_buffer_len: usize,
 }
 
 impl<V, A: Allocator + Clone> ElementPool<V, A> {
@@ -33,7 +21,9 @@ impl<V, A: Allocator + Clone> ElementPool<V, A> {
         Self {
             head: Default::default(),
             last: Default::default(),
-            alloc,
+            alloc: alloc.clone(),
+            memory_buffer: Box::new_in([const { MaybeUninit::uninit() }; 5000], alloc),
+            mem_buffer_len: 0,
         }
     }
 
@@ -44,20 +34,19 @@ impl<V, A: Allocator + Clone> ElementPool<V, A> {
         previous: Option<HistoryRecordLink<V>>,
         snapshot_id: CacheSnapshotId,
     ) -> HistoryRecordLink<V> {
+        use std::ops::DerefMut;
         match self.head {
             None => {
-                // Allocate
-                let raw = Box::into_raw(Box::new_in(
-                    HistoryRecord {
+                let mut new_element =
+                    self.memory_buffer[self.mem_buffer_len].write(HistoryRecord {
                         touch_ss_id: snapshot_id,
                         value,
                         previous,
-                    },
-                    self.alloc.clone(),
-                ));
-                // Safety: `Box::into_raw` pinky swears that the ptr is non null and properly
-                // aligned.
-                unsafe { NonNull::new_unchecked(raw) }
+                    });
+                self.mem_buffer_len += 1;
+                assert!(self.mem_buffer_len < 5000);
+
+                unsafe { NonNull::new_unchecked(new_element.deref_mut()) }
             }
             Some(mut elem) => {
                 // Reuse old allocation
