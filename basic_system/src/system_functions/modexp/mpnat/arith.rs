@@ -8,8 +8,13 @@ use super::{double::U512, mpnat::{MPNatU256, U256_ZERO}};
 use core::{alloc::Allocator, mem::MaybeUninit};
 
 static mut U512_SCRATCH: U512 = U512::zero_const();
-static mut ZERO: Option<U256> = None;
-static mut ONE: Option<U256> = None;
+static mut ZERO: MaybeUninit<U256> = MaybeUninit::uninit();
+static mut ONE: MaybeUninit<U256> = MaybeUninit::uninit();
+
+pub fn init() {
+    unsafe { ZERO = MaybeUninit::new(U256::zero()) };
+    unsafe { ONE = MaybeUninit::new(U256::one()) };
+}
 
 /// Computes `(x * y) mod 2^(WORD_BITS*out.len())`.
 /// x and y can't reference RO memory.
@@ -19,8 +24,8 @@ pub unsafe  fn big_wrapping_mul<L: Logger>(
     y: &[U256],
     out: &mut [U256]
 ) {
-    let zero = unsafe { ZERO.get_or_insert_with(|| U256::ZERO) };
-    let one = unsafe { ONE.get_or_insert_with(|| U256::ONE) };
+    let zero = unsafe { ZERO.assume_init_mut() };
+    let one = unsafe { ONE.assume_init_mut() };
     let s = out.len();
     let mut double = unsafe { &mut U512_SCRATCH };
     let mut c = MaybeUninit::uninit();
@@ -46,19 +51,6 @@ pub unsafe  fn big_wrapping_mul<L: Logger>(
         }
     }
 }
-
-// Performs a += b, returning if there was overflow
-// pub fn in_place_add(a: &mut [U256], b: &[U256]) -> bool {
-//     debug_assert!(a.len() == b.len());
-//
-//     let mut c = false;
-//     for (a_digit, b_digit) in a.iter_mut().zip(b) {
-//         let carry = a_digit.overflowing_add_assign_with_carry_propagation(&b_digit, c);
-//         c = carry;
-//     }
-//
-//     c
-// }
 
 /// Computes `a + xy + c` where any overflow is captured as the "carry",
 /// the second part of the output. The arithmetic in this function is

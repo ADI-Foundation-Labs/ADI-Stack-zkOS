@@ -1,7 +1,6 @@
 use alloc::vec::Vec;
 use core::alloc::Allocator;
 
-// pub use super::delegation::u256::U256;
 use super::delegation::u256;
 
 mod arith;
@@ -20,6 +19,7 @@ pub(super) fn modexp<O: IOOracle, L: Logger, A: Allocator + Clone>(
     allocator: A,
 ) -> Vec<u8, A> {
     super::delegation::u256::init();
+    arith::init();
 
     let m = MPNatU256::from_big_endian(&modulus, allocator.clone());
     let output = if m.digits.len() == 1 && m.digits[0] == u256::U256::ZERO {
