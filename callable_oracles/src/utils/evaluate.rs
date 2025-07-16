@@ -103,7 +103,8 @@ pub fn read_memory_as_u64<M: MemorySource>(
     Ok(result)
 }
 
-/// Safety: the data in the memory at offset should actually be T.
+/// # Safety
+/// The data in the memory at offset should actually be T.
 pub unsafe fn read_struct<T, M: MemorySource>(memory: &M, offset: u32) -> Result<T, ()> {
     if core::mem::size_of::<T>() % 4 != 0 {
         todo!()
