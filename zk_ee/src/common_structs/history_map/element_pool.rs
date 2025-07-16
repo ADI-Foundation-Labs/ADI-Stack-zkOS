@@ -34,7 +34,7 @@ impl<V, A: Allocator + Clone> ElementPool<V, A> {
         previous: Option<HistoryRecordLink<V>>,
         snapshot_id: CacheSnapshotId,
     ) -> HistoryRecordLink<V> {
-        use std::ops::DerefMut;
+        use core::ops::DerefMut;
         match self.head {
             None => {
                 let mut new_element =
