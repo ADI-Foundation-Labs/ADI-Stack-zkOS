@@ -54,7 +54,9 @@ pub unsafe fn write_into_ptr(dst: *mut DelegatedU256, source: &DelegatedU256) {
 /// `src` must be allocated in non ROM.
 /// `dst` must be 32 bytes aligned and point to 32 bytes of accessible memory.
 pub unsafe fn write_into_ptr_unchecked(dst: *mut DelegatedU256, source: &DelegatedU256) {
-    unsafe { bigint_op_delegation::<MEMCOPY_BIT_IDX>(dst, source); }
+    unsafe {
+        bigint_op_delegation::<MEMCOPY_BIT_IDX>(dst, source);
+    }
 }
 
 /// # Safety

@@ -60,7 +60,6 @@ pub fn read_memory_as_u8<M: MemorySource>(
     Ok(result)
 }
 
-
 pub fn read_memory_as_u64<M: MemorySource>(
     memory: &M,
     mut offset: u32,
@@ -83,10 +82,14 @@ pub fn read_memory_as_u64<M: MemorySource>(
 
     while len_u32_words >= 2 {
         let value1 = memory.get(offset as u64, AccessType::MemLoad, &mut trap);
-        if trap != TrapReason::NoTrap { return Err(()); }
+        if trap != TrapReason::NoTrap {
+            return Err(());
+        }
 
         let value2 = memory.get(offset as u64 + 4, AccessType::MemLoad, &mut trap);
-        if trap != TrapReason::NoTrap { return Err(()); }
+        if trap != TrapReason::NoTrap {
+            return Err(());
+        }
 
         let value = (value2 as u64) << 32 | value1 as u64;
 
@@ -100,12 +103,8 @@ pub fn read_memory_as_u64<M: MemorySource>(
     Ok(result)
 }
 
-// Safety: the data in the memory should actually be T.
-pub unsafe fn read_struct<T, M: MemorySource>(
-    memory: &M,
-    offset: u32,
-) -> Result<T, ()>
-{
+/// Safety: the data in the memory at offset should actually be T.
+pub unsafe fn read_struct<T, M: MemorySource>(memory: &M, offset: u32) -> Result<T, ()> {
     if core::mem::size_of::<T>() % 4 != 0 {
         todo!()
     }
@@ -119,9 +118,11 @@ pub unsafe fn read_struct<T, M: MemorySource>(
 
     let ptr = r.as_mut_ptr();
 
-    for i in (0 .. core::mem::size_of::<T>()).step_by(4) {
+    for i in (0..core::mem::size_of::<T>()).step_by(4) {
         let v = memory.get(offset as u64 + i as u64, AccessType::MemLoad, &mut trap);
-        if trap != TrapReason::NoTrap { return Err(()) }
+        if trap != TrapReason::NoTrap {
+            return Err(());
+        }
 
         // Safety: iterating over size of T, add will not overflow.
         unsafe { ptr.cast::<u32>().add(i / 4).write(v) };

@@ -628,7 +628,6 @@ fn test_precompiles() {
     }
 }
 
-
 #[test]
 fn run_manually() {
     // let test =

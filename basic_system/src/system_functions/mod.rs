@@ -1,6 +1,6 @@
 use core::alloc::Allocator;
 use zk_ee::memory::MinimalByteAddressableSlice;
-use zk_ee::reference_implementations::{BaseResources};
+use zk_ee::reference_implementations::BaseResources;
 use zk_ee::system::{MissingSystemFunction, Resources, SystemFunctions, SystemFunctionsExt};
 
 pub mod bn254_ecadd;

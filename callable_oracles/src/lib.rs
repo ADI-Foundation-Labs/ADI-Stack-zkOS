@@ -17,8 +17,8 @@
 #![allow(clippy::op_ref)]
 #![allow(clippy::precedence)]
 
-pub mod utils;
 pub mod arithmetic;
+pub mod utils;
 
 use zk_ee::{
     kv_markers::{ExactSizeChain, UsizeDeserializable, UsizeSerializable},

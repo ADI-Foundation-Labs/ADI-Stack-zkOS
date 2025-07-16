@@ -1,10 +1,12 @@
 // Adopted from https://github.com/aurora-is-near/aurora-engine
 
-use zk_ee::system::logger::Logger;
 use super::u256::U256;
+use zk_ee::system::logger::Logger;
 
-
-use super::{double::U512, mpnat::{MPNatU256, U256_ZERO}};
+use super::{
+    double::U512,
+    mpnat::{MPNatU256, U256_ZERO},
+};
 use core::{alloc::Allocator, mem::MaybeUninit};
 
 static mut U512_SCRATCH: U512 = U512::zero_const();
@@ -18,12 +20,7 @@ pub fn init() {
 
 /// Computes `(x * y) mod 2^(WORD_BITS*out.len())`.
 /// x and y can't reference RO memory.
-pub unsafe  fn big_wrapping_mul<L: Logger>(
-    l: &mut L,
-    x: &[U256],
-    y: &[U256],
-    out: &mut [U256]
-) {
+pub unsafe fn big_wrapping_mul<L: Logger>(l: &mut L, x: &[U256], y: &[U256], out: &mut [U256]) {
     let zero = unsafe { ZERO.assume_init_mut() };
     let one = unsafe { ONE.assume_init_mut() };
     let s = out.len();
@@ -37,15 +34,17 @@ pub unsafe  fn big_wrapping_mul<L: Logger>(
                 Some(x) => x,
                 None => &zero,
             };
-            unsafe { shifted_carrying_mul(
-                l, 
-                &out[i + j],
-                &x,
-                y.get(i).unwrap_or(&zero),
-                &c,
-                double,
-                one,
-            ) };
+            unsafe {
+                shifted_carrying_mul(
+                    l,
+                    &out[i + j],
+                    &x,
+                    y.get(i).unwrap_or(&zero),
+                    &c,
+                    double,
+                    one,
+                )
+            };
             c.clone_from(double.high());
             out[i + j].clone_from(double.low());
         }
@@ -57,8 +56,15 @@ pub unsafe  fn big_wrapping_mul<L: Logger>(
 /// guaranteed to never overflow because even when all 4 variables are
 /// equal to `Word::MAX` the output is smaller than `DoubleWord::MAX`.
 /// Safety: `x`,`y` can't be placed in RO memory.
-unsafe fn shifted_carrying_mul<L: Logger>(logger: &mut L, a: &U256, x: &U256, y: &U256, c: &U256, out: &mut U512, one: &U256) {
-
+unsafe fn shifted_carrying_mul<L: Logger>(
+    logger: &mut L,
+    a: &U256,
+    x: &U256,
+    y: &U256,
+    c: &U256,
+    out: &mut U512,
+    one: &U256,
+) {
     {
         let out = &mut out.0;
         let out = unsafe { core::mem::transmute(out) };
@@ -86,6 +92,6 @@ pub(crate) fn widening_add(lhs: &mut [&mut U256; 2], rhs: &U256) -> bool {
 
     match carry {
         true => lhs[1].overflowing_add_assign(&U256::ONE),
-        false => false
+        false => false,
     }
 }

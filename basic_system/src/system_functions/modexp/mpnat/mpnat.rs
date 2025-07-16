@@ -269,7 +269,7 @@ impl<A: Allocator + Clone> MPNatU256<A> {
                 let word = it.next().expect("Quotient word.");
                 // Safety:
                 // `q_len` is asserted to be small enough not to cause wrapping.
-                // `q` capacity the numerator length at least, thus is large enought to hold the
+                // `q` capacity the numerator length at least, thus is large enough to hold the
                 // result.
                 unsafe { q_ptr.add(i).write(word) };
             }
@@ -293,7 +293,7 @@ impl<A: Allocator + Clone> MPNatU256<A> {
                 let word = it.next().expect("Remainder word.");
                 // Safety:
                 // `r_len` is asserted to be small enough not to cause wrapping.
-                // `r` capacity the divisor length at least, thus is large enought to hold the
+                // `r` capacity the divisor length at least, thus is large enough to hold the
                 // result.
                 unsafe { r_ptr.add(i).write(word) };
             }
@@ -455,7 +455,7 @@ impl<A: Allocator + Clone> MPNatU256<A> {
 
                 // Here, result and scratch buffers are swapped.
                 core::mem::swap(&mut result.digits, &mut scratch_space);
-                // This makes it so the result, scrach, and `div` internal buffers, q and r, are
+                // This makes it so the result, scratch, and `div` internal buffers, q and r, are
                 // rotated around.
 
                 scratch_space.fill(U256::ZERO); // zero-out the scratch space

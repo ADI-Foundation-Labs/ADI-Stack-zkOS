@@ -39,7 +39,7 @@ impl U256 {
     pub fn to_be_bytes(&self) -> [u8; 32] {
         self.0.to_be_bytes()
     }
-    
+
     pub unsafe fn write_into_ptr(&self, dst: *mut Self) {
         write_into_ptr(dst.cast(), &self.0);
     }
@@ -65,7 +65,7 @@ impl U256 {
     pub fn overflowing_sub_assign(&mut self, rhs: &Self) -> bool {
         self.0.overflowing_sub_assign(&rhs.0)
     }
-    
+
     #[inline(always)]
     pub fn widening_mul_assign_into(&mut self, high: &mut Self, rhs: &Self) {
         self.0.widening_mul_assign_into(&mut high.0, &rhs.0);
@@ -296,7 +296,9 @@ unsafe fn write_into_ptr(dst: *mut DelegatedU256, source: &DelegatedU256) {
 /// `src` must be allocated in non ROM.
 /// `dst` must be 32 bytes aligned and point to 32 bytes of accessible memory.
 unsafe fn write_into_ptr_unchecked(dst: *mut DelegatedU256, source: &DelegatedU256) {
-    unsafe { bigint_op_delegation::<MEMCOPY_BIT_IDX>(dst, source); }
+    unsafe {
+        bigint_op_delegation::<MEMCOPY_BIT_IDX>(dst, source);
+    }
 }
 
 /// # Safety

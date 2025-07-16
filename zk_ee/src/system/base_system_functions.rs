@@ -270,7 +270,12 @@ pub trait SystemFunctions<R: Resources> {
 pub trait SystemFunctionsExt<R: Resources> {
     type ModExp: SystemFunctionExt<R, ModExpErrors>;
 
-    fn mod_exp<O: IOOracle, L: Logger, D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
+    fn mod_exp<
+        O: IOOracle,
+        L: Logger,
+        D: Extend<u8> + ?Sized,
+        A: core::alloc::Allocator + Clone,
+    >(
         input: &[u8],
         output: &mut D,
         resources: &mut R,

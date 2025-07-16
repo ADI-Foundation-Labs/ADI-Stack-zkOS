@@ -33,7 +33,7 @@ impl Iterator for UsizeSliceIteratorOwned {
         // if self.cursor == 0 {
         //     self.cursor += 1;
         //
-        //     return Some(self.slice.len()); 
+        //     return Some(self.slice.len());
         // }
         //
         // if self.cursor -1 == self.slice.len() as u32 { return None; }
@@ -44,10 +44,12 @@ impl Iterator for UsizeSliceIteratorOwned {
         //
         // Some(r)
         //
-        
-        if self.cursor == self.slice.len() as u32 { return None; }
 
-        let r = self.slice[self.cursor as usize ];
+        if self.cursor == self.slice.len() as u32 {
+            return None;
+        }
+
+        let r = self.slice[self.cursor as usize];
 
         self.cursor += 1;
 
