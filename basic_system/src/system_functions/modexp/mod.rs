@@ -13,7 +13,7 @@ use zk_ee::{
     system::{
         base_system_functions::ModExpErrors,
         errors::{subsystem::SubsystemError, system::SystemError},
-        Computational, Ergs, ModExpInterfaceError, SystemFunction,
+        Computational, Ergs, ModExpInterfaceError,
     },
 };
 
@@ -66,6 +66,7 @@ fn resources_from_ergs<R: Resources>(ergs: Ergs) -> R {
 }
 
 // Based on https://github.com/bluealloy/revm/blob/main/crates/precompile/src/modexp.rs
+#[allow(unused_variables)]
 fn modexp_as_system_function_inner<
     O: IOOracle,
     L: Logger,

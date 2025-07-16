@@ -109,8 +109,8 @@ where
     S::IO: IOSubsystemExt,
 {
     fn invoke<D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
-        oracle: &mut <S::IO as IOSubsystemExt>::IOOracle,
-        logger: &mut S::Logger,
+        _oracle: &mut <S::IO as IOSubsystemExt>::IOOracle,
+        _logger: &mut S::Logger,
         input: &[u8],
         output: &mut D,
         resources: &mut S::Resources,
