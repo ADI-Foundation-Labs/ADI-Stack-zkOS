@@ -102,8 +102,24 @@ fn fuzz(data: &[u8]) {
         &src.to_bytes().as_slice()[0..src.n],
         &mut dst,
         &mut resource,
+        // We're in x86 target, so oracle and logger aren't going to be used.
+        &mut DummyOracle {},
+        &mut zk_ee::system::NullLogger,
         allocator,
     );
+}
+
+struct DummyOracle {}
+
+impl zk_ee::system_io_oracle::IOOracle for DummyOracle {
+    type MarkerTiedIterator<'a> = Box<dyn ExactSizeIterator<Item = usize> + 'static>;
+
+    fn create_oracle_access_iterator<'a, M: zk_ee::system_io_oracle::OracleIteratorTypeMarker>(
+        &'a mut self,
+        _init_value: M::Params,
+    ) -> Result<Self::MarkerTiedIterator<'a>, zk_ee::system::errors::internal::InternalError> {
+        todo!()
+    }
 }
 
 fuzz_target!(|data: &[u8]| {
