@@ -9,6 +9,7 @@ use zk_ee::reference_implementations::BaseResources;
 use zk_ee::system::SystemFunction;
 use zk_ee::system::Resource;
 use zk_ee::reference_implementations::DecreasingNative;
+use zk_ee::system::SystemFunctionExt;
 
 #[derive(Debug)]
 struct ModexpInput {
