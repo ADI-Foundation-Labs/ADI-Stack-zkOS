@@ -109,7 +109,8 @@ pub struct MPNatU256<A: Allocator + Clone> {
 impl<A: Allocator + Clone> MPNatU256<A> {
     pub fn from_big_endian(bytes: &[u8], allocator: A) -> Self {
         if bytes.is_empty() {
-            let vec = Vec::with_capacity_in(0, allocator.clone());
+            let mut vec = Vec::with_capacity_in(1, allocator.clone());
+            vec.push(U256::zero());
             return Self { digits: vec };
         }
         // Remainder on division by WORD_BYTES
