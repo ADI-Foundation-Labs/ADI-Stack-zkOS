@@ -1,3 +1,6 @@
+#[cfg(target_arch = "riscv32")]
+use core::arch::asm;
+
 // beneficial for unrolling cycles & control
 use seq_macro::seq;
 
@@ -76,8 +79,7 @@ impl<const SHA3: bool> MiniDigest for Keccak256Core<SHA3> {
         keccak_f1600(&mut self.state);
         #[cfg(not(target_endian = "little"))]
         compile_error!("Big‑endian targets are unsupported");
-        let output = unsafe { *(self.state.0.as_ptr() as *const [u64; 4] as *const [u8; 32]) };
-        output
+        unsafe { *(self.state.0.as_ptr() as *const [u64; 4] as *const [u8; 32]) }
     }
 
     #[inline(always)]
@@ -270,7 +272,8 @@ fn iota_theta_rho_nopi(state: &mut [u64; STATE_AND_SCRATCH_WORDS], round: usize)
     };
 
     seq!(i in 0..5 {
-        #[cfg(not(target_arch = "riscv32"))] {
+        #[cfg(not(target_arch = "riscv32"))]
+        #[allow(clippy::identity_op, clippy::erasing_op)] {
             let pi = &PERMUTATIONS_ADJUSTED[round*25..]; // indices before applying round permutation
             let idcol = 25 + i;
             let idx0 = pi[i];
@@ -293,6 +296,7 @@ fn iota_theta_rho_nopi(state: &mut [u64; STATE_AND_SCRATCH_WORDS], round: usize)
         }
     });
     #[cfg(not(target_arch = "riscv32"))]
+    #[expect(clippy::self_assignment)]
     {
         let tmp = state[25]; // zero-cost in-circuit
         state[25] ^= state[27].rotate_left(1); // (state[25]' ^ state[25]).rotate_left(63) == state[27]
@@ -313,7 +317,8 @@ fn iota_theta_rho_nopi(state: &mut [u64; STATE_AND_SCRATCH_WORDS], round: usize)
     }
     const IDCOLS: [usize; 5] = [29, 25, 26, 27, 28];
     seq!(i in 0..5 {
-        #[cfg(not(target_arch = "riscv32"))] {
+        #[cfg(not(target_arch = "riscv32"))]
+        #[allow(clippy::identity_op)] {
             let pi = &PERMUTATIONS_ADJUSTED[round*25..]; // indices before applying round permutation
             let idcol = IDCOLS[i];
             let idx0 = pi[i];
@@ -374,7 +379,8 @@ fn chi_nopi(state: &mut [u64; STATE_AND_SCRATCH_WORDS], round: usize) {
     };
 
     seq!(i in 0..5 {
-        #[cfg(not(target_arch = "riscv32"))] {
+        #[cfg(not(target_arch = "riscv32"))]
+        #[allow(clippy::erasing_op, clippy::assign_op_pattern, clippy::identity_op)] {
             let pi = &PERMUTATIONS_ADJUSTED[(round+1)*25..]; // indices after applying round permutation
             let idx = i*5;
             let idx0 = pi[idx];
