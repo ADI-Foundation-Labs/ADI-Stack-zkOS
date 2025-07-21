@@ -850,17 +850,12 @@ where
         // as this is included in the intrinsic cost.
         resources_available.with_infinite_ergs(|inf_resources| {
             cycle_marker::wrap_with_resources!("prepare_for_call", inf_resources, {
-                prepare_for_call::<S, IS_ENTRY_FRAME>(
-                    system,
-                    ee_version,
-                    inf_resources,
-                    &call_request,
-                )
+                read_callee_account_properties(system, ee_version, inf_resources, &call_request)
             })
         })
     } else {
         cycle_marker::wrap_with_resources!("prepare_for_call", resources_available, {
-            prepare_for_call::<S, IS_ENTRY_FRAME>(
+            read_callee_account_properties(
                 system,
                 ee_version,
                 &mut resources_available,
@@ -869,15 +864,7 @@ where
         })
     };
 
-    let CalleeParameters {
-        next_ee_version,
-        bytecode,
-        code_version,
-        unpadded_code_len,
-        artifacts_len,
-        stipend,
-        transfer_to_perform,
-    } = match r {
+    let callee_parameters = match r {
         Ok(x) => x,
         Err(SystemError::LeafRuntime(RuntimeError::OutOfErgs(_))) => {
             return Ok(CallPreparationResult::Failure {
@@ -889,6 +876,72 @@ where
         }
         Err(SystemError::LeafDefect(e)) => return Err(e.into()),
     };
+
+    // Now we charge for the rest of the CALL related costs
+    let stipend = if !IS_ENTRY_FRAME {
+        match ee_version {
+            ExecutionEnvironmentType::NoEE => {
+                return Err(internal_error!("Cannot be NoEE deep in the callstack").into())
+            }
+            ExecutionEnvironmentType::EVM => {
+                let is_delegate = call_request.is_delegate();
+                let is_callcode = call_request.is_callcode();
+                let is_callcode_or_delegate = is_callcode || is_delegate;
+
+                // Positive value cost and stipend
+                let stipend = if !is_delegate && !call_request.nominal_token_value.is_zero() {
+                    let positive_value_cost =
+                        S::Resources::from_ergs(Ergs(CALLVALUE * ERGS_PER_GAS));
+                    resources_available.charge(&positive_value_cost)?;
+                    Some(Ergs(CALL_STIPEND * ERGS_PER_GAS))
+                } else {
+                    None
+                };
+
+                // Account creation cost
+                let callee_is_empty = callee_parameters.nonce == 0
+                    && callee_parameters.unpadded_code_len == 0
+                    && callee_parameters.nominal_token_balance.is_zero();
+                if !is_callcode_or_delegate
+                    && !call_request.nominal_token_value.is_zero()
+                    && callee_is_empty
+                {
+                    let callee_creation_cost =
+                        S::Resources::from_ergs(Ergs(NEWACCOUNT * ERGS_PER_GAS));
+                    resources_available.charge(&callee_creation_cost)?
+                }
+
+                stipend
+            }
+        }
+    } else {
+        None
+    };
+
+    // Check transfer is allowed an determine transfer target
+    let transfer_to_perform =
+        if call_request.nominal_token_value != U256::ZERO && !call_request.is_delegate() {
+            if !call_request.is_transfer_allowed() {
+                let _ = system.get_logger().write_fmt(format_args!(
+                    "Call failed: positive value with modifier {:?}\n",
+                    call_request.modifier
+                ));
+                return Ok(CallPreparationResult::Failure {
+                    resources_in_caller_frame: resources_available,
+                });
+            }
+            // Adjust transfer target due to CALLCODE
+            let target = match call_request.modifier {
+                CallModifier::EVMCallcode | CallModifier::EVMCallcodeStatic => call_request.caller,
+                _ => call_request.callee,
+            };
+            Some(TransferInfo {
+                value: call_request.nominal_token_value,
+                target,
+            })
+        } else {
+            None
+        };
 
     // If we're in the entry frame, i.e. not the execution of a CALL opcode,
     // we don't apply the CALL-specific gas charging, but instead set
@@ -918,14 +971,14 @@ where
     if DEBUG_OUTPUT {
         let _ = system.get_logger().write_fmt(format_args!(
             "Bytecode len for `callee` = {}\n",
-            bytecode.len(),
+            callee_parameters.bytecode.len(),
         ));
         let _ = system
             .get_logger()
             .write_fmt(format_args!("Bytecode for `callee` = "));
         let _ = system
             .get_logger()
-            .log_data(bytecode.as_ref().iter().copied());
+            .log_data(callee_parameters.bytecode.as_ref().iter().copied());
     }
 
     let external_call_launch_params = ExecutionEnvironmentLaunchParams {
@@ -935,27 +988,25 @@ where
         },
         environment_parameters: EnvironmentParameters {
             bytecode: Bytecode::Decommitted {
-                bytecode,
-                unpadded_code_len,
-                artifacts_len,
-                code_version,
+                bytecode: callee_parameters.bytecode,
+                unpadded_code_len: callee_parameters.unpadded_code_len,
+                artifacts_len: callee_parameters.artifacts_len,
+                code_version: callee_parameters.code_version,
             },
             scratch_space_len: 0,
         },
     };
 
     Ok(CallPreparationResult::Success {
-        next_ee_version,
+        next_ee_version: callee_parameters.next_ee_version,
         transfer_to_perform,
         external_call_launch_params,
         resources_in_caller_frame: resources_available,
     })
 }
 
-// It should be split into EVM and generic part.
-/// Run call preparation, which includes reading the callee parameters
-/// and charging for resources.
-fn prepare_for_call<'a, S: EthereumLikeTypes, const IS_ENTRY_FRAME: bool>(
+/// Charge for reading account properties and perform actual read
+fn read_callee_account_properties<'a, S: EthereumLikeTypes>(
     system: &mut System<S>,
     ee_version: ExecutionEnvironmentType,
     resources: &mut S::Resources,
@@ -993,77 +1044,23 @@ where
         Err(SystemError::LeafDefect(e)) => return Err(e.into()),
     };
 
-    // Now we charge for the rest of the CALL related costs
-    let stipend = if !IS_ENTRY_FRAME {
-        match ee_version {
-            ExecutionEnvironmentType::NoEE => {
-                return Err(internal_error!("Cannot be NoEE deep in the callstack").into())
-            }
-            ExecutionEnvironmentType::EVM => {
-                let is_delegate = call_request.is_delegate();
-                let is_callcode = call_request.is_callcode();
-                let is_callcode_or_delegate = is_callcode || is_delegate;
-
-                // Positive value cost and stipend
-                let stipend = if !is_delegate && !call_request.nominal_token_value.is_zero() {
-                    let positive_value_cost =
-                        S::Resources::from_ergs(Ergs(CALLVALUE * ERGS_PER_GAS));
-                    resources.charge(&positive_value_cost)?;
-                    Some(Ergs(CALL_STIPEND * ERGS_PER_GAS))
-                } else {
-                    None
-                };
-
-                // Account creation cost
-                let callee_is_empty = account_properties.nonce.0 == 0
-                    && account_properties.unpadded_code_len.0 == 0
-                    && account_properties.nominal_token_balance.0.is_zero();
-                if !is_callcode_or_delegate
-                    && !call_request.nominal_token_value.is_zero()
-                    && callee_is_empty
-                {
-                    let callee_creation_cost =
-                        S::Resources::from_ergs(Ergs(NEWACCOUNT * ERGS_PER_GAS));
-                    resources.charge(&callee_creation_cost)?
-                }
-
-                stipend
-            }
-        }
-    } else {
-        None
-    };
-
-    // Check transfer is allowed an determine transfer target
-    let transfer_to_perform =
-        if call_request.nominal_token_value != U256::ZERO && !call_request.is_delegate() {
-            if !call_request.is_transfer_allowed() {
-                let _ = system.get_logger().write_fmt(format_args!(
-                    "Call failed: positive value with modifier {:?}\n",
-                    call_request.modifier
-                ));
-                return Err(out_of_ergs_error!());
-            }
-            // Adjust transfer target due to CALLCODE
-            let target = match call_request.modifier {
-                CallModifier::EVMCallcode | CallModifier::EVMCallcodeStatic => call_request.caller,
-                _ => call_request.callee,
-            };
-            Some(TransferInfo {
-                value: call_request.nominal_token_value,
-                target,
-            })
-        } else {
-            None
-        };
-
     // Read required data to perform a call
-    let (next_ee_version, bytecode, code_version, unpadded_code_len, artifacts_len) = {
+    let (
+        next_ee_version,
+        bytecode,
+        code_version,
+        unpadded_code_len,
+        artifacts_len,
+        nonce,
+        nominal_token_balance,
+    ) = {
         let ee_version = account_properties.ee_version.0;
         let unpadded_code_len = account_properties.unpadded_code_len.0;
         let artifacts_len = account_properties.artifacts_len.0;
         let bytecode = account_properties.bytecode.0;
         let code_version = account_properties.code_version.0;
+        let nonce = account_properties.nonce.0;
+        let nominal_token_balance = account_properties.nominal_token_balance.0;
 
         (
             ee_version,
@@ -1071,17 +1068,19 @@ where
             code_version,
             unpadded_code_len,
             artifacts_len,
+            nonce,
+            nominal_token_balance,
         )
     };
 
     Ok(CalleeParameters {
         next_ee_version,
         bytecode,
+        nonce,
+        nominal_token_balance,
         code_version,
         unpadded_code_len,
         artifacts_len,
-        stipend,
-        transfer_to_perform,
     })
 }
 
