@@ -10,8 +10,6 @@
 //! - Apply encoded elements.
 //!
 
-use crypto::sha3::Digest;
-
 /// Addresses are encoded as 20 bytes
 pub const ADDRESS_ENCODING_LEN: usize = 21;
 
@@ -59,7 +57,7 @@ pub fn estimate_length_encoding_len(length: usize) -> usize {
 ///
 /// Applies the number rlp encoding to the hasher.
 ///
-pub fn apply_number_encoding_to_hash(value: &[u8], hasher: &mut impl Digest) {
+pub fn apply_number_encoding_to_hash(value: &[u8], hasher: &mut impl crypto::MiniDigest) {
     // if the value is 0, then it should be encoded as empty bytes
     let first_non_zero_byte = value
         .iter()
@@ -71,7 +69,7 @@ pub fn apply_number_encoding_to_hash(value: &[u8], hasher: &mut impl Digest) {
 ///
 /// Applies the bytes rlp encoding to the hasher.
 ///
-pub fn apply_bytes_encoding_to_hash(value: &[u8], hasher: &mut impl Digest) {
+pub fn apply_bytes_encoding_to_hash(value: &[u8], hasher: &mut impl crypto::MiniDigest) {
     if value.len() == 1 && value[0] < 128 {
         hasher.update(value);
         return;
@@ -84,7 +82,7 @@ pub fn apply_bytes_encoding_to_hash(value: &[u8], hasher: &mut impl Digest) {
 ///
 /// Applies the list rlp encoding to the hasher.
 ///
-pub fn apply_list_length_encoding_to_hash(length: usize, hasher: &mut impl Digest) {
+pub fn apply_list_length_encoding_to_hash(length: usize, hasher: &mut impl crypto::MiniDigest) {
     apply_length_encoding_to_hash(length, 192, hasher);
 }
 
@@ -94,7 +92,7 @@ pub fn apply_list_length_encoding_to_hash(length: usize, hasher: &mut impl Diges
 ///
 /// Note that it shouldn't be used for a single byte less than 128.
 ///
-fn apply_length_encoding_to_hash(length: usize, offset: u8, hasher: &mut impl Digest) {
+fn apply_length_encoding_to_hash(length: usize, offset: u8, hasher: &mut impl crypto::MiniDigest) {
     if length < 56 {
         hasher.update(&[offset + length as u8])
     } else {

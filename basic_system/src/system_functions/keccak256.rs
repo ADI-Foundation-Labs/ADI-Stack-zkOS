@@ -45,6 +45,7 @@ fn keccak256_as_system_function_inner<D: ?Sized + Extend<u8>, R: Resources>(
     resources.charge(&R::from_ergs_and_native(ergs_cost, native_cost))?;
 
     use crypto::sha3::*;
+    use crypto::MiniDigest;
     let mut hasher = Keccak256::new();
     hasher.update(src);
     let hash = hasher.finalize();
