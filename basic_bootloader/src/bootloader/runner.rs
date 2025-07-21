@@ -56,7 +56,7 @@ where
     };
 
     let (resources_returned, call_or_deploy_result) =
-        run.handle_spawn_inner(initial_ee_version, initial_request, heap, true)?;
+        run.handle_spawn_inner::<true>(initial_ee_version, initial_request, heap)?;
 
     match call_or_deploy_result {
         CallOrDeployResult::CallResult(call_result) => {
@@ -119,30 +119,29 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
         S::IO: IOSubsystemExt,
     {
         self.callstack_height += 1;
-        let result = self.handle_spawn_inner(ee_type, spawn, heap, false);
+        let result = self.handle_spawn_inner::<false>(ee_type, spawn, heap);
         self.callstack_height -= 1;
         result
     }
 
     #[inline(always)]
-    fn handle_spawn_inner(
+    fn handle_spawn_inner<const IS_ENTRY_FRAME: bool>(
         &mut self,
         ee_type: ExecutionEnvironmentType,
         spawn: ExecutionEnvironmentSpawnRequest<S>,
         heap: SliceVec<u8>,
-        is_entry_frame: bool,
     ) -> Result<(S::Resources, CallOrDeployResult<'external, S>), BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt,
     {
         let resources_and_result = match spawn {
             ExecutionEnvironmentSpawnRequest::RequestedExternalCall(external_call_request) => {
-                let (resources, call_result) = self.handle_requested_external_call(
-                    ee_type,
-                    is_entry_frame,
-                    external_call_request,
-                    heap,
-                )?;
+                let (resources, call_result) = self
+                    .handle_requested_external_call::<IS_ENTRY_FRAME>(
+                        ee_type,
+                        external_call_request,
+                        heap,
+                    )?;
 
                 let success = matches!(call_result, CallResult::Successful { .. });
 
@@ -157,9 +156,8 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                 let CompletedDeployment {
                     resources_returned,
                     deployment_result,
-                } = self.handle_requested_deployment(
+                } = self.handle_requested_deployment::<IS_ENTRY_FRAME>(
                     ee_type,
-                    is_entry_frame,
                     deployment_parameters,
                     heap,
                 )?;
@@ -195,10 +193,9 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
         }
     }
 
-    fn handle_requested_external_call(
+    fn handle_requested_external_call<const IS_ENTRY_FRAME: bool>(
         &mut self,
         ee_type: ExecutionEnvironmentType,
-        is_entry_frame: bool,
         call_request: ExternalCallRequest<S>,
         heap: SliceVec<u8>,
     ) -> Result<(S::Resources, CallResult<'external, S>), BootloaderSubsystemError>
@@ -259,7 +256,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
             resources_returned_from_preparation,
             transfer_to_perform,
         );
-        match run_call_preparation(is_entry_frame, self.system, ee_type, &call_request) {
+        match run_call_preparation::<S, IS_ENTRY_FRAME>(self.system, ee_type, &call_request) {
             Ok(CallPreparationResult::Success {
                 next_ee_version: next_ee_version_returned,
                 bytecode,
@@ -601,10 +598,9 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
         }
     }
 
-    fn handle_requested_deployment(
+    fn handle_requested_deployment<const IS_ENTRY_FRAME: bool>(
         &mut self,
         ee_type: ExecutionEnvironmentType,
-        is_entry_frame: bool,
         deployment_parameters: DeploymentPreparationParameters<S>,
         heap: SliceVec<u8>,
     ) -> Result<CompletedDeployment<'external, S>, BootloaderSubsystemError>
@@ -636,7 +632,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
             };
 
         // resources returned back to caller
-        if is_entry_frame {
+        if IS_ENTRY_FRAME {
             // resources returned back to caller do not make sense, so we join them back
             launch_params
                 .external_call
@@ -875,8 +871,7 @@ pub enum CallPreparationResult<'a, S: SystemTypes> {
 
 /// Reads callee account and runs call preparation function
 /// from the system.
-fn run_call_preparation<'a, S: EthereumLikeTypes>(
-    is_entry_frame: bool,
+fn run_call_preparation<'a, S: EthereumLikeTypes, const IS_ENTRY_FRAME: bool>(
     system: &mut System<S>,
     ee_version: ExecutionEnvironmentType,
     call_request: &ExternalCallRequest<S>,
@@ -886,28 +881,26 @@ where
 {
     let mut resources_available = call_request.available_resources.clone();
 
-    let r = if is_entry_frame {
+    let r = if IS_ENTRY_FRAME {
         // For entry frame we don't charge ergs for call preparation,
         // as this is included in the intrinsic cost.
         resources_available.with_infinite_ergs(|inf_resources| {
             cycle_marker::wrap_with_resources!("prepare_for_call", inf_resources, {
-                prepare_for_call(
+                prepare_for_call::<S, IS_ENTRY_FRAME>(
                     system,
                     ee_version,
                     inf_resources,
                     &call_request,
-                    is_entry_frame,
                 )
             })
         })
     } else {
         cycle_marker::wrap_with_resources!("prepare_for_call", resources_available, {
-            prepare_for_call(
+            prepare_for_call::<S, IS_ENTRY_FRAME>(
                 system,
                 ee_version,
                 &mut resources_available,
                 &call_request,
-                is_entry_frame,
             )
         })
     };
@@ -936,7 +929,7 @@ where
     // If we're in the entry frame, i.e. not the execution of a CALL opcode,
     // we don't apply the CALL-specific gas charging, but instead set
     // actual_resources_to_pass equal to the available resources
-    let mut actual_resources_to_pass = if !is_entry_frame {
+    let mut actual_resources_to_pass = if !IS_ENTRY_FRAME {
         // now we should ask current EE for observable resource behavior if needed
         {
             SupportedEEVMState::<S>::clarify_and_take_passed_resources(
@@ -969,12 +962,11 @@ where
 // It should be split into EVM and generic part.
 /// Run call preparation, which includes reading the callee parameters
 /// and charging for resources.
-fn prepare_for_call<'a, S: EthereumLikeTypes>(
+fn prepare_for_call<'a, S: EthereumLikeTypes, const IS_ENTRY_FRAME: bool>(
     system: &mut System<S>,
     ee_version: ExecutionEnvironmentType,
     resources: &mut S::Resources,
     call_request: &ExternalCallRequest<S>,
-    is_entry_frame: bool,
 ) -> Result<CalleeParameters<'a>, SystemError>
 where
     S::IO: IOSubsystemExt,
@@ -1009,7 +1001,7 @@ where
     };
 
     // Now we charge for the rest of the CALL related costs
-    let stipend = if !is_entry_frame {
+    let stipend = if !IS_ENTRY_FRAME {
         match ee_version {
             ExecutionEnvironmentType::NoEE => {
                 return Err(internal_error!("Cannot be NoEE deep in the callstack").into())
