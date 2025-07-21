@@ -834,17 +834,16 @@ pub enum CallPreparationResult<'a, S: SystemTypes> {
     },
 }
 
-/// Reads callee account and runs call preparation function
-/// from the system.
+/// TODO description
 fn run_call_preparation<'a, S: EthereumLikeTypes, const IS_ENTRY_FRAME: bool>(
     system: &mut System<S>,
     ee_version: ExecutionEnvironmentType,
-    call_request: ExternalCallRequest<'a, S>,
+    mut call_request: ExternalCallRequest<'a, S>,
 ) -> Result<CallPreparationResult<'a, S>, BootloaderSubsystemError>
 where
     S::IO: IOSubsystemExt,
 {
-    let mut resources_available = call_request.available_resources.clone(); // TODO: what about native resources?..
+    let mut resources_available = call_request.available_resources.take();
 
     let r = if IS_ENTRY_FRAME {
         // For entry frame we don't charge ergs for call preparation,
@@ -894,7 +893,7 @@ where
     // If we're in the entry frame, i.e. not the execution of a CALL opcode,
     // we don't apply the CALL-specific gas charging, but instead set
     // actual_resources_to_pass equal to the available resources
-    let mut actual_resources_to_pass = if !IS_ENTRY_FRAME {
+    let mut resources_for_callee_frame = if !IS_ENTRY_FRAME {
         // now we should ask current EE for observable resource behavior if needed
         {
             SupportedEEVMState::<S>::clarify_and_take_passed_resources(
@@ -910,8 +909,11 @@ where
 
     // Add stipend
     if let Some(stipend) = stipend {
-        actual_resources_to_pass.add_ergs(stipend)
+        resources_for_callee_frame.add_ergs(stipend)
     }
+
+    // Give all native resource to the callee frame.
+    resources_available.give_native_to(&mut resources_for_callee_frame);
 
     if DEBUG_OUTPUT {
         let _ = system.get_logger().write_fmt(format_args!(
@@ -928,7 +930,7 @@ where
 
     let external_call_launch_params = ExecutionEnvironmentLaunchParams {
         external_call: ExternalCallRequest {
-            available_resources: actual_resources_to_pass,
+            available_resources: resources_for_callee_frame,
             ..call_request
         },
         environment_parameters: EnvironmentParameters {

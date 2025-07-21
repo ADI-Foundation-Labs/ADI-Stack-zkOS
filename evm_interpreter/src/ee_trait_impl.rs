@@ -302,14 +302,12 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
         let ergs_to_pass = core::cmp::min(desired_ergs_to_pass, max_passable_ergs);
 
         // Charge caller frame
-        let mut resources_to_pass = S::Resources::from_ergs(ergs_to_pass);
+        let resources_to_pass = S::Resources::from_ergs(ergs_to_pass);
 
         // This never panics because max_passable_ergs <= resources_available_in_caller_frame
         resources_available_in_caller_frame
             .charge(&resources_to_pass)
             .unwrap();
-        // Give native resource to the passed.
-        resources_available_in_caller_frame.give_native_to(&mut resources_to_pass);
 
         Ok(resources_to_pass)
     }
