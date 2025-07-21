@@ -16,6 +16,7 @@ use zk_ee::common_structs::TransferInfo;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::memory::slice_vec::SliceVec;
 use zk_ee::system::errors::runtime::RuntimeError;
+use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::{
     errors::{system::SystemError, UpdateQueryError},
     logger::Logger,
@@ -54,14 +55,11 @@ where
         return_memory: memories.return_data,
     };
 
-    match initial_request {
-        ExecutionEnvironmentSpawnRequest::RequestedExternalCall(external_call_request) => {
-            let (resources_returned, call_result) = run.handle_requested_external_call(
-                initial_ee_version,
-                true,
-                external_call_request,
-                heap,
-            )?;
+    let (resources_returned, call_or_deploy_result) =
+        run.handle_spawn_inner(initial_ee_version, initial_request, heap, true)?;
+
+    match call_or_deploy_result {
+        CallOrDeployResult::CallResult(call_result) => {
             let (return_values, reverted) = match call_result {
                 CallResult::CallFailedToExecute => (ReturnValues::empty(), true),
                 CallResult::Failed { return_values } => (return_values, true),
@@ -75,10 +73,12 @@ where
                 },
             ))
         }
-
-        ExecutionEnvironmentSpawnRequest::RequestedDeployment(deployment_parameters) => run
-            .handle_requested_deployment(initial_ee_version, true, deployment_parameters, heap)
-            .map(TransactionEndPoint::CompletedDeployment),
+        CallOrDeployResult::DeploymentResult(deployment_result) => Ok(
+            TransactionEndPoint::CompletedDeployment(CompletedDeployment {
+                resources_returned,
+                deployment_result,
+            }),
+        ),
     }
 }
 
@@ -105,11 +105,6 @@ struct Run<'a, 'm, S: EthereumLikeTypes> {
     return_memory: &'m mut [MaybeUninit<u8>],
 }
 
-enum CallOrDeployResult<'a, S: EthereumLikeTypes> {
-    CallResult(CallResult<'a, S>),
-    DeploymentResult(DeploymentResult<'a, S>),
-}
-
 const SPECIAL_ADDRESS_BOUND: B160 = B160::from_limbs([SPECIAL_ADDRESS_SPACE_BOUND, 0, 0]);
 
 impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
@@ -124,26 +119,27 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
         S::IO: IOSubsystemExt,
     {
         self.callstack_height += 1;
-        let result = self.handle_spawn_inner(ee_type, spawn, heap);
+        let result = self.handle_spawn_inner(ee_type, spawn, heap, false);
         self.callstack_height -= 1;
         result
     }
 
     #[inline(always)]
-    fn handle_spawn_inner<'a>(
+    fn handle_spawn_inner(
         &mut self,
         ee_type: ExecutionEnvironmentType,
-        spawn: ExecutionEnvironmentSpawnRequest<'a, S>,
-        heap: SliceVec<'a, u8>,
+        spawn: ExecutionEnvironmentSpawnRequest<S>,
+        heap: SliceVec<u8>,
+        is_entry_frame: bool,
     ) -> Result<(S::Resources, CallOrDeployResult<'external, S>), BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt,
     {
-        match spawn {
+        let resources_and_result = match spawn {
             ExecutionEnvironmentSpawnRequest::RequestedExternalCall(external_call_request) => {
                 let (resources, call_result) = self.handle_requested_external_call(
                     ee_type,
-                    false,
+                    is_entry_frame,
                     external_call_request,
                     heap,
                 )?;
@@ -155,14 +151,18 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                     success
                 ));
 
-                Ok((resources, CallOrDeployResult::CallResult(call_result)))
+                (resources, CallOrDeployResult::CallResult(call_result))
             }
             ExecutionEnvironmentSpawnRequest::RequestedDeployment(deployment_parameters) => {
                 let CompletedDeployment {
                     resources_returned,
                     deployment_result,
-                } =
-                    self.handle_requested_deployment(ee_type, false, deployment_parameters, heap)?;
+                } = self.handle_requested_deployment(
+                    ee_type,
+                    is_entry_frame,
+                    deployment_parameters,
+                    heap,
+                )?;
 
                 let returndata_region = deployment_result.returndata();
                 let returndata_iter = returndata_region.iter().copied();
@@ -172,12 +172,13 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                     .write_fmt(format_args!("Returndata = "));
                 let _ = self.system.get_logger().log_data(returndata_iter);
 
-                Ok((
+                (
                     resources_returned,
                     CallOrDeployResult::DeploymentResult(deployment_result),
-                ))
+                )
             }
-        }
+        };
+        Ok(resources_and_result)
     }
 
     fn copy_into_return_memory<'a>(
@@ -240,15 +241,6 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                 .hooks
                 .has_hook_for(call_request.callee.as_limbs()[0] as u16);
 
-        // The call is targeting the "system contract" space.
-        if is_call_to_special_address {
-            return self.handle_requested_external_call_to_special_address_space(
-                ee_type,
-                is_entry_frame,
-                call_request,
-            );
-        }
-
         // NOTE: on external call request caller doesn't spend resources,
         // but indicates how much he would want to pass at most. Here we can decide the rest
 
@@ -261,43 +253,26 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
 
         // declaring these here rather than returning them reduces stack usage.
         let (
-            mut new_vm,
-            new_ee_type,
-            resources_returned_from_preparation,
-            mut preemption,
+            mut external_call_launch_params,
             rollback_handle,
+            next_ee_version,
+            resources_returned_from_preparation,
+            transfer_to_perform,
         );
         match run_call_preparation(is_entry_frame, self.system, ee_type, &call_request) {
             Ok(CallPreparationResult::Success {
-                next_ee_version,
+                next_ee_version: next_ee_version_returned,
                 bytecode,
                 code_version,
                 unpadded_code_len,
                 artifacts_len,
-                mut actual_resources_to_pass,
-                transfer_to_perform,
+                actual_resources_to_pass,
+                transfer_to_perform: transfer_to_perform_returned,
                 resources_returned,
             }) => {
-                // We create a new frame for callee, should include transfer and
-                // callee execution
-                rollback_handle = self.system.start_global_frame()?;
-
-                if let Some(call_result) = self.external_call_before_vm(
-                    &mut actual_resources_to_pass,
-                    &call_request,
-                    bytecode.len() == 0,
-                    &transfer_to_perform,
-                    ee_type,
-                )? {
-                    let failure = !matches!(call_result, CallResult::Successful { .. });
-                    self.system
-                        .finish_global_frame(failure.then_some(&rollback_handle))?;
-                    actual_resources_to_pass.reclaim(resources_returned);
-                    return Ok((actual_resources_to_pass, call_result));
-                }
-
+                next_ee_version = next_ee_version_returned;
+                transfer_to_perform = transfer_to_perform_returned;
                 resources_returned_from_preparation = resources_returned;
-
                 if DEBUG_OUTPUT {
                     let _ = self.system.get_logger().write_fmt(format_args!(
                         "Bytecode len for `callee` = {}\n",
@@ -313,33 +288,21 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                         .log_data(bytecode.as_ref().iter().copied());
                 }
 
-                // resources are checked and spent, so we continue with actual transition of control flow
-
-                // now grow callstack and prepare initial state
-                new_vm = create_ee(next_ee_version, self.system)?;
-                new_ee_type = new_vm.ee_type();
-
-                preemption = new_vm
-                    .start_executing_frame(
-                        self.system,
-                        ExecutionEnvironmentLaunchParams {
-                            external_call: ExternalCallRequest {
-                                available_resources: actual_resources_to_pass,
-                                ..call_request
-                            },
-                            environment_parameters: EnvironmentParameters {
-                                bytecode: Bytecode::Decommitted {
-                                    bytecode,
-                                    unpadded_code_len,
-                                    artifacts_len,
-                                    code_version,
-                                },
-                                scratch_space_len: 0,
-                            },
+                external_call_launch_params = ExecutionEnvironmentLaunchParams {
+                    external_call: ExternalCallRequest {
+                        available_resources: actual_resources_to_pass,
+                        ..call_request
+                    },
+                    environment_parameters: EnvironmentParameters {
+                        bytecode: Bytecode::Decommitted {
+                            bytecode,
+                            unpadded_code_len,
+                            artifacts_len,
+                            code_version,
                         },
-                        heap,
-                    )
-                    .map_err(wrap_error!())?;
+                        scratch_space_len: 0,
+                    },
+                };
             }
 
             Ok(CallPreparationResult::Failure { resources_returned }) => {
@@ -348,90 +311,76 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
             Err(e) => return Err(e),
         };
 
-        loop {
-            match preemption {
-                ExecutionEnvironmentPreemptionPoint::Spawn {
-                    ref mut request,
-                    ref mut heap,
-                } => {
-                    let heap = core::mem::take(heap);
-                    let request = core::mem::take(request);
-                    let (resources, result) = self.handle_spawn(new_ee_type, request, heap)?;
-                    drop(preemption);
-                    preemption = match result {
-                        CallOrDeployResult::CallResult(call_result) => new_vm
-                            .continue_after_external_call(self.system, resources, call_result)
-                            .map_err(wrap_error!())?,
-                        CallOrDeployResult::DeploymentResult(deployment_result) => new_vm
-                            .continue_after_deployment(self.system, resources, deployment_result)
-                            .map_err(wrap_error!())?,
-                    };
-                }
-                ExecutionEnvironmentPreemptionPoint::End(
-                    TransactionEndPoint::CompletedExecution(CompletedExecution {
-                        mut resources_returned,
-                        return_values,
-                        reverted,
-                    }),
-                ) => {
-                    self.system
-                        .finish_global_frame(reverted.then_some(&rollback_handle))
-                        .map_err(|_| internal_error!("must finish execution frame"))?;
+        // resources are checked and spent, so we continue with actual transition of control flow
 
-                    let returndata_iter = return_values.returndata.iter().copied();
-                    let _ = self
-                        .system
-                        .get_logger()
-                        .write_fmt(format_args!("Returndata = "));
-                    let _ = self.system.get_logger().log_data(returndata_iter);
+        // We create a new frame for callee, should include transfer and
+        // callee execution
+        rollback_handle = self.system.start_global_frame()?;
 
-                    let return_values = self.copy_into_return_memory(return_values);
+        let callee_frame_execution_result = if let Some(call_result) = self
+            .check_if_external_call_returns_early(
+                &mut external_call_launch_params,
+                &transfer_to_perform,
+                ee_type,
+                is_call_to_special_address,
+            )? {
+            // Call finished before VM started
+            let failure = !matches!(call_result, CallResult::Successful { .. });
+            self.system
+                .finish_global_frame(failure.then_some(&rollback_handle))?;
 
-                    resources_returned.reclaim(resources_returned_from_preparation);
-                    return Ok((
-                        resources_returned,
-                        if reverted {
-                            CallResult::Failed { return_values }
-                        } else {
-                            CallResult::Successful { return_values }
-                        },
-                    ));
-                }
-                ExecutionEnvironmentPreemptionPoint::End(
-                    TransactionEndPoint::CompletedDeployment(_),
-                ) => {
-                    //TODO should be misuse
-                    return Err(BootloaderSubsystemError::LeafDefect(internal_error!(
-                        "returned from external call as if it was a deployment",
-                    )));
-                }
-            }
-        }
+            let resources_to_return = external_call_launch_params
+                .external_call
+                .available_resources;
+
+            Ok((resources_to_return, call_result))
+        } else if is_call_to_special_address {
+            // The call is targeting the "system contract" space.
+            self.call_to_special_address_execute_callee_frame(
+                external_call_launch_params,
+                ee_type,
+                rollback_handle,
+            )
+        } else {
+            self.call_execute_callee_frame(
+                external_call_launch_params,
+                heap,
+                next_ee_version,
+                rollback_handle,
+            )
+        };
+
+        let (resources_returned_from_callee, call_result) = callee_frame_execution_result?;
+        let mut resources_to_return = resources_returned_from_callee;
+        resources_to_return.reclaim(resources_returned_from_preparation); // TODO why do we reclaim it only here?
+        Ok((resources_to_return, call_result))
     }
 
     #[inline(always)]
-    fn external_call_before_vm<'a>(
+    fn check_if_external_call_returns_early<'a>(
         &mut self,
-        actual_resources_to_pass: &mut S::Resources,
-        call_request: &ExternalCallRequest<S>,
-        is_eoa: bool,
+        external_call_params: &mut ExecutionEnvironmentLaunchParams<S>,
         transfer_to_perform: &Option<TransferInfo>,
         ee_type: ExecutionEnvironmentType,
+        is_call_to_special_address: bool,
     ) -> Result<Option<CallResult<'a, S>>, BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt,
     {
         // Now, perform transfer with infinite ergs
         if let Some(TransferInfo { value, target }) = transfer_to_perform {
-            match actual_resources_to_pass.with_infinite_ergs(|inf_resources| {
-                self.system.io.transfer_nominal_token_value(
-                    ExecutionEnvironmentType::NoEE,
-                    inf_resources,
-                    &call_request.caller,
-                    &target,
-                    &value,
-                )
-            }) {
+            match external_call_params
+                .external_call
+                .available_resources
+                .with_infinite_ergs(|inf_resources| {
+                    self.system.io.transfer_nominal_token_value(
+                        ExecutionEnvironmentType::NoEE,
+                        inf_resources,
+                        &external_call_params.external_call.caller,
+                        &target,
+                        &value,
+                    )
+                }) {
                 Ok(()) => (),
                 Err(UpdateQueryError::System(SystemError::LeafRuntime(
                     RuntimeError::OutOfErgs(_),
@@ -462,8 +411,22 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
             }
         }
 
+        let is_eoa = match external_call_params.environment_parameters.bytecode {
+            Bytecode::Decommitted {
+                bytecode,
+                unpadded_code_len: _,
+                artifacts_len: _,
+                code_version: _,
+            } => bytecode.is_empty(),
+            Bytecode::Constructor(_) => {
+                return Err(SubsystemError::LeafDefect(internal_error!(
+                    "Constructor bytecode used instead of bytecode"
+                )))
+            }
+        };
+
         // Calls to EOAs succeed with empty return value
-        if is_eoa {
+        if !is_call_to_special_address && is_eoa {
             return Ok(Some(CallResult::Successful {
                 return_values: ReturnValues::empty(),
             }));
@@ -478,75 +441,102 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
         Ok(None)
     }
 
-    #[inline(always)]
-    fn handle_requested_external_call_to_special_address_space(
+    fn call_execute_callee_frame(
         &mut self,
-        ee_type: ExecutionEnvironmentType,
-        is_entry_frame: bool,
-        call_request: ExternalCallRequest<S>,
+        external_call_launch_params: ExecutionEnvironmentLaunchParams<S>,
+        heap: SliceVec<u8>,
+        next_ee_version: u8,
+        rollback_handle: SystemFrameSnapshot<S>,
     ) -> Result<(S::Resources, CallResult<'external, S>), BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt,
     {
-        let callee = call_request.callee;
-        let address_low = callee.as_limbs()[0] as u16;
+        // now grow callstack and prepare initial state
+        let mut new_vm = create_ee(next_ee_version, self.system)?;
+        let new_ee_type = new_vm.ee_type();
 
-        let _ = self.system.get_logger().write_fmt(format_args!(
-            "Call to special address 0x{:04x}\n",
-            address_low
-        ));
-        let calldata_slice = &call_request.calldata;
-        let calldata_iter = calldata_slice.iter().copied();
-        let _ = self
-            .system
-            .get_logger()
-            .write_fmt(format_args!("Calldata = "));
-        let _ = self.system.get_logger().log_data(calldata_iter);
+        let mut preemption = new_vm
+            .start_executing_frame(self.system, external_call_launch_params, heap)
+            .map_err(wrap_error!())?;
 
-        let rollback_handle;
-        let (mut actual_resources_to_pass, resources_to_return_from_preparation) =
-            match run_call_preparation(is_entry_frame, self.system, ee_type, &call_request) {
-                Ok(CallPreparationResult::Success {
-                    mut actual_resources_to_pass,
-                    transfer_to_perform,
-                    resources_returned,
-                    ..
-                }) => {
-                    // We create a new frame for callee, should include transfer and
-                    // callee execution
-                    rollback_handle = self.system.start_global_frame()?;
-
-                    if let Some(call_result) = self.external_call_before_vm(
-                        &mut actual_resources_to_pass,
-                        &call_request,
-                        false,
-                        &transfer_to_perform,
-                        ee_type,
-                    )? {
-                        let failure = !matches!(call_result, CallResult::Successful { .. });
-                        self.system
-                            .finish_global_frame(failure.then_some(&rollback_handle))?;
-
-                        actual_resources_to_pass.reclaim(resources_returned);
-                        return Ok((actual_resources_to_pass, call_result));
-                    }
-
-                    (actual_resources_to_pass, resources_returned)
+        loop {
+            match preemption {
+                ExecutionEnvironmentPreemptionPoint::Spawn {
+                    ref mut request,
+                    ref mut heap,
+                } => {
+                    let heap = core::mem::take(heap);
+                    let request = core::mem::take(request);
+                    let (resources, result) = self.handle_spawn(new_ee_type, request, heap)?;
+                    drop(preemption);
+                    preemption = match result {
+                        CallOrDeployResult::CallResult(call_result) => new_vm
+                            .continue_after_external_call(self.system, resources, call_result)
+                            .map_err(wrap_error!())?,
+                        CallOrDeployResult::DeploymentResult(deployment_result) => new_vm
+                            .continue_after_deployment(self.system, resources, deployment_result)
+                            .map_err(wrap_error!())?,
+                    };
                 }
-                Ok(CallPreparationResult::Failure { resources_returned }) => {
-                    return Ok((resources_returned, CallResult::CallFailedToExecute))
-                }
-                Err(e) => return Err(e),
-            };
+                ExecutionEnvironmentPreemptionPoint::End(
+                    TransactionEndPoint::CompletedExecution(CompletedExecution {
+                        resources_returned,
+                        return_values,
+                        reverted,
+                    }),
+                ) => {
+                    self.system
+                        .finish_global_frame(reverted.then_some(&rollback_handle))
+                        .map_err(|_| internal_error!("must finish execution frame"))?;
 
+                    let returndata_iter = return_values.returndata.iter().copied();
+                    let _ = self
+                        .system
+                        .get_logger()
+                        .write_fmt(format_args!("Returndata = "));
+                    let _ = self.system.get_logger().log_data(returndata_iter);
+
+                    let return_values = self.copy_into_return_memory(return_values);
+
+                    return Ok((
+                        resources_returned,
+                        if reverted {
+                            CallResult::Failed { return_values }
+                        } else {
+                            CallResult::Successful { return_values }
+                        },
+                    ));
+                }
+                ExecutionEnvironmentPreemptionPoint::End(
+                    TransactionEndPoint::CompletedDeployment(_),
+                ) => {
+                    //TODO should be misuse
+                    return Err(BootloaderSubsystemError::LeafDefect(internal_error!(
+                        "returned from external call as if it was a deployment",
+                    )));
+                }
+            }
+        }
+    }
+
+    fn call_to_special_address_execute_callee_frame(
+        &mut self,
+        external_call_launch_params: ExecutionEnvironmentLaunchParams<S>,
+        caller_ee_type: ExecutionEnvironmentType,
+        rollback_handle: SystemFrameSnapshot<S>,
+    ) -> Result<(S::Resources, CallResult<'external, S>), BootloaderSubsystemError>
+    where
+        S::IO: IOSubsystemExt,
+    {
         let return_memory = core::mem::take(&mut self.return_memory);
+        let resources_passed = external_call_launch_params
+            .external_call
+            .available_resources
+            .clone();
         let (res, remaining_memory) = self.hooks.try_intercept(
-            address_low,
-            ExternalCallRequest {
-                available_resources: actual_resources_to_pass.clone(),
-                ..call_request
-            },
-            ee_type as u8,
+            external_call_launch_params.external_call.callee.as_limbs()[0] as u16,
+            external_call_launch_params.external_call,
+            caller_ee_type as u8,
             self.system,
             return_memory,
         )?;
@@ -556,7 +546,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
         if let Some(system_hook_run_result) = res {
             let CompletedExecution {
                 return_values,
-                mut resources_returned,
+                resources_returned,
                 reverted,
                 ..
             } = system_hook_run_result;
@@ -584,7 +574,6 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                 })
                 .map_err(|_| internal_error!("must finish execution frame"))?;
 
-            resources_returned.reclaim(resources_to_return_from_preparation);
             Ok((
                 resources_returned,
                 if reverted {
@@ -594,6 +583,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                 },
             ))
         } else {
+            let resources_returned = resources_passed;
             // it's an empty account for all the purposes, or default AA
             let _ = self.system.get_logger().write_fmt(format_args!(
                 "Call to special address was not intercepted\n",
@@ -602,9 +592,8 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                 .finish_global_frame(None)
                 .map_err(|_| internal_error!("must finish execution frame"))?;
 
-            actual_resources_to_pass.reclaim(resources_to_return_from_preparation);
             Ok((
-                actual_resources_to_pass,
+                resources_returned,
                 CallResult::Successful {
                     return_values: ReturnValues::empty(),
                 },
@@ -672,10 +661,6 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
             .start_global_frame()
             .map_err(|_| internal_error!("must start a new frame for init code"))?;
 
-        // EE made all the preparations and we are in callee's frame already
-        let mut constructor = create_ee(ee_type as u8, self.system)?;
-        let constructor_ee_type = constructor.ee_type();
-
         let nominal_token_value = launch_params.external_call.nominal_token_value;
 
         // EIP-161: contracts should be initialized with nonce 1
@@ -727,6 +712,53 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                     }
                 })?;
         }
+
+        match self.deployment_execute_constructor_frame(ee_type, launch_params, heap) {
+            Ok((deployment_success, mut resources_returned, deployment_result)) => {
+                // Now finish constructor frame
+                self.system.finish_global_frame(
+                    (!deployment_success).then_some(&constructor_rollback_handle),
+                )?;
+
+                let _ = self.system.get_logger().write_fmt(format_args!(
+                    "Return from constructor call, success = {}\n",
+                    deployment_success
+                ));
+
+                resources_returned.reclaim(resources_for_deployer);
+
+                Ok(CompletedDeployment {
+                    resources_returned,
+                    deployment_result,
+                })
+            }
+            Err(e) => {
+                // TODO we do not close constructor frame. Prob this is ok, since this is system failure
+
+                Err(e)
+            }
+        }
+    }
+
+    pub fn deployment_execute_constructor_frame(
+        &mut self,
+        ee_type: ExecutionEnvironmentType,
+        launch_params: ExecutionEnvironmentLaunchParams<S>,
+        heap: SliceVec<u8>,
+    ) -> Result<
+        (
+            bool,
+            <S as SystemTypes>::Resources,
+            zk_ee::system::DeploymentResult<'external, S>,
+        ),
+        BootloaderSubsystemError,
+    >
+    where
+        S::IO: IOSubsystemExt,
+    {
+        // EE made all the preparations and we are in callee's frame already
+        let mut constructor = create_ee(ee_type as u8, self.system)?;
+        let constructor_ee_type = constructor.ee_type();
 
         let mut preemption = constructor
             .start_executing_frame(self.system, launch_params, heap)
@@ -821,20 +853,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
             ),
         };
 
-        // Now finish constructor frame
-        self.system
-            .finish_global_frame((!deployment_success).then_some(&constructor_rollback_handle))?;
-
-        let _ = self.system.get_logger().write_fmt(format_args!(
-            "Return from constructor call, success = {}\n",
-            deployment_success
-        ));
-
-        resources_returned.reclaim(resources_for_deployer);
-        Ok(CompletedDeployment {
-            resources_returned,
-            deployment_result,
-        })
+        Ok((deployment_success, resources_returned, deployment_result))
     }
 }
 
@@ -855,7 +874,7 @@ pub enum CallPreparationResult<'a, S: SystemTypes> {
 }
 
 /// Reads callee account and runs call preparation function
-/// from the system. Additionally, does token transfer if needed.
+/// from the system.
 fn run_call_preparation<'a, S: EthereumLikeTypes>(
     is_entry_frame: bool,
     system: &mut System<S>,
