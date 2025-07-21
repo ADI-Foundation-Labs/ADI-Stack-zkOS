@@ -250,56 +250,22 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
 
         // declaring these here rather than returning them reduces stack usage.
         let (
-            mut external_call_launch_params,
-            rollback_handle,
             next_ee_version,
-            mut resources_in_caller_frame,
             transfer_to_perform,
+            mut external_call_launch_params,
+            mut resources_in_caller_frame,
         );
-        match run_call_preparation::<S, IS_ENTRY_FRAME>(self.system, ee_type, &call_request) {
+        match run_call_preparation::<S, IS_ENTRY_FRAME>(self.system, ee_type, call_request) {
             Ok(CallPreparationResult::Success {
                 next_ee_version: next_ee_version_returned,
-                bytecode,
-                code_version,
-                unpadded_code_len,
-                artifacts_len,
-                actual_resources_to_pass,
                 transfer_to_perform: transfer_to_perform_returned,
+                external_call_launch_params: external_call_launch_params_returned,
                 resources_in_caller_frame: resources_in_caller_frame_returned,
             }) => {
                 next_ee_version = next_ee_version_returned;
                 transfer_to_perform = transfer_to_perform_returned;
+                external_call_launch_params = external_call_launch_params_returned;
                 resources_in_caller_frame = resources_in_caller_frame_returned;
-                if DEBUG_OUTPUT {
-                    let _ = self.system.get_logger().write_fmt(format_args!(
-                        "Bytecode len for `callee` = {}\n",
-                        bytecode.len(),
-                    ));
-                    let _ = self
-                        .system
-                        .get_logger()
-                        .write_fmt(format_args!("Bytecode for `callee` = "));
-                    let _ = self
-                        .system
-                        .get_logger()
-                        .log_data(bytecode.as_ref().iter().copied());
-                }
-
-                external_call_launch_params = ExecutionEnvironmentLaunchParams {
-                    external_call: ExternalCallRequest {
-                        available_resources: actual_resources_to_pass,
-                        ..call_request
-                    },
-                    environment_parameters: EnvironmentParameters {
-                        bytecode: Bytecode::Decommitted {
-                            bytecode,
-                            unpadded_code_len,
-                            artifacts_len,
-                            code_version,
-                        },
-                        scratch_space_len: 0,
-                    },
-                };
             }
 
             Ok(CallPreparationResult::Failure {
@@ -312,7 +278,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
 
         // We create a new frame for callee, should include transfer and
         // callee execution
-        rollback_handle = self.system.start_global_frame()?;
+        let rollback_handle = self.system.start_global_frame()?;
 
         // Note that actual transfer is executed in "check_if_external_call_returns_early" which may be confusing
         let callee_frame_execution_result = if let Some(call_result) = self
@@ -856,12 +822,8 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
 pub enum CallPreparationResult<'a, S: SystemTypes> {
     Success {
         next_ee_version: u8,
-        bytecode: &'a [u8],
-        code_version: u8,
-        unpadded_code_len: u32,
-        artifacts_len: u32,
-        actual_resources_to_pass: S::Resources,
         transfer_to_perform: Option<TransferInfo>,
+        external_call_launch_params: ExecutionEnvironmentLaunchParams<'a, S>,
         resources_in_caller_frame: S::Resources,
     },
     Failure {
@@ -874,12 +836,12 @@ pub enum CallPreparationResult<'a, S: SystemTypes> {
 fn run_call_preparation<'a, S: EthereumLikeTypes, const IS_ENTRY_FRAME: bool>(
     system: &mut System<S>,
     ee_version: ExecutionEnvironmentType,
-    call_request: &ExternalCallRequest<S>,
+    call_request: ExternalCallRequest<'a, S>,
 ) -> Result<CallPreparationResult<'a, S>, BootloaderSubsystemError>
 where
     S::IO: IOSubsystemExt,
 {
-    let mut resources_available = call_request.available_resources.clone();
+    let mut resources_available = call_request.available_resources.clone(); // TODO: what about native resources?..
 
     let r = if IS_ENTRY_FRAME {
         // For entry frame we don't charge ergs for call preparation,
@@ -947,14 +909,40 @@ where
     if let Some(stipend) = stipend {
         actual_resources_to_pass.add_ergs(stipend)
     }
+
+    if DEBUG_OUTPUT {
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Bytecode len for `callee` = {}\n",
+            bytecode.len(),
+        ));
+        let _ = system
+            .get_logger()
+            .write_fmt(format_args!("Bytecode for `callee` = "));
+        let _ = system
+            .get_logger()
+            .log_data(bytecode.as_ref().iter().copied());
+    }
+
+    let external_call_launch_params = ExecutionEnvironmentLaunchParams {
+        external_call: ExternalCallRequest {
+            available_resources: actual_resources_to_pass,
+            ..call_request
+        },
+        environment_parameters: EnvironmentParameters {
+            bytecode: Bytecode::Decommitted {
+                bytecode,
+                unpadded_code_len,
+                artifacts_len,
+                code_version,
+            },
+            scratch_space_len: 0,
+        },
+    };
+
     Ok(CallPreparationResult::Success {
         next_ee_version,
-        bytecode,
-        code_version,
-        unpadded_code_len,
-        artifacts_len,
-        actual_resources_to_pass,
         transfer_to_perform,
+        external_call_launch_params,
         resources_in_caller_frame: resources_available,
     })
 }
