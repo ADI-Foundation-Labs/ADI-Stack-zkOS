@@ -5,7 +5,7 @@ pub struct TransferInfo {
     pub target: B160,
 }
 
-pub struct CalleeParameters<'a> {
+pub struct CalleeAccountProperties<'a> {
     pub next_ee_version: u8,
     pub nonce: u64,
     pub nominal_token_balance: U256,
