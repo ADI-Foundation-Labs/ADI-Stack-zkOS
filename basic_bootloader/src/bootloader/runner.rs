@@ -11,7 +11,7 @@ use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
 use system_hooks::*;
-use zk_ee::common_structs::CalleeParameters;
+use zk_ee::common_structs::CalleeAccountProperties;
 use zk_ee::common_structs::TransferInfo;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::interface_error;
@@ -1009,7 +1009,7 @@ fn read_callee_account_properties<'a, S: EthereumLikeTypes>(
     ee_version: ExecutionEnvironmentType,
     resources: &mut S::Resources,
     call_request: &ExternalCallRequest<S>,
-) -> Result<CalleeParameters<'a>, SystemError>
+) -> Result<CalleeAccountProperties<'a>, SystemError>
 where
     S::IO: IOSubsystemExt,
 {
@@ -1042,43 +1042,14 @@ where
         Err(SystemError::LeafDefect(e)) => return Err(e.into()),
     };
 
-    // Read required data to perform a call
-    let (
-        next_ee_version,
-        bytecode,
-        code_version,
-        unpadded_code_len,
-        artifacts_len,
-        nonce,
-        nominal_token_balance,
-    ) = {
-        let ee_version = account_properties.ee_version.0;
-        let unpadded_code_len = account_properties.unpadded_code_len.0;
-        let artifacts_len = account_properties.artifacts_len.0;
-        let bytecode = account_properties.bytecode.0;
-        let code_version = account_properties.code_version.0;
-        let nonce = account_properties.nonce.0;
-        let nominal_token_balance = account_properties.nominal_token_balance.0;
-
-        (
-            ee_version,
-            bytecode,
-            code_version,
-            unpadded_code_len,
-            artifacts_len,
-            nonce,
-            nominal_token_balance,
-        )
-    };
-
-    Ok(CalleeParameters {
-        next_ee_version,
-        bytecode,
-        nonce,
-        nominal_token_balance,
-        code_version,
-        unpadded_code_len,
-        artifacts_len,
+    Ok(CalleeAccountProperties {
+        next_ee_version: account_properties.ee_version.0,
+        bytecode: account_properties.bytecode.0,
+        nonce: account_properties.nonce.0,
+        nominal_token_balance: account_properties.nominal_token_balance.0,
+        code_version: account_properties.code_version.0,
+        unpadded_code_len: account_properties.unpadded_code_len.0,
+        artifacts_len: account_properties.artifacts_len.0,
     })
 }
 
