@@ -253,7 +253,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
             mut external_call_launch_params,
             rollback_handle,
             next_ee_version,
-            resources_returned_from_preparation,
+            mut resources_in_caller_frame,
             transfer_to_perform,
         );
         match run_call_preparation::<S, IS_ENTRY_FRAME>(self.system, ee_type, &call_request) {
@@ -265,11 +265,11 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                 artifacts_len,
                 actual_resources_to_pass,
                 transfer_to_perform: transfer_to_perform_returned,
-                resources_returned,
+                resources_in_caller_frame: resources_in_caller_frame_returned,
             }) => {
                 next_ee_version = next_ee_version_returned;
                 transfer_to_perform = transfer_to_perform_returned;
-                resources_returned_from_preparation = resources_returned;
+                resources_in_caller_frame = resources_in_caller_frame_returned;
                 if DEBUG_OUTPUT {
                     let _ = self.system.get_logger().write_fmt(format_args!(
                         "Bytecode len for `callee` = {}\n",
@@ -302,9 +302,9 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                 };
             }
 
-            Ok(CallPreparationResult::Failure { resources_returned }) => {
-                return Ok((resources_returned, CallResult::CallFailedToExecute))
-            }
+            Ok(CallPreparationResult::Failure {
+                resources_in_caller_frame,
+            }) => return Ok((resources_in_caller_frame, CallResult::CallFailedToExecute)),
             Err(e) => return Err(e),
         };
 
@@ -314,6 +314,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
         // callee execution
         rollback_handle = self.system.start_global_frame()?;
 
+        // Note that actual transfer is executed in "check_if_external_call_returns_early" which may be confusing
         let callee_frame_execution_result = if let Some(call_result) = self
             .check_if_external_call_returns_early(
                 &mut external_call_launch_params,
@@ -348,9 +349,8 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
         };
 
         let (resources_returned_from_callee, call_result) = callee_frame_execution_result?;
-        let mut resources_to_return = resources_returned_from_callee;
-        resources_to_return.reclaim(resources_returned_from_preparation); // TODO why do we reclaim it only here?
-        Ok((resources_to_return, call_result))
+        resources_in_caller_frame.reclaim(resources_returned_from_callee);
+        Ok((resources_in_caller_frame, call_result))
     }
 
     #[inline(always)]
@@ -862,10 +862,10 @@ pub enum CallPreparationResult<'a, S: SystemTypes> {
         artifacts_len: u32,
         actual_resources_to_pass: S::Resources,
         transfer_to_perform: Option<TransferInfo>,
-        resources_returned: S::Resources,
+        resources_in_caller_frame: S::Resources,
     },
     Failure {
-        resources_returned: S::Resources,
+        resources_in_caller_frame: S::Resources,
     },
 }
 
@@ -917,7 +917,7 @@ where
         Ok(x) => x,
         Err(SystemError::LeafRuntime(RuntimeError::OutOfErgs(_))) => {
             return Ok(CallPreparationResult::Failure {
-                resources_returned: resources_available,
+                resources_in_caller_frame: resources_available,
             });
         }
         Err(SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(loc))) => {
@@ -955,7 +955,7 @@ where
         artifacts_len,
         actual_resources_to_pass,
         transfer_to_perform,
-        resources_returned: resources_available,
+        resources_in_caller_frame: resources_available,
     })
 }
 
