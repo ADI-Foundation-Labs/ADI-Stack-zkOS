@@ -7,7 +7,8 @@ use crypto::{
         elliptic_curve::{rand_core::OsRng, sec1::ToEncodedPoint},
     },
     secp256r1::verify,
-    sha3::{Digest, Keccak256},
+    sha3::Keccak256,
+    MiniDigest
 };
 use proptest::prelude::*;
 
