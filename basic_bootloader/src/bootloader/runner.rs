@@ -16,6 +16,7 @@ use zk_ee::common_structs::TransferInfo;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::memory::slice_vec::SliceVec;
 use zk_ee::system::errors::runtime::RuntimeError;
+use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::{
     errors::{system::SystemError, UpdateQueryError},
     logger::Logger,
@@ -695,9 +696,9 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
             })
             .map_err(|e| -> BootloaderSubsystemError {
                 match e {
-                    UpdateQueryError::System(SystemError::LeafRuntime(
-                        RuntimeError::OutOfNativeResources(loc),
-                    )) => RuntimeError::OutOfNativeResources(loc).into(),
+                    SubsystemError::LeafRuntime(RuntimeError::OutOfNativeResources(_)) => {
+                        wrap_error!(e)
+                    }
                     _ => internal_error!("Failed to set deployed nonce to 1").into(),
                 }
             })?;
