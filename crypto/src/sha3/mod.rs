@@ -4,9 +4,10 @@ use core::arch::asm;
 // beneficial for unrolling cycles & control
 use seq_macro::seq;
 
+use crate::MiniDigest;
+
 #[allow(unused_imports)]
 use sha3::Digest; // need the external trait for testing
-
 // NB: adding scratch space to state array allows passing only 1 ptr to precompile
 const STATE_AND_SCRATCH_WORDS: usize = 30;
 
@@ -25,7 +26,6 @@ pub struct Keccak256Core<const SHA3: bool = false> {
 pub type Keccak256 = Keccak256Core<false>;
 pub type Sha3_256 = Keccak256Core<true>;
 
-use crate::MiniDigest;
 impl<const SHA3: bool> MiniDigest for Keccak256Core<SHA3> {
     type HashOutput = [u8; 32];
 
@@ -38,56 +38,108 @@ impl<const SHA3: bool> MiniDigest for Keccak256Core<SHA3> {
     }
 
     #[inline(always)]
+    #[cfg(target_endian = "little")]
     fn update(&mut self, input: impl AsRef<[u8]>) {
         let input = input.as_ref();
-        let len_u64 = input.len() / 8;
-        #[cfg(not(target_endian = "little"))]
-        compile_error!("Big‑endian targets are unsupported");
-        let mut input_u64 = input.as_ptr() as *const u64;
-        let len_full_blocks = len_u64 / 17;
-        for _ in 0..len_full_blocks {
-            // println!("block..");
-            for i in 0..17 {
-                // println!("\t{i}.. {} ^= {}", self.state.0[i], unsafe{input_u64.read_unaligned()});
-                self.state.0[i] ^= unsafe { input_u64.read_unaligned() };
-                input_u64 = unsafe { input_u64.add(1) };
-            }
-            keccak_f1600(&mut self.state);
-        }
-        let len_leftover_u64 = len_u64 % 17;
-        for i in 0..len_leftover_u64 {
-            // println!("u64.. {} ^= {}", self.state.0[i], unsafe{input_u64.read_unaligned()});
-            self.state.0[i] ^= unsafe { input_u64.read_unaligned() };
-            input_u64 = unsafe { input_u64.add(1) };
-        }
-        let len_leftover_u8 = input.len() % 8;
-        let leftover = {
-            let mut leftover_bytes = [0; 8];
-            for i in 0..len_leftover_u8 {
-                // println!("u8.. {}", input[len_u64*8 + i]);
-                leftover_bytes[i] = input[len_u64 * 8 + i];
-            }
-            u64::from_le_bytes(leftover_bytes)
+
+        let (
+            head_u8,
+            (mut head_u64, head_u64_len),
+            head_tail_u8,
+            (mut full_blocks, full_blocks_len),
+            (mut tail_u64, tail_u64_len),
+            tail_u8,
+            is_full_head,
+        ) = {
+            let filler_bytes = 17 * 8 - self.filled_bytes;
+            let (head, full_tail) = input.split_at_checked(filler_bytes).unwrap_or((input, &[]));
+            let (head_u8, part_head) = head
+                .split_at_checked(filler_bytes % 8)
+                .unwrap_or((head, &[]));
+            let (head_u64, head_tail_u8) = part_head.as_chunks::<8>();
+            let (full_blocks, tail) = full_tail.as_chunks::<{ 17 * 8 }>();
+            let (tail_u64, tail_u8) = tail.as_chunks::<8>();
+            let is_full_head = head.len() == filler_bytes;
+            (
+                head_u8,
+                (head_u64.as_ptr() as *const u64, head_u64.len()),
+                head_tail_u8,
+                (full_blocks.as_ptr() as *const [u64; 17], full_blocks.len()),
+                (tail_u64.as_ptr() as *const u64, tail_u64.len()),
+                tail_u8,
+                is_full_head,
+            )
         };
-        self.state.0[len_leftover_u64] ^= leftover;
-        self.filled_bytes = input.len() % (17 * 8);
+
+        let filler = {
+            let mut filler = [0; 8];
+            for i in 0..head_u8.len() {
+                filler[(self.filled_bytes % 8) + i] = head_u8[i];
+            }
+            u64::from_le_bytes(filler)
+        };
+        self.state.0[self.filled_bytes / 8] ^= filler;
+
+        for i in 0..head_u64_len {
+            self.state.0[self.filled_bytes.div_ceil(8) + i] ^= unsafe { head_u64.read_unaligned() };
+            head_u64 = unsafe { head_u64.add(1) };
+        }
+
+        let filler_tail = {
+            let mut filler_tail = [0; 8];
+            for i in 0..head_tail_u8.len() {
+                filler_tail[i] = head_tail_u8[i];
+            }
+            u64::from_le_bytes(filler_tail)
+        };
+        self.state.0[self.filled_bytes.div_ceil(8) + head_u64_len] ^= filler_tail;
+
+        if is_full_head {
+            keccak_f1600(&mut self.state);
+
+            // cast to single u64 ptr to avoid big reads
+            let mut full_blocks = full_blocks as *const u64;
+            for _ in 0..full_blocks_len {
+                for i in 0..17 {
+                    self.state.0[i] ^= unsafe { full_blocks.read_unaligned() };
+                    full_blocks = unsafe { full_blocks.add(1) };
+                }
+                keccak_f1600(&mut self.state);
+            }
+
+            for i in 0..tail_u64_len {
+                self.state.0[i] ^= unsafe { tail_u64.read_unaligned() };
+                tail_u64 = unsafe { tail_u64.add(1) };
+            }
+
+            let leftover = {
+                let mut leftover = [0; 8];
+                for i in 0..tail_u8.len() {
+                    leftover[i] = tail_u8[i];
+                }
+                u64::from_le_bytes(leftover)
+            };
+            self.state.0[tail_u64_len] ^= leftover;
+
+            self.filled_bytes = tail_u64_len * 8 + tail_u8.len();
+        } else {
+            self.filled_bytes += head_u8.len() + head_u64_len * 8 + head_tail_u8.len();
+        }
     }
 
     #[inline(always)]
+    #[cfg(target_endian = "little")]
     fn finalize(mut self) -> Self::HashOutput {
         keccak_pad::<SHA3>(&mut self.state.0, self.filled_bytes);
         keccak_f1600(&mut self.state);
-        #[cfg(not(target_endian = "little"))]
-        compile_error!("Big‑endian targets are unsupported");
         unsafe { *(self.state.0.as_ptr() as *const [u64; 4] as *const [u8; 32]) }
     }
 
     #[inline(always)]
+    #[cfg(target_endian = "little")]
     fn finalize_reset(&mut self) -> Self::HashOutput {
         keccak_pad::<SHA3>(&mut self.state.0, self.filled_bytes);
         keccak_f1600(&mut self.state);
-        #[cfg(not(target_endian = "little"))]
-        compile_error!("Big‑endian targets are unsupported");
         let output = unsafe { *(self.state.0.as_ptr() as *const [u64; 4] as *const [u8; 32]) };
         *self = Self::new();
         output
@@ -481,33 +533,24 @@ mod tests {
     #[test]
     fn mini_digest() {
         use ark_std::rand::Rng;
+        use sha3::Digest;
         let mut rng = ark_std::test_rng();
+        let mut formal_keccak256 = sha3::Keccak256::new();
+        let mut formal_sha3 = sha3::Sha3_256::new();
+        let mut my_keccak256 = Keccak256::new();
+        let mut my_sha3 = Sha3_256::new();
+
         for _ in 0..1 << 10 {
-            let len = rng.gen::<u16>();
-            let msg: Vec<u8> = (0..len).map(|_| rng.gen::<u8>()).collect();
-
-            let mut formal_keccak256 = sha3::Keccak256::digest(&msg);
-            let my_keccak256 = Keccak256::digest(&msg);
-            let mut my_keccak256_2 = Keccak256::new();
-            my_keccak256_2.update(&msg);
-            let my_keccak256_2_out = my_keccak256_2.finalize_reset();
-
-            assert!(
-                &formal_keccak256[..] == &my_keccak256[..],
-                "{formal_keccak256:?} != {my_keccak256:?}"
-            );
-            assert!(&formal_keccak256[..] == &my_keccak256_2_out[..]);
-            assert!(my_keccak256_2.state.0.into_iter().all(|x| x == 0));
-
-            let formal_sha3 = sha3::Sha3_256::digest(&msg);
-            let my_sha3 = Sha3_256::digest(&msg);
-            let mut my_sha3_2 = Sha3_256::new();
-            my_sha3_2.update(&msg);
-            let my_sha3_2_out = my_sha3_2.finalize_reset();
-
-            assert!(&formal_sha3[..] == &my_sha3[..], ":(");
-            assert!(&formal_sha3[..] == &my_sha3_2_out[..], ":(");
-            assert!(my_sha3_2.state.0.into_iter().all(|x| x == 0));
+            for _ in 0..rng.r#gen::<u8>() {
+                let len = rng.r#gen::<u8>();
+                let msg: Vec<u8> = (0..len).map(|_| rng.r#gen::<u8>()).collect();
+                formal_keccak256.update(&msg);
+                formal_sha3.update(&msg);
+                my_keccak256.update(&msg);
+                my_sha3.update(&msg);
+            }
+            assert!(&formal_keccak256.finalize_reset()[..] == my_keccak256.finalize_reset());
+            assert!(&formal_sha3.finalize_reset()[..] == &my_sha3.finalize_reset());
         }
     }
 }

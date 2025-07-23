@@ -3,6 +3,7 @@
 #![allow(static_mut_refs)]
 #![allow(clippy::uninit_assumed_init)]
 #![allow(clippy::new_without_default)]
+#![feature(slice_as_chunks)]
 
 #[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
 mod ark_ff_delegation;
