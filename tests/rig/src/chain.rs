@@ -168,7 +168,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             transactions: transactions.into(),
         };
 
-        let block_output: BatchOutput = forward_system::run::run_batch_with_oracle_dump(
+        let block_output: BatchOutput = forward_system::run::run_batch_with_oracle_dump_ext(
             block_metadata,
             self.state_tree.clone(),
             self.preimage_source.clone(),
@@ -251,7 +251,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             )
         };
 
-        let block_output: BatchOutput = forward_system::run::run_batch_with_oracle_dump(
+        let block_output: BatchOutput = forward_system::run::run_batch_with_oracle_dump_ext(
             block_metadata,
             self.state_tree.clone(),
             self.preimage_source.clone(),

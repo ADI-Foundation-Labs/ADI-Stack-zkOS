@@ -60,7 +60,7 @@ impl<S: ReadStorage, M: MemorySource> OracleQueryProcessor<M> for ReadStorageRes
                             is_new_storage_slot: true,
                         }
                     };
-                DynUsizeIterator::from_constructor(slot_data, |i| UsizeSerializable::iter(i))
+                DynUsizeIterator::from_constructor(slot_data, UsizeSerializable::iter)
             }
             _ => unreachable!(),
         }

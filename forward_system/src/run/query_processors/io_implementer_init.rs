@@ -40,7 +40,7 @@ impl<M: MemorySource> OracleQueryProcessor<M> for IOImplementerInitResponder {
             .take()
             .expect("io implementer data is none (second read or not set initially)");
 
-        DynUsizeIterator::from_constructor(data, |i| UsizeSerializable::iter(i))
+        DynUsizeIterator::from_constructor(data, UsizeSerializable::iter)
     }
 }
 

@@ -54,7 +54,7 @@ impl<T: ReadStorageTree, M: MemorySource> OracleQueryProcessor<M> for ReadTreeRe
                 .expect("must deserialize key");
                 let prev_index = self.tree.prev_tree_index(key);
 
-                DynUsizeIterator::from_constructor(prev_index, |i| UsizeSerializable::iter(i))
+                DynUsizeIterator::from_constructor(prev_index, UsizeSerializable::iter)
             }
             ExactIndexQuery::QUERY_ID => {
                 let key = <PreviousIndexQuery as SimpleOracleQuery>::Input::from_iter(
@@ -66,7 +66,7 @@ impl<T: ReadStorageTree, M: MemorySource> OracleQueryProcessor<M> for ReadTreeRe
                     .tree_index(key)
                     .expect("Reading index for key that is not in the tree");
 
-                DynUsizeIterator::from_constructor(existing, |i| UsizeSerializable::iter(i))
+                DynUsizeIterator::from_constructor(existing, UsizeSerializable::iter)
             }
             InitialStorageSlotQuery::<EthereumIOTypesConfig>::QUERY_ID => {
                 let StorageAddress { address, key } = <InitialStorageSlotQuery<
@@ -89,7 +89,7 @@ impl<T: ReadStorageTree, M: MemorySource> OracleQueryProcessor<M> for ReadTreeRe
                             is_new_storage_slot: true,
                         }
                     };
-                DynUsizeIterator::from_constructor(slot_data, |i| UsizeSerializable::iter(i))
+                DynUsizeIterator::from_constructor(slot_data, UsizeSerializable::iter)
             }
             PROOF_FOR_INDEX_QUERY_ID => {
                 let index = u64::from_iter(&mut query.into_iter()).expect("must deserialize index");
@@ -97,7 +97,7 @@ impl<T: ReadStorageTree, M: MemorySource> OracleQueryProcessor<M> for ReadTreeRe
                 let proof = ValueAtIndexProof {
                     proof: ExistingReadProof { existing },
                 };
-                DynUsizeIterator::from_constructor(proof, |i| UsizeSerializable::iter(i))
+                DynUsizeIterator::from_constructor(proof, UsizeSerializable::iter)
             }
             _ => unreachable!(),
         }

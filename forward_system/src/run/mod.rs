@@ -164,6 +164,28 @@ pub fn run_batch_with_oracle_dump<
     preimage_source: PS,
     tx_source: TS,
     tx_result_callback: TR,
+) -> Result<BatchOutput, ForwardSubsystemError> {
+    run_batch_with_oracle_dump_ext(
+        batch_context,
+        tree,
+        preimage_source,
+        tx_source,
+        tx_result_callback,
+        None,
+    )
+}
+
+pub fn run_batch_with_oracle_dump_ext<
+    T: ReadStorageTree + Clone + serde::Serialize,
+    PS: PreimageSource + Clone + serde::Serialize,
+    TS: TxSource + Clone + serde::Serialize,
+    TR: TxResultCallback,
+>(
+    batch_context: BatchContext,
+    tree: T,
+    preimage_source: PS,
+    tx_source: TS,
+    tx_result_callback: TR,
     storage_commitment: Option<StorageCommitment>,
 ) -> Result<BatchOutput, ForwardSubsystemError> {
     let block_metadata_reponsder = BlockMetadataResponder {
@@ -182,7 +204,7 @@ pub fn run_batch_with_oracle_dump<
     if let Ok(path) = std::env::var("ORACLE_DUMP_FILE") {
         let dump = ForwardRunningOracleDump {
             io_implementer_init_responder: io_implementer_init_responder.clone(),
-            block_metadata_reponsder: block_metadata_reponsder.clone(),
+            block_metadata_reponsder: block_metadata_reponsder,
             tree_responder: tree_responder.clone(),
             tx_data_responder: tx_data_responder.clone(),
             preimage_responder: preimage_responder.clone(),
@@ -197,6 +219,7 @@ pub fn run_batch_with_oracle_dump<
     oracle.add_external_processor(preimage_responder);
     oracle.add_external_processor(tree_responder);
     oracle.add_external_processor(io_implementer_init_responder);
+    oracle.add_external_processor(UARTPrintReponsder::default());
 
     let mut result_keeper = ForwardRunningResultKeeper::new(tx_result_callback);
 

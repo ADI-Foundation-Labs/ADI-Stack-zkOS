@@ -29,6 +29,6 @@ impl<M: MemorySource> OracleQueryProcessor<M> for BlockMetadataResponder {
     ) -> Box<dyn ExactSizeIterator<Item = usize> + 'static> {
         assert!(Self::SUPPORTED_QUERY_IDS.contains(&query_id));
 
-        DynUsizeIterator::from_constructor(self.block_metadata, |i| UsizeSerializable::iter(i))
+        DynUsizeIterator::from_constructor(self.block_metadata, UsizeSerializable::iter)
     }
 }

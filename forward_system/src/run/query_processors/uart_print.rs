@@ -3,7 +3,7 @@ use oracle_provider::OracleQueryProcessor;
 use zk_ee::system_io_oracle::dyn_usize_iterator::DynUsizeIterator;
 use zk_ee::system_io_oracle::UART_QUERY_ID;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct UARTPrintReponsder;
 
 impl UARTPrintReponsder {
@@ -41,6 +41,6 @@ impl<M: MemorySource> OracleQueryProcessor<M> for UARTPrintReponsder {
         string_bytes.truncate(message_len_in_bytes);
         println!("UART: {}", String::from_utf8_lossy(&string_bytes));
 
-        DynUsizeIterator::from_constructor((), |i| UsizeSerializable::iter(i))
+        DynUsizeIterator::from_constructor((), UsizeSerializable::iter)
     }
 }

@@ -51,7 +51,7 @@ impl<TS: TxSource, M: MemorySource> OracleQueryProcessor<M> for TxDataResponder<
                     }
                 } as u32;
 
-                DynUsizeIterator::from_constructor(len, |i| UsizeSerializable::iter(i))
+                DynUsizeIterator::from_constructor(len, UsizeSerializable::iter)
             }
             TX_DATA_WORDS_QUERY_ID => {
                 let Some(tx) = self.next_tx.take() else {
