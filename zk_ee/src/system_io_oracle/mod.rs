@@ -27,15 +27,18 @@ pub const STORAGE_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x04_00;
 pub const STATE_AND_MERKLE_PATHS_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x08_00;
 pub const ADVISE_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x10_00;
 
+#[allow(clippy::identity_op)]
 pub const NEXT_TX_SIZE_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 0;
 pub const DISCONNECT_ORACLE_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 1;
 pub const BLOCK_METADATA_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 2;
 pub const INITIALIZE_IO_IMPLEMENTER_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 3;
 pub const TX_DATA_WORDS_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 4;
 
+#[allow(clippy::identity_op)]
 pub const GENERIC_PREIMAGE_QUERY_ID: u32 = PREIMAGE_SUBSPACE_MASK | 0;
 pub const BYTECODE_HASH_PREIMAGE_QUERY_ID: u32 = PREIMAGE_SUBSPACE_MASK | 1;
 
+#[allow(clippy::identity_op)]
 pub const INITIAL_STORAGE_SLOT_VALUE_QUERY_ID: u32 = STORAGE_SUBSPACE_MASK | 0;
 
 ///
@@ -53,6 +56,8 @@ pub trait SimpleOracleQuery: Sized {
         oracle.query_serializable(Self::QUERY_ID, input)
     }
 
+    /// # Safety
+    /// Callee must have apriori way to assume type equality
     unsafe fn transmute_input_ref_unchecked<'a, T: Sized + 'a>(val: &'a T) -> &'a Self::Input
     where
         Self::Input: 'a,
@@ -60,6 +65,8 @@ pub trait SimpleOracleQuery: Sized {
         core::mem::transmute(val)
     }
 
+    /// # Safety
+    /// Callee must have apriori way to assume type equality. Will check type IDs inside just in case
     unsafe fn transmute_input_ref<'a, T: 'static + Sized>(val: &'a T) -> &'a Self::Input
     where
         Self::Input: 'static,
@@ -72,6 +79,8 @@ pub trait SimpleOracleQuery: Sized {
     }
 
     // Copy == no Drop for now
+    /// # Safety
+    /// Callee must have apriori way to assume type equality. Will check type IDs inside just in case
     unsafe fn transmute_input<T: 'static + Sized + Copy>(val: T) -> Self::Input
     where
         Self::Input: 'static,
@@ -84,6 +93,8 @@ pub trait SimpleOracleQuery: Sized {
         core::ptr::read((&val as *const T).cast::<Self::Input>())
     }
 
+    /// # Safety
+    /// Callee must have apriori way to assume type equality. Will check type IDs inside just in case
     unsafe fn transmute_output<T: 'static + Sized>(val: Self::Output) -> T
     where
         Self::Output: 'static,
@@ -93,6 +104,13 @@ pub trait SimpleOracleQuery: Sized {
             core::any::TypeId::of::<T>(),
             core::any::TypeId::of::<Self::Output>()
         );
+        core::ptr::read((&val as *const Self::Output).cast::<T>())
+    }
+
+    /// # Safety
+    /// Callee must have apriori way to assume type equality
+    unsafe fn transmute_output_unchecked<T: Sized>(val: Self::Output) -> T {
+        assert!(core::mem::needs_drop::<Self::Output>() == false);
         core::ptr::read((&val as *const Self::Output).cast::<T>())
     }
 }

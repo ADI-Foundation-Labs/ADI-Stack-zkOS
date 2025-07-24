@@ -469,8 +469,8 @@ mod tests {
             I: zk_ee::kv_markers::UsizeSerializable + zk_ee::kv_markers::UsizeDeserializable,
         >(
             &'a mut self,
-            query_type: u32,
-            input: &I,
+            _query_type: u32,
+            _input: &I,
         ) -> Result<Self::RawIterator<'a>, InternalError> {
             unimplemented!()
         }

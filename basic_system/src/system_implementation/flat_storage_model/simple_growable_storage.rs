@@ -788,6 +788,7 @@ impl<const N: usize> StateRootView<EthereumIOTypesConfig> for FlatStorageCommitm
 pub struct PreviousIndexQuery;
 
 impl SimpleOracleQuery for PreviousIndexQuery {
+    #[allow(clippy::identity_op)]
     const QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 0;
     type Input = Bytes32;
     type Output = u64;
