@@ -875,7 +875,7 @@ where
         Err(SystemError::LeafDefect(e)) => return Err(e.into()),
     };
 
-    // Check transfer is allowed an determine transfer target
+    // Check transfer is allowed and determine transfer target
     let transfer_to_perform =
         if call_request.nominal_token_value != U256::ZERO && !call_request.is_delegate() {
             if !call_request.is_transfer_allowed() {
@@ -902,8 +902,8 @@ where
 
     // If we're in the entry frame, i.e. not the execution of a CALL opcode,
     // we don't apply the CALL-specific gas charging, but instead set
-    // actual_resources_to_pass equal to the available resources
-    let actual_resources_to_pass = if !IS_ENTRY_FRAME {
+    // resources_for_callee_frame equal to the available resources
+    let resources_for_callee_frame = if !IS_ENTRY_FRAME {
         // now we should ask current EE for observable resource behavior if needed
         match SupportedEEVMState::<S>::clarify_and_take_passed_resources(
             ee_version,
@@ -942,7 +942,7 @@ where
 
     let external_call_launch_params = ExecutionEnvironmentLaunchParams {
         external_call: ExternalCallRequest {
-            available_resources: actual_resources_to_pass,
+            available_resources: resources_for_callee_frame,
             ..call_request
         },
         environment_parameters: EnvironmentParameters {
