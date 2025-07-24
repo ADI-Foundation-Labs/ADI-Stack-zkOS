@@ -6,8 +6,6 @@ use seq_macro::seq;
 
 use crate::MiniDigest;
 
-#[allow(unused_imports)]
-use sha3::Digest; // need the external trait for testing
 // NB: adding scratch space to state array allows passing only 1 ptr to precompile
 const STATE_AND_SCRATCH_WORDS: usize = 30;
 
@@ -46,7 +44,7 @@ impl<const SHA3: bool> MiniDigest for Keccak256Core<SHA3> {
             head_u8,
             (mut head_u64, head_u64_len),
             head_tail_u8,
-            (mut full_blocks, full_blocks_len),
+            (full_blocks, full_blocks_len),
             (mut tail_u64, tail_u64_len),
             tail_u8,
             is_full_head,
@@ -87,9 +85,7 @@ impl<const SHA3: bool> MiniDigest for Keccak256Core<SHA3> {
 
         let filler_tail = {
             let mut filler_tail = [0; 8];
-            for i in 0..head_tail_u8.len() {
-                filler_tail[i] = head_tail_u8[i];
-            }
+            filler_tail[..head_tail_u8.len()].copy_from_slice(head_tail_u8);
             u64::from_le_bytes(filler_tail)
         };
         self.state.0[self.filled_bytes.div_ceil(8) + head_u64_len] ^= filler_tail;
@@ -114,9 +110,7 @@ impl<const SHA3: bool> MiniDigest for Keccak256Core<SHA3> {
 
             let leftover = {
                 let mut leftover = [0; 8];
-                for i in 0..tail_u8.len() {
-                    leftover[i] = tail_u8[i];
-                }
+                leftover[..tail_u8.len()].copy_from_slice(tail_u8);
                 u64::from_le_bytes(leftover)
             };
             self.state.0[tail_u64_len] ^= leftover;
