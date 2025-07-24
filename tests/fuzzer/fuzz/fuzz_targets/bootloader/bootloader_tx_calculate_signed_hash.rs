@@ -28,7 +28,7 @@ fn fuzz(data: &[u8]) {
     };
     let mut inf_resources = BaseResources::<DecreasingNative>::FORMAL_INFINITE;
 
-    let system = System::<ForwardRunningSystem<_, _, _>>::init_from_oracle(mock_oracle())
+    let system = System::<ForwardRunningSystem>::init_from_oracle(mock_oracle())
         .expect("Failed to initialize the mock system");
     let chain_id = system.get_chain_id();
     let _ = tx.calculate_signed_hash(chain_id, &mut inf_resources);

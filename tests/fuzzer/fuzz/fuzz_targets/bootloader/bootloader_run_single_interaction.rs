@@ -74,7 +74,7 @@ fn fuzz(input: FuzzInput) {
     let selector = input.selector;
 
     let mut system = System::<
-        ForwardRunningSystem<InMemoryTree, InMemoryPreimageSource, TxListSource>,
+        ForwardRunningSystem
     >::init_from_oracle(mock_oracle_balance(from, amount))
     .expect("Failed to initialize the mock system");
     let mut system_functions = HooksStorage::new_in(system.get_allocator());

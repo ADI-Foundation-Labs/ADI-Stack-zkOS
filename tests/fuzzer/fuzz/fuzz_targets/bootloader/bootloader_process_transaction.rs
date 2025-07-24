@@ -39,7 +39,7 @@ fn fuzz(data: &[u8]) {
         System::init_from_oracle(oracle).expect("Failed to initialize the mock system");
 
     let mut system_functions: HooksStorage<
-        ForwardRunningSystem<InMemoryTree, InMemoryPreimageSource, TxListSource>,
+        ForwardRunningSystem,
         _,
     > = HooksStorage::new_in(system.get_allocator());
     pub const MAX_HEAP_BUFFER_SIZE: usize = 1 << 27; // 128 MB
