@@ -834,8 +834,7 @@ pub enum CallPreparationResult<'a, S: SystemTypes> {
     },
 }
 
-/// Reads callee account and runs call preparation function
-/// from the system.
+/// Read callee properties, execute additional checks, charge resources and perform additional EE-specific logic
 fn run_call_preparation<'a, S: EthereumLikeTypes, const IS_ENTRY_FRAME: bool>(
     system: &mut System<S>,
     ee_version: ExecutionEnvironmentType,
@@ -878,6 +877,7 @@ where
         Err(SystemError::LeafDefect(e)) => return Err(e.into()),
     };
 
+    // TODO: additional call related costs should be moved in "clarify_and_take_passed_resources" (it also should be renamed)
     // Now we charge for the rest of the CALL related costs
     let stipend = if !IS_ENTRY_FRAME {
         match ee_version {
@@ -1013,7 +1013,7 @@ fn read_callee_account_properties<'a, S: EthereumLikeTypes>(
 where
     S::IO: IOSubsystemExt,
 {
-    // IO will follow the rules of the CALLER (`initial_ee_version`) here to charge for execution
+    // IO will follow the rules of the CALLER here to charge for execution
     let account_properties = match system.io.read_account_properties(
         ee_version,
         resources,
