@@ -7,7 +7,7 @@ use zk_ee::system::{
         runtime::RuntimeError,
         system::SystemError,
     },
-    NonceSubsystemError,
+    BalanceSubsystemError, NonceSubsystemError,
 };
 
 // Taken from revm, contains changes
@@ -243,11 +243,14 @@ macro_rules! require_internal {
 }
 
 zk_ee::define_subsystem!(Bootloader,
-      interface BootloaderInterfaceError {
-          TopLevelInsufficientBalance,
-      },
-      cascade WrappedError {
-          EEError(EESubsystemError),
-          Nonce(NonceSubsystemError),
-      }
-);
+interface BootloaderInterfaceError {
+    CantPayRefundInsufficientBalance,
+    CantPayRefundOverflow,
+    MintingBalanceOverflow,
+    TopLevelInsufficientBalance,
+},
+cascade WrappedError {
+    Balance(BalanceSubsystemError),
+    EEError(EESubsystemError),
+    Nonce(NonceSubsystemError),
+});
