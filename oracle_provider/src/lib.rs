@@ -217,7 +217,7 @@ impl IOOracle for ZkEENonDeterminismSource<DummyMemorySource> {
         let response = processor.process_buffered_query(
             query_type,
             UsizeSerializable::iter(input).collect::<Vec<usize>>(),
-            &mut DummyMemorySource,
+            &DummyMemorySource,
         );
 
         Ok(response)
