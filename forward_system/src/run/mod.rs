@@ -204,7 +204,7 @@ pub fn run_batch_with_oracle_dump_ext<
     if let Ok(path) = std::env::var("ORACLE_DUMP_FILE") {
         let dump = ForwardRunningOracleDump {
             io_implementer_init_responder: io_implementer_init_responder.clone(),
-            block_metadata_reponsder: block_metadata_reponsder,
+            block_metadata_reponsder,
             tree_responder: tree_responder.clone(),
             tx_data_responder: tx_data_responder.clone(),
             preimage_responder: preimage_responder.clone(),
@@ -219,7 +219,7 @@ pub fn run_batch_with_oracle_dump_ext<
     oracle.add_external_processor(preimage_responder);
     oracle.add_external_processor(tree_responder);
     oracle.add_external_processor(io_implementer_init_responder);
-    oracle.add_external_processor(UARTPrintReponsder::default());
+    oracle.add_external_processor(UARTPrintReponsder);
 
     let mut result_keeper = ForwardRunningResultKeeper::new(tx_result_callback);
 
