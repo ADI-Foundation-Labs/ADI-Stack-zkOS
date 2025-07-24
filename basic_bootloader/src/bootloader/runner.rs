@@ -836,12 +836,12 @@ pub enum CallPreparationResult<'a, S: SystemTypes> {
 fn run_call_preparation<'a, S: EthereumLikeTypes, const IS_ENTRY_FRAME: bool>(
     system: &mut System<S>,
     ee_version: ExecutionEnvironmentType,
-    call_request: ExternalCallRequest<'a, S>,
+    mut call_request: ExternalCallRequest<'a, S>,
 ) -> Result<CallPreparationResult<'a, S>, BootloaderSubsystemError>
 where
     S::IO: IOSubsystemExt,
 {
-    let mut resources_available = call_request.available_resources.clone(); // TODO: what about native resources?..
+    let mut resources_available = call_request.available_resources.take();
 
     let r = if IS_ENTRY_FRAME {
         // For entry frame we don't charge ergs for call preparation,
