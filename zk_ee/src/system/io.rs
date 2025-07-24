@@ -6,9 +6,10 @@
 use core::marker::PhantomData;
 
 use super::errors::internal::InternalError;
-use super::errors::{system::SystemError, UpdateQueryError};
+use super::errors::system::SystemError;
 use super::logger::Logger;
 use super::{IOResultKeeper, Resources};
+use crate::define_subsystem;
 use crate::execution_environment_type::ExecutionEnvironmentType;
 use crate::kv_markers::MAX_EVENT_TOPICS;
 use crate::system::metadata::BlockMetadataFromOracle;
@@ -119,7 +120,7 @@ pub trait IOSubsystem: Sized {
         at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         nominal_token_beneficiary: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         in_constructor: bool,
-    ) -> Result<(), SystemError>;
+    ) -> Result<(), DeconstructionSubsystemError>;
 
     fn net_pubdata_used(&self) -> Result<u64, InternalError>;
 
@@ -328,7 +329,7 @@ pub trait IOSubsystemExt: IOSubsystem {
         resources: &mut Self::Resources,
         address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         increment_by: u64,
-    ) -> Result<u64, UpdateQueryError>;
+    ) -> Result<u64, NonceSubsystemError>;
 
     /// Perform a transfer of token balance.
     fn transfer_nominal_token_value(
@@ -338,7 +339,7 @@ pub trait IOSubsystemExt: IOSubsystem {
         from: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         to: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         amount: &<Self::IOTypes as SystemIOTypesConfig>::NominalTokenValue,
-    ) -> Result<(), UpdateQueryError>;
+    ) -> Result<(), BalanceSubsystemError>;
 
     /// Touch an account to make it warm.
     fn touch_account(
@@ -448,7 +449,25 @@ pub trait IOSubsystemExt: IOSubsystem {
         address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         diff: &<Self::IOTypes as SystemIOTypesConfig>::NominalTokenValue,
         should_subtract: bool,
-    ) -> Result<U256, UpdateQueryError>;
+    ) -> Result<U256, BalanceSubsystemError>;
 }
 
 pub trait EthereumLikeIOSubsystem: IOSubsystem<IOTypes = EthereumIOTypesConfig> {}
+
+define_subsystem!(Nonce,
+interface NonceError {
+    NonceOverflow
+});
+
+define_subsystem!(Balance,
+interface BalanceError {
+    InsufficientBalance,
+    Overflow,
+});
+
+define_subsystem!(Deconstruction,
+interface DeconstructionError {
+},
+cascade DeconstructionWrapped {
+    Balance(BalanceSubsystemError),
+});

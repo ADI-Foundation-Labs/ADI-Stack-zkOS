@@ -18,13 +18,15 @@ use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
 use system_hooks::HooksStorage;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::memory::ArrayBuilder;
+use zk_ee::system::errors::interface::InterfaceError;
+use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::{
-    errors::{runtime::RuntimeError, system::SystemError, UpdateQueryError},
+    errors::{runtime::RuntimeError, system::SystemError},
     logger::Logger,
     EthereumLikeTypes, System, SystemTypes, *,
 };
 use zk_ee::utils::{b160_to_u256, u256_to_b160_checked};
-use zk_ee::{internal_error, out_of_native_resources};
+use zk_ee::{internal_error, out_of_native_resources, wrap_error};
 
 macro_rules! require_or_revert {
     ($b:expr, $m:expr, $s:expr, $system:expr) => {
@@ -154,12 +156,12 @@ where
             .increment_nonce(caller_ee_type, resources, &from, 1u64)
         {
             Ok(x) => Ok(x),
-            Err(UpdateQueryError::NumericBoundsError) => {
+            Err(SubsystemError::LeafUsage(InterfaceError(NonceError::NonceOverflow, _))) => {
                 return Err(TxError::Validation(
                     InvalidTransaction::NonceOverflowInTransaction,
                 ))
             }
-            Err(UpdateQueryError::System(e)) => Err(e),
+            Err(e) => Err(wrap_error!(e)),
         }?;
 
         assert_eq!(caller_nonce, old_nonce);
@@ -337,7 +339,10 @@ where
                 &amount,
             )
             .map_err(|e| match e {
-                UpdateQueryError::NumericBoundsError => {
+                SubsystemError::LeafUsage(interface_error) => {
+                    let _ = system
+                        .get_logger()
+                        .write_fmt(format_args!("{interface_error:?}"));
                     match system
                         .io
                         .get_nominal_token_balance(caller_ee_type, resources, &from)
@@ -351,13 +356,16 @@ where
                         Err(e) => e.into(),
                     }
                 }
-                UpdateQueryError::System(SystemError::LeafRuntime(RuntimeError::OutOfErgs(_))) => {
-                    TxError::Validation(InvalidTransaction::OutOfGasDuringValidation)
-                }
-                UpdateQueryError::System(SystemError::LeafRuntime(
-                    RuntimeError::OutOfNativeResources(_),
-                )) => TxError::oon_as_validation(out_of_native_resources!().into()),
-                UpdateQueryError::System(SystemError::LeafDefect(e)) => e.into(),
+                SubsystemError::LeafDefect(internal_error) => internal_error.into(),
+                SubsystemError::LeafRuntime(runtime_error) => match runtime_error {
+                    RuntimeError::OutOfNativeResources(_) => {
+                        TxError::oon_as_validation(out_of_native_resources!().into())
+                    }
+                    RuntimeError::OutOfErgs(_) => {
+                        TxError::Validation(InvalidTransaction::OutOfGasDuringValidation)
+                    }
+                },
+                SubsystemError::Cascaded(cascaded_error) => match cascaded_error {},
             })?;
         Ok(())
     }

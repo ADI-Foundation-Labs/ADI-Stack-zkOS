@@ -1,10 +1,13 @@
 use crate::bootloader::supported_ees::errors::EESubsystemError;
 use ruint::aliases::{B160, U256};
-use zk_ee::system::errors::{
-    internal::InternalError,
-    root_cause::{GetRootCause, RootCause},
-    runtime::RuntimeError,
-    system::SystemError,
+use zk_ee::system::{
+    errors::{
+        internal::InternalError,
+        root_cause::{GetRootCause, RootCause},
+        runtime::RuntimeError,
+        system::SystemError,
+    },
+    BalanceSubsystemError, NonceSubsystemError,
 };
 
 // Taken from revm, contains changes
@@ -240,6 +243,14 @@ macro_rules! require_internal {
 }
 
 zk_ee::define_subsystem!(Bootloader,
+interface BootloaderInterfaceError {
+    CantPayRefundInsufficientBalance,
+    CantPayRefundOverflow,
+    MintingBalanceOverflow,
+    TopLevelInsufficientBalance,
+},
 cascade WrappedError {
+    Balance(BalanceSubsystemError),
     EEError(EESubsystemError),
+    Nonce(NonceSubsystemError),
 });
