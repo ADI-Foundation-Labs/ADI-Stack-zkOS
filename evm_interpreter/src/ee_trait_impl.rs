@@ -339,8 +339,6 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
         resources_available_in_caller_frame
             .charge(&resources_to_pass)
             .unwrap();
-        // Give native resource to the passed.
-        resources_available_in_caller_frame.give_native_to(&mut resources_to_pass);
 
         // Add stipend
         if let Some(stipend) = stipend {

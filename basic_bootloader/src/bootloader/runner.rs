@@ -841,22 +841,22 @@ fn run_call_preparation<'a, S: EthereumLikeTypes, const IS_ENTRY_FRAME: bool>(
 where
     S::IO: IOSubsystemExt,
 {
-    let mut resources_available = call_request.available_resources.take();
+    let mut resources_in_caller_frame = call_request.available_resources.take();
 
     let r = if IS_ENTRY_FRAME {
         // For entry frame we don't charge ergs for call preparation,
         // as this is included in the intrinsic cost.
-        resources_available.with_infinite_ergs(|inf_resources| {
+        resources_in_caller_frame.with_infinite_ergs(|inf_resources| {
             cycle_marker::wrap_with_resources!("prepare_for_call", inf_resources, {
                 read_callee_account_properties(system, ee_version, inf_resources, &call_request)
             })
         })
     } else {
-        cycle_marker::wrap_with_resources!("prepare_for_call", resources_available, {
+        cycle_marker::wrap_with_resources!("prepare_for_call", resources_in_caller_frame, {
             read_callee_account_properties(
                 system,
                 ee_version,
-                &mut resources_available,
+                &mut resources_in_caller_frame,
                 &call_request,
             )
         })
@@ -866,7 +866,7 @@ where
         Ok(x) => x,
         Err(SystemError::LeafRuntime(RuntimeError::OutOfErgs(_))) => {
             return Ok(CallPreparationResult::Failure {
-                resources_in_caller_frame: resources_available,
+                resources_in_caller_frame,
             });
         }
         Err(SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(loc))) => {
@@ -884,7 +884,7 @@ where
                     call_request.modifier
                 ));
                 return Ok(CallPreparationResult::Failure {
-                    resources_in_caller_frame: resources_available,
+                    resources_in_caller_frame,
                 });
             }
             // Adjust transfer target due to CALLCODE
@@ -903,11 +903,11 @@ where
     // If we're in the entry frame, i.e. not the execution of a CALL opcode,
     // we don't apply the CALL-specific gas charging, but instead set
     // resources_for_callee_frame equal to the available resources
-    let resources_for_callee_frame = if !IS_ENTRY_FRAME {
+    let mut resources_for_callee_frame = if !IS_ENTRY_FRAME {
         // now we should ask current EE for observable resource behavior if needed
         match SupportedEEVMState::<S>::clarify_and_take_passed_resources(
             ee_version,
-            &mut resources_available,
+            &mut resources_in_caller_frame,
             call_request.ergs_to_pass,
             &call_request,
             &callee_parameters,
@@ -916,7 +916,7 @@ where
             Err(x) => {
                 if let RootCause::Runtime(RuntimeError::OutOfErgs(_)) = x.root_cause() {
                     return Ok(CallPreparationResult::Failure {
-                        resources_in_caller_frame: resources_available,
+                        resources_in_caller_frame: resources_in_caller_frame,
                     });
                 } else {
                     return Err(wrap_error!(x));
@@ -924,8 +924,11 @@ where
             }
         }
     } else {
-        resources_available.take()
+        resources_in_caller_frame.take()
     };
+
+    // Give native resource to the callee.
+    resources_in_caller_frame.give_native_to(&mut resources_for_callee_frame);
 
     if DEBUG_OUTPUT {
         let _ = system.get_logger().write_fmt(format_args!(
@@ -960,7 +963,7 @@ where
         next_ee_version: callee_parameters.next_ee_version,
         transfer_to_perform,
         external_call_launch_params,
-        resources_in_caller_frame: resources_available,
+        resources_in_caller_frame,
     })
 }
 
