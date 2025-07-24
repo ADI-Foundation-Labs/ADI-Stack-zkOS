@@ -843,7 +843,7 @@ fn run_call_preparation<'a, S: EthereumLikeTypes, const IS_ENTRY_FRAME: bool>(
 where
     S::IO: IOSubsystemExt,
 {
-    let mut resources_available = call_request.available_resources.take();
+    let mut resources_available = call_request.available_resources.clone();
 
     let r = if IS_ENTRY_FRAME {
         // For entry frame we don't charge ergs for call preparation,
