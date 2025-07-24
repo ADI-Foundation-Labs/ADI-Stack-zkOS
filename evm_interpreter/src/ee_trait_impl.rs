@@ -13,6 +13,7 @@ use zk_ee::system::{errors::UpdateQueryError, *};
 use zk_ee::types_config::SystemIOTypesConfig;
 use zk_ee::utils::{b160_to_u256, Bytes32};
 use zk_ee::{interface_error, internal_error};
+use crypto::{MiniDigest, sha3::Keccak256};
 
 impl<S: SystemTypes> EEDeploymentExtraParameters<S> for CreateScheme {}
 
@@ -401,8 +402,6 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
             }
         }?;
 
-        use crypto::sha3::Keccak256;
-        use crypto::MiniDigest;
         let deployed_address = match &scheme {
             CreateScheme::Create => {
                 let mut buffer = [0u8; crate::utils::MAX_CREATE_RLP_ENCODING_LEN];

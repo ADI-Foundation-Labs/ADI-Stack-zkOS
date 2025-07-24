@@ -425,8 +425,7 @@ fn encode_tx(
 
 pub fn evm_bytecode_into_account_properties(deployed_code: &[u8]) -> (AccountProperties, Vec<u8>) {
     use crypto::blake2s::Blake2s256;
-    use crypto::sha3::Keccak256;
-    use crypto::MiniDigest;
+    use crypto::{MiniDigest, sha3::Keccak256};
 
     let unpadded_code_len = deployed_code.len();
     let artifacts =

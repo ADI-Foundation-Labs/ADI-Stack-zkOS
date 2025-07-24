@@ -29,8 +29,7 @@ use alloc::boxed::Box;
 use core::alloc::Allocator;
 use core::fmt::Write;
 use core::mem::MaybeUninit;
-use crypto::sha3::Keccak256;
-use crypto::MiniDigest;
+use crypto::{MiniDigest, sha3::Keccak256};
 use zk_ee::{internal_error, oracle::*};
 
 use crate::bootloader::account_models::{ExecutionOutput, ExecutionResult, TxProcessingResult};

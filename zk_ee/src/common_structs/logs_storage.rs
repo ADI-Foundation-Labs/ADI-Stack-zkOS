@@ -14,8 +14,7 @@ use crate::{
 };
 use alloc::alloc::Global;
 use core::alloc::Allocator;
-use crypto::sha3::Keccak256;
-use crypto::MiniDigest;
+use crypto::{MiniDigest, sha3::Keccak256};
 use ruint::aliases::B160;
 use ruint::aliases::U256;
 
@@ -418,7 +417,7 @@ where
         #[allow(clippy::needless_range_loop)]
         for level in 0..TREE_HEIGHT {
             for i in 0..curr_non_default.div_ceil(2) {
-                let mut hasher = crypto::sha3::Keccak256::new();
+                let mut hasher = Keccak256::new();
                 hasher.update(elements[i * 2].as_u8_ref());
                 if i * 2 + 1 < curr_non_default {
                     hasher.update(elements[i * 2 + 1].as_u8_ref());
@@ -478,7 +477,7 @@ impl L2ToL1Log {
     /// In fact, packed abi encoding in this case just equals to concatenation of all the fields big-endian representations.
     ///
     fn hash(&self) -> Bytes32 {
-        let mut hasher = crypto::sha3::Keccak256::new();
+        let mut hasher = Keccak256::new();
         self.add_encoding_to_hasher(&mut hasher);
         hasher.finalize().into()
     }

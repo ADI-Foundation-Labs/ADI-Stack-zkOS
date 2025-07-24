@@ -2,6 +2,7 @@ use quote::quote;
 use syn::parse::Parse;
 use syn::parse::ParseStream;
 use syn::{parse_macro_input, LitStr, Token};
+use crypto::{MiniDigest, sha3::Keccak256};
 
 struct SignatureComputationInput {
     arg1: LitStr,       // Ident parses an identifier
@@ -28,8 +29,7 @@ pub(crate) fn derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
     buffer.extend_from_slice(input.arg2.value().as_bytes());
     buffer.extend(b")");
 
-    use sha3::Digest;
-    let mut hasher = sha3::Keccak256::new();
+    let mut hasher = Keccak256::new();
     hasher.update(&buffer[..]);
     let hash = hasher.finalize();
 

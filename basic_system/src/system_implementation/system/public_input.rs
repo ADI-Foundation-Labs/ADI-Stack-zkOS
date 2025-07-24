@@ -1,5 +1,4 @@
-use crypto::sha3::Keccak256;
-use crypto::MiniDigest;
+use crypto::{MiniDigest, sha3::Keccak256};
 use ruint::aliases::{B160, U256};
 use zk_ee::utils::Bytes32;
 

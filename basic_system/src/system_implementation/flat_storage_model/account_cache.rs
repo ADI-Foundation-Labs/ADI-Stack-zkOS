@@ -44,6 +44,7 @@ use zk_ee::{
     system_io_oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
 };
+use crypto::{MiniDigest, sha3::Keccak256};
 
 pub type BitsOrd160 = BitsOrd<{ B160::BITS }, { B160::LIMBS }>;
 type AddressItem<'a, A> = HistoryMapItemRefMut<
@@ -712,8 +713,6 @@ where
             ExecutionEnvironmentType::EVM => {
                 let native_cost = keccak256_native_cost::<R>(deployed_code.len());
                 resources.charge(&R::from_native(native_cost))?;
-                use crypto::sha3::Keccak256;
-                use crypto::MiniDigest;
                 let digest = Keccak256::digest(deployed_code);
                 Bytes32::from_array(digest)
             }

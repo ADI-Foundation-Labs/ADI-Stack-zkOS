@@ -3,6 +3,7 @@ use crate::cost_constants::{ECRECOVER_COST_ERGS, ECRECOVER_NATIVE_COST};
 use zk_ee::system::base_system_functions::{Secp256k1ECRecoverErrors, SystemFunction};
 use zk_ee::system::errors::{subsystem::SubsystemError, system::SystemError};
 use zk_ee::system::Computational;
+use crypto::{MiniDigest, sha3::Keccak256};
 
 ///
 /// ecrecover system function implementation.
@@ -74,8 +75,6 @@ fn ecrecover_as_system_function_inner<
     };
     let bytes_ref = recovered_pubkey_bytes.as_ref();
 
-    use crypto::sha3::Keccak256;
-    use crypto::MiniDigest;
     let address_hash = Keccak256::digest(&bytes_ref[1..]);
 
     dst.extend(core::iter::repeat_n(0, 12).chain(address_hash.into_iter().skip(12)));

@@ -34,6 +34,7 @@ use zk_ee::{
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::UsizeAlignedByteBox,
 };
+use crypto::sha3::Keccak256;
 
 pub struct FullIO<
     A: Allocator + Clone + Default,
@@ -599,7 +600,7 @@ where
         let chain_state_commitment_before = chain_state_hasher.finalize();
 
         // finishing IO, applying changes
-        let mut pubdata_hasher = crypto::sha3::Keccak256::new();
+        let mut pubdata_hasher = Keccak256::new();
         pubdata_hasher.update(current_block_hash.as_u8_ref());
 
         self.storage
@@ -616,7 +617,7 @@ where
             .apply_pubdata(&mut pubdata_hasher, result_keeper);
         result_keeper.logs(self.logs_storage.messages_ref_iter());
         result_keeper.events(self.events_storage.events_ref_iter());
-        let mut full_root_hasher = crypto::sha3::Keccak256::new();
+        let mut full_root_hasher = Keccak256::new();
         full_root_hasher.update(self.logs_storage.tree_root().as_u8_ref());
         full_root_hasher.update([0u8; 32]); // aggregated root 0 for now
         let full_l2_to_l1_logs_root = full_root_hasher.finalize();
@@ -635,7 +636,7 @@ where
         chain_state_hasher.update(state_commitment.next_free_slot.to_be_bytes());
         let chain_state_commitment_after = chain_state_hasher.finalize();
 
-        let mut da_commitment_hasher = crypto::sha3::Keccak256::new();
+        let mut da_commitment_hasher = Keccak256::new();
         da_commitment_hasher.update([0u8; 32]); // we don't have to validate state diffs hash
         da_commitment_hasher.update(pubdata_hash); // full pubdata keccak
         da_commitment_hasher.update([1u8]); // with calldata we should provide 1 blob

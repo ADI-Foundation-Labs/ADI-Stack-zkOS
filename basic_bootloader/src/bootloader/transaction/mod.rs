@@ -6,8 +6,7 @@
 use self::u256be_ptr::U256BEPtr;
 use crate::bootloader::rlp;
 use core::ops::Range;
-use crypto::sha3::Keccak256;
-use crypto::MiniDigest;
+use crypto::{MiniDigest, sha3::Keccak256};
 use errors::{BootloaderSubsystemError, InvalidTransaction};
 use ruint::aliases::U256;
 use zk_ee::internal_error;

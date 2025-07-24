@@ -440,8 +440,7 @@ mod tests {
         BytecodeAndAccountDataPreimagesStorage, PreimageRequest, VersioningData,
     };
     use crypto::blake2s::Blake2s256;
-    use crypto::sha3::Keccak256;
-    use crypto::MiniDigest;
+    use crypto::{MiniDigest, sha3::Keccak256};
     use ruint::aliases::U256;
     use std::alloc::Global;
     use storage_models::common_structs::PreimageCacheModel;

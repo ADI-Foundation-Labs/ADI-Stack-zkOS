@@ -7,7 +7,7 @@ use crypto::{
         Scalar,
     },
     sha3::Keccak256,
-    MiniDigest,
+    MiniDigest
 };
 
 use proptest::{

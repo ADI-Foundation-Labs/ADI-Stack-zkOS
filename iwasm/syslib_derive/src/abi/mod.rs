@@ -3,8 +3,8 @@ mod types;
 
 use core::panic;
 
-use sha3::{digest::Update, Digest};
 use syn::{spanned::Spanned, FnArg, Signature, Type};
+use crypto::sha3::Keccak256;
 
 pub(crate) type FnSelector = [u8; 4];
 
@@ -73,7 +73,7 @@ pub(crate) fn encode(f: &dyn type_info::FnInfo) -> FnSelector {
         );
     }
 
-    let mut hasher = sha3::Keccak256::new();
+    let mut hasher = Keccak256::new();
     Update::update(&mut hasher, sig.as_slice());
     let hash = hasher.finalize();
 
@@ -164,7 +164,7 @@ pub fn encode_signature(sig: &Signature) -> [u8; 4] {
         print!("{}", char::from_u32(*c as u32).unwrap());
     }
 
-    let mut hasher = sha3::Keccak256::new();
+    let mut hasher = Keccak256::new();
     Update::update(&mut hasher, buf.as_slice());
 
     let hash = hasher.finalize();
