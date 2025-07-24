@@ -903,9 +903,9 @@ where
     // If we're in the entry frame, i.e. not the execution of a CALL opcode,
     // we don't apply the CALL-specific gas charging, but instead set
     // resources_for_callee_frame equal to the available resources
-    let mut resources_for_callee_frame = if !IS_ENTRY_FRAME {
+    let resources_for_callee_frame = if !IS_ENTRY_FRAME {
         // now we should ask current EE for observable resource behavior if needed
-        match SupportedEEVMState::<S>::clarify_and_take_passed_resources(
+        let mut callee_resources = match SupportedEEVMState::<S>::clarify_and_take_passed_resources(
             ee_version,
             &mut resources_in_caller_frame,
             call_request.ergs_to_pass,
@@ -916,19 +916,20 @@ where
             Err(x) => {
                 if let RootCause::Runtime(RuntimeError::OutOfErgs(_)) = x.root_cause() {
                     return Ok(CallPreparationResult::Failure {
-                        resources_in_caller_frame: resources_in_caller_frame,
+                        resources_in_caller_frame,
                     });
                 } else {
                     return Err(wrap_error!(x));
                 }
             }
-        }
+        };
+
+        // Give native resource to the callee.
+        resources_in_caller_frame.give_native_to(&mut callee_resources);
+        callee_resources
     } else {
         resources_in_caller_frame.take()
     };
-
-    // Give native resource to the callee.
-    resources_in_caller_frame.give_native_to(&mut resources_for_callee_frame);
 
     if DEBUG_OUTPUT {
         let _ = system.get_logger().write_fmt(format_args!(
