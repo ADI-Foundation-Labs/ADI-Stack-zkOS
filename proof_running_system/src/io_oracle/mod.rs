@@ -54,8 +54,8 @@ impl<I: NonDeterminismCSRSourceImplementation> CsrBasedIOOracle<I> {
     }
 }
 
-impl<ND: NonDeterminismCSRSourceImplementation> IOOracle for CsrBasedIOOracle<ND> {
-    type RawIterator<'a> = CsrBasedIOOracleIterator<ND>;
+impl<NDS: NonDeterminismCSRSourceImplementation> IOOracle for CsrBasedIOOracle<NDS> {
+    type RawIterator<'a> = CsrBasedIOOracleIterator<NDS>;
 
     fn raw_query<'a, I: UsizeSerializable + UsizeDeserializable>(
         &'a mut self,
@@ -65,23 +65,23 @@ impl<ND: NonDeterminismCSRSourceImplementation> IOOracle for CsrBasedIOOracle<ND
         const {
             assert!(core::mem::size_of::<usize>() == core::mem::size_of::<u32>());
         }
-        ND::csr_write_impl(query_type as usize);
+        NDS::csr_write_impl(query_type as usize);
         let iter_to_write = UsizeSerializable::iter(input);
         // write length
         let iterator_len = iter_to_write.len();
         assert!(iterator_len == <I as UsizeSerializable>::USIZE_LEN);
-        ND::csr_write_impl(iterator_len);
+        NDS::csr_write_impl(iterator_len);
         // write content
         let mut remaining_len = iterator_len;
         for value in iter_to_write {
             assert!(iterator_len != 0);
-            ND::csr_write_impl(value);
+            NDS::csr_write_impl(value);
             remaining_len -= 1;
         }
         assert!(remaining_len == 0);
         // we can expect that length of the result is returned via read
-        let remaining_len = ND::csr_read_impl();
-        let it = CsrBasedIOOracleIterator::<ND> {
+        let remaining_len = NDS::csr_read_impl();
+        let it = CsrBasedIOOracleIterator::<NDS> {
             remaining: remaining_len,
             _marker: core::marker::PhantomData,
         };

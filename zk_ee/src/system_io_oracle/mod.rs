@@ -162,7 +162,7 @@ pub trait IOOracle: 'static + Sized {
     // Few wrappers that return output in convenient types
 
     ///
-    /// Returns the requested type. Expects that such query type has trivial input paramters.
+    /// Returns the requested type. Expects that such query type has trivial input parameters.
     ///
     fn query_with_empty_input<T: UsizeDeserializable>(
         &mut self,
