@@ -20,6 +20,7 @@ use super::errors::subsystem::SubsystemError;
 use super::system::System;
 use super::system::SystemTypes;
 use super::IOSubsystemExt;
+use crate::common_structs::CalleeAccountProperties;
 use crate::internal_error;
 use crate::memory::slice_vec::SliceVec;
 use crate::system::CallModifier;
@@ -120,6 +121,8 @@ pub trait ExecutionEnvironment<'ee, S: SystemTypes, Es: Subsystem>: Sized {
     fn clarify_and_take_passed_resources(
         resources_available_in_deployer_frame: &mut S::Resources,
         ergs_desired_to_pass: Ergs,
+        call_request: &ExternalCallRequest<S>,
+        callee_parameters: &CalleeAccountProperties,
     ) -> Result<S::Resources, Self::SubsystemError>;
 
     /// Runs some pre-deployment preparation and checks.

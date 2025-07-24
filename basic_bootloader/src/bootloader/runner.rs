@@ -4,10 +4,6 @@ use crate::bootloader::DEBUG_OUTPUT;
 use alloc::boxed::Box;
 use core::fmt::Write;
 use core::mem::MaybeUninit;
-use evm_interpreter::gas_constants::CALLVALUE;
-use evm_interpreter::gas_constants::CALL_STIPEND;
-use evm_interpreter::gas_constants::NEWACCOUNT;
-use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
 use system_hooks::*;
@@ -16,6 +12,8 @@ use zk_ee::common_structs::TransferInfo;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::interface_error;
 use zk_ee::memory::slice_vec::SliceVec;
+use zk_ee::system::errors::root_cause::GetRootCause;
+use zk_ee::system::errors::root_cause::RootCause;
 use zk_ee::system::errors::runtime::RuntimeError;
 use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::{errors::system::SystemError, logger::Logger, *};
@@ -877,48 +875,6 @@ where
         Err(SystemError::LeafDefect(e)) => return Err(e.into()),
     };
 
-    // TODO: additional call related costs should be moved in "clarify_and_take_passed_resources" (it also should be renamed)
-    // Now we charge for the rest of the CALL related costs
-    let stipend = if !IS_ENTRY_FRAME {
-        match ee_version {
-            ExecutionEnvironmentType::NoEE => {
-                return Err(internal_error!("Cannot be NoEE deep in the callstack").into())
-            }
-            ExecutionEnvironmentType::EVM => {
-                let is_delegate = call_request.is_delegate();
-                let is_callcode = call_request.is_callcode();
-                let is_callcode_or_delegate = is_callcode || is_delegate;
-
-                // Positive value cost and stipend
-                let stipend = if !is_delegate && !call_request.nominal_token_value.is_zero() {
-                    let positive_value_cost =
-                        S::Resources::from_ergs(Ergs(CALLVALUE * ERGS_PER_GAS));
-                    resources_available.charge(&positive_value_cost)?;
-                    Some(Ergs(CALL_STIPEND * ERGS_PER_GAS))
-                } else {
-                    None
-                };
-
-                // Account creation cost
-                let callee_is_empty = callee_parameters.nonce == 0
-                    && callee_parameters.unpadded_code_len == 0
-                    && callee_parameters.nominal_token_balance.is_zero();
-                if !is_callcode_or_delegate
-                    && !call_request.nominal_token_value.is_zero()
-                    && callee_is_empty
-                {
-                    let callee_creation_cost =
-                        S::Resources::from_ergs(Ergs(NEWACCOUNT * ERGS_PER_GAS));
-                    resources_available.charge(&callee_creation_cost)?
-                }
-
-                stipend
-            }
-        }
-    } else {
-        None
-    };
-
     // Check transfer is allowed an determine transfer target
     let transfer_to_perform =
         if call_request.nominal_token_value != U256::ZERO && !call_request.is_delegate() {
@@ -947,24 +903,29 @@ where
     // If we're in the entry frame, i.e. not the execution of a CALL opcode,
     // we don't apply the CALL-specific gas charging, but instead set
     // actual_resources_to_pass equal to the available resources
-    let mut actual_resources_to_pass = if !IS_ENTRY_FRAME {
+    let actual_resources_to_pass = if !IS_ENTRY_FRAME {
         // now we should ask current EE for observable resource behavior if needed
-        {
-            SupportedEEVMState::<S>::clarify_and_take_passed_resources(
-                ee_version,
-                &mut resources_available,
-                call_request.ergs_to_pass,
-            )
-            .map_err(wrap_error!())?
+        match SupportedEEVMState::<S>::clarify_and_take_passed_resources(
+            ee_version,
+            &mut resources_available,
+            call_request.ergs_to_pass,
+            &call_request,
+            &callee_parameters,
+        ) {
+            Ok(x) => x,
+            Err(x) => {
+                if let RootCause::Runtime(RuntimeError::OutOfErgs(_)) = x.root_cause() {
+                    return Ok(CallPreparationResult::Failure {
+                        resources_in_caller_frame: resources_available,
+                    });
+                } else {
+                    return Err(wrap_error!(x));
+                }
+            }
         }
     } else {
         resources_available.take()
     };
-
-    // Add stipend
-    if let Some(stipend) = stipend {
-        actual_resources_to_pass.add_ergs(stipend)
-    }
 
     if DEBUG_OUTPUT {
         let _ = system.get_logger().write_fmt(format_args!(
