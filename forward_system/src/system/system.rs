@@ -1,11 +1,11 @@
 use std::alloc::Global;
 
-use crate::run::oracle::CallSimulationOracle;
-use crate::run::oracle::ForwardRunningOracle;
 use basic_bootloader::bootloader::BasicBootloader;
 use basic_system::system_functions::NoStdSystemFunctions;
 use basic_system::system_implementation::system::EthereumLikeStorageAccessCostModel;
 use basic_system::system_implementation::system::FullIO;
+use oracle_provider::DummyMemorySource;
+use oracle_provider::ZkEENonDeterminismSource;
 use zk_ee::memory::stack_trait::VecStackCtor;
 use zk_ee::reference_implementations::BaseResources;
 use zk_ee::system::{EthereumLikeTypes, SystemTypes};
@@ -41,10 +41,10 @@ impl<O: IOOracle> SystemTypes for ForwardSystemTypes<O> {
 
 impl<O: IOOracle> EthereumLikeTypes for ForwardSystemTypes<O> {}
 
-pub type ForwardRunningSystem<T, PS, TS> = ForwardSystemTypes<ForwardRunningOracle<T, PS, TS>>;
+pub type ForwardRunningSystem = ForwardSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>;
 
-pub type CallSimulationSystem<T, PS, TS> = ForwardSystemTypes<CallSimulationOracle<T, PS, TS>>;
+pub type CallSimulationSystem = ForwardSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>;
 
-pub type ForwardBootloader<T, PS, TS> = BasicBootloader<ForwardRunningSystem<T, PS, TS>>;
+pub type ForwardBootloader = BasicBootloader<ForwardRunningSystem>;
 
-pub type CallSimulationBootloader<T, PS, TS> = BasicBootloader<CallSimulationSystem<T, PS, TS>>;
+pub type CallSimulationBootloader = BasicBootloader<ForwardRunningSystem>;

@@ -91,6 +91,52 @@ impl<IOTypes: SystemIOTypesConfig> UsizeDeserializable for StorageAddress<IOType
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct InitialStorageSlotData<IOTypes: SystemIOTypesConfig> {
+    // we need to know what was a value of the storage slot,
+    // and whether it existed in the state or has to be created
+    // (so additional information is needed to reconstruct creation location)
+    pub is_new_storage_slot: bool,
+    pub initial_value: IOTypes::StorageValue,
+}
+
+impl<IOTypes: SystemIOTypesConfig> Default for InitialStorageSlotData<IOTypes> {
+    fn default() -> Self {
+        Self {
+            is_new_storage_slot: false,
+            initial_value: IOTypes::StorageValue::default(),
+        }
+    }
+}
+
+impl<IOTypes: SystemIOTypesConfig> UsizeSerializable for InitialStorageSlotData<IOTypes> {
+    const USIZE_LEN: usize = <bool as UsizeSerializable>::USIZE_LEN
+        + <u8 as UsizeSerializable>::USIZE_LEN
+        + <IOTypes::StorageValue as UsizeSerializable>::USIZE_LEN;
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        ExactSizeChain::new(
+            UsizeSerializable::iter(&self.is_new_storage_slot),
+            UsizeSerializable::iter(&self.initial_value),
+        )
+    }
+}
+
+impl<IOTypes: SystemIOTypesConfig> UsizeDeserializable for InitialStorageSlotData<IOTypes> {
+    const USIZE_LEN: usize = <Self as UsizeSerializable>::USIZE_LEN;
+
+    fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
+        let is_new_storage_slot = UsizeDeserializable::from_iter(src)?;
+        let initial_value = UsizeDeserializable::from_iter(src)?;
+
+        let new = Self {
+            is_new_storage_slot,
+            initial_value,
+        };
+
+        Ok(new)
+    }
+}
+
 pub const MAX_EVENT_TOPICS: usize = 4;
 
 pub struct EventFullKey<const N: usize, IOTypes: SystemIOTypesConfig> {

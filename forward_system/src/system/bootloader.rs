@@ -1,20 +1,15 @@
-use super::super::run::oracle::ForwardRunningOracle;
-use crate::run::{PreimageSource, ReadStorageTree, TxSource};
 use crate::system::system::*;
 use basic_bootloader::bootloader::config::BasicBootloaderExecutionConfig;
 use basic_bootloader::bootloader::result_keeper::ResultKeeperExt;
+use oracle_provider::DummyMemorySource;
+use oracle_provider::ZkEENonDeterminismSource;
 
 ///
 /// Run bootloader with forward system with a given `oracle`.
 /// Returns execution results(tx results, state changes, events, etc) via `results_keeper`.
 ///
-pub fn run_forward<
-    Config: BasicBootloaderExecutionConfig,
-    T: ReadStorageTree,
-    PS: PreimageSource,
-    TS: TxSource,
->(
-    oracle: ForwardRunningOracle<T, PS, TS>,
+pub fn run_forward<Config: BasicBootloaderExecutionConfig>(
+    oracle: ZkEENonDeterminismSource<DummyMemorySource>,
     result_keeper: &mut impl ResultKeeperExt,
 ) {
     if let Err(err) = ForwardBootloader::run_prepared::<Config>(oracle, result_keeper) {

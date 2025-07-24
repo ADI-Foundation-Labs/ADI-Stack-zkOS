@@ -785,20 +785,43 @@ impl<const N: usize> StateRootView<EthereumIOTypesConfig> for FlatStorageCommitm
     }
 }
 
+pub struct PreviousIndexQuery;
+
+impl SimpleOracleQuery for PreviousIndexQuery {
+    const QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 0;
+    type Input = Bytes32;
+    type Output = u64;
+}
+
+pub struct ExactIndexQuery;
+
+impl SimpleOracleQuery for ExactIndexQuery {
+    const QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 1;
+    type Input = Bytes32;
+    type Output = u64;
+}
+
 fn get_prev_index<O: IOOracle>(oracle: &mut O, flat_key: &Bytes32) -> u64 {
-    let mut it = oracle
-        .create_oracle_access_iterator::<PrevIndexIterator>(*flat_key)
-        .expect("must get iterator for prev index");
-    UsizeDeserializable::from_iter(&mut it).expect("must deserialize prev index")
+    PreviousIndexQuery::get(oracle, flat_key).expect("must deserialize prev index")
 }
 
 fn get_index<O: IOOracle>(oracle: &mut O, flat_key: &Bytes32) -> u64 {
-    let mut it = oracle
-        .create_oracle_access_iterator::<ExactIndexIterator>(*flat_key)
-        .expect("must get iterator for neighbours");
-    let index: u64 = UsizeDeserializable::from_iter(&mut it).expect("must deserialize neighbours");
+    ExactIndexQuery::get(oracle, flat_key).expect("must deserialize index for key")
+}
 
-    index
+pub const PROOF_FOR_INDEX_QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 2;
+
+pub struct ProofForIndexQuery<const N: usize, H: FlatStorageHasher, A: Allocator + Clone + Default>
+{
+    _marker: core::marker::PhantomData<(H, A)>,
+}
+
+impl<const N: usize, H: FlatStorageHasher, A: 'static + Allocator + Clone + Default>
+    SimpleOracleQuery for ProofForIndexQuery<N, H, A>
+{
+    const QUERY_ID: u32 = PROOF_FOR_INDEX_QUERY_ID;
+    type Input = u64;
+    type Output = ValueAtIndexProof<N, H, A>;
 }
 
 fn get_proof_for_index<
@@ -810,11 +833,10 @@ fn get_proof_for_index<
     oracle: &mut O,
     index: u64,
 ) -> ValueAtIndexProof<N, H, A> {
-    let mut it = oracle
-        .create_oracle_access_iterator::<ProofForIndexIterator>(index)
-        .expect("must get iterator for neighbours");
-    let proof: ValueAtIndexProof<N, H, A> =
-        UsizeDeserializable::from_iter(&mut it).expect("must deserialize neighbours");
+    // we can not use query here, but almost
+    let proof: ValueAtIndexProof<N, H, A> = oracle
+        .query_serializable(PROOF_FOR_INDEX_QUERY_ID, &index)
+        .expect("must deserialize proof for index");
     assert_eq!(proof.proof.existing.index, index);
 
     proof
@@ -1683,7 +1705,7 @@ mod test {
     use super::*;
     use proptest::{prelude::*, sample::Index};
     use ruint::aliases::{B160, U256};
-    use std::{any, collections::HashMap, ops};
+    use std::{collections::HashMap, ops};
     use zk_ee::common_structs::derive_flat_storage_key;
     use zk_ee::{system::NullLogger, system_io_oracle::dyn_usize_iterator::DynUsizeIterator};
 
@@ -1890,46 +1912,49 @@ mod test {
     }
 
     impl<const R: bool> IOOracle for TestingTree<R> {
-        type MarkerTiedIterator<'a> = Box<dyn ExactSizeIterator<Item = usize>>;
+        type RawIterator<'a> = Box<dyn ExactSizeIterator<Item = usize>>;
 
-        fn create_oracle_access_iterator<'a, M: OracleIteratorTypeMarker>(
+        fn raw_query<'a, I: UsizeSerializable + UsizeDeserializable>(
             &'a mut self,
-            init_value: M::Params,
-        ) -> Result<Self::MarkerTiedIterator<'a>, InternalError> {
-            match any::TypeId::of::<M>() {
-                a if a == any::TypeId::of::<ExactIndexIterator>() => {
-                    let flat_key = unsafe {
-                        *(&init_value as *const M::Params)
-                            .cast::<<ExactIndexIterator as OracleIteratorTypeMarker>::Params>()
-                    };
-                    let existing = self.get_index_for_existing(&flat_key);
-                    let iterator = DynUsizeIterator::from_owned(existing);
-                    Ok(Box::new(iterator))
+            query_type: u32,
+            input: &I,
+        ) -> Result<Self::RawIterator<'a>, InternalError> {
+            unsafe {
+                match query_type {
+                    ExactIndexQuery::QUERY_ID => {
+                        let flat_key = ExactIndexQuery::transmute_input_ref_unchecked(input);
+                        let existing = self.get_index_for_existing(&flat_key);
+                        Ok(DynUsizeIterator::from_constructor(existing, |item_ref| {
+                            UsizeSerializable::iter(item_ref)
+                        }))
+                    }
+                    PreviousIndexQuery::QUERY_ID => {
+                        let flat_key = PreviousIndexQuery::transmute_input_ref_unchecked(input);
+                        let existing = self.get_prev_index(&flat_key);
+                        Ok(DynUsizeIterator::from_constructor(existing, |item_ref| {
+                            UsizeSerializable::iter(item_ref)
+                        }))
+                    }
+                    PROOF_FOR_INDEX_QUERY_ID => {
+                        let position = ProofForIndexQuery::<
+                            TESTING_TREE_HEIGHT,
+                            Blake2sStorageHasher,
+                            Global,
+                        >::transmute_input_ref_unchecked(
+                            input
+                        );
+                        let existing = self.get_proof_for_position(*position);
+                        let proof = ValueAtIndexProof {
+                            proof: ExistingReadProof { existing },
+                        };
+                        Ok(DynUsizeIterator::from_constructor(proof, |item_ref| {
+                            UsizeSerializable::iter(item_ref)
+                        }))
+                    }
+                    _ => {
+                        panic!("unsupported query type 0x{:08x}", query_type);
+                    }
                 }
-                a if a == any::TypeId::of::<ProofForIndexIterator>() => {
-                    let index = unsafe {
-                        *(&init_value as *const M::Params)
-                            .cast::<<ProofForIndexIterator as OracleIteratorTypeMarker>::Params>()
-                    };
-                    let existing = self.get_proof_for_position(index);
-                    let proof = ValueAtIndexProof {
-                        proof: ExistingReadProof { existing },
-                    };
-
-                    let iterator = DynUsizeIterator::from_owned(proof);
-
-                    Ok(Box::new(iterator))
-                }
-                a if a == any::TypeId::of::<PrevIndexIterator>() => {
-                    let flat_key = unsafe {
-                        *(&init_value as *const M::Params)
-                            .cast::<<PrevIndexIterator as OracleIteratorTypeMarker>::Params>()
-                    };
-                    let prev_index = self.get_prev_index(&flat_key);
-                    let iterator = DynUsizeIterator::from_owned(prev_index);
-                    Ok(Box::new(iterator))
-                }
-                _ => panic!("unexpected request: {}", any::type_name::<M>()),
             }
         }
     }

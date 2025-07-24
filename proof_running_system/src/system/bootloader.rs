@@ -6,7 +6,7 @@ use core::alloc::Allocator;
 use core::mem::MaybeUninit;
 use zk_ee::memory::ZSTAllocator;
 use zk_ee::system::{logger::Logger, NopResultKeeper};
-use zk_ee::system_io_oracle::{DisconnectOracleFormalIterator, IOOracle};
+use zk_ee::system_io_oracle::{IOOracle, DISCONNECT_ORACLE_QUERY_ID};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ProxyAllocator;
@@ -185,7 +185,7 @@ pub fn run_proving_inner<
     // TODO: check this is the intended behaviour (ignoring the result)
     #[allow(unused_must_use)]
     oracle
-        .create_oracle_access_iterator::<DisconnectOracleFormalIterator>(())
+        .raw_query_with_empty_input(DISCONNECT_ORACLE_QUERY_ID)
         .expect("must disconnect an oracle before performing arbitrary CSR access");
 
     public_input.as_u32_array()

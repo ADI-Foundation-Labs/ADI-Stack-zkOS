@@ -3,11 +3,10 @@
 use std::{path::PathBuf, str::FromStr};
 
 use forward_system::run::{
-    io_implementer_init_data,
     test_impl::{InMemoryPreimageSource, InMemoryTree, TxListSource},
-    BatchContext, EthereumIOTypesConfig, ForwardRunningOracle, StorageCommitment,
+    BatchContext, StorageCommitment,
 };
-use oracle_provider::{BasicZkEEOracleWrapper, ReadWitnessSource, ZkEENonDeterminismSource};
+use oracle_provider::{ReadWitnessSource, ZkEENonDeterminismSource};
 pub mod helpers;
 
 /// Runs the batch, and returns the output (that contains gas usage, transaction status etc.).
@@ -23,22 +22,30 @@ pub fn run_batch_generate_witness(
     storage_commitment: StorageCommitment,
     zksync_os_bin_path: &str,
 ) -> Vec<u32> {
-    let oracle: ForwardRunningOracle<InMemoryTree, InMemoryPreimageSource, TxListSource> =
-        ForwardRunningOracle {
-            io_implementer_init_data: Some(io_implementer_init_data(Some(storage_commitment))),
-            block_metadata: batch_context,
-            tree,
-            preimage_source,
-            tx_source,
-            next_tx: None,
-        };
+    use forward_system::run::*;
 
-    let oracle_wrapper = BasicZkEEOracleWrapper::<EthereumIOTypesConfig, _>::new(oracle.clone());
-    let mut non_determinism_source = ZkEENonDeterminismSource::default();
-    non_determinism_source.add_external_processor(oracle_wrapper);
+    let block_metadata_reponsder = BlockMetadataResponder {
+        block_metadata: batch_context,
+    };
+    let tx_data_reponder = TxDataResponder {
+        tx_source,
+        next_tx: None,
+    };
+    let preimage_responder = GenericPreimageResponder { preimage_source };
+    let tree_responder = ReadTreeResponder { tree };
+    let io_implementer_init_responder = IOImplementerInitResponder {
+        io_implementer_init_data: Some(io_implementer_init_data(Some(storage_commitment))),
+    };
+
+    let mut oracle = ZkEENonDeterminismSource::default();
+    oracle.add_external_processor(block_metadata_reponsder);
+    oracle.add_external_processor(tx_data_reponder);
+    oracle.add_external_processor(preimage_responder);
+    oracle.add_external_processor(tree_responder);
+    oracle.add_external_processor(io_implementer_init_responder);
 
     // We'll wrap the source, to collect all the reads.
-    let copy_source = ReadWitnessSource::new(non_determinism_source);
+    let copy_source = ReadWitnessSource::new(oracle);
 
     let items = copy_source.get_read_items();
     // By default - enable diagnostics is false (which makes the test run faster).

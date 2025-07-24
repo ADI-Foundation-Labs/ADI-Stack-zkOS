@@ -9,7 +9,7 @@ use zk_ee::{
         errors::{internal::InternalError, system::SystemError},
         IOResultKeeper, Resources,
     },
-    system_io_oracle::{IOOracle, PreimageContentWordsIterator},
+    system_io_oracle::{IOOracle, GENERIC_PREIMAGE_QUERY_ID},
     types_config::EthereumIOTypesConfig,
     utils::{Bytes32, UsizeAlignedByteBox},
 };
@@ -89,7 +89,7 @@ impl<R: Resources, A: Allocator + Clone> BytecodeAndAccountDataPreimagesStorage<
             // expect higher-level model todo so.
             // We charge for native.
             let it = oracle
-                .create_oracle_access_iterator::<PreimageContentWordsIterator>(*hash)
+                .raw_query(GENERIC_PREIMAGE_QUERY_ID, hash)
                 .expect("must make an iterator for preimage");
             let mut buffered =
                 UsizeAlignedByteBox::from_usize_iterator_in(it, self.allocator.clone());

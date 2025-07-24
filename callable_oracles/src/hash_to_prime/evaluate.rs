@@ -21,7 +21,7 @@ impl<M: MemorySource> OracleQueryProcessor<M> for HashToPrimeSource<M> {
         query_id: u32,
         query: Vec<usize>,
         memory: &M,
-    ) -> Option<Box<dyn ExactSizeIterator<Item = usize> + 'static>> {
+    ) -> Box<dyn ExactSizeIterator<Item = usize> + 'static> {
         debug_assert!(self.supports_query_id(query_id));
         let mut it = query.into_iter();
         let memory_region_for_request: MemoryRegionDescriptionParams =
@@ -46,7 +46,6 @@ impl<M: MemorySource> OracleQueryProcessor<M> for HashToPrimeSource<M> {
         let _certificate = compute_from_entropy(&entropy);
 
         // TODO: serialize
-
-        None
+        todo!();
     }
 }

@@ -7,13 +7,39 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
-use zk_ee::kv_markers::UsizeDeserializable;
-use zk_ee::system_io_oracle::*;
-use zk_ee::types_config::*;
+use zk_ee::kv_markers::{UsizeDeserializable, UsizeSerializable};
+use zk_ee::system::errors::internal::InternalError;
+use zk_ee::{internal_error, system_io_oracle::*};
 
-use risc_v_simulator::abstractions::memory::MemorySource;
+pub use risc_v_simulator::abstractions::memory::MemorySource;
 use risc_v_simulator::abstractions::non_determinism::NonDeterminismCSRSource;
 
+pub struct DummyMemorySource;
+
+impl MemorySource for DummyMemorySource {
+    fn get(
+        &self,
+        _phys_address: u64,
+        _access_type: risc_v_simulator::abstractions::memory::AccessType,
+        _trap: &mut risc_v_simulator::cycle::status_registers::TrapReason,
+    ) -> u32 {
+        unreachable!()
+    }
+    fn set(
+        &mut self,
+        _phys_address: u64,
+        _value: u32,
+        _access_type: risc_v_simulator::abstractions::memory::AccessType,
+        _trap: &mut risc_v_simulator::cycle::status_registers::TrapReason,
+    ) {
+        unreachable!()
+    }
+}
+
+///
+/// Structure that is responsible to buffer incoming queries till the end,
+/// and then dispatch it to various responders. When constructed it checks
+/// that responders do not try to serve the same query ID.
 pub struct ZkEENonDeterminismSource<M: MemorySource> {
     query_buffer: Option<QueryBuffer>,
     current_query_id: Option<u32>,
@@ -65,7 +91,7 @@ impl<M: MemorySource> ZkEENonDeterminismSource<M> {
         let buffer = self.query_buffer.take().expect("must exist");
         let query_id = buffer.query_type;
         // println!("Processing a query with ID = 0x{:08x}", query_id);
-        if query_id == DisconnectOracleFormalIterator::ID {
+        if query_id == DISCONNECT_ORACLE_QUERY_ID {
             self.is_connected_to_external_oracle = false;
         } else {
             let buffer = buffer.buffer;
@@ -75,16 +101,16 @@ impl<M: MemorySource> ZkEENonDeterminismSource<M> {
             let processor = &mut self.processors[processor_id];
             let new_iterator = processor.process_buffered_query(query_id, buffer, memory);
 
-            if let Some(new_iterator) = new_iterator {
-                let result_len = new_iterator.len() * 2; // NOTE for mismatch of 32/64-bit archs
-                self.iterator_len_to_indicate = Some(result_len as u32);
-                if result_len > 0 {
-                    self.current_query_id = Some(query_id);
-                    self.current_iterator = Some(new_iterator);
-                }
-            } else {
-                self.iterator_len_to_indicate = Some(0);
+            // if let Some(new_iterator) = new_iterator {
+            let result_len = new_iterator.len() * 2; // NOTE for mismatch of 32/64-bit archs
+            self.iterator_len_to_indicate = Some(result_len as u32);
+            if result_len > 0 {
+                self.current_query_id = Some(query_id);
+                self.current_iterator = Some(new_iterator);
             }
+            // } else {
+            //     self.iterator_len_to_indicate = Some(0);
+            // }
         }
     }
 
@@ -159,7 +185,7 @@ impl<M: MemorySource> ZkEENonDeterminismSource<M> {
                 self.process_buffered_query(memory);
             }
         } else {
-            if self.is_connected_to_external_oracle == false && value != UARTAccessMarker::ID {
+            if self.is_connected_to_external_oracle == false && value != UART_QUERY_ID {
                 // we are not interested in general to start another query
                 return;
             }
@@ -167,6 +193,34 @@ impl<M: MemorySource> ZkEENonDeterminismSource<M> {
             let new_buffer = QueryBuffer::empty_for_query_type(value);
             self.query_buffer = Some(new_buffer);
         }
+    }
+}
+
+impl IOOracle for ZkEENonDeterminismSource<DummyMemorySource> {
+    type RawIterator<'a> = Box<dyn ExactSizeIterator<Item = usize> + 'static>;
+
+    fn raw_query<'a, I: UsizeSerializable + UsizeDeserializable>(
+        &'a mut self,
+        query_type: u32,
+        input: &I,
+    ) -> Result<Self::RawIterator<'a>, InternalError> {
+        if query_type == DISCONNECT_ORACLE_QUERY_ID {
+            self.is_connected_to_external_oracle = false;
+        }
+        if self.is_connected_to_external_oracle == false {
+            return Ok(Box::new([].into_iter()));
+        }
+        let Some(processor) = self.ranges.get(&query_type).copied() else {
+            return Err(internal_error!("invalid query ID "));
+        };
+        let processor = &mut self.processors[processor];
+        let response = processor.process_buffered_query(
+            query_type,
+            UsizeSerializable::iter(input).collect::<Vec<usize>>(),
+            &mut DummyMemorySource,
+        );
+
+        Ok(response)
     }
 }
 
@@ -182,7 +236,7 @@ pub trait OracleQueryProcessor<M: MemorySource> {
         query_id: u32,
         query: Vec<usize>,
         memory: &M,
-    ) -> Option<Box<dyn ExactSizeIterator<Item = usize> + 'static>>;
+    ) -> Box<dyn ExactSizeIterator<Item = usize> + 'static>;
 }
 
 struct QueryBuffer {
@@ -226,212 +280,6 @@ impl QueryBuffer {
             } else {
                 false
             }
-        }
-    }
-}
-
-#[derive(Clone)]
-#[allow(dead_code)]
-pub struct BasicZkEEOracleWrapper<IOTypes: SystemIOTypesConfig, O: IOOracle>
-where
-    for<'a> O::MarkerTiedIterator<'a>: 'static,
-{
-    oracle: O,
-    is_connected_to_external_oracle: bool,
-    partial_uart_string: Vec<u8>,
-    _marker: std::marker::PhantomData<IOTypes>,
-}
-
-impl<IOTypes: SystemIOTypesConfig, O: IOOracle> BasicZkEEOracleWrapper<IOTypes, O>
-where
-    for<'a> O::MarkerTiedIterator<'a>: 'static,
-{
-    pub fn new(oracle: O) -> Self {
-        Self {
-            oracle,
-            is_connected_to_external_oracle: true,
-            partial_uart_string: vec![],
-            _marker: std::marker::PhantomData,
-        }
-    }
-}
-
-impl<IOTypes: SystemIOTypesConfig, O: IOOracle, M: MemorySource> OracleQueryProcessor<M>
-    for BasicZkEEOracleWrapper<IOTypes, O>
-where
-    for<'a> O::MarkerTiedIterator<'a>: 'static,
-{
-    fn supported_query_ids(&self) -> Vec<u32> {
-        let supported = &[
-            NextTxSize::ID,
-            NewTxContentIterator::ID,
-            InitializeIOImplementerIterator::ID,
-            BlockLevelMetadataIterator::ID,
-            InitialStorageSlotDataIterator::<EthereumIOTypesConfig>::ID,
-            PreimageContentWordsIterator::ID,
-            DisconnectOracleFormalIterator::ID,
-            ProofForIndexIterator::ID,
-            PrevIndexIterator::ID,
-            ExactIndexIterator::ID,
-            UARTAccessMarker::ID,
-        ];
-
-        debug_assert!(supported.is_sorted());
-
-        supported.to_vec()
-    }
-
-    fn process_buffered_query(
-        &mut self,
-        query_id: u32,
-        query: Vec<usize>,
-        _memory: &M,
-    ) -> Option<Box<dyn ExactSizeIterator<Item = usize> + 'static>> {
-        let new_iterator: O::MarkerTiedIterator<'_> = match query_id {
-            NextTxSize::ID => {
-                let mut src_it = query.into_iter();
-                let params : () = <<NextTxSize as OracleIteratorTypeMarker>::Params as UsizeDeserializable>::from_iter(&mut src_it).expect("must deserialize query params");
-                assert!(src_it.len() == 0);
-                let it = self
-                    .oracle
-                    .create_oracle_access_iterator::<NextTxSize>(params)
-                    .expect("must make an iterator");
-
-                it
-            }
-            NewTxContentIterator::ID => {
-                let mut src_it = query.into_iter();
-                let params : () = <<NewTxContentIterator as OracleIteratorTypeMarker>::Params as UsizeDeserializable>::from_iter(&mut src_it).expect("must deserialize query params");
-                // assert!(src_it.len() == 0);
-                let it = self
-                    .oracle
-                    .create_oracle_access_iterator::<NewTxContentIterator>(params)
-                    .expect("must make an iterator");
-                it
-            }
-            InitializeIOImplementerIterator::ID => {
-                let mut src_it = query.into_iter();
-                let params : () = <<InitializeIOImplementerIterator as OracleIteratorTypeMarker>::Params as UsizeDeserializable>::from_iter(&mut src_it).expect("must deserialize query params");
-                assert!(src_it.len() == 0);
-                let it = self
-                    .oracle
-                    .create_oracle_access_iterator::<InitializeIOImplementerIterator>(params)
-                    .expect("must make an iterator");
-                it
-            }
-            InitialStorageSlotDataIterator::<EthereumIOTypesConfig>::ID => {
-                let mut src_it = query.into_iter();
-                let params = <<InitialStorageSlotDataIterator::<EthereumIOTypesConfig> as OracleIteratorTypeMarker>::Params as UsizeDeserializable>::from_iter(&mut src_it).expect("must deserialize query params");
-                assert!(src_it.len() == 0);
-                let it = self
-                    .oracle
-                    .create_oracle_access_iterator::<InitialStorageSlotDataIterator<EthereumIOTypesConfig>>(params)
-                    .expect("must make an iterator");
-                it
-            }
-            PreimageContentWordsIterator::ID => {
-                let mut src_it = query.into_iter();
-                let params = <<PreimageContentWordsIterator as OracleIteratorTypeMarker>::Params as UsizeDeserializable>::from_iter(&mut src_it).expect("must deserialize query params");
-                assert!(src_it.len() == 0);
-                let it = self
-                    .oracle
-                    .create_oracle_access_iterator::<PreimageContentWordsIterator>(params)
-                    .expect("must make an iterator");
-                it
-            }
-            DisconnectOracleFormalIterator::ID => {
-                self.is_connected_to_external_oracle = false;
-                return None;
-            }
-            ProofForIndexIterator::ID => {
-                let mut src_it = query.into_iter();
-                let params = <<ProofForIndexIterator as OracleIteratorTypeMarker>::Params as UsizeDeserializable>::from_iter(&mut src_it).expect("must deserialize query params");
-                assert!(src_it.len() == 0);
-                // there is nothing to do here
-                let it = self
-                    .oracle
-                    .create_oracle_access_iterator::<ProofForIndexIterator>(params)
-                    .expect("must make an iterator");
-                it
-            }
-            PrevIndexIterator::ID => {
-                let mut src_it = query.into_iter();
-                let params = <<PrevIndexIterator as OracleIteratorTypeMarker>::Params as UsizeDeserializable>::from_iter(&mut src_it).expect("must deserialize query params");
-                assert!(src_it.len() == 0);
-                // there is nothing to do here
-                let it = self
-                    .oracle
-                    .create_oracle_access_iterator::<PrevIndexIterator>(params)
-                    .expect("must make an iterator");
-                it
-            }
-            ExactIndexIterator::ID => {
-                let mut src_it = query.into_iter();
-                let params = <<ExactIndexIterator as OracleIteratorTypeMarker>::Params as UsizeDeserializable>::from_iter(&mut src_it).expect("must deserialize query params");
-                assert!(src_it.len() == 0);
-                // there is nothing to do here
-                let it = self
-                    .oracle
-                    .create_oracle_access_iterator::<ExactIndexIterator>(params)
-                    .expect("must make an iterator");
-                it
-            }
-            BlockLevelMetadataIterator::ID => {
-                let mut src_it = query.into_iter();
-                let params  : ()= <<BlockLevelMetadataIterator as OracleIteratorTypeMarker>::Params as UsizeDeserializable>::from_iter(&mut src_it).expect("must deserialize query params");
-                assert!(src_it.len() == 0);
-                // there is nothing to do here
-                let it = self
-                    .oracle
-                    .create_oracle_access_iterator::<BlockLevelMetadataIterator>(params)
-                    .expect("must make an iterator");
-                it
-            }
-            UARTAccessMarker::ID => {
-                // just our old plain uart
-                let u32_vec: Vec<u32> = query
-                    .into_iter()
-                    .flat_map(|el| [el as u32, (el >> 32) as u32])
-                    .collect();
-                assert!(!u32_vec.is_empty());
-                let message_len_in_bytes = u32_vec[0] as usize;
-                let mut string_bytes: Vec<u8> = u32_vec[1..]
-                    .iter()
-                    .flat_map(|el| el.to_le_bytes())
-                    .collect();
-                assert!(string_bytes.len() >= message_len_in_bytes);
-                string_bytes.truncate(message_len_in_bytes);
-                println!("UART: {}", String::from_utf8_lossy(&string_bytes));
-
-                // // TODO: understand what is broken in format machinery and my we get non-utf8 sometimes
-
-                // let recovered_string = if self.partial_uart_string.len() > 0 {
-                //     let mut existing = std::mem::replace(&mut self.partial_uart_string, vec![]);
-                //     existing.extend(string_bytes);
-
-                //     existing
-                // } else {
-                //     string_bytes
-                // };
-                // // dbg!(String::from_utf8_lossy(&recovered_string));
-                // if let Ok(string) = String::from_utf8(recovered_string.clone()) {
-                //     println!("UART: {}", string);
-                // } else {
-                //     // we could receive a partial one
-                //     self.partial_uart_string = recovered_string;
-                // }
-
-                return None;
-            }
-            a => {
-                panic!("Can not proceed query with ID = 0x{:08x}", a);
-            }
-        };
-
-        if new_iterator.len() > 0 {
-            Some(Box::new(new_iterator))
-        } else {
-            None
         }
     }
 }

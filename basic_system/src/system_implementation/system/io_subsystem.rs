@@ -24,13 +24,11 @@ use zk_ee::out_of_ergs_error;
 use zk_ee::system::metadata::BlockMetadataFromOracle;
 use zk_ee::{
     common_structs::{EventsStorage, LogsStorage},
-    kv_markers::UsizeDeserializable,
     memory::ArrayBuilder,
     system::{
         errors::system::SystemError, AccountData, AccountDataRequest, EthereumLikeIOSubsystem,
         IOResultKeeper, IOSubsystem, IOSubsystemExt, Maybe,
     },
-    system_io_oracle::InitializeIOImplementerIterator,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::UsizeAlignedByteBox,
 };
@@ -466,14 +464,14 @@ where
         mut logger: impl Logger,
     ) -> Self::FinalData {
         let mut state_commitment = {
-            let mut initialization_iterator = self
-                .oracle
-                .create_oracle_access_iterator::<InitializeIOImplementerIterator>(())
-                .unwrap();
+            use zk_ee::system_io_oracle::INITIALIZE_IO_IMPLEMENTER_QUERY_ID;
+
             // TODO (EVM-989): read only state commitment
-            let fsm_state =
-                <BasicIOImplementerFSM::<FlatStorageCommitment<TREE_HEIGHT>> as UsizeDeserializable>::from_iter(&mut initialization_iterator).unwrap();
-            assert_eq!(initialization_iterator.len(), 0);
+            let fsm_state: BasicIOImplementerFSM<FlatStorageCommitment<TREE_HEIGHT>> = self
+                .oracle
+                .query_with_empty_input(INITIALIZE_IO_IMPLEMENTER_QUERY_ID)
+                .unwrap();
+
             fsm_state.state_root_view
         };
 

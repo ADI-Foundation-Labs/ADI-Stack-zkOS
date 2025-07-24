@@ -451,7 +451,7 @@ mod tests {
     use zk_ee::system::errors::internal::InternalError;
     use zk_ee::system::IOResultKeeper;
     use zk_ee::system::Resource;
-    use zk_ee::system_io_oracle::{IOOracle, OracleIteratorTypeMarker};
+    use zk_ee::system_io_oracle::IOOracle;
     use zk_ee::types_config::EthereumIOTypesConfig;
     use zk_ee::utils::*;
 
@@ -462,12 +462,16 @@ mod tests {
     struct TestOracle;
 
     impl IOOracle for TestOracle {
-        type MarkerTiedIterator<'a> = Box<dyn ExactSizeIterator<Item = usize> + 'static>;
+        type RawIterator<'a> = Box<dyn ExactSizeIterator<Item = usize> + 'static>;
 
-        fn create_oracle_access_iterator<'a, M: OracleIteratorTypeMarker>(
+        fn raw_query<
+            'a,
+            I: zk_ee::kv_markers::UsizeSerializable + zk_ee::kv_markers::UsizeDeserializable,
+        >(
             &'a mut self,
-            _init_value: M::Params,
-        ) -> Result<Self::MarkerTiedIterator<'a>, InternalError> {
+            query_type: u32,
+            input: &I,
+        ) -> Result<Self::RawIterator<'a>, InternalError> {
             unimplemented!()
         }
     }

@@ -34,10 +34,12 @@ use self::{
     logger::Logger,
     metadata::{BlockMetadataFromOracle, Metadata},
 };
+use crate::system_io_oracle::BLOCK_METADATA_QUERY_ID;
+use crate::system_io_oracle::TX_DATA_WORDS_QUERY_ID;
 use crate::utils::Bytes32;
 use crate::{
     execution_environment_type::ExecutionEnvironmentType,
-    system_io_oracle::{IOOracle, NewTxContentIterator},
+    system_io_oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::USIZE_SIZE,
 };
@@ -213,7 +215,8 @@ where
         mut oracle: <S::IO as IOSubsystemExt>::IOOracle,
     ) -> Result<Self, InternalError> {
         // get metadata for block
-        let block_level_metadata: BlockMetadataFromOracle = oracle.get_block_level_metadata();
+        let block_level_metadata: BlockMetadataFromOracle =
+            oracle.query_with_empty_input(BLOCK_METADATA_QUERY_ID)?;
         let io = S::IO::init_from_oracle(oracle)?;
 
         let metadata = Metadata {
@@ -236,22 +239,21 @@ where
     pub fn try_begin_next_tx(
         &mut self,
         tx_write_iter: &mut impl crate::oracle::SafeUsizeWritable,
-    ) -> Result<Option<usize>, ()> {
-        let next_tx_len_bytes = match self.io.oracle().try_begin_next_tx() {
+    ) -> Result<Option<usize>, InternalError> {
+        let next_tx_len_bytes = match self.io.oracle().try_begin_next_tx()? {
             None => return Ok(None),
             Some(size) => size.get() as usize,
         };
         let next_tx_len_usize_words = next_tx_len_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE;
         if tx_write_iter.len() < next_tx_len_usize_words {
-            return Err(());
+            return Err(internal_error!("destination iterator len is insufficient"));
         }
         let tx_iterator = self
             .io
             .oracle()
-            .create_oracle_access_iterator::<NewTxContentIterator>(())
-            .expect("must create iterator for the content");
+            .raw_query_with_empty_input(TX_DATA_WORDS_QUERY_ID)?;
         if tx_iterator.len() != next_tx_len_usize_words {
-            return Err(());
+            return Err(internal_error!("iterator len is inconsistent"));
         }
         for word in tx_iterator {
             unsafe {

@@ -1,55 +1,42 @@
-use crate::kv_markers::UsizeSerializable;
 use alloc::boxed::Box;
-use core::pin::Pin;
 
-// This is self-ref
-// TODO: more comments
-pub struct DynUsizeIterator<I> {
-    item: Pin<Box<I>>,
-    iterator: Option<Box<dyn ExactSizeIterator<Item = usize> + 'static>>,
+// We want to return kind-of owning iterator for UsizeSerializable,
+// and we imply that it'll be used only as Box<dyn _> when returned
+
+pub struct DynUsizeIterator<I: 'static, IT: ExactSizeIterator<Item = usize> + 'static> {
+    item: I,
+    iterator: Option<IT>,
 }
 
-impl<I: 'static> DynUsizeIterator<I> {
-    #[allow(dead_code)]
-    fn get_inner_static_ref(&'_ self) -> &'static I {
-        unsafe { core::mem::transmute(self.item.as_ref().get_ref()) }
-    }
-
-    pub fn from_constructor<
-        IT: ExactSizeIterator<Item = usize> + 'static,
-        FN: FnOnce(&'static I) -> IT,
-    >(
+impl<I: 'static, IT: ExactSizeIterator<Item = usize> + 'static> DynUsizeIterator<I, IT> {
+    pub fn from_constructor<FN: FnOnce(&'static I) -> IT>(
         item: I,
         closure: FN,
-    ) -> Self {
-        let item = Box::pin(item);
-        let static_ref: &'static I = unsafe { core::mem::transmute(item.as_ref().get_ref()) };
-        let iterator = (closure)(static_ref);
+    ) -> Box<dyn ExactSizeIterator<Item = usize> + 'static> {
+        // TODO: eventually we will get in-place constructors
+        unsafe {
+            let mut item = Box::new(Self {
+                item,
+                iterator: None,
+            });
+            // now with location being stable, we can life-extend it and take reference
+            let static_ref: &'static I = core::mem::transmute(&item.as_ref().item);
+            let iterator = (closure)(static_ref);
+            item.as_mut().iterator = Some(iterator);
 
-        Self {
-            item,
-            iterator: Some(Box::new(iterator)),
+            item as Box<dyn ExactSizeIterator<Item = usize> + 'static>
         }
     }
 }
 
-impl<I: UsizeSerializable + 'static> DynUsizeIterator<I> {
-    pub fn from_owned(item: I) -> Self {
-        let item = Box::pin(item);
-        let static_ref: &'static I = unsafe { core::mem::transmute(item.as_ref().get_ref()) };
-        let iterator = UsizeSerializable::iter(static_ref);
-
-        Self {
-            item,
-            iterator: Some(Box::new(iterator)),
-        }
-    }
-}
-
-impl<I> Iterator for DynUsizeIterator<I> {
+impl<I: 'static, IT: ExactSizeIterator<Item = usize> + 'static> Iterator
+    for DynUsizeIterator<I, IT>
+{
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
+        // Safety: we do not move out of item itself, but we modify iterator (also do not move unless drop)
+
         let mut should_drop = false;
         let Some(it) = self.iterator.as_mut() else {
             // related access
@@ -68,14 +55,17 @@ impl<I> Iterator for DynUsizeIterator<I> {
     }
 }
 
-impl<I> ExactSizeIterator for DynUsizeIterator<I> {
+impl<I: 'static, IT: ExactSizeIterator<Item = usize> + 'static> ExactSizeIterator
+    for DynUsizeIterator<I, IT>
+{
     fn len(&self) -> usize {
         self.iterator.as_ref().map(|it| it.len()).unwrap_or(0)
     }
 }
 
-impl<I> Drop for DynUsizeIterator<I> {
+impl<I: 'static, IT: ExactSizeIterator<Item = usize> + 'static> Drop for DynUsizeIterator<I, IT> {
     fn drop(&mut self) {
+        // we do not move, so iterating is ok
         drop(self.iterator.take());
     }
 }
