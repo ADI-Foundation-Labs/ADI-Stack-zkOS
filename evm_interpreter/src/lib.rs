@@ -422,9 +422,3 @@ impl From<InternalError> for ExitCode {
         ExitCode::FatalError(e.into())
     }
 }
-
-impl ExitCode {
-    fn is_error(&self) -> bool {
-        *self != Self::EvmError(EvmError::Revert) && matches!(self, Self::EvmError(_))
-    }
-}
