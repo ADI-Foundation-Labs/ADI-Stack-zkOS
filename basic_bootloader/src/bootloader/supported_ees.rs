@@ -32,18 +32,18 @@ impl<'ee, S: EthereumLikeTypes> SupportedEEVMState<'ee, S> {
         }
     }
 
-    pub fn clarify_and_take_passed_resources(
+    pub fn calculate_resources_passed_in_external_call(
         ee_version: ExecutionEnvironmentType,
-        resources_available_in_caller_frame: &mut S::Resources,
+        resources_in_caller_frame: &mut S::Resources,
         call_request: &ExternalCallRequest<S>,
-        callee_parameters: &CalleeAccountProperties,
+        callee_account_properties: &CalleeAccountProperties,
     ) -> Result<S::Resources, EESubsystemError> {
         match ee_version {
             ExecutionEnvironmentType::EVM => {
-                SystemBoundEVMInterpreter::<S>::clarify_and_take_passed_resources(
-                    resources_available_in_caller_frame,
+                SystemBoundEVMInterpreter::<S>::calculate_resources_passed_in_external_call(
+                    resources_in_caller_frame,
                     call_request,
-                    callee_parameters,
+                    callee_account_properties,
                 )
                 .map_err(wrap_error!())
             }

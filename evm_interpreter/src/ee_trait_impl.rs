@@ -294,13 +294,12 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
         Some(scheme)
     }
 
-    fn clarify_and_take_passed_resources(
+    fn calculate_resources_passed_in_external_call(
         resources_available_in_caller_frame: &mut S::Resources,
         call_request: &ExternalCallRequest<S>,
         callee_parameters: &CalleeAccountProperties,
     ) -> Result<S::Resources, Self::SubsystemError> {
         // Gas stipend calculation
-
         let is_delegate = call_request.is_delegate();
         let is_callcode = call_request.is_callcode();
         let is_callcode_or_delegate = is_callcode || is_delegate;

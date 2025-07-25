@@ -695,11 +695,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                     deployment_result,
                 })
             }
-            Err(e) => {
-                // TODO we do not close constructor frame. Prob this is ok, since this is system failure
-
-                Err(e)
-            }
+            Err(e) => Err(e),
         }
     }
 
@@ -862,7 +858,7 @@ where
         })
     };
 
-    let callee_parameters = match r {
+    let callee_account_properties = match r {
         Ok(x) => x,
         Err(SystemError::LeafRuntime(RuntimeError::OutOfErgs(_))) => {
             return Ok(CallPreparationResult::Failure {
@@ -904,24 +900,25 @@ where
     // we don't apply the CALL-specific gas charging, but instead set
     // resources_for_callee_frame equal to the available resources
     let resources_for_callee_frame = if !IS_ENTRY_FRAME {
-        // now we should ask current EE for observable resource behavior if needed
-        let mut callee_resources = match SupportedEEVMState::<S>::clarify_and_take_passed_resources(
-            ee_version,
-            &mut resources_in_caller_frame,
-            &call_request,
-            &callee_parameters,
-        ) {
-            Ok(x) => x,
-            Err(x) => {
-                if let RootCause::Runtime(RuntimeError::OutOfErgs(_)) = x.root_cause() {
-                    return Ok(CallPreparationResult::Failure {
-                        resources_in_caller_frame,
-                    });
-                } else {
-                    return Err(wrap_error!(x));
+        // now we should ask current EE to calculate resources for the callee frame
+        let mut callee_resources =
+            match SupportedEEVMState::<S>::calculate_resources_passed_in_external_call(
+                ee_version,
+                &mut resources_in_caller_frame,
+                &call_request,
+                &callee_account_properties,
+            ) {
+                Ok(x) => x,
+                Err(x) => {
+                    if let RootCause::Runtime(RuntimeError::OutOfErgs(_)) = x.root_cause() {
+                        return Ok(CallPreparationResult::Failure {
+                            resources_in_caller_frame,
+                        });
+                    } else {
+                        return Err(wrap_error!(x));
+                    }
                 }
-            }
-        };
+            };
 
         // Give native resource to the callee.
         resources_in_caller_frame.give_native_to(&mut callee_resources);
@@ -933,14 +930,14 @@ where
     if DEBUG_OUTPUT {
         let _ = system.get_logger().write_fmt(format_args!(
             "Bytecode len for `callee` = {}\n",
-            callee_parameters.bytecode.len(),
+            callee_account_properties.bytecode.len(),
         ));
         let _ = system
             .get_logger()
             .write_fmt(format_args!("Bytecode for `callee` = "));
         let _ = system
             .get_logger()
-            .log_data(callee_parameters.bytecode.as_ref().iter().copied());
+            .log_data(callee_account_properties.bytecode.as_ref().iter().copied());
     }
 
     let external_call_launch_params = ExecutionEnvironmentLaunchParams {
@@ -950,17 +947,17 @@ where
         },
         environment_parameters: EnvironmentParameters {
             bytecode: Bytecode::Decommitted {
-                bytecode: callee_parameters.bytecode,
-                unpadded_code_len: callee_parameters.unpadded_code_len,
-                artifacts_len: callee_parameters.artifacts_len,
-                code_version: callee_parameters.code_version,
+                bytecode: callee_account_properties.bytecode,
+                unpadded_code_len: callee_account_properties.unpadded_code_len,
+                artifacts_len: callee_account_properties.artifacts_len,
+                code_version: callee_account_properties.code_version,
             },
             scratch_space_len: 0,
         },
     };
 
     Ok(CallPreparationResult::Success {
-        next_ee_version: callee_parameters.next_ee_version,
+        next_ee_version: callee_account_properties.next_ee_version,
         transfer_to_perform,
         external_call_launch_params,
         resources_in_caller_frame,
