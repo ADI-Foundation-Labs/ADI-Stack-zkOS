@@ -209,7 +209,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         // forward run
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
-        let mut nop_tracer = NopTracer {};
+        let mut nop_tracer = NopTracer::default();
 
         run_forward::<BasicBootloaderCallSimulationConfig, _, _, _>(
             oracle.clone(),
@@ -297,7 +297,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         // forward run
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
-        let mut nop_tracer = NopTracer {};
+        let mut nop_tracer = NopTracer::default();
 
         run_forward::<BasicBootloaderForwardSimulationConfig, _, _, _>(
             oracle.clone(),
