@@ -1,4 +1,4 @@
-use super::{copy_bytes_iter_to_usize_slice, USIZE_SIZE};
+use super::USIZE_SIZE;
 use core::alloc::Allocator;
 
 pub const fn num_usize_words_for_u8_capacity(u8_capacity: usize) -> usize {
@@ -48,13 +48,6 @@ impl<A: Allocator> UsizeAlignedByteBox<A> {
 
     pub fn len(&self) -> usize {
         self.byte_capacity
-    }
-
-    pub fn from_u8_iterator_in(src: impl ExactSizeIterator<Item = u8>, allocator: A) -> Self {
-        let mut result = Self::preallocated_in(src.len(), allocator);
-        copy_bytes_iter_to_usize_slice(src, &mut result.inner);
-
-        result
     }
 
     pub fn from_slice_in(src: &[u8], allocator: A) -> Self {

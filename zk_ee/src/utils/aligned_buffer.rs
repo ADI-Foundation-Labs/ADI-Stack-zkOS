@@ -135,79 +135,20 @@ pub fn copy_bytes_to_usize_buffer(
     src: &[u8],
     dst: &mut impl crate::oracle::UsizeWriteable,
 ) -> usize {
-    let mut it = src.array_chunks::<USIZE_SIZE>();
+    let (chunks, remainder) = src.as_chunks::<USIZE_SIZE>();
+    let mut it = chunks.iter();
     let mut written = it.len();
     for src in &mut it {
         unsafe {
             dst.write_usize(usize::from_le_bytes(*src));
         }
     }
-    let remainder = it.remainder();
     if !remainder.is_empty() {
         written += 1;
         let mut buffer = 0usize.to_le_bytes();
         buffer[..remainder.len()].copy_from_slice(remainder);
         unsafe {
             dst.write_usize(usize::from_le_bytes(buffer));
-        }
-    }
-
-    written
-}
-
-pub fn copy_bytes_iter_to_usize_buffer(
-    src: impl ExactSizeIterator<Item = u8>,
-    dst: &mut impl crate::oracle::UsizeWriteable,
-) -> usize {
-    let mut it = src.array_chunks::<USIZE_SIZE>();
-    let mut written = it.len();
-    for src in &mut it {
-        unsafe {
-            dst.write_usize(usize::from_ne_bytes(src));
-        }
-    }
-    if let Some(remainder) = it.into_remainder() {
-        if remainder.len() > 0 {
-            written += 1;
-            let mut buffer = 0usize.to_ne_bytes();
-            for (dst, src) in buffer.iter_mut().zip(remainder) {
-                *dst = src;
-            }
-            unsafe {
-                dst.write_usize(usize::from_le_bytes(buffer));
-            }
-        }
-    }
-
-    written
-}
-
-pub fn copy_bytes_iter_to_usize_slice(
-    src: impl ExactSizeIterator<Item = u8>,
-    dst: &mut [usize],
-) -> usize {
-    let min_capacity = num_usize_words_for_u8_capacity(src.len());
-    assert!(dst.len() >= min_capacity);
-    let mut it = src.array_chunks::<USIZE_SIZE>();
-    let mut written = it.len();
-    // go unsafe
-    let mut dst = dst.as_mut_ptr();
-    for src in &mut it {
-        unsafe {
-            dst.write(usize::from_ne_bytes(src));
-            dst = dst.add(1);
-        }
-    }
-    if let Some(remainder) = it.into_remainder() {
-        if remainder.len() > 0 {
-            written += 1;
-            let mut buffer = 0usize.to_ne_bytes();
-            for (dst, src) in buffer.iter_mut().zip(remainder) {
-                *dst = src;
-            }
-            unsafe {
-                dst.write(usize::from_ne_bytes(buffer));
-            }
         }
     }
 
