@@ -54,8 +54,7 @@ pub enum EvmError {
     /// TODO currently this error is not used
     NonceOverflow,
 
-    InvalidOpcode, // TODO wrap actual opcode?
-    InvalidOpcodeFE,
+    InvalidOpcode(u8),
     StackUnderflow,
     StackOverflow,
     CallNotAllowedInsideStatic,
