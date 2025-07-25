@@ -15,6 +15,7 @@ use zk_ee::system::errors::runtime::RuntimeError;
 use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::*;
 use zk_ee::types_config::SystemIOTypesConfig;
+use zk_ee::utils::cheap_clone::CheapCloneRiscV;
 use zk_ee::utils::{b160_to_u256, Bytes32};
 use zk_ee::{interface_error, internal_error, wrap_error};
 
@@ -468,7 +469,7 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
                     .map_err(|e| -> EvmSubsystemError {
                         match e.root_cause() {
                             RootCause::Runtime(e @ RuntimeError::OutOfNativeResources(_)) => {
-                                (*e).into()
+                                e.clone_or_copy().into()
                             }
                             _ => internal_error!("Keccak in create2 cannot fail").into(),
                         }
