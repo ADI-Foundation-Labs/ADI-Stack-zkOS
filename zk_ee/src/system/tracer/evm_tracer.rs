@@ -1,8 +1,12 @@
-use crate::system::{evm::EvmFrameInterface, SystemTypes};
+use crate::system::{
+    evm::{EvmError, EvmFrameInterface},
+    SystemTypes,
+};
 
 pub trait EvmTracer<S: SystemTypes> {
     fn is_on_evm_execution_step_enabled(&self) -> bool;
     fn is_after_evm_execution_step_enabled(&self) -> bool;
+    fn is_on_fault_enabled(&self) -> bool;
 
     fn before_evm_interpreter_execution_step(
         &mut self,
@@ -14,6 +18,8 @@ pub trait EvmTracer<S: SystemTypes> {
         opcode: u8,
         frame_state: &impl EvmFrameInterface<S>,
     );
+
+    fn on_fault(&self, error: &EvmError, frame_state: &impl EvmFrameInterface<S>);
 }
 
 #[derive(Default)]
@@ -30,6 +36,11 @@ impl<S: SystemTypes> EvmTracer<S> for NopEvmTracer {
         false
     }
 
+    #[inline(always)]
+    fn is_on_fault_enabled(&self) -> bool {
+        false
+    }
+
     fn before_evm_interpreter_execution_step(
         &mut self,
         _opcode: u8,
@@ -43,6 +54,10 @@ impl<S: SystemTypes> EvmTracer<S> for NopEvmTracer {
         _opcode: u8,
         _frame_state: &impl EvmFrameInterface<S>,
     ) {
+        unreachable!()
+    }
+
+    fn on_fault(&self, _error: &EvmError, _frame_state: &impl EvmFrameInterface<S>) {
         unreachable!()
     }
 }

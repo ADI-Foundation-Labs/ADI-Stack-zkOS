@@ -89,7 +89,7 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
             _ => (true, true),
         };
 
-        self.create_immediate_return_state(empty_returndata, reverted, exit_code.is_error())
+        self.create_immediate_return_state(empty_returndata, reverted, exit_code.is_error(), tracer)
     }
 }
 
@@ -363,6 +363,12 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
             }
         };
 
+        if tracer.evm_tracer().is_on_fault_enabled() {
+            if let ExitCode::EvmError(evm_error) = &result {
+                tracer.evm_tracer().on_fault(evm_error, self);
+            }
+        }
+
         let _ = system.get_logger().write_fmt(format_args!(
             "Instructions executed = {}\nFinal instruction result = {:?}\n",
             cycles, &result
@@ -376,6 +382,7 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
         empty_returndata: bool,
         execution_reverted: bool,
         is_error: bool,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, EvmSubsystemError> {
         if is_error {
             // Spend all remaining resources on error
@@ -389,12 +396,21 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
         if self.is_constructor {
             let deployment_result = if execution_reverted == false {
                 let deployed_code_len = return_values.returndata.len() as u64;
-                // EIP-3541: reject code starting with 0xEF.
-                // EIP-158: reject code of length > 24576.
+
                 let deployed = return_values.returndata;
-                if deployed_code_len >= 1 && deployed[0] == 0xEF
-                    || return_values.returndata.len() > MAX_CODE_SIZE
-                {
+                // EIP-3541: reject code starting with 0xEF.
+                let invalid_code = deployed_code_len >= 1 && deployed[0] == 0xEF;
+                // EIP-158: reject code of length > 24576.
+                let max_code_size_exceeded = return_values.returndata.len() > MAX_CODE_SIZE;
+                if invalid_code || max_code_size_exceeded {
+                    if tracer.evm_tracer().is_on_fault_enabled() {
+                        let evm_error = if invalid_code {
+                            EvmError::CreateContractStartingWithEF
+                        } else {
+                            EvmError::CreateContractSizeLimit
+                        };
+                        tracer.evm_tracer().on_fault(&evm_error, self);
+                    }
                     // Spend all remaining resources
                     self.gas.consume_all_gas();
                     DeploymentResult::Failed {

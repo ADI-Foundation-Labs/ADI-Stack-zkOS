@@ -45,12 +45,12 @@ pub enum EvmError {
     CreateCollision,     // TODO unused
     ExecutionReverted,   // TODO unused
     CreateContractSizeLimit,
-    CreateInitcodeSizeLimit,
+    CreateInitcodeSizeLimit, // TODO unused
     InvalidJump,
-    ReturnDataOutOfBounds,        // TODO unused
-    GasUintOverflow,              // TODO unused
-    CreateContractStartingWithEF, // TODO unused
-    NonceOverflow,                // TODO unused
+    ReturnDataOutOfBounds, // TODO unused
+    GasUintOverflow,       // TODO unused
+    CreateContractStartingWithEF,
+    NonceOverflow, // TODO unused
 
     InvalidOpcode, // TODO wrap actual opcode?
     InvalidOpcodeFE,

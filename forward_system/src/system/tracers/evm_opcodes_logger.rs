@@ -7,7 +7,7 @@ use ruint::aliases::U256;
 use serde::Serialize;
 use zk_ee::{
     system::{
-        evm::{EvmFrameInterface, EvmStackInterface},
+        evm::{EvmError, EvmFrameInterface, EvmStackInterface},
         tracer::{evm_tracer::EvmTracer, Tracer},
         CallOrDeployResultRef, EthereumLikeTypes, ExecutionEnvironmentLaunchParams, Resources,
         SystemTypes,
@@ -114,6 +114,11 @@ impl<S: EthereumLikeTypes> EvmTracer<S> for EvmOpcodesLogger<S> {
         false
     }
 
+    #[inline(always)]
+    fn is_on_fault_enabled(&self) -> bool {
+        false
+    }
+
     fn before_evm_interpreter_execution_step(
         &mut self,
         opcode: u8,
@@ -193,6 +198,10 @@ impl<S: EthereumLikeTypes> EvmTracer<S> for EvmOpcodesLogger<S> {
         _opcode: u8,
         _interpreter_state: &impl EvmFrameInterface<S>,
     ) {
+        unreachable!()
+    }
+
+    fn on_fault(&self, _error: &EvmError, _frame_state: &impl EvmFrameInterface<S>) {
         unreachable!()
     }
 }
