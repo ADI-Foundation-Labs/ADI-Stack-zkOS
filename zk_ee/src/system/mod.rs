@@ -23,8 +23,8 @@ pub use self::resources::*;
 pub use self::result_keeper::*;
 
 pub const MAX_GLOBAL_CALLS_STACK_DEPTH: usize = 1024; // even though we do not have to formally limit it,
-                                                      // for all practical purposes (63/64) ^ 1024 is 10^-7, and it's unlikely that one can create any new frame
-                                                      // with such remaining resources
+// for all practical purposes (63/64) ^ 1024 is 10^-7, and it's unlikely that one can create any new frame
+// with such remaining resources
 
 use core::alloc::Allocator;
 use core::fmt::Write;

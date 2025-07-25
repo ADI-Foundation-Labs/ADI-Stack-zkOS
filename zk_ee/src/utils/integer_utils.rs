@@ -1,6 +1,6 @@
 use ruint::{
-    aliases::{B160, B256, U256},
     Bits,
+    aliases::{B160, B256, U256},
 };
 
 #[repr(transparent)]

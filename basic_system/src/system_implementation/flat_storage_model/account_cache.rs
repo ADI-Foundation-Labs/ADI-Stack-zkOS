@@ -10,7 +10,6 @@ use crate::system_implementation::flat_storage_model::bytecode_padding_len;
 use crate::system_implementation::flat_storage_model::cost_constants::*;
 use crate::system_implementation::flat_storage_model::PreimageRequest;
 use crate::system_implementation::flat_storage_model::StorageAccessPolicy;
-use crate::system_implementation::system::ExtraCheck;
 use alloc::collections::BTreeSet;
 use core::alloc::Allocator;
 use core::marker::PhantomData;
@@ -42,7 +41,6 @@ use zk_ee::utils::BitsOrd;
 use zk_ee::utils::Bytes32;
 use zk_ee::wrap_error;
 use zk_ee::{
-    memory::stack_trait::StackCtorConst,
     system::{
         errors::{internal::InternalError, system::SystemError},
         AccountData, AccountDataRequest, Ergs, IOResultKeeper, Maybe, Resources,
@@ -63,27 +61,24 @@ pub struct NewModelAccountCache<
     A: Allocator + Clone, // = Global,
     R: Resources,
     P: StorageAccessPolicy<R, Bytes32>,
-    SC: StackCtor<SCC>,
-    SCC: const StackCtorConst,
-> where
-    ExtraCheck<SCC, A>:,
+    SC: StackCtor<N>,
+    const N: usize,
+>
 {
     pub(crate) cache:
         HistoryMap<BitsOrd160, CacheRecord<AccountProperties, AccountPropertiesMetadata>, A>,
     pub(crate) current_tx_number: u32,
     alloc: A,
-    phantom: PhantomData<(R, P, SC, SCC)>,
+    phantom: PhantomData<(R, P, SC)>,
 }
 
 impl<
         A: Allocator + Clone,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32>,
-        SC: StackCtor<SCC>,
-        SCC: const StackCtorConst,
-    > NewModelAccountCache<A, R, P, SC, SCC>
-where
-    ExtraCheck<SCC, A>:,
+        SC: StackCtor<N>,
+        const N: usize,
+    > NewModelAccountCache<A, R, P, SC, N>
 {
     pub fn new_from_parts(allocator: A) -> Self {
         Self {
@@ -100,7 +95,7 @@ where
         ee_type: ExecutionEnvironmentType,
         resources: &mut R,
         address: &B160,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
+        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
         preimages_cache: &mut impl PreimageCacheModel<Resources = R, PreimageRequest = PreimageRequest>,
         oracle: &mut impl IOOracle,
         is_selfdestruct: bool,
@@ -239,7 +234,7 @@ where
         resources: &mut R,
         address: &B160,
         update_fn: impl FnOnce(&U256) -> Result<U256, BalanceSubsystemError>,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
+        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
         preimages_cache: &mut impl PreimageCacheModel<Resources = R, PreimageRequest = PreimageRequest>,
         oracle: &mut impl IOOracle,
         is_selfdestruct: bool,
@@ -278,7 +273,7 @@ where
         from: &B160,
         to: &B160,
         amount: &U256,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
+        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
         preimages_cache: &mut impl PreimageCacheModel<Resources = R, PreimageRequest = PreimageRequest>,
         oracle: &mut impl IOOracle,
         is_selfdestruct: bool,
@@ -323,7 +318,7 @@ where
     // special method, not part of the trait as it's not overly generic
     pub fn persist_changes(
         &self,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
+        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
         _result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
@@ -442,7 +437,7 @@ where
         ee_type: ExecutionEnvironmentType,
         resources: &mut R,
         address: &B160,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
+        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
         is_access_list: bool,
@@ -491,7 +486,7 @@ where
                 CodeVersion,
             >,
         >,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
+        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
     ) -> Result<
@@ -572,7 +567,7 @@ where
         resources: &mut R,
         address: &B160,
         increment_by: u64,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
+        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
     ) -> Result<u64, NonceSubsystemError> {
@@ -612,7 +607,7 @@ where
         resources: &mut R,
         address: &B160,
         update_fn: impl FnOnce(&U256) -> Result<U256, BalanceSubsystemError>,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
+        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
     ) -> Result<U256, BalanceSubsystemError> {
@@ -635,7 +630,7 @@ where
         from: &B160,
         to: &B160,
         amount: &U256,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
+        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
     ) -> Result<(), BalanceSubsystemError> {
@@ -686,7 +681,7 @@ where
         resources: &mut R,
         at_address: &B160,
         deployed_code: &[u8],
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
+        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
     ) -> Result<&'static [u8], SystemError> {
@@ -817,7 +812,7 @@ where
         artifacts_len: u32,
         observable_bytecode_hash: Bytes32,
         observable_bytecode_len: u32,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
+        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
     ) -> Result<(), SystemError> {
@@ -917,7 +912,7 @@ where
         resources: &mut R,
         at_address: &B160,
         nominal_token_beneficiary: &B160,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
+        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
         in_constructor: bool,
@@ -1009,7 +1004,7 @@ where
 
     pub fn finish_tx(
         &mut self,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
+        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
     ) -> Result<(), InternalError> {
         // Actually deconstructing accounts
         self.cache

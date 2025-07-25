@@ -47,8 +47,8 @@ pub struct StorageDiff {
 }
 
 pub fn derive_flat_storage_key(address: &B160, key: &Bytes32) -> Bytes32 {
-    use crypto::blake2s::Blake2s256;
     use crypto::MiniDigest;
+    use crypto::blake2s::Blake2s256;
     let mut hasher = Blake2s256::new();
     let mut extended_address = Bytes32::ZERO;
     extended_address.as_u8_array_mut()[12..]

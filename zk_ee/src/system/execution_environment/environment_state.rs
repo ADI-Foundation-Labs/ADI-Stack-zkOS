@@ -2,7 +2,7 @@ use core::fmt::Debug;
 
 use crate::{
     memory::slice_vec::SliceVec,
-    system::{system::SystemTypes, CallModifier, Ergs, MAX_SCRATCH_SPACE_USIZE_WORDS},
+    system::{CallModifier, Ergs, MAX_SCRATCH_SPACE_USIZE_WORDS, system::SystemTypes},
     types_config::SystemIOTypesConfig,
 };
 

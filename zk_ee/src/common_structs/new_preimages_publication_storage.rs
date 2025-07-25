@@ -107,8 +107,8 @@ impl<A: Allocator + Clone> NewPreimagesPublicationStorage<A> {
     }
 
     pub fn net_diffs_iter(
-        &self,
-    ) -> impl Iterator<Item = HistoryMapItemRef<Bytes32, CacheRecord<Elem, ()>, A>> {
+        &'_ self,
+    ) -> impl Iterator<Item = HistoryMapItemRef<'_, Bytes32, CacheRecord<Elem, ()>, A>> {
         self.cache.iter()
     }
 }

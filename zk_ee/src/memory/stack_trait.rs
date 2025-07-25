@@ -4,24 +4,12 @@ use core::alloc::Allocator;
 ///
 /// A stack constructor. Abstracts over the creation of `Stack<T, A>` trait instance.
 ///
-#[const_trait]
-pub trait StackCtor<C: const StackCtorConst> {
+// #[const_trait]
+pub trait StackCtor<const N: usize> {
     /// Adds an extra constant parameter, used for the skip list implementation
-    type Stack<T: Sized, const N: usize, A: Allocator + Clone>: Stack<T, A>;
+    type Stack<T: Sized, const M: usize, A: Allocator + Clone>: Stack<T, A>;
 
-    fn new_in<T, A: Allocator + Clone>(
-        alloc: A,
-    ) -> Self::Stack<T, { C::extra_const_param::<T, A>() }, A>
-    where
-        [(); C::extra_const_param::<T, A>()]:;
-}
-
-///
-/// A constant trait counterpart for the `StackCtor`.
-///
-#[const_trait]
-pub trait StackCtorConst {
-    fn extra_const_param<T, A: Allocator>() -> usize;
+    fn new_in<T, A: Allocator + Clone>(alloc: A) -> Self::Stack<T, N, A>;
 }
 
 ///
@@ -93,21 +81,10 @@ impl<T: Sized, A: Allocator> Stack<T, A> for Vec<T, A> {
 
 pub struct VecStackCtor {}
 
-impl StackCtor<VecStackCtor> for VecStackCtor {
+impl StackCtor<0> for VecStackCtor {
     type Stack<T: Sized, const N: usize, A: Allocator + Clone> = Vec<T, A>;
 
-    fn new_in<T, A: Allocator + Clone>(
-        alloc: A,
-    ) -> Self::Stack<T, { <VecStackCtor>::extra_const_param::<T, A>() }, A>
-    where
-        [(); <VecStackCtor>::extra_const_param::<T, A>()]:,
-    {
-        Self::Stack::<T, { <VecStackCtor>::extra_const_param::<T, A>() }, A>::new_in(alloc)
-    }
-}
-
-impl const StackCtorConst for VecStackCtor {
-    fn extra_const_param<T, A: Allocator>() -> usize {
-        0
+    fn new_in<T, A: Allocator + Clone>(alloc: A) -> Self::Stack<T, 0, A> {
+        Self::Stack::<T, 0, A>::new_in(alloc)
     }
 }

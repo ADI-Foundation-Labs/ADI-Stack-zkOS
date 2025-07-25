@@ -1,5 +1,5 @@
 use crate::{
-    system::{system::SystemTypes, MAX_SCRATCH_SPACE_USIZE_WORDS},
+    system::{MAX_SCRATCH_SPACE_USIZE_WORDS, system::SystemTypes},
     types_config::SystemIOTypesConfig,
 };
 

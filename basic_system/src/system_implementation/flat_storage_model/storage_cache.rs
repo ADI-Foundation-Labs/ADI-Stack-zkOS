@@ -1,6 +1,5 @@
 //! Storage cache, backed by a history map.
 use crate::system_implementation::flat_storage_model::address_into_special_storage_key;
-use crate::system_implementation::system::ExtraCheck;
 use alloc::collections::BTreeMap;
 use alloc::collections::BTreeSet;
 use alloc::fmt::Debug;
@@ -17,7 +16,7 @@ use zk_ee::system_io_oracle::INITIAL_STORAGE_SLOT_VALUE_QUERY_ID;
 use zk_ee::{
     common_structs::{WarmStorageKey, WarmStorageValue},
     kv_markers::{StorageAddress, UsizeDeserializable},
-    memory::stack_trait::{StackCtor, StackCtorConst},
+    memory::stack_trait::StackCtor,
     system::{errors::system::SystemError, Resources},
     system_io_oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
@@ -87,19 +86,18 @@ pub struct GenericPubdataAwarePlainStorage<
     K: KeyLikeWithBounds,
     V,
     A: Allocator + Clone, // = Global,
-    SC: StackCtor<SCC>,
-    SCC: const StackCtorConst,
+    SC: StackCtor<N>,
+    const N: usize,
     R: Resources,
     P: StorageAccessPolicy<R, V>,
-> where
-    ExtraCheck<SCC, A>:,
+>
 {
     pub(crate) cache: HistoryMap<K, CacheRecord<V, StorageElementMetadata>, A>,
     pub(crate) resources_policy: P,
     pub(crate) current_tx_number: TransactionId,
     pub(crate) initial_values: BTreeMap<K, (V, TransactionId), A>, // Used to cache initial values at the beginning of the tx (For EVM gas model)
     alloc: A,
-    pub(crate) _marker: core::marker::PhantomData<(R, SC, SCC)>,
+    pub(crate) _marker: core::marker::PhantomData<(R, SC)>,
 }
 
 pub struct IsWarmRead(pub bool);
@@ -112,13 +110,11 @@ impl<
             + PartialEq
             + From<<EthereumIOTypesConfig as SystemIOTypesConfig>::StorageValue>,
         A: Allocator + Clone,
-        SC: StackCtor<SCC>,
-        SCC: const StackCtorConst,
+        SC: StackCtor<N>,
+        const N: usize,
         R: Resources,
         P: StorageAccessPolicy<R, V>,
-    > GenericPubdataAwarePlainStorage<K, V, A, SC, SCC, R, P>
-where
-    ExtraCheck<SCC, A>:,
+    > GenericPubdataAwarePlainStorage<K, V, A, SC, N, R, P>
 {
     pub fn new_from_parts(allocator: A, resources_policy: P) -> Self {
         Self {
@@ -353,23 +349,19 @@ pub const ACCOUNT_PROPERTIES_STORAGE_ADDRESS: B160 = B160::from_limbs([0x8003, 0
 
 pub struct NewStorageWithAccountPropertiesUnderHash<
     A: Allocator + Clone,
-    SC: StackCtor<SCC>,
-    SCC: const StackCtorConst,
+    SC: StackCtor<N>,
+    const N: usize,
     R: Resources,
     P: StorageAccessPolicy<R, Bytes32>,
->(pub GenericPubdataAwarePlainStorage<WarmStorageKey, Bytes32, A, SC, SCC, R, P>)
-where
-    ExtraCheck<SCC, A>:;
+>(pub GenericPubdataAwarePlainStorage<WarmStorageKey, Bytes32, A, SC, N, R, P>);
 
 impl<
         A: Allocator + Clone,
-        SC: StackCtor<SCC>,
-        SCC: const StackCtorConst,
+        SC: StackCtor<N>,
+        const N: usize,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32>,
-    > StorageCacheModel for NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>
-where
-    ExtraCheck<SCC, A>:,
+    > StorageCacheModel for NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>
 {
     type IOTypes = EthereumIOTypesConfig;
     type Resources = R;
@@ -533,13 +525,11 @@ where
 
 impl<
         A: Allocator + Clone,
-        SC: StackCtor<SCC>,
-        SCC: const StackCtorConst,
+        SC: StackCtor<N>,
+        const N: usize,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32>,
-    > SnapshottableIo for NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>
-where
-    ExtraCheck<SCC, A>:,
+    > SnapshottableIo for NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>
 {
     type StateSnapshot = CacheSnapshotId;
 
@@ -561,17 +551,15 @@ where
 
 impl<
         A: Allocator + Clone,
-        SC: StackCtor<SCC>,
-        SCC: const StackCtorConst,
+        SC: StackCtor<N>,
+        const N: usize,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32>,
-    > NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>
-where
-    ExtraCheck<SCC, A>:,
+    > NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>
 {
     pub fn iter_as_storage_types(
         &self,
-    ) -> impl Iterator<Item = (WarmStorageKey, WarmStorageValue)> + Clone + use<'_, A, SC, SCC, R, P>
+    ) -> impl Iterator<Item = (WarmStorageKey, WarmStorageValue)> + Clone + use<'_, A, SC, N, R, P>
     {
         self.0.cache.iter().map(|item| {
             let current_record = item.current();
@@ -597,7 +585,7 @@ where
     ///
     pub fn net_accesses_iter(
         &self,
-    ) -> impl Iterator<Item = (WarmStorageKey, WarmStorageValue)> + Clone + use<'_, A, SC, SCC, R, P>
+    ) -> impl Iterator<Item = (WarmStorageKey, WarmStorageValue)> + Clone + use<'_, A, SC, N, R, P>
     {
         self.iter_as_storage_types()
     }
@@ -607,7 +595,7 @@ where
     ///
     pub fn net_diffs_iter(
         &self,
-    ) -> impl Iterator<Item = (WarmStorageKey, WarmStorageValue)> + use<'_, A, SC, SCC, R, P> {
+    ) -> impl Iterator<Item = (WarmStorageKey, WarmStorageValue)> + use<'_, A, SC, N, R, P> {
         self.iter_as_storage_types()
             .filter(|(_, v)| v.current_value != v.initial_value)
     }

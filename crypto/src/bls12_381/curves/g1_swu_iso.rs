@@ -139,8 +139,8 @@ mod test {
     fn test_gen() {
         crate::bls12_381::fields::init();
 
-        let gen: G1Affine = SwuIsoConfig::GENERATOR;
-        assert!(gen.is_on_curve());
-        assert!(gen.is_in_correct_subgroup_assuming_on_curve());
+        let generator: G1Affine = SwuIsoConfig::GENERATOR;
+        assert!(generator.is_on_curve());
+        assert!(generator.is_in_correct_subgroup_assuming_on_curve());
     }
 }

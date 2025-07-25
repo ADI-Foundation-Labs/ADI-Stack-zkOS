@@ -4,18 +4,18 @@
 //! - l1 -> l2 txs logs, to prove execution result on l1.
 use super::history_list::HistoryList;
 use crate::internal_error;
-use crate::system::errors::internal::InternalError;
 use crate::system::IOResultKeeper;
+use crate::system::errors::internal::InternalError;
 use crate::{
-    memory::stack_trait::{StackCtor, StackCtorConst},
+    memory::stack_trait::StackCtor,
     system::errors::system::SystemError,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::{Bytes32, UsizeAlignedByteBox},
 };
 use alloc::alloc::Global;
 use core::alloc::Allocator;
-use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
+use crypto::sha3::Keccak256;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
 
@@ -151,23 +151,13 @@ impl<IOTypes: SystemIOTypesConfig, A: Allocator> GenericLogContent<IOTypes, A> {
 #[allow(type_alias_bounds)]
 pub type LogContent<A: Allocator = Global> = GenericLogContent<EthereumIOTypesConfig, A>;
 
-pub type LogsStorageStackCheck<SCC: const StackCtorConst, A: Allocator> =
-    [(); SCC::extra_const_param::<(LogContent<A>, u32), A>()];
-
-pub struct LogsStorage<SC: StackCtor<SCC>, SCC: const StackCtorConst, A: Allocator + Clone = Global>
-where
-    LogsStorageStackCheck<SCC, A>:,
-{
-    list: HistoryList<LogContent<A>, u32, SC, SCC, A>,
+pub struct LogsStorage<SC: StackCtor<N>, const N: usize, A: Allocator + Clone = Global> {
+    list: HistoryList<LogContent<A>, u32, SC, N, A>,
     pubdata_used_by_committed_logs: u32,
     _marker: core::marker::PhantomData<A>,
 }
 
-impl<SC: StackCtor<SCC>, SCC: const StackCtorConst, A: Allocator + Clone + Default>
-    LogsStorage<SC, SCC, A>
-where
-    LogsStorageStackCheck<SCC, A>:,
-{
+impl<SC: StackCtor<N>, const N: usize, A: Allocator + Clone + Default> LogsStorage<SC, N, A> {
     pub fn new_from_parts(allocator: A) -> Self {
         Self {
             list: HistoryList::new(allocator),
@@ -254,8 +244,8 @@ where
     }
 
     pub fn messages_ref_iter(
-        &self,
-    ) -> impl Iterator<Item = GenericLogContentWithTxRef<EthereumIOTypesConfig>> {
+        &'_ self,
+    ) -> impl Iterator<Item = GenericLogContentWithTxRef<'_, EthereumIOTypesConfig>> {
         self.list.iter().map(|message| message.to_ref())
     }
 

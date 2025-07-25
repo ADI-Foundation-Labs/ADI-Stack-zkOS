@@ -14,12 +14,12 @@ pub use self::call_params::*;
 pub use self::environment_state::*;
 pub use self::interaction_params::*;
 
+use super::IOSubsystemExt;
 use super::errors::internal::InternalError;
 use super::errors::subsystem::Subsystem;
 use super::errors::subsystem::SubsystemError;
 use super::system::System;
 use super::system::SystemTypes;
-use super::IOSubsystemExt;
 use crate::internal_error;
 use crate::memory::slice_vec::SliceVec;
 use crate::system::CallModifier;

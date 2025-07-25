@@ -1,4 +1,4 @@
-use super::{element_pool::ElementPool, CacheSnapshotId};
+use super::{CacheSnapshotId, element_pool::ElementPool};
 use alloc::boxed::Box;
 use core::{alloc::Allocator, ptr::NonNull};
 

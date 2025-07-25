@@ -49,11 +49,7 @@ impl ValueDiffCompressionStrategy {
             }
             Self::Transform => {
                 let length = (final_value.bit_len().next_multiple_of(8) / 8) as u8;
-                if length == 32 {
-                    None
-                } else {
-                    Some(length + 1)
-                }
+                if length == 32 { None } else { Some(length + 1) }
             }
         }
     }
