@@ -1,7 +1,7 @@
 // Taken from https://github.com/aurora-is-near/aurora-engine, with changes
 // to explicitly pass around allocator.
 
-use crate::mpnat::{DoubleWord, MPNat, Word, BASE, WORD_BITS};
+use crate::mpnat::{BASE, DoubleWord, MPNat, WORD_BITS, Word};
 use crate::vec_in;
 use alloc::vec::Vec;
 use core::alloc::Allocator;

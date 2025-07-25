@@ -3,7 +3,6 @@
 #![feature(exhaustive_patterns)]
 #![feature(associated_type_defaults)]
 #![feature(allocator_api)]
-#![feature(vec_push_within_capacity)]
 #![feature(btreemap_alloc)]
 
 pub mod constants;

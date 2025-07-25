@@ -309,7 +309,7 @@ impl proptest::arbitrary::Arbitrary for FieldElementConst {
     type Parameters = ();
 
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::{any, Strategy};
+        use proptest::prelude::{Strategy, any};
 
         any::<FieldElementImplConst>().prop_map(Self)
     }
@@ -329,7 +329,7 @@ impl proptest::arbitrary::Arbitrary for FieldElement {
     type Parameters = ();
 
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::{any, Strategy};
+        use proptest::prelude::{Strategy, any};
 
         any::<FieldElementImpl>().prop_map(Self)
     }

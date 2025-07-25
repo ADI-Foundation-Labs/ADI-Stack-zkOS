@@ -218,7 +218,7 @@ impl proptest::arbitrary::Arbitrary for FieldElementImpl {
     type Parameters = ();
 
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::{any, Strategy};
+        use proptest::prelude::{Strategy, any};
 
         any::<FieldElementInner>().prop_map(|value| Self {
             value,

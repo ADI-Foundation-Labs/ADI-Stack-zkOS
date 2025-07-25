@@ -4,8 +4,8 @@ use crate::bootloader::errors::TxError;
 use crate::bootloader::supported_ees::SupportedEEVMState;
 use constants::{PAYMASTER_VALIDATE_AND_PAY_SELECTOR, TX_CALLDATA_OFFSET};
 use errors::{BootloaderSubsystemError, InvalidTransaction};
-use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
 use system_hooks::HooksStorage;
+use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
 use zk_ee::internal_error;
 use zk_ee::system::{EthereumLikeTypes, System};
 

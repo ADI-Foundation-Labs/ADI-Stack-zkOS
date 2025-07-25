@@ -42,7 +42,12 @@ macro_rules! uint_impl {
                 if local_head.len() < 32 {
                     return Err(());
                 }
-                let source = local_head.as_chunks_mut::<32>().0.iter_mut().next().unwrap();
+                let source = local_head
+                    .as_chunks_mut::<32>()
+                    .0
+                    .iter_mut()
+                    .next()
+                    .unwrap();
                 let new = Self { source };
                 *head_offset += 32;
 
@@ -151,7 +156,12 @@ impl<'a> SolidityCodableReflectionRefMut<'a> for AddressRefMut<'a> {
         if local_head.len() < 32 {
             return Err(());
         }
-        let source = local_head.as_chunks_mut::<32>().0.iter_mut().next().unwrap();
+        let source = local_head
+            .as_chunks_mut::<32>()
+            .0
+            .iter_mut()
+            .next()
+            .unwrap();
         let new = Self { source };
         *head_offset += 32;
 

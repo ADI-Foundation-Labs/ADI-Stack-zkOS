@@ -5,8 +5,8 @@ use basic_bootloader::bootloader::config::BasicBootloaderProvingExecutionConfig;
 use core::alloc::Allocator;
 use core::mem::MaybeUninit;
 use zk_ee::memory::ZSTAllocator;
-use zk_ee::system::{logger::Logger, NopResultKeeper};
-use zk_ee::system_io_oracle::{IOOracle, DISCONNECT_ORACLE_QUERY_ID};
+use zk_ee::system::{NopResultKeeper, logger::Logger};
+use zk_ee::system_io_oracle::{DISCONNECT_ORACLE_QUERY_ID, IOOracle};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ProxyAllocator;

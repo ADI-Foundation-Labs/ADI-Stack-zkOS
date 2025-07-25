@@ -1,5 +1,5 @@
 // based on https://github.com/RustCrypto/elliptic-curves/blob/master/p256/src/arithmetic/scalar/scalar64.rs
-use crate::secp256r1::{u64_arithmatic::*, Secp256r1Err};
+use crate::secp256r1::{Secp256r1Err, u64_arithmatic::*};
 
 use super::{MODULUS, MU};
 
@@ -307,7 +307,7 @@ mod tests {
         type Parameters = ();
 
         fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-            use proptest::prelude::{any, Strategy};
+            use proptest::prelude::{Strategy, any};
 
             any::<[u64; 4]>().prop_map(|x| {
                 let mut res = Self(x);

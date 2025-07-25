@@ -1,6 +1,6 @@
 use super::{
-    points::{Affine, JacobianConst, Storage},
     ECMULT_TABLE_SIZE_G,
+    points::{Affine, JacobianConst, Storage},
 };
 
 pub(super) struct GeneratorMultiplesTable([Storage; ECMULT_TABLE_SIZE_G]);

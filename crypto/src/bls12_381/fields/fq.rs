@@ -38,7 +38,7 @@ const NUM_LIMBS: usize = 8usize;
 pub type Fq = Fp512<MontBackend<FqConfig, NUM_LIMBS>>;
 
 use crate::ark_ff_delegation::{BigInt, BigIntMacro, Fp, Fp512, MontBackend, MontConfig};
-use crate::bigint_delegation::{u512, DelegatedModParams, DelegatedMontParams};
+use crate::bigint_delegation::{DelegatedModParams, DelegatedMontParams, u512};
 use ark_ff::{AdditiveGroup, Field, Zero};
 use core::mem::MaybeUninit;
 
@@ -50,7 +50,9 @@ type F = Fp<MontBackend<FqConfig, NUM_LIMBS>, NUM_LIMBS>;
 static mut MODULUS: MaybeUninit<BigInt<8>> = MaybeUninit::uninit();
 static mut REDUCTION_CONST: MaybeUninit<BigInt<4>> = MaybeUninit::uninit();
 
-const MODULUS_CONSTANT: BigInt<8> = BigIntMacro!("4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787");
+const MODULUS_CONSTANT: BigInt<8> = BigIntMacro!(
+    "4002409555221667393417789825735904156556882819939007885332058136124031650490837864442687629129015664037894272559787"
+);
 // it's - MODULUS^-1 mod 2^256
 const MONT_REDUCTION_CONSTANT: BigInt<4> =
     BigIntMacro!("11726191667098586211898467594267748916577995138249226639719947807923487178749");
@@ -190,7 +192,7 @@ impl MontConfig<NUM_LIMBS> for FqConfig {
 
 #[cfg(test)]
 mod test {
-    use super::{BigInt, Fq, FqConfig, MontConfig, B};
+    use super::{B, BigInt, Fq, FqConfig, MontConfig};
     use ark_ff::{Field, One, UniformRand, Zero};
 
     fn init() {
@@ -326,7 +328,7 @@ mod test {
     use ark_bls12_381::Fq as FqRef;
     use ark_bls12_381::Fq2 as Fq2Ref;
     use ark_bls12_381::Fq6 as Fq6Ref;
-    use ark_ec::{pairing::*, CurveGroup, PrimeGroup};
+    use ark_ec::{CurveGroup, PrimeGroup, pairing::*};
     use ark_ff::{CyclotomicMultSubgroup, PrimeField};
     use ark_std::test_rng;
 

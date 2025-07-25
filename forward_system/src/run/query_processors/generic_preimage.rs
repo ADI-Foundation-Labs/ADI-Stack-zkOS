@@ -1,7 +1,7 @@
 use super::*;
 use crate::run::PreimageSource;
 use zk_ee::oracle::ReadIterWrapper;
-use zk_ee::system_io_oracle::{dyn_usize_iterator::DynUsizeIterator, GENERIC_PREIMAGE_QUERY_ID};
+use zk_ee::system_io_oracle::{GENERIC_PREIMAGE_QUERY_ID, dyn_usize_iterator::DynUsizeIterator};
 use zk_ee::utils::Bytes32;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,8 +1,8 @@
-use crate::k256::{elliptic_curve::subtle::Choice, CompressedPoint, EncodedPoint, FieldBytes};
+use crate::k256::{CompressedPoint, EncodedPoint, FieldBytes, elliptic_curve::subtle::Choice};
 
 use crate::secp256k1::field::{FieldElement, FieldElementConst};
 
-use super::{jacobian::JacobianConst, AffineStorage, Jacobian};
+use super::{AffineStorage, Jacobian, jacobian::JacobianConst};
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AffineConst {
@@ -248,7 +248,7 @@ impl proptest::arbitrary::Arbitrary for Affine {
     type Parameters = ();
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::{any, Strategy};
+        use proptest::prelude::{Strategy, any};
 
         any::<FieldElement>().prop_map(|x| {
             let mut ret = Affine::DEFAULT;

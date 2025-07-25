@@ -1,12 +1,12 @@
 use super::*;
 use crate::bn254::Fq12;
+use ark_ec::AdditiveGroup;
+use ark_ec::AffineRepr;
+use ark_ec::CurveGroup;
 use ark_ec::bn::g2::EllCoeff;
 use ark_ec::pairing::Pairing;
 use ark_ec::pairing::PairingOutput;
 use ark_ec::short_weierstrass::SWCurveConfig;
-use ark_ec::AdditiveGroup;
-use ark_ec::AffineRepr;
-use ark_ec::CurveGroup;
 use ark_ff::One;
 use ark_ff::{CyclotomicMultSubgroup, Field};
 use ark_serialize::CanonicalDeserialize;

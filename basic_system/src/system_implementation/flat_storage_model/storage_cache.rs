@@ -17,14 +17,14 @@ use zk_ee::{
     common_structs::{WarmStorageKey, WarmStorageValue},
     kv_markers::{StorageAddress, UsizeDeserializable},
     memory::stack_trait::StackCtor,
-    system::{errors::system::SystemError, Resources},
+    system::{Resources, errors::system::SystemError},
     system_io_oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::Bytes32,
 };
 
-use zk_ee::common_structs::history_map::*;
 use zk_ee::common_structs::ValueDiffCompressionStrategy;
+use zk_ee::common_structs::history_map::*;
 
 type AddressItem<'a, K, V, A> =
     HistoryMapItemRefMut<'a, K, CacheRecord<V, StorageElementMetadata>, A>;
@@ -90,8 +90,7 @@ pub struct GenericPubdataAwarePlainStorage<
     const N: usize,
     R: Resources,
     P: StorageAccessPolicy<R, V>,
->
-{
+> {
     pub(crate) cache: HistoryMap<K, CacheRecord<V, StorageElementMetadata>, A>,
     pub(crate) resources_policy: P,
     pub(crate) current_tx_number: TransactionId,
@@ -103,18 +102,18 @@ pub struct GenericPubdataAwarePlainStorage<
 pub struct IsWarmRead(pub bool);
 
 impl<
-        K: 'static + KeyLikeWithBounds,
-        V: Default
-            + Clone
-            + Debug
-            + PartialEq
-            + From<<EthereumIOTypesConfig as SystemIOTypesConfig>::StorageValue>,
-        A: Allocator + Clone,
-        SC: StackCtor<N>,
-        const N: usize,
-        R: Resources,
-        P: StorageAccessPolicy<R, V>,
-    > GenericPubdataAwarePlainStorage<K, V, A, SC, N, R, P>
+    K: 'static + KeyLikeWithBounds,
+    V: Default
+        + Clone
+        + Debug
+        + PartialEq
+        + From<<EthereumIOTypesConfig as SystemIOTypesConfig>::StorageValue>,
+    A: Allocator + Clone,
+    SC: StackCtor<N>,
+    const N: usize,
+    R: Resources,
+    P: StorageAccessPolicy<R, V>,
+> GenericPubdataAwarePlainStorage<K, V, A, SC, N, R, P>
 {
     pub fn new_from_parts(allocator: A, resources_policy: P) -> Self {
         Self {
@@ -356,12 +355,12 @@ pub struct NewStorageWithAccountPropertiesUnderHash<
 >(pub GenericPubdataAwarePlainStorage<WarmStorageKey, Bytes32, A, SC, N, R, P>);
 
 impl<
-        A: Allocator + Clone,
-        SC: StackCtor<N>,
-        const N: usize,
-        R: Resources,
-        P: StorageAccessPolicy<R, Bytes32>,
-    > StorageCacheModel for NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>
+    A: Allocator + Clone,
+    SC: StackCtor<N>,
+    const N: usize,
+    R: Resources,
+    P: StorageAccessPolicy<R, Bytes32>,
+> StorageCacheModel for NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>
 {
     type IOTypes = EthereumIOTypesConfig;
     type Resources = R;
@@ -524,12 +523,12 @@ impl<
 }
 
 impl<
-        A: Allocator + Clone,
-        SC: StackCtor<N>,
-        const N: usize,
-        R: Resources,
-        P: StorageAccessPolicy<R, Bytes32>,
-    > SnapshottableIo for NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>
+    A: Allocator + Clone,
+    SC: StackCtor<N>,
+    const N: usize,
+    R: Resources,
+    P: StorageAccessPolicy<R, Bytes32>,
+> SnapshottableIo for NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>
 {
     type StateSnapshot = CacheSnapshotId;
 
@@ -550,12 +549,12 @@ impl<
 }
 
 impl<
-        A: Allocator + Clone,
-        SC: StackCtor<N>,
-        const N: usize,
-        R: Resources,
-        P: StorageAccessPolicy<R, Bytes32>,
-    > NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>
+    A: Allocator + Clone,
+    SC: StackCtor<N>,
+    const N: usize,
+    R: Resources,
+    P: StorageAccessPolicy<R, Bytes32>,
+> NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>
 {
     pub fn iter_as_storage_types(
         &self,

@@ -36,7 +36,10 @@ impl ECMultContext {
         context
     }
 
-    const fn compute_table(table: &mut [AffineStorage; ECMULT_TABLE_SIZE_G], generator: &JacobianConst) {
+    const fn compute_table(
+        table: &mut [AffineStorage; ECMULT_TABLE_SIZE_G],
+        generator: &JacobianConst,
+    ) {
         use const_for::const_for;
 
         let mut gj = *generator;

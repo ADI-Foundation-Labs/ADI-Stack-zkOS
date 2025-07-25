@@ -2,7 +2,7 @@ use super::*;
 use crate::run::ReadStorageTree;
 use basic_system::system_implementation::flat_storage_model::*;
 use basic_system::system_implementation::flat_storage_model::{
-    ExactIndexQuery, PreviousIndexQuery, PROOF_FOR_INDEX_QUERY_ID,
+    ExactIndexQuery, PROOF_FOR_INDEX_QUERY_ID, PreviousIndexQuery,
 };
 use zk_ee::common_structs::derive_flat_storage_key;
 use zk_ee::kv_markers::InitialStorageSlotData;
@@ -11,7 +11,7 @@ use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::{
     basic_queries::InitialStorageSlotQuery,
     kv_markers::{UsizeDeserializable, UsizeSerializable},
-    system_io_oracle::{dyn_usize_iterator::DynUsizeIterator, SimpleOracleQuery},
+    system_io_oracle::{SimpleOracleQuery, dyn_usize_iterator::DynUsizeIterator},
     utils::Bytes32,
 };
 

@@ -1,6 +1,4 @@
 #![feature(allocator_api)]
-#![allow(incomplete_features)]
-#![feature(generic_const_exprs)]
 
 use prover_examples::prover::VectorMemoryImplWithRom;
 use risc_v_simulator::{

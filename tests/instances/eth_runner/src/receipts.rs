@@ -1,4 +1,4 @@
-use alloy::primitives::{Address, Bloom, B256, U256};
+use alloy::primitives::{Address, B256, Bloom, U256};
 use serde::{Deserialize, Serialize};
 
 #[allow(dead_code)]

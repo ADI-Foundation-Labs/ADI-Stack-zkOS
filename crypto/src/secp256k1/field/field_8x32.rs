@@ -1,5 +1,5 @@
 use crate::ark_ff_delegation::{BigInt, BigIntMacro, BigInteger};
-use crate::bigint_delegation::{u256, DelegatedBarretParams, DelegatedModParams};
+use crate::bigint_delegation::{DelegatedBarretParams, DelegatedModParams, u256};
 use crate::k256::FieldBytes;
 use core::mem::MaybeUninit;
 
@@ -145,7 +145,7 @@ impl FieldElement8x32 {
     #[inline(always)]
     pub(super) const fn to_storage(self) -> FieldStorage10x26 {
         let mut res = [0; 8];
-        let words = self.0 .0;
+        let words = self.0.0;
         let mut i = 0;
         while i < 4 {
             res[2 * i] = words[i] as u32;
@@ -228,7 +228,7 @@ impl proptest::arbitrary::Arbitrary for FieldElement8x32 {
     type Parameters = ();
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::{any, Strategy};
+        use proptest::prelude::{Strategy, any};
 
         any::<u256::U256Wrapper<FieldParams>>().prop_map(|x| Self(x.0))
     }

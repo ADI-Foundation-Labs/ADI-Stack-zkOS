@@ -1,5 +1,5 @@
 use crate::ark_ff_delegation::BigInt;
-use crate::bigint_delegation::{u256, DelegatedModParams, DelegatedMontParams};
+use crate::bigint_delegation::{DelegatedModParams, DelegatedMontParams, u256};
 use core::mem::MaybeUninit;
 
 const _: () = const {
@@ -155,14 +155,14 @@ impl ScalarInner {
     }
 
     fn as_words(&self) -> &[u64; 4] {
-        &self.0 .0
+        &self.0.0
     }
     // This is only called on the results of decompose and decompose_128, so the input is already in integer form
     #[inline(always)]
     pub(super) fn bits(&self, offset: usize, count: usize) -> u32 {
         // check requested bits must be from the same limb
         debug_assert!((offset + count - 1) >> 6 == offset >> 6);
-        let limbs = &self.0 .0;
+        let limbs = &self.0.0;
         ((limbs[offset >> 6] >> (offset & 0x3F)) & ((1 << count) - 1)) as u32
     }
 
@@ -176,7 +176,7 @@ impl ScalarInner {
             self.bits(offset, count)
         } else {
             debug_assert!((offset >> 6) + 1 < 4);
-            let limbs = &self.0 .0;
+            let limbs = &self.0.0;
             (((limbs[offset >> 6] >> (offset & 0x3F))
                 | (limbs[(offset >> 6) + 1] << (64 - (offset & 0x3F))))
                 & ((1 << count) - 1)) as u32
@@ -228,7 +228,7 @@ impl ScalarInner {
     fn integer_mul_shift_384_vartime(&mut self, b: &Self) {
         u256::mul_high_assign(&mut self.0, &b.0);
 
-        let words = &self.0 .0;
+        let words = &self.0.0;
 
         let l = words[1];
         self.0 = BigInt([words[2], words[3], 0, 0]);
@@ -307,7 +307,7 @@ impl proptest::arbitrary::Arbitrary for ScalarInner {
     type Parameters = ();
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::{any, Strategy};
+        use proptest::prelude::{Strategy, any};
 
         any::<u256::U256Wrapper<ScalarParams>>().prop_map(|inner| Self(inner.0).to_representation())
     }

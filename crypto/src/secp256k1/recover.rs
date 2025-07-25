@@ -1,19 +1,19 @@
 use crate::k256::{
-    elliptic_curve::{
-        bigint::{CheckedAdd, U256},
-        Curve, FieldBytesEncoding,
-    },
     Secp256k1,
+    elliptic_curve::{
+        Curve, FieldBytesEncoding,
+        bigint::{CheckedAdd, U256},
+    },
 };
 
 use super::{
+    Secp256k1Err,
     context::{
-        ECMultContext, ECMULT_TABLE_SIZE_A, ECMULT_TABLE_SIZE_G, WINDOW_A, WINDOW_G, WNAF_BITS,
+        ECMULT_TABLE_SIZE_A, ECMULT_TABLE_SIZE_G, ECMultContext, WINDOW_A, WINDOW_G, WNAF_BITS,
     },
     field::FieldElement,
     points::{Affine, AffineStorage, Jacobian},
     scalars::Scalar,
-    Secp256k1Err,
 };
 
 #[cfg(feature = "secp256k1-static-context")]
@@ -678,7 +678,7 @@ mod tests {
         use k256::ecdsa::{RecoveryId, Signature};
         use {
             k256::elliptic_curve::ops::Reduce,
-            k256::{ecdsa::hazmat::bits2field, Scalar},
+            k256::{Scalar, ecdsa::hazmat::bits2field},
         };
 
         let signature = Signature::from_scalars(r, s).unwrap();

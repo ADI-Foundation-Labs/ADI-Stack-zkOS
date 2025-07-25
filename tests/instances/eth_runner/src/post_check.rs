@@ -185,10 +185,12 @@ impl DiffTrace {
                     };
                     if value != zksync_os_value {
                         error!(
-                          "Value for slot {} at address {} differed. ZKsync OS: {:?}, reference: {:?}",
-                          key,
-                          hex::encode(address.to_be_bytes_vec()),
-                          zksync_os_value, value);
+                            "Value for slot {} at address {} differed. ZKsync OS: {:?}, reference: {:?}",
+                            key,
+                            hex::encode(address.to_be_bytes_vec()),
+                            zksync_os_value,
+                            value
+                        );
                         return Err(PostCheckError::Internal);
                     }
                 }
@@ -410,14 +412,13 @@ pub fn post_check(
         // Check gas used
         if res.gas_used != zk_ee::utils::u256_to_u64_saturated(&receipt.gas_used) {
             debug!(
-                    "Transaction {} has a gas mismatch: ZKsync OS used {}, reference: {}\n  Difference:{}",
-                    receipt.transaction_index, res.gas_used, receipt.gas_used,
-                    gas_difference,
-                );
+                "Transaction {} has a gas mismatch: ZKsync OS used {}, reference: {}\n  Difference:{}",
+                receipt.transaction_index, res.gas_used, receipt.gas_used, gas_difference,
+            );
             if !consistent_with_refund(res.gas_used, gas_difference) {
-                warn!("Transaction {}, gas difference should be consistent with refund\n  ZKsync OS used {}, reference: {}\n    Difference:{}",
-                    receipt.transaction_index, res.gas_used, receipt.gas_used,
-                    gas_difference,
+                warn!(
+                    "Transaction {}, gas difference should be consistent with refund\n  ZKsync OS used {}, reference: {}\n    Difference:{}",
+                    receipt.transaction_index, res.gas_used, receipt.gas_used, gas_difference,
                 );
                 // TODO: do we want this case to halt the block?
                 return Err(PostCheckError::GasMismatch {

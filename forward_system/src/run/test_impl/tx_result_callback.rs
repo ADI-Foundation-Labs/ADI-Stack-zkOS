@@ -1,5 +1,5 @@
-use crate::run::result_keeper::TxProcessingOutputOwned;
 use crate::run::TxResultCallback;
+use crate::run::result_keeper::TxProcessingOutputOwned;
 use basic_bootloader::bootloader::errors::InvalidTransaction;
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]

@@ -1,22 +1,22 @@
 //! Implementation of the IO subsystem.
 use super::*;
-use crate::system_functions::keccak256::keccak256_native_cost;
 use crate::system_functions::keccak256::Keccak256Impl;
+use crate::system_functions::keccak256::keccak256_native_cost;
 use cost_constants::EVENT_DATA_PER_BYTE_COST;
 use cost_constants::EVENT_STORAGE_BASE_NATIVE_COST;
 use cost_constants::EVENT_TOPIC_NATIVE_COST;
 use cost_constants::WARM_TSTORAGE_READ_NATIVE_COST;
 use cost_constants::WARM_TSTORAGE_WRITE_NATIVE_COST;
-use crypto::blake2s::Blake2s256;
 use crypto::MiniDigest;
+use crypto::blake2s::Blake2s256;
 use evm_interpreter::gas_constants::LOG;
 use evm_interpreter::gas_constants::LOGDATA;
 use evm_interpreter::gas_constants::LOGTOPIC;
 use evm_interpreter::gas_constants::TLOAD;
 use evm_interpreter::gas_constants::TSTORE;
+use storage_models::common_structs::StorageModel;
 use storage_models::common_structs::generic_transient_storage::GenericTransientStorage;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
-use storage_models::common_structs::StorageModel;
 use zk_ee::common_structs::BasicIOImplementerFSM;
 use zk_ee::common_structs::L2_TO_L1_LOG_SERIALIZE_SIZE;
 use zk_ee::interface_error;
@@ -26,8 +26,8 @@ use zk_ee::{
     common_structs::{EventsStorage, LogsStorage},
     memory::ArrayBuilder,
     system::{
-        errors::system::SystemError, AccountData, AccountDataRequest, EthereumLikeIOSubsystem,
-        IOResultKeeper, IOSubsystem, IOSubsystemExt, Maybe,
+        AccountData, AccountDataRequest, EthereumLikeIOSubsystem, IOResultKeeper, IOSubsystem,
+        IOSubsystemExt, Maybe, errors::system::SystemError,
     },
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::UsizeAlignedByteBox,
@@ -41,8 +41,7 @@ pub struct FullIO<
     const N: usize,
     O: IOOracle,
     const PROOF_ENV: bool,
->
-{
+> {
     pub(crate) storage: FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, N, PROOF_ENV>,
     pub(crate) transient_storage: GenericTransientStorage<WarmStorageKey, Bytes32, SC, N, A>,
     pub(crate) logs_storage: LogsStorage<SC, N, A>,
@@ -60,14 +59,14 @@ pub struct FullIOStateSnapshot {
 }
 
 impl<
-        A: Allocator + Clone + Default,
-        R: Resources,
-        P: StorageAccessPolicy<R, Bytes32>,
-        SC: StackCtor<N>,
-        const N: usize,
-        O: IOOracle,
-        const PROOF_ENV: bool,
-    > IOSubsystem for FullIO<A, R, P, SC, N, O, PROOF_ENV>
+    A: Allocator + Clone + Default,
+    R: Resources,
+    P: StorageAccessPolicy<R, Bytes32>,
+    SC: StackCtor<N>,
+    const N: usize,
+    O: IOOracle,
+    const PROOF_ENV: bool,
+> IOSubsystem for FullIO<A, R, P, SC, N, O, PROOF_ENV>
 {
     type IOTypes = EthereumIOTypesConfig;
     type Resources = R;
@@ -394,13 +393,13 @@ pub trait FinishIO {
 }
 
 impl<
-        A: Allocator + Clone + Default,
-        R: Resources,
-        P: StorageAccessPolicy<R, Bytes32> + Default,
-        SC: StackCtor<N>,
-        const N: usize,
-        O: IOOracle,
-    > FinishIO for FullIO<A, R, P, SC, N, O, false>
+    A: Allocator + Clone + Default,
+    R: Resources,
+    P: StorageAccessPolicy<R, Bytes32> + Default,
+    SC: StackCtor<N>,
+    const N: usize,
+    O: IOOracle,
+> FinishIO for FullIO<A, R, P, SC, N, O, false>
 {
     type FinalData = O;
     fn finish(
@@ -438,13 +437,13 @@ impl<
 // This functionality is here only for the tests
 #[cfg(not(feature = "wrap-in-batch"))]
 impl<
-        A: Allocator + Clone + Default,
-        R: Resources,
-        P: StorageAccessPolicy<R, Bytes32> + Default,
-        SC: StackCtor<N>,
-        const N: usize,
-        O: IOOracle,
-    > FinishIO for FullIO<A, R, P, SC, N, O, true>
+    A: Allocator + Clone + Default,
+    R: Resources,
+    P: StorageAccessPolicy<R, Bytes32> + Default,
+    SC: StackCtor<N>,
+    const N: usize,
+    O: IOOracle,
+> FinishIO for FullIO<A, R, P, SC, N, O, true>
 {
     type FinalData = (O, Bytes32);
     fn finish(
@@ -546,13 +545,13 @@ impl<
 
 #[cfg(feature = "wrap-in-batch")]
 impl<
-        A: Allocator + Clone + Default,
-        R: Resources,
-        P: StorageAccessPolicy<R, Bytes32> + Default,
-        SC: StackCtor<N>,
-        const N: usize,
-        O: IOOracle,
-    > FinishIO for FullIO<A, R, P, SC, N, O, true>
+    A: Allocator + Clone + Default,
+    R: Resources,
+    P: StorageAccessPolicy<R, Bytes32> + Default,
+    SC: StackCtor<N>,
+    const N: usize,
+    O: IOOracle,
+> FinishIO for FullIO<A, R, P, SC, N, O, true>
 {
     type FinalData = (O, Bytes32);
     fn finish(
@@ -665,14 +664,14 @@ impl<
 }
 
 impl<
-        A: Allocator + Clone + Default,
-        R: Resources,
-        P: StorageAccessPolicy<R, Bytes32> + Default,
-        SC: StackCtor<N>,
-        const N: usize,
-        O: IOOracle,
-        const PROOF_ENV: bool,
-    > IOSubsystemExt for FullIO<A, R, P, SC, N, O, PROOF_ENV>
+    A: Allocator + Clone + Default,
+    R: Resources,
+    P: StorageAccessPolicy<R, Bytes32> + Default,
+    SC: StackCtor<N>,
+    const N: usize,
+    O: IOOracle,
+    const PROOF_ENV: bool,
+> IOSubsystemExt for FullIO<A, R, P, SC, N, O, PROOF_ENV>
 where
     Self: FinishIO,
 {
@@ -949,13 +948,13 @@ where
 }
 
 impl<
-        A: Allocator + Clone + Default,
-        R: Resources,
-        P: StorageAccessPolicy<R, Bytes32>,
-        SC: StackCtor<N>,
-        const N: usize,
-        O: IOOracle,
-        const PROOF_ENV: bool,
-    > EthereumLikeIOSubsystem for FullIO<A, R, P, SC, N, O, PROOF_ENV>
+    A: Allocator + Clone + Default,
+    R: Resources,
+    P: StorageAccessPolicy<R, Bytes32>,
+    SC: StackCtor<N>,
+    const N: usize,
+    O: IOOracle,
+    const PROOF_ENV: bool,
+> EthereumLikeIOSubsystem for FullIO<A, R, P, SC, N, O, PROOF_ENV>
 {
 }

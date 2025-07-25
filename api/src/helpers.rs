@@ -1,5 +1,5 @@
-use basic_system::system_implementation::flat_storage_model::bytecode_padding_len;
 use basic_system::system_implementation::flat_storage_model::AccountProperties;
+use basic_system::system_implementation::flat_storage_model::bytecode_padding_len;
 use forward_system::run::PreimageSource;
 use ruint::aliases::U256;
 use std::alloc::Global;
@@ -49,9 +49,9 @@ pub fn set_properties_nonce(account: &mut AccountProperties, nonce: u64) {
 /// Computes artifacts for [evm_code] and returns the extended
 /// bytecode (code + artifacts).
 pub fn set_properties_code(account: &mut AccountProperties, evm_code: &[u8]) -> Vec<u8> {
+    use crypto::MiniDigest;
     use crypto::blake2s::Blake2s256;
     use crypto::sha3::Keccak256;
-    use crypto::MiniDigest;
 
     let unpadded_code_len = evm_code.len();
     let artifacts =

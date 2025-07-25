@@ -6,8 +6,8 @@ pub(crate) mod mock_precompiles {
     use zk_ee::{
         internal_error,
         system::{
-            base_system_functions::MissingSystemFunctionErrors, errors::subsystem::SubsystemError,
-            Resources, SystemFunction,
+            Resources, SystemFunction, base_system_functions::MissingSystemFunctionErrors,
+            errors::subsystem::SubsystemError,
         },
     };
 

@@ -165,8 +165,8 @@ pub const fn modulus_has_spare_bit<T: MontConfig<N>, const N: usize>() -> bool {
     T::MODULUS.0[N - 1] >> 63 == 0
 }
 
-pub const fn sqrt_precomputation<const N: usize, T: MontConfig<N>>(
-) -> Option<SqrtPrecomputation<Fp<MontBackend<T, N>, N>>> {
+pub const fn sqrt_precomputation<const N: usize, T: MontConfig<N>>()
+-> Option<SqrtPrecomputation<Fp<MontBackend<T, N>, N>>> {
     match T::MODULUS.mod_4() {
         3 => match T::MODULUS_PLUS_ONE_DIV_FOUR.as_ref() {
             Some(BigInt(modulus_plus_one_div_four)) => Some(SqrtPrecomputation::Case3Mod4 {
@@ -355,11 +355,7 @@ impl<T: MontConfig<N>, const N: usize> Fp<MontBackend<T, N>, N> {
             repr.0[i] = limbs[i];
         });
         let res = Self::new(repr);
-        if is_positive {
-            res
-        } else {
-            res.const_neg()
-        }
+        if is_positive { res } else { res.const_neg() }
     }
 
     const fn mul_without_cond_subtract(mut self, other: &Self) -> (bool, Self) {

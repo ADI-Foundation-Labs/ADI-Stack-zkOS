@@ -1,14 +1,10 @@
 #![cfg_attr(target_arch = "riscv32", no_std)]
 #![feature(allocator_api)]
 #![feature(get_mut_unchecked)]
-#![feature(const_type_id)]
-#![feature(vec_push_within_capacity)]
 #![feature(ptr_alignment_type)]
 #![feature(btreemap_alloc)]
 #![feature(maybe_uninit_array_assume_init)]
 #![feature(ptr_metadata)]
-#![allow(incomplete_features)]
-#![feature(generic_const_exprs)]
 #![feature(alloc_layout_extra)]
 #![feature(array_windows)]
 #![allow(clippy::needless_borrow)]
@@ -33,18 +29,19 @@ use crate::l1_messenger::l1_messenger_hook;
 use crate::l2_base_token::l2_base_token_hook;
 use alloc::collections::BTreeMap;
 use core::{alloc::Allocator, mem::MaybeUninit};
-use precompiles::{pure_system_function_hook_impl, IdentityPrecompile, IdentityPrecompileErrors};
+use precompiles::{IdentityPrecompile, IdentityPrecompileErrors, pure_system_function_hook_impl};
 use zk_ee::system::errors::system::SystemError;
 use zk_ee::{
     memory::slice_vec::SliceVec,
     system::{
+        EthereumLikeTypes, System, SystemTypes,
         base_system_functions::{
             Bn254AddErrors, Bn254MulErrors, Bn254PairingCheckErrors, MissingSystemFunctionErrors,
             ModExpErrors, P256VerifyErrors, RipeMd160Errors, Secp256k1ECRecoverErrors,
             Sha256Errors,
         },
         errors::subsystem::Subsystem,
-        EthereumLikeTypes, System, SystemTypes, *,
+        *,
     },
 };
 

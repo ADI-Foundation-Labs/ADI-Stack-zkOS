@@ -41,7 +41,7 @@ where
         CallModifier::Constructor => {
             return Err(
                 internal_error!("L2 base token hook called with constructor modifier").into(),
-            )
+            );
         }
         CallModifier::Delegate
         | CallModifier::DelegateStatic
@@ -201,44 +201,50 @@ where
                     "L2 base token failure: withdrawWithMessage called with invalid calldata",
                 ));
             }
-            let message_offset: usize =
-                match U256::from_be_slice(&calldata[36..68]).try_into() {
-                    Ok(offset) => offset,
-                    Err(_) => return Ok(Err(
+            let message_offset: usize = match U256::from_be_slice(&calldata[36..68]).try_into() {
+                Ok(offset) => offset,
+                Err(_) => {
+                    return Ok(Err(
                         "L2 base token failure: withdrawWithMessage called with invalid calldata",
-                    )),
-                };
+                    ));
+                }
+            };
             // length located at 4+message_offset..4+message_offset+32
             // we want to check that 4+message_offset+32 will not overflow usize
-            let length_encoding_end =
-                match message_offset.checked_add(36) {
-                    Some(length_encoding_end) => length_encoding_end,
-                    None => return Ok(Err(
+            let length_encoding_end = match message_offset.checked_add(36) {
+                Some(length_encoding_end) => length_encoding_end,
+                None => {
+                    return Ok(Err(
                         "L2 base token failure: withdrawWithMessage called with invalid calldata",
-                    )),
-                };
+                    ));
+                }
+            };
             if calldata.len() < length_encoding_end {
                 return Ok(Err(
                     "L2 base token failure: withdrawWithMessage called with invalid calldata",
                 ));
             }
-            let length =
-                match U256::from_be_slice(&calldata[length_encoding_end - 32..length_encoding_end])
-                    .try_into()
-                {
-                    Ok(length) => length,
-                    Err(_) => return Ok(Err(
+            let length = match U256::from_be_slice(
+                &calldata[length_encoding_end - 32..length_encoding_end],
+            )
+            .try_into()
+            {
+                Ok(length) => length,
+                Err(_) => {
+                    return Ok(Err(
                         "L2 base token failure: withdrawWithMessage called with invalid calldata",
-                    )),
-                };
+                    ));
+                }
+            };
             // to check that it will not overflow
-            let message_end =
-                match length_encoding_end.checked_add(length) {
-                    Some(message_end) => message_end,
-                    None => return Ok(Err(
+            let message_end = match length_encoding_end.checked_add(length) {
+                Some(message_end) => message_end,
+                None => {
+                    return Ok(Err(
                         "L2 base token failure: withdrawWithMessage called with invalid calldata",
-                    )),
-                };
+                    ));
+                }
+            };
             if calldata.len() < message_end {
                 return Ok(Err(
                     "L2 base token failure: withdrawWithMessage called with invalid calldata",

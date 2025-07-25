@@ -2,8 +2,8 @@ use crate::codable_trait::*;
 use crate::impls::codable_array::format_short_integer;
 use crate::impls::*;
 use ruint::aliases::U256;
-use solidity_abi_derive::compute_selector;
 use solidity_abi_derive::SolidityCodable;
+use solidity_abi_derive::compute_selector;
 
 #[allow(dead_code)]
 #[derive(SolidityCodable)]

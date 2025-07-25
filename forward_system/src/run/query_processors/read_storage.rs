@@ -7,7 +7,7 @@ use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::{
     basic_queries::InitialStorageSlotQuery,
     kv_markers::{UsizeDeserializable, UsizeSerializable},
-    system_io_oracle::{dyn_usize_iterator::DynUsizeIterator, SimpleOracleQuery},
+    system_io_oracle::{SimpleOracleQuery, dyn_usize_iterator::DynUsizeIterator},
     utils::Bytes32,
 };
 

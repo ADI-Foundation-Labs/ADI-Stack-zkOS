@@ -18,13 +18,13 @@ use evm_interpreter::ERGS_PER_GAS;
 use zk_ee::{
     define_subsystem, internal_error,
     system::{
+        CallModifier, Resources, System,
         errors::{
             root_cause::{GetRootCause, RootCause},
             runtime::RuntimeError,
             subsystem::SubsystemError,
             system::SystemError,
         },
-        CallModifier, Resources, System,
     },
 };
 

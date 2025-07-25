@@ -1,4 +1,4 @@
-use super::{delegation::*, DelegatedU256};
+use super::{DelegatedU256, delegation::*};
 use core::mem::MaybeUninit;
 
 static mut SCRATCH_FOR_MUT: MaybeUninit<DelegatedU256> = MaybeUninit::uninit();

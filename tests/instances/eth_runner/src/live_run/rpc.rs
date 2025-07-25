@@ -5,8 +5,8 @@ use crate::{
     receipts::BlockReceipts,
 };
 use alloy::primitives::B256;
-use anyhow::anyhow;
 use anyhow::Result;
+use anyhow::anyhow;
 use rig::log::debug;
 use std::{io::Read, str::FromStr};
 use ureq::json;

@@ -4,9 +4,9 @@ use core::ops::Range;
 use errors::EvmSubsystemError;
 use native_resource_constants::STEP_NATIVE_COST;
 use zk_ee::system::{
-    logger::Logger, CallModifier, CompletedDeployment, CompletedExecution,
-    DeploymentPreparationParameters, DeploymentResult, EthereumLikeTypes,
-    ExecutionEnvironmentPreemptionPoint, ExternalCallRequest, ReturnValues,
+    CallModifier, CompletedDeployment, CompletedExecution, DeploymentPreparationParameters,
+    DeploymentResult, EthereumLikeTypes, ExecutionEnvironmentPreemptionPoint, ExternalCallRequest,
+    ReturnValues, logger::Logger,
 };
 use zk_ee::system::{Ergs, ExecutionEnvironmentSpawnRequest, TransactionEndPoint};
 use zk_ee::types_config::SystemIOTypesConfig;

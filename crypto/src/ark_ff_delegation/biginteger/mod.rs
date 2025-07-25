@@ -1,11 +1,12 @@
 use crate::ark_ff_delegation::const_helpers;
-use ark_ff::const_for;
 pub use ark_ff::BigInteger;
+use ark_ff::const_for;
 use ark_serialize::{
     CanonicalDeserialize, CanonicalSerialize, Compress, Read, SerializationError, Valid, Validate,
     Write,
 };
 use ark_std::{
+    Zero,
     borrow::Borrow,
     // convert::TryFrom,
     fmt::{Debug, Display, UpperHex},
@@ -14,12 +15,11 @@ use ark_std::{
         ShrAssign,
     },
     rand::{
-        distributions::{Distribution, Standard},
         Rng,
+        distributions::{Distribution, Standard},
     },
     str::FromStr,
     vec::*,
-    Zero,
 };
 use num_bigint::BigUint;
 use zeroize::Zeroize;
@@ -462,7 +462,7 @@ impl<const N: usize> PartialOrd for BigInt<N> {
 
 impl<const N: usize> Distribution<BigInt<N>> for Standard {
     fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> BigInt<N> {
-        BigInt([(); N].map(|_| rng.gen()))
+        BigInt([(); N].map(|_| rng.r#gen()))
     }
 }
 

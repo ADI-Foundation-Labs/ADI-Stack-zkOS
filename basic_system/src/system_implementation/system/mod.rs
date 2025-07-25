@@ -6,21 +6,21 @@ use crate::system_implementation::system::public_input::{
 };
 use core::alloc::Allocator;
 use errors::system::SystemError;
+use evm_interpreter::ERGS_PER_GAS;
 use evm_interpreter::gas_constants::COLD_SLOAD_COST;
 use evm_interpreter::gas_constants::SSTORE_RESET_EXTRA;
 use evm_interpreter::gas_constants::SSTORE_SET_EXTRA;
 use evm_interpreter::gas_constants::WARM_STORAGE_READ_COST;
-use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::U256;
-use zk_ee::common_structs::history_map::CacheSnapshotId;
 use zk_ee::common_structs::WarmStorageKey;
+use zk_ee::common_structs::history_map::CacheSnapshotId;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::utils::Bytes32;
 use zk_ee::utils::NopHasher;
 use zk_ee::{
     kv_markers::MAX_EVENT_TOPICS,
     memory::stack_trait::StackCtor,
-    system::{errors::internal::InternalError, logger::Logger, Resources, *},
+    system::{Resources, errors::internal::InternalError, logger::Logger, *},
     system_io_oracle::IOOracle,
 };
 

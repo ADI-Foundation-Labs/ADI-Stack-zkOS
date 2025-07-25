@@ -1,5 +1,3 @@
-#![allow(incomplete_features)]
-#![feature(generic_const_exprs)]
 #![feature(allocator_api)]
 //!
 //! This crate contains infrastructure to write ZKsync OS integration tests.

@@ -1,14 +1,14 @@
 // Includes code adapted from https://github.com/bluealloy/revm/blob/fb80087996dfbd6c74eaf308538cfa707ecb763c/crates/context/interface/src/result.rs
 
-use crate::run::result_keeper::ForwardRunningResultKeeper;
 use crate::run::TxResultCallback;
+use crate::run::result_keeper::ForwardRunningResultKeeper;
 use arrayvec::ArrayVec;
 pub use basic_bootloader::bootloader::block_header::BlockHeader;
 use basic_bootloader::bootloader::errors::InvalidTransaction;
 use ruint::aliases::B160;
 use zk_ee::common_structs::GenericLogContent;
 use zk_ee::common_structs::{
-    derive_flat_storage_key, GenericEventContent, L2ToL1Log, PreimageType,
+    GenericEventContent, L2ToL1Log, PreimageType, derive_flat_storage_key,
 };
 use zk_ee::kv_markers::MAX_EVENT_TOPICS;
 use zk_ee::system::errors::internal::InternalError;

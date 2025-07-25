@@ -1,10 +1,10 @@
 use alloy::primitives::U256;
-use anyhow::{anyhow, Context, Ok, Result};
+use anyhow::{Context, Ok, Result, anyhow};
 use db::{BlockStatus, BlockTraces, Database};
 mod db;
 mod rpc;
-use rig::log::{debug, error, info};
 use rig::Chain;
+use rig::log::{debug, error, info};
 
 use crate::calltrace::CallTrace;
 use crate::native_model::compute_ratio;

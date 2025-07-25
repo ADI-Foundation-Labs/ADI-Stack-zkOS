@@ -91,11 +91,7 @@ where
     };
 
     let (reduced, uf) = result.overflowing_sub(*modulus);
-    if uf {
-        result
-    } else {
-        reduced
-    }
+    if uf { result } else { reduced }
 }
 
 #[inline]

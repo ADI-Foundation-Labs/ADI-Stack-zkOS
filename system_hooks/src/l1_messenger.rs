@@ -11,11 +11,11 @@ use zk_ee::{
     internal_error,
     kv_markers::MAX_EVENT_TOPICS,
     system::{
+        CallModifier, CompletedExecution, ExternalCallRequest,
         errors::{runtime::RuntimeError, system::SystemError},
         logger::Logger,
-        CallModifier, CompletedExecution, ExternalCallRequest,
     },
-    utils::{b160_to_u256, Bytes32},
+    utils::{Bytes32, b160_to_u256},
 };
 
 pub fn l1_messenger_hook<'a, S: EthereumLikeTypes>(
@@ -48,7 +48,7 @@ where
         CallModifier::Constructor => {
             return Err(
                 internal_error!("L1 messenger hook called with constructor modifier").into(),
-            )
+            );
         }
         CallModifier::Delegate
         | CallModifier::DelegateStatic
@@ -156,7 +156,7 @@ where
                 Err(_) => {
                     return Ok(Err(
                         "L1 messenger failure: sendToL1 called with invalid calldata",
-                    ))
+                    ));
                 }
             };
             // Note, that in general, Solidity allows to have non-strict offsets, i.e. it should be possible
@@ -175,7 +175,7 @@ where
                 None => {
                     return Ok(Err(
                         "L1 messenger failure: sendToL1 called with invalid calldata",
-                    ))
+                    ));
                 }
             };
             if calldata.len() < length_encoding_end {
@@ -191,7 +191,7 @@ where
                     Err(_) => {
                         return Ok(Err(
                             "L1 messenger failure: sendToL1 called with invalid calldata",
-                        ))
+                        ));
                     }
                 };
             // to check that it will not overflow
@@ -200,7 +200,7 @@ where
                 None => {
                     return Ok(Err(
                         "L1 messenger failure: sendToL1 called with invalid calldata",
-                    ))
+                    ));
                 }
             };
             if calldata.len() < message_end {

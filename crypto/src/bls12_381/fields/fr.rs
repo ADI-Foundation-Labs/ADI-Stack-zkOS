@@ -4,7 +4,7 @@ compile_error!("feature `bigint_ops` must be activated for RISC-V target");
 use core::mem::MaybeUninit;
 
 use crate::ark_ff_delegation::{BigInt, BigIntMacro, Fp, Fp256, MontBackend, MontConfig};
-use crate::bigint_delegation::{u256, DelegatedModParams, DelegatedMontParams};
+use crate::bigint_delegation::{DelegatedModParams, DelegatedMontParams, u256};
 use ark_ff::{AdditiveGroup, Zero};
 
 #[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
@@ -211,7 +211,7 @@ impl proptest::arbitrary::Arbitrary for Fr {
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
         use ark_ff::PrimeField;
-        use proptest::prelude::{any, Strategy};
+        use proptest::prelude::{Strategy, any};
         any::<u256::U256Wrapper<FrParams>>().prop_map(|x| Self::from_bigint(x.0).unwrap())
     }
 

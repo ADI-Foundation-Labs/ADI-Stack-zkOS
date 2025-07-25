@@ -1,9 +1,9 @@
-use proc_macro2::{Literal, Span};
 use proc_macro_error2::abort_call_site;
+use proc_macro2::{Literal, Span};
 use quote::quote;
 use syn::{
-    parse_macro_input, token::Paren, AngleBracketedGenericArguments, FnArg, GenericArgument, Ident,
-    ImplItemFn, PathArguments, Signature, Type, TypePath, TypeReference, TypeTuple,
+    AngleBracketedGenericArguments, FnArg, GenericArgument, Ident, ImplItemFn, PathArguments,
+    Signature, Type, TypePath, TypeReference, TypeTuple, parse_macro_input, token::Paren,
 };
 
 pub(crate) fn derive(
@@ -59,7 +59,9 @@ pub(crate) fn derive(
 
     #[allow(clippy::len_zero)]
     if inputs.len() == 0 {
-        abort_call_site!("function must have at least one argument to derive ABI, fallback function is not supported and doesn't have an ABI");
+        abort_call_site!(
+            "function must have at least one argument to derive ABI, fallback function is not supported and doesn't have an ABI"
+        );
     }
 
     let const_identifier = format!("{}_SOLIDITY_ABI_SELECTOR", ident.to_string().to_uppercase());

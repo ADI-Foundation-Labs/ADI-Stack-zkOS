@@ -1,7 +1,7 @@
 use core::mem::MaybeUninit;
 
 use crate::ark_ff_delegation::BigInt;
-use crate::bigint_delegation::{u256, DelegatedModParams, DelegatedMontParams};
+use crate::bigint_delegation::{DelegatedModParams, DelegatedMontParams, u256};
 use crate::secp256r1::Secp256r1Err;
 
 static mut MODULUS: MaybeUninit<BigInt<4>> = MaybeUninit::uninit();
@@ -76,7 +76,7 @@ impl Scalar {
     }
 
     pub(super) fn to_words(self) -> [u64; 4] {
-        self.to_integer().0 .0
+        self.to_integer().0.0
     }
 
     pub(crate) fn is_zero(&self) -> bool {
@@ -108,13 +108,13 @@ impl Scalar {
 
 #[cfg(test)]
 mod tests {
-    use super::{u256, Scalar, ScalarParams};
+    use super::{Scalar, ScalarParams, u256};
 
     impl proptest::arbitrary::Arbitrary for Scalar {
         type Parameters = ();
 
         fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-            use proptest::prelude::{any, Strategy};
+            use proptest::prelude::{Strategy, any};
             any::<u256::U256Wrapper<ScalarParams>>().prop_map(|x| Self(x.0).to_repressentation())
         }
 

@@ -1,9 +1,9 @@
-use proc_macro2::{Ident, Span, TokenStream};
 use proc_macro_error2::abort_call_site;
+use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
 use syn::{
-    parse_macro_input, parse_str, token::Comma, Data, DeriveInput, Fields, Generics, Lifetime,
-    LifetimeParam, Type, TypePath,
+    Data, DeriveInput, Fields, Generics, Lifetime, LifetimeParam, Type, TypePath,
+    parse_macro_input, parse_str, token::Comma,
 };
 
 use crate::utils::*;

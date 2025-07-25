@@ -2,16 +2,16 @@ use crypto::secp256k1::recover;
 use crypto::{
     k256::elliptic_curve::{ops::Reduce, rand_core::OsRng},
     k256::{
-        ecdsa::{hazmat::bits2field, SigningKey},
-        elliptic_curve::group::GroupEncoding,
         Scalar,
+        ecdsa::{SigningKey, hazmat::bits2field},
+        elliptic_curve::group::GroupEncoding,
     },
     sha3::{Digest, Keccak256},
 };
 
 use proptest::{
     arbitrary::Mapped,
-    prelude::{any, Arbitrary, BoxedStrategy, Just, Strategy},
+    prelude::{Arbitrary, BoxedStrategy, Just, Strategy, any},
     prop_assert_eq, proptest,
 };
 

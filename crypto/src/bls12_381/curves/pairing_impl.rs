@@ -1,12 +1,12 @@
 use super::*;
-use crate::bls12_381::{Fq12, Fq2};
+use crate::bls12_381::{Fq2, Fq12};
+use ark_ec::AdditiveGroup;
+use ark_ec::AffineRepr;
+use ark_ec::CurveGroup;
 use ark_ec::bls12::g2::EllCoeff;
 use ark_ec::pairing::Pairing;
 use ark_ec::pairing::PairingOutput;
 use ark_ec::short_weierstrass::SWCurveConfig;
-use ark_ec::AdditiveGroup;
-use ark_ec::AffineRepr;
-use ark_ec::CurveGroup;
 use ark_ff::BitIteratorBE;
 use ark_ff::One;
 use ark_ff::{CyclotomicMultSubgroup, Field, Zero};

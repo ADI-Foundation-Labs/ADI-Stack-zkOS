@@ -44,14 +44,7 @@ impl<T: Sized, const N: usize, A: Allocator + Clone> zk_ee::memory::stack_trait:
         ListVec::<T, N, A>::new_in(alloc)
     }
 
-    fn len(&self) -> usize {
-        match self.0.iter().last() {
-            None => 0,
-            Some(last_node) => last_node.len() + (self.0.len() - 1) * N,
-        }
-    }
-
-    fn try_push(&mut self, value: T) -> Result<(), ()> {
+    fn push(&mut self, value: T) {
         match self.0.iter_mut().last() {
             None => {
                 // Empty, create a new node and push there
@@ -72,7 +65,13 @@ impl<T: Sized, const N: usize, A: Allocator + Clone> zk_ee::memory::stack_trait:
                 }
             }
         }
-        Ok(())
+    }
+
+    fn len(&self) -> usize {
+        match self.0.iter().last() {
+            None => 0,
+            Some(last_node) => last_node.len() + (self.0.len() - 1) * N,
+        }
     }
 
     fn pop(&mut self) -> Option<T> {

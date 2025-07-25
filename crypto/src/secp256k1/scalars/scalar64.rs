@@ -359,7 +359,7 @@ impl proptest::arbitrary::Arbitrary for ScalarInner {
     type Parameters = ();
 
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::{any, Strategy};
+        use proptest::prelude::{Strategy, any};
 
         any::<[u64; 4]>().prop_map(|words| {
             let (order, _) =

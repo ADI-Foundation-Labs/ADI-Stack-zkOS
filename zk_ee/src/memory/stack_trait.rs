@@ -21,13 +21,10 @@ pub trait Stack<T: Sized, A: Allocator> {
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-    fn push(&mut self, value: T) {
-        self.try_push(value).expect("must be able to push");
-    }
+    fn push(&mut self, value: T);
     fn pop(&mut self) -> Option<T>;
     fn top(&self) -> Option<&T>;
     fn top_mut(&mut self) -> Option<&mut T>;
-    fn try_push(&mut self, value: T) -> Result<(), ()>;
     fn clear(&mut self);
     fn truncate(&mut self, new_len: usize) {
         if new_len < self.len() {
@@ -61,9 +58,6 @@ impl<T: Sized, A: Allocator> Stack<T, A> for Vec<T, A> {
     }
     fn top_mut(&mut self) -> Option<&mut T> {
         self.last_mut()
-    }
-    fn try_push(&mut self, value: T) -> Result<(), ()> {
-        Vec::push_within_capacity(self, value).map_err(|_| ())
     }
     fn clear(&mut self) {
         Vec::clear(self)

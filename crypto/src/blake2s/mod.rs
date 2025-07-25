@@ -8,7 +8,7 @@ pub use naive::Blake2s256;
 mod delegated_extended;
 
 #[cfg(all(feature = "single_round_with_control", target_arch = "riscv32"))]
-pub use delegated_extended::{initialize_blake2s_delegation_context, Blake2s256};
+pub use delegated_extended::{Blake2s256, initialize_blake2s_delegation_context};
 
 // Multiple tests to compare delegation blake with external implementation.
 // To run - please execute the run_tests inside the main workload method.

@@ -3,9 +3,9 @@ use super::*;
 use crate::cost_constants::P256_VERIFY_COST_ERGS;
 use zk_ee::interface_error;
 use zk_ee::system::{
+    P256VerifyInterfaceError,
     base_system_functions::{P256VerifyErrors, SystemFunction},
     errors::subsystem::SubsystemError,
-    P256VerifyInterfaceError,
 };
 
 // TODO(EVM-1072): think about error cases, as others follow evm specs

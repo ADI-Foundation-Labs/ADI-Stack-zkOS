@@ -158,7 +158,11 @@ impl<M: MemorySource> ZkEENonDeterminismSource<M> {
 
     fn write_impl(&mut self, memory: &M, value: u32) {
         if self.current_query_id.is_some() {
-            println!("Current query ID = 0x{:08x} iterator is not consumed in full, but received value 0x{:08x}", self.current_query_id.unwrap(), value);
+            println!(
+                "Current query ID = 0x{:08x} iterator is not consumed in full, but received value 0x{:08x}",
+                self.current_query_id.unwrap(),
+                value
+            );
             self.current_query_id = None;
         }
 

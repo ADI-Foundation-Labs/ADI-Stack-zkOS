@@ -51,9 +51,9 @@ pub fn ecrecover_test() {
     init();
 
     use crate::k256::{
-        ecdsa::{hazmat::bits2field, SigningKey},
-        elliptic_curve::{group::GroupEncoding, ops::Reduce},
         Scalar,
+        ecdsa::{SigningKey, hazmat::bits2field},
+        elliptic_curve::{group::GroupEncoding, ops::Reduce},
     };
     use crate::sha3::{Digest, Keccak256};
     let message = "In the beginning the Universe was created.

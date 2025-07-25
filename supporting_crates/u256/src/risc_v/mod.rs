@@ -281,32 +281,20 @@ impl U256 {
     pub fn checked_add(&self, rhs: &Self) -> Option<Self> {
         let mut result = self.clone();
         let of = result.overflowing_add_assign(rhs);
-        if of {
-            None
-        } else {
-            Some(result)
-        }
+        if of { None } else { Some(result) }
     }
 
     pub fn checked_sub(&self, rhs: &Self) -> Option<Self> {
         let mut result = self.clone();
         let of = result.overflowing_sub_assign(rhs);
-        if of {
-            None
-        } else {
-            Some(result)
-        }
+        if of { None } else { Some(result) }
     }
 
     pub fn checked_mul(&self, rhs: &Self) -> Option<Self> {
         let mut result = self.clone();
         let of = result.0.mul_low_assign(&rhs.0);
 
-        if of {
-            None
-        } else {
-            Some(result)
-        }
+        if of { None } else { Some(result) }
     }
 }
 

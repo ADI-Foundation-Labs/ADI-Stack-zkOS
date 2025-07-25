@@ -6,8 +6,8 @@
 use self::u256be_ptr::U256BEPtr;
 use crate::bootloader::rlp;
 use core::ops::Range;
-use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
+use crypto::sha3::Keccak256;
 use errors::{BootloaderSubsystemError, InvalidTransaction};
 use ruint::aliases::U256;
 use zk_ee::internal_error;
@@ -22,7 +22,7 @@ mod tests;
 pub mod u256be_ptr;
 
 use super::{
-    rlp::{apply_list_length_encoding_to_hash, estimate_length_encoding_len, ADDRESS_ENCODING_LEN},
+    rlp::{ADDRESS_ENCODING_LEN, apply_list_length_encoding_to_hash, estimate_length_encoding_len},
     *,
 };
 

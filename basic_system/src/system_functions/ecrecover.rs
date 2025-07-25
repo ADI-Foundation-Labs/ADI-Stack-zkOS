@@ -1,8 +1,8 @@
 use super::*;
 use crate::cost_constants::{ECRECOVER_COST_ERGS, ECRECOVER_NATIVE_COST};
+use zk_ee::system::Computational;
 use zk_ee::system::base_system_functions::{Secp256k1ECRecoverErrors, SystemFunction};
 use zk_ee::system::errors::{subsystem::SubsystemError, system::SystemError};
-use zk_ee::system::Computational;
 
 ///
 /// ecrecover system function implementation.
@@ -89,9 +89,9 @@ pub fn ecrecover_inner(
     rec_id: u8,
 ) -> Result<crypto::k256::EncodedPoint, ()> {
     use crypto::k256::{
-        ecdsa::{hazmat::bits2field, RecoveryId, Signature},
-        elliptic_curve::ops::Reduce,
         Scalar,
+        ecdsa::{RecoveryId, Signature, hazmat::bits2field},
+        elliptic_curve::ops::Reduce,
     };
 
     let signature = Signature::from_scalars(*r, *s).map_err(|_| ())?;

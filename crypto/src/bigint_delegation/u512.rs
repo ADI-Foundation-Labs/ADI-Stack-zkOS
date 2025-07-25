@@ -1,9 +1,8 @@
 use core::{borrow, mem::MaybeUninit};
 
 use super::{
-    delegation,
+    DelegatedModParams, DelegatedMontParams, delegation,
     u256::{self, U256},
-    DelegatedModParams, DelegatedMontParams,
 };
 use crate::ark_ff_delegation::{BigInt, BigInteger};
 

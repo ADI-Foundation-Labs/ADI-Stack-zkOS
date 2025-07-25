@@ -5,7 +5,6 @@
 #![feature(associated_type_defaults)]
 #![feature(get_mut_unchecked)]
 #![feature(array_windows)]
-#![feature(vec_push_within_capacity)]
 #![feature(slice_from_ptr_range)]
 #![feature(never_type)]
 #![feature(box_into_inner)]

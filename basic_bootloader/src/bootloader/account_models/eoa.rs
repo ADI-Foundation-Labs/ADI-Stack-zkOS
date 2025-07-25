@@ -7,23 +7,24 @@ use crate::bootloader::constants::{SPECIAL_ADDRESS_TO_WASM_DEPLOY, TX_OFFSET};
 use crate::bootloader::errors::InvalidTransaction::CreateInitCodeSizeLimit;
 use crate::bootloader::errors::{AAMethod, BootloaderSubsystemError};
 use crate::bootloader::errors::{InvalidTransaction, TxError};
-use crate::bootloader::runner::{run_till_completion, RunnerMemoryBuffers};
+use crate::bootloader::runner::{RunnerMemoryBuffers, run_till_completion};
 use crate::bootloader::supported_ees::SystemBoundEVMInterpreter;
 use crate::bootloader::transaction::ZkSyncTransaction;
 use crate::bootloader::{BasicBootloader, Bytes32};
 use core::fmt::Write;
 use evm_interpreter::{ERGS_PER_GAS, MAX_INITCODE_SIZE};
 use ruint::aliases::{B160, U256};
-use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
 use system_hooks::HooksStorage;
+use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::memory::ArrayBuilder;
 use zk_ee::system::errors::interface::InterfaceError;
 use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::{
+    EthereumLikeTypes, System, SystemTypes,
     errors::{runtime::RuntimeError, system::SystemError},
     logger::Logger,
-    EthereumLikeTypes, System, SystemTypes, *,
+    *,
 };
 use zk_ee::utils::{b160_to_u256, u256_to_b160_checked};
 use zk_ee::{internal_error, out_of_native_resources, wrap_error};
@@ -99,12 +100,12 @@ where
             Err(SystemError::LeafRuntime(RuntimeError::OutOfErgs(_))) => {
                 return Err(TxError::Validation(
                     InvalidTransaction::OutOfGasDuringValidation,
-                ))
+                ));
             }
             Err(SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(_))) => {
                 return Err(TxError::Validation(
                     InvalidTransaction::OutOfNativeResourcesDuringValidation,
-                ))
+                ));
             }
             Err(SystemError::LeafDefect(e)) => return Err(TxError::Internal(e.into())),
         }
@@ -159,7 +160,7 @@ where
             Err(SubsystemError::LeafUsage(InterfaceError(NonceError::NonceOverflow, _))) => {
                 return Err(TxError::Validation(
                     InvalidTransaction::NonceOverflowInTransaction,
-                ))
+                ));
             }
             Err(e) => Err(wrap_error!(e)),
         }?;
@@ -503,10 +504,10 @@ where
                 Err(SystemError::LeafRuntime(RuntimeError::OutOfErgs(_))) => {
                     return Err(TxError::Validation(
                         InvalidTransaction::OutOfGasDuringValidation,
-                    ))
+                    ));
                 }
                 Err(e @ SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(_))) => {
-                    return Err(TxError::oon_as_validation(e.into()))
+                    return Err(TxError::oon_as_validation(e.into()));
                 }
                 Err(SystemError::LeafDefect(e)) => return Err(TxError::Internal(e.into())),
             };
@@ -556,10 +557,10 @@ where
                 resources_returned: S::Resources::empty(),
                 reverted: true,
                 deployed_address: DeployedAddress::RevertedNoAddress,
-            })
+            });
         }
         Err(SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(loc))) => {
-            return Err(RuntimeError::OutOfNativeResources(loc).into())
+            return Err(RuntimeError::OutOfNativeResources(loc).into());
         }
         Err(SystemError::LeafDefect(e)) => return Err(e.into()),
     };
@@ -574,7 +575,7 @@ where
     }
     let ee_specific_deployment_processing_data = match to_ee_type {
         ExecutionEnvironmentType::NoEE => {
-            return Err(internal_error!("Deployment cannot target NoEE").into())
+            return Err(internal_error!("Deployment cannot target NoEE").into());
         }
         ExecutionEnvironmentType::EVM => {
             SystemBoundEVMInterpreter::<S>::default_ee_deployment_options(system)

@@ -2,7 +2,7 @@
 use crate::ark_ff_delegation::MontFp;
 use ark_ec::{
     bn,
-    models::{short_weierstrass::SWCurveConfig, CurveConfig},
+    models::{CurveConfig, short_weierstrass::SWCurveConfig},
     scalar_mul::glv::GLVConfig,
     short_weierstrass::{Affine, Projective},
 };

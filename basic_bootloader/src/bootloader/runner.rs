@@ -1,13 +1,13 @@
+use crate::bootloader::DEBUG_OUTPUT;
 use crate::bootloader::constants::SPECIAL_ADDRESS_SPACE_BOUND;
 use crate::bootloader::supported_ees::SupportedEEVMState;
-use crate::bootloader::DEBUG_OUTPUT;
 use alloc::boxed::Box;
 use core::fmt::Write;
 use core::mem::MaybeUninit;
-use evm_interpreter::gas_constants::CALLVALUE;
-use evm_interpreter::gas_constants::CALL_STIPEND;
-use evm_interpreter::gas_constants::NEWACCOUNT;
 use evm_interpreter::ERGS_PER_GAS;
+use evm_interpreter::gas_constants::CALL_STIPEND;
+use evm_interpreter::gas_constants::CALLVALUE;
+use evm_interpreter::gas_constants::NEWACCOUNT;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
 use system_hooks::*;
@@ -342,7 +342,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
             }
 
             Ok(CallPreparationResult::Failure { resources_returned }) => {
-                return Ok((resources_returned, CallResult::CallFailedToExecute))
+                return Ok((resources_returned, CallResult::CallFailedToExecute));
             }
             Err(e) => return Err(e),
         };
@@ -441,7 +441,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                                 ExecutionEnvironmentType::NoEE => {
                                     return Err(interface_error!(
                                         BootloaderInterfaceError::TopLevelInsufficientBalance
-                                    ))
+                                    ));
                                 }
                                 ExecutionEnvironmentType::EVM => {
                                     // Following EVM, a call with insufficient balance is not a revert,
@@ -456,7 +456,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                         SubsystemError::LeafRuntime(runtime_error) => match runtime_error {
                             RuntimeError::OutOfNativeResources(_) => return Err(wrap_error!(e)),
                             RuntimeError::OutOfErgs(_) => {
-                                return Err(internal_error!("Out of ergs on infinite ergs").into())
+                                return Err(internal_error!("Out of ergs on infinite ergs").into());
                             }
                         },
                         SubsystemError::Cascaded(cascaded_error) => match cascaded_error {},
@@ -536,7 +536,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                     (actual_resources_to_pass, resources_returned)
                 }
                 Ok(CallPreparationResult::Failure { resources_returned }) => {
-                    return Ok((resources_returned, CallResult::CallFailedToExecute))
+                    return Ok((resources_returned, CallResult::CallFailedToExecute));
                 }
                 Err(e) => return Err(e),
             };
@@ -641,7 +641,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                             return_values: ReturnValues::empty(),
                             execution_reverted: false,
                         },
-                    })
+                    });
                 }
                 Err(e) => {
                     return Err(wrap_error!(e));
@@ -764,10 +764,10 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                             return Err(internal_error!(
                                 "returned from deployment as if it was an external call",
                             )
-                            .into())
+                            .into());
                         }
                         TransactionEndPoint::CompletedDeployment(result) => result,
-                    }
+                    };
                 }
             }
         };
@@ -807,7 +807,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                         (false, deployment_result)
                     }
                     Err(SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(loc))) => {
-                        return Err(RuntimeError::OutOfNativeResources(loc).into())
+                        return Err(RuntimeError::OutOfNativeResources(loc).into());
                     }
                     Err(SystemError::LeafDefect(e)) => return Err(e.into()),
                 }
@@ -912,7 +912,7 @@ where
             });
         }
         Err(SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(loc))) => {
-            return Err(RuntimeError::OutOfNativeResources(loc).into())
+            return Err(RuntimeError::OutOfNativeResources(loc).into());
         }
         Err(SystemError::LeafDefect(e)) => return Err(e.into()),
     };
@@ -987,7 +987,7 @@ where
         Err(SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(loc))) => {
             return Err(SystemError::LeafRuntime(
                 RuntimeError::OutOfNativeResources(loc),
-            ))
+            ));
         }
         Err(SystemError::LeafDefect(e)) => return Err(e.into()),
     };
@@ -996,7 +996,7 @@ where
     let stipend = if !is_entry_frame {
         match ee_version {
             ExecutionEnvironmentType::NoEE => {
-                return Err(internal_error!("Cannot be NoEE deep in the callstack").into())
+                return Err(internal_error!("Cannot be NoEE deep in the callstack").into());
             }
             ExecutionEnvironmentType::EVM => {
                 let is_delegate = call_request.is_delegate();

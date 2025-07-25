@@ -1,5 +1,5 @@
 use super::copy::*;
-use super::{delegation::*, DelegatedU256};
+use super::{DelegatedU256, delegation::*};
 use core::cmp::Ordering;
 use core::ops::{BitAndAssign, BitOrAssign, ShlAssign, ShrAssign};
 use core::{mem::MaybeUninit, ops::BitXorAssign};

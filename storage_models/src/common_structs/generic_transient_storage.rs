@@ -16,8 +16,7 @@ pub struct GenericTransientStorage<
     SC: StackCtor<N>,
     const N: usize,
     A: Allocator + Clone = Global,
->
-{
+> {
     cache: HistoryMap<K, V, A>,
     pub(crate) current_tx_number: u32,
     phantom: PhantomData<SC>,
@@ -25,12 +24,12 @@ pub struct GenericTransientStorage<
 }
 
 impl<
-        K: KeyLikeWithBounds,
-        V: Clone + Default,
-        SC: StackCtor<N>,
-        const N: usize,
-        A: Allocator + Clone,
-    > GenericTransientStorage<K, V, SC, N, A>
+    K: KeyLikeWithBounds,
+    V: Clone + Default,
+    SC: StackCtor<N>,
+    const N: usize,
+    A: Allocator + Clone,
+> GenericTransientStorage<K, V, SC, N, A>
 {
     pub fn new_from_parts(allocator: A) -> Self {
         Self {

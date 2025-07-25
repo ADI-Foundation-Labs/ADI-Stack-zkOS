@@ -13,7 +13,7 @@ use zk_ee::system::errors::runtime::RuntimeError;
 use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::*;
 use zk_ee::types_config::SystemIOTypesConfig;
-use zk_ee::utils::{b160_to_u256, Bytes32};
+use zk_ee::utils::{Bytes32, b160_to_u256};
 use zk_ee::{interface_error, internal_error, wrap_error};
 
 impl<S: SystemTypes> EEDeploymentExtraParameters<S> for CreateScheme {}
@@ -143,7 +143,7 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
             a => {
                 return Err(interface_error!(EvmInterfaceError::UnexpectedModifier {
                     modifier: a
-                }))
+                }));
             }
         }
 

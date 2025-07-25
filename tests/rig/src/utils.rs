@@ -9,8 +9,8 @@ use alloy::primitives::Signature;
 use alloy::rpc::types::TransactionRequest;
 use alloy::signers::local::PrivateKeySigner;
 use ethers::abi::{AbiEncode, Token, Uint};
-use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::U256;
+use ethers::types::transaction::eip2718::TypedTransaction;
 use std::io::Read;
 use std::ops::Add;
 use std::path::PathBuf;
@@ -20,7 +20,7 @@ use zksync_web3_rs::signers::Signer;
 use zksync_web3_rs::zks_utils::EIP712_TX_TYPE;
 
 pub use basic_system::system_implementation::flat_storage_model::{
-    address_into_special_storage_key, AccountProperties, ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
+    ACCOUNT_PROPERTIES_STORAGE_ADDRESS, AccountProperties, address_into_special_storage_key,
 };
 
 ///
@@ -391,11 +391,7 @@ fn encode_tx(
         Token::Uint(U256::from(value)),
         Token::FixedArray(vec![
             Token::Uint(if tx_type == 0 {
-                if is_eip155 {
-                    U256::one()
-                } else {
-                    U256::zero()
-                }
+                if is_eip155 { U256::one() } else { U256::zero() }
             } else if tx_type == 255 {
                 U256::from(value).add(gas_limit * max_fee_per_gas)
             } else {

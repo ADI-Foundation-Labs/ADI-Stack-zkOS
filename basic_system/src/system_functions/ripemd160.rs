@@ -1,12 +1,12 @@
 use super::*;
 
 use crate::cost_constants::{
-    RIPEMD160_BASE_NATIVE_COST, RIPEMD160_CHUNK_SIZE, RIPEMD160_ROUND_NATIVE_COST,
-    RIPEMD_160_PER_WORD_COST_ERGS, RIPEMD_160_STATIC_COST_ERGS,
+    RIPEMD_160_PER_WORD_COST_ERGS, RIPEMD_160_STATIC_COST_ERGS, RIPEMD160_BASE_NATIVE_COST,
+    RIPEMD160_CHUNK_SIZE, RIPEMD160_ROUND_NATIVE_COST,
 };
+use zk_ee::system::Computational;
 use zk_ee::system::base_system_functions::{RipeMd160Errors, SystemFunction};
 use zk_ee::system::errors::{subsystem::SubsystemError, system::SystemError};
-use zk_ee::system::Computational;
 
 ///
 /// ripemd-160 system function implementation.
