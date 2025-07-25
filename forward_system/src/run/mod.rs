@@ -131,6 +131,27 @@ pub fn make_oracle_for_proofs_and_dumps<
     tx_source: TS,
     storage_commitment: Option<StorageCommitment>,
 ) -> ZkEENonDeterminismSource<M> {
+    make_oracle_for_proofs_and_dumps_for_init_data(
+        batch_context,
+        tree,
+        preimage_source,
+        tx_source,
+        Some(io_implementer_init_data(storage_commitment))
+    )
+}
+
+pub fn make_oracle_for_proofs_and_dumps_for_init_data<
+    T: ReadStorageTree,
+    PS: PreimageSource,
+    TS: TxSource,
+    M: MemorySource,
+>(
+    batch_context: BatchContext,
+    tree: T,
+    preimage_source: PS,
+    tx_source: TS,
+    io_implementer_init_data: Option<BasicIOImplementerFSM<FlatStorageCommitment<TREE_HEIGHT>>>,
+) -> ZkEENonDeterminismSource<M> {
     let block_metadata_reponsder = BlockMetadataResponder {
         block_metadata: batch_context,
     };
@@ -141,7 +162,7 @@ pub fn make_oracle_for_proofs_and_dumps<
     let preimage_responder = GenericPreimageResponder { preimage_source };
     let tree_responder = ReadTreeResponder { tree };
     let io_implementer_init_responder = IOImplementerInitResponder {
-        io_implementer_init_data: Some(io_implementer_init_data(storage_commitment)),
+        io_implementer_init_data,
     };
 
     let mut oracle = ZkEENonDeterminismSource::default();

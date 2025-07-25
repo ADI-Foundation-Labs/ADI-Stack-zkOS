@@ -5,9 +5,9 @@ use arbitrary::Unstructured;
 use basic_system::system_functions::ecrecover::EcRecoverImpl;
 use libfuzzer_sys::fuzz_target;
 use zk_ee::reference_implementations::BaseResources;
-use zk_ee::system::SystemFunction;
-use zk_ee::system::Resource;
 use zk_ee::reference_implementations::DecreasingNative;
+use zk_ee::system::Resource;
+use zk_ee::system::SystemFunction;
 
 const ECRECOVER_SRC_REQUIRED_LENGTH: usize = 128;
 

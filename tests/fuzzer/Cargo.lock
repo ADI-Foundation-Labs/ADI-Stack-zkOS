@@ -1495,11 +1495,11 @@ dependencies = [
  "basic_system",
  "crypto",
  "cycle_marker",
- "either",
  "evm_interpreter",
  "hex",
+ "paste",
  "ruint",
- "seq-macro",
+ "strum_macros 0.27.1",
  "system_hooks",
  "zk_ee",
 ]
@@ -1509,18 +1509,17 @@ name = "basic_system"
 version = "0.1.0"
 dependencies = [
  "arrayvec",
- "cfg-if",
- "const_for",
  "crypto",
  "cycle_marker",
  "either",
  "evm_interpreter",
  "hex",
+ "paste",
  "rand 0.9.1",
  "ruint",
  "serde",
  "storage_models",
- "system_hooks",
+ "strum_macros 0.27.1",
  "zk_ee",
 ]
 
@@ -2947,7 +2946,9 @@ dependencies = [
  "crypto",
  "cycle_marker",
  "either",
+ "paste",
  "ruint",
+ "strum_macros 0.27.1",
  "zk_ee",
 ]
 
@@ -3125,15 +3126,13 @@ dependencies = [
  "basic_bootloader",
  "basic_system",
  "bincode",
- "crypto",
- "either",
  "evm_interpreter",
  "hex",
  "oracle_provider",
+ "paste",
  "ruint",
- "seq-macro",
  "serde",
- "system_hooks",
+ "strum_macros 0.27.1",
  "zk_ee",
  "zksync_os_runner",
 ]
@@ -3290,6 +3289,7 @@ dependencies = [
  "iwasm_ee",
  "libfuzzer-sys",
  "once_cell",
+ "oracle_provider",
  "rand 0.8.5",
  "revm",
  "rig",
@@ -4801,7 +4801,7 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 name = "oracle_provider"
 version = "0.1.0"
 dependencies = [
- "ringbuffer",
+ "basic_system",
  "risc_v_simulator",
  "zk_ee",
 ]
@@ -5794,6 +5794,7 @@ dependencies = [
  "tokio",
  "zk_ee",
  "zksync-web3-rs",
+ "zksync_os_api",
  "zksync_os_runner",
 ]
 
@@ -6604,10 +6605,7 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 name = "storage_models"
 version = "0.1.0"
 dependencies = [
- "arrayvec",
  "crypto",
- "either",
- "ruint",
  "zk_ee",
 ]
 
@@ -6821,10 +6819,11 @@ name = "system_hooks"
 version = "0.1.0"
 dependencies = [
  "arrayvec",
- "crypto",
  "cycle_marker",
  "evm_interpreter",
+ "paste",
  "ruint",
+ "strum_macros 0.27.1",
  "zk_ee",
 ]
 
@@ -8321,8 +8320,10 @@ dependencies = [
  "cfg-if",
  "crypto",
  "cycle_marker",
+ "paste",
  "ruint",
  "serde",
+ "strum_macros 0.27.1",
 ]
 
 [[package]]
@@ -8344,6 +8345,21 @@ dependencies = [
  "sha2 0.9.9",
  "thiserror 1.0.69",
  "tokio",
+]
+
+[[package]]
+name = "zksync_os_api"
+version = "0.1.0"
+dependencies = [
+ "basic_system",
+ "crypto",
+ "evm_interpreter",
+ "forward_system",
+ "oracle_provider",
+ "risc_v_simulator",
+ "ruint",
+ "zk_ee",
+ "zksync_os_runner",
 ]
 
 [[package]]
