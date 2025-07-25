@@ -908,7 +908,6 @@ where
         let mut callee_resources = match SupportedEEVMState::<S>::clarify_and_take_passed_resources(
             ee_version,
             &mut resources_in_caller_frame,
-            call_request.ergs_to_pass,
             &call_request,
             &callee_parameters,
         ) {

@@ -296,7 +296,6 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
 
     fn clarify_and_take_passed_resources(
         resources_available_in_caller_frame: &mut S::Resources,
-        desired_ergs_to_pass: Ergs,
         call_request: &ExternalCallRequest<S>,
         callee_parameters: &CalleeAccountProperties,
     ) -> Result<S::Resources, Self::SubsystemError> {
@@ -331,7 +330,7 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
 
         let max_passable_ergs =
             gas_utils::apply_63_64_rule(resources_available_in_caller_frame.ergs());
-        let ergs_to_pass = core::cmp::min(desired_ergs_to_pass, max_passable_ergs);
+        let ergs_to_pass = core::cmp::min(call_request.ergs_to_pass, max_passable_ergs);
 
         // Charge caller frame
         let mut resources_to_pass = S::Resources::from_ergs(ergs_to_pass);

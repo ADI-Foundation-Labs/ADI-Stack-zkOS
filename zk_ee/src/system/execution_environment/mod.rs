@@ -114,13 +114,10 @@ pub trait ExecutionEnvironment<'ee, S: SystemTypes, Es: Subsystem>: Sized {
     ) -> Option<Box<dyn Any, <S as SystemTypes>::Allocator>>;
 
     ///
-    /// Adjust resources passed from the caller to the callee.
-    /// Some EE might have some additional rules in this situation,
-    /// such as the 63/64 rule for EVM.
+    /// TODO
     ///
     fn clarify_and_take_passed_resources(
         resources_available_in_deployer_frame: &mut S::Resources,
-        ergs_desired_to_pass: Ergs,
         call_request: &ExternalCallRequest<S>,
         callee_parameters: &CalleeAccountProperties,
     ) -> Result<S::Resources, Self::SubsystemError>;
