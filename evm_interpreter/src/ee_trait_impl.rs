@@ -227,7 +227,8 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
                     .get_logger()
                     .write_fmt(format_args!("Call failed, out of gas\n"));
                 // we fail because it's caller's failure
-                return self.create_immediate_return_state(true, true, false, tracer);
+                return self
+                    .create_immediate_return_state(ExitCode::EvmError(EvmError::OutOfGas), tracer);
             }
             CallResult::Failed { return_values } => {
                 // NOTE: EE is ALLOWED to spend resources from caller's frame before

@@ -616,6 +616,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
         // Caller gave away all it's resources into deployment parameters, and in preparation function
         // we will charge for deployment, compute address and potentially increment nonce
 
+        // TODO (tracing) failure during prepare_for_deployment should be treated as failure in callee frame
         let (mut resources_for_deployer, mut launch_params) =
             match SupportedEEVMState::prepare_for_deployment(
                 ee_type,

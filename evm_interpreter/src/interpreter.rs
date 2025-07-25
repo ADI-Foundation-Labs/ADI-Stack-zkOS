@@ -81,15 +81,7 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
             });
         }
 
-        let (empty_returndata, reverted) = match exit_code {
-            ExitCode::Stop => (true, false),
-            ExitCode::SelfDestruct => (true, false),
-            ExitCode::Return => (false, false),
-            ExitCode::EvmError(EvmError::Revert) => (false, true),
-            _ => (true, true),
-        };
-
-        self.create_immediate_return_state(empty_returndata, reverted, exit_code.is_error(), tracer)
+        self.create_immediate_return_state(exit_code, tracer)
     }
 }
 
@@ -365,12 +357,6 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
             }
         };
 
-        if tracer.evm_tracer().is_on_opcode_error_enabled() {
-            if let ExitCode::EvmError(evm_error) = &result {
-                tracer.evm_tracer().on_opcode_error(evm_error, self);
-            }
-        }
-
         let _ = system.get_logger().write_fmt(format_args!(
             "Instructions executed = {}\nFinal instruction result = {:?}\n",
             cycles, &result
@@ -381,15 +367,33 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
 
     pub(crate) fn create_immediate_return_state<'a>(
         &'a mut self,
-        empty_returndata: bool,
-        execution_reverted: bool,
-        is_error: bool,
+        evm_exit_code: ExitCode,
         tracer: &mut impl Tracer<S>,
     ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, EvmSubsystemError> {
-        if is_error {
-            // Spend all remaining resources on error
-            self.gas.consume_all_gas();
+        let empty_returndata = match evm_exit_code {
+            ExitCode::Stop => true,
+            ExitCode::SelfDestruct => true,
+            ExitCode::Return => false,
+            ExitCode::EvmError(EvmError::Revert) => false,
+            ExitCode::EvmError(_) => true,
+            ExitCode::ExternalCall => unreachable!(),
+            ExitCode::FatalError(_) => unreachable!(),
         };
+
+        let mut execution_reverted = false;
+        if let ExitCode::EvmError(evm_error) = evm_exit_code {
+            execution_reverted = true;
+
+            if evm_error != EvmError::Revert {
+                // Spend all remaining resources on error
+                self.gas.consume_all_gas();
+            }
+
+            if tracer.evm_tracer().is_on_opcode_error_enabled() {
+                tracer.evm_tracer().on_opcode_error(&evm_error, self);
+            }
+        };
+
         let mut return_values = ReturnValues::empty();
         if empty_returndata == false {
             return_values.returndata = &self.heap[self.returndata_location.clone()];
