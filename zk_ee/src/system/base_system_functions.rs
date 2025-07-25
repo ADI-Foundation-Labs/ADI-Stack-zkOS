@@ -1,8 +1,8 @@
 use crate::{define_subsystem, internal_error};
 
 use super::{
-    Resources,
     errors::subsystem::{Subsystem, SubsystemError},
+    Resources,
 };
 
 // Definitions of errors for all system functions

@@ -1,7 +1,7 @@
 use quote::quote;
 use syn::parse::Parse;
 use syn::parse::ParseStream;
-use syn::{LitStr, Token, parse_macro_input};
+use syn::{parse_macro_input, LitStr, Token};
 
 struct SignatureComputationInput {
     arg1: LitStr,       // Ident parses an identifier

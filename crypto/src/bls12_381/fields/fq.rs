@@ -38,7 +38,7 @@ const NUM_LIMBS: usize = 8usize;
 pub type Fq = Fp512<MontBackend<FqConfig, NUM_LIMBS>>;
 
 use crate::ark_ff_delegation::{BigInt, BigIntMacro, Fp, Fp512, MontBackend, MontConfig};
-use crate::bigint_delegation::{DelegatedModParams, DelegatedMontParams, u512};
+use crate::bigint_delegation::{u512, DelegatedModParams, DelegatedMontParams};
 use ark_ff::{AdditiveGroup, Field, Zero};
 use core::mem::MaybeUninit;
 
@@ -192,7 +192,7 @@ impl MontConfig<NUM_LIMBS> for FqConfig {
 
 #[cfg(test)]
 mod test {
-    use super::{B, BigInt, Fq, FqConfig, MontConfig};
+    use super::{BigInt, Fq, FqConfig, MontConfig, B};
     use ark_ff::{Field, One, UniformRand, Zero};
 
     fn init() {
@@ -328,7 +328,7 @@ mod test {
     use ark_bls12_381::Fq as FqRef;
     use ark_bls12_381::Fq2 as Fq2Ref;
     use ark_bls12_381::Fq6 as Fq6Ref;
-    use ark_ec::{CurveGroup, PrimeGroup, pairing::*};
+    use ark_ec::{pairing::*, CurveGroup, PrimeGroup};
     use ark_ff::{CyclotomicMultSubgroup, PrimeField};
     use ark_std::test_rng;
 

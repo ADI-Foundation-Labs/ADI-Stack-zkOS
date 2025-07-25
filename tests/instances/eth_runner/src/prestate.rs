@@ -1,7 +1,7 @@
 use rig::Chain;
 use ruint::{
-    Bits,
     aliases::{B160, B256, U256},
+    Bits,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};

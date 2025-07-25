@@ -309,7 +309,7 @@ mod tests {
         type Parameters = ();
 
         fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-            use proptest::prelude::{Strategy, any};
+            use proptest::prelude::{any, Strategy};
 
             any::<[u64; 4]>().prop_map(|limbs| {
                 if limbs < MODULUS {

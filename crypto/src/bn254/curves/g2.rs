@@ -4,7 +4,7 @@ use crate::ark_ff::MontFp;
 use crate::ark_ff_delegation::MontFp;
 use ark_ec::AffineRepr;
 use ark_ec::{
-    models::{CurveConfig, short_weierstrass::SWCurveConfig},
+    models::{short_weierstrass::SWCurveConfig, CurveConfig},
     scalar_mul::glv::GLVConfig,
     short_weierstrass::{Affine, Projective},
 };

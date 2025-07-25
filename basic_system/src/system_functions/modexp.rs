@@ -8,9 +8,9 @@ use ruint::aliases::U256;
 use zk_ee::{
     interface_error, internal_error, out_of_ergs_error,
     system::{
-        Computational, Ergs, ModExpInterfaceError, SystemFunction,
         base_system_functions::ModExpErrors,
         errors::{subsystem::SubsystemError, system::SystemError},
+        Computational, Ergs, ModExpInterfaceError, SystemFunction,
     },
 };
 

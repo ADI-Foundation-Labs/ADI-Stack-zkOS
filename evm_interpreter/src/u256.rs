@@ -47,5 +47,9 @@ pub(crate) fn log2floor(value: &U256) -> u64 {
 pub(crate) fn u256_short_mul(value: &mut U256, by: u64) -> Result<(), ()> {
     let of = unsafe { ruint::algorithms::mul_nx1(value.as_limbs_mut(), by) };
 
-    if of != 0 { Err(()) } else { Ok(()) }
+    if of != 0 {
+        Err(())
+    } else {
+        Ok(())
+    }
 }

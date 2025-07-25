@@ -1,4 +1,4 @@
-use super::{DelegatedBarretParams, DelegatedModParams, DelegatedMontParams, delegation};
+use super::{delegation, DelegatedBarretParams, DelegatedModParams, DelegatedMontParams};
 use crate::ark_ff_delegation::{BigInt, BigInteger};
 use core::{fmt::Debug, marker::PhantomData, mem::MaybeUninit};
 
@@ -388,7 +388,7 @@ impl<T: DelegatedModParams<4> + Debug> proptest::arbitrary::Arbitrary for U256Wr
     type Parameters = T;
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::{Just, Strategy, any};
+        use proptest::prelude::{any, Just, Strategy};
 
         any::<[u64; 4]>().prop_map(|words| {
             let mut res = BigInt::<4>(words);

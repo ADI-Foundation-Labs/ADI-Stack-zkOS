@@ -2,9 +2,9 @@
 #![feature(assert_matches)]
 
 use bytes::Bytes;
-use rig::BlockContext;
 use rig::forward_system::run::BatchOutput;
 use rig::forward_system::run::ExecutionResult::Revert;
+use rig::BlockContext;
 use rig::{
     ethers::{abi::Address, signers::Signer, types::TransactionRequest},
     ruint::aliases::{B160, U256},

@@ -129,12 +129,20 @@ impl<A: TaggedPointerCompatible<1>, B: TaggedPointerCompatible<1>> TaggedPointer
 
     pub fn as_a(self) -> Option<NonNull<A>> {
         let (ptr, tag) = strip_tag::<A>(self.pointer);
-        if tag == Self::TAG_A { Some(ptr) } else { None }
+        if tag == Self::TAG_A {
+            Some(ptr)
+        } else {
+            None
+        }
     }
 
     pub fn as_b(self) -> Option<NonNull<B>> {
         let (ptr, tag) = strip_tag::<B>(self.pointer);
-        if tag == Self::TAG_B { Some(ptr) } else { None }
+        if tag == Self::TAG_B {
+            Some(ptr)
+        } else {
+            None
+        }
     }
 }
 

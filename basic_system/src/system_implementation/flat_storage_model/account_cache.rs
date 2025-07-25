@@ -5,27 +5,27 @@ use super::AccountPropertiesMetadata;
 use super::BytecodeAndAccountDataPreimagesStorage;
 use super::NewStorageWithAccountPropertiesUnderHash;
 use crate::system_functions::keccak256::keccak256_native_cost;
-use crate::system_implementation::flat_storage_model::PreimageRequest;
-use crate::system_implementation::flat_storage_model::StorageAccessPolicy;
 use crate::system_implementation::flat_storage_model::account_cache_entry::AccountProperties;
 use crate::system_implementation::flat_storage_model::bytecode_padding_len;
 use crate::system_implementation::flat_storage_model::cost_constants::*;
+use crate::system_implementation::flat_storage_model::PreimageRequest;
+use crate::system_implementation::flat_storage_model::StorageAccessPolicy;
 use alloc::collections::BTreeSet;
 use core::alloc::Allocator;
 use core::marker::PhantomData;
-use evm_interpreter::ERGS_PER_GAS;
 use evm_interpreter::errors::EvmSubsystemError;
+use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
 use storage_models::common_structs::AccountAggregateDataHash;
 use storage_models::common_structs::PreimageCacheModel;
 use storage_models::common_structs::StorageCacheModel;
-use zk_ee::common_structs::PreimageType;
 use zk_ee::common_structs::cache_record::Appearance;
 use zk_ee::common_structs::cache_record::CacheRecord;
 use zk_ee::common_structs::history_map::CacheSnapshotId;
 use zk_ee::common_structs::history_map::HistoryMap;
 use zk_ee::common_structs::history_map::HistoryMapItemRefMut;
+use zk_ee::common_structs::PreimageType;
 use zk_ee::define_subsystem;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::interface_error;
@@ -42,8 +42,8 @@ use zk_ee::utils::Bytes32;
 use zk_ee::wrap_error;
 use zk_ee::{
     system::{
-        AccountData, AccountDataRequest, Ergs, IOResultKeeper, Maybe, Resources,
         errors::{internal::InternalError, system::SystemError},
+        AccountData, AccountDataRequest, Ergs, IOResultKeeper, Maybe, Resources,
     },
     system_io_oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
@@ -72,12 +72,12 @@ pub struct NewModelAccountCache<
 }
 
 impl<
-    A: Allocator + Clone,
-    R: Resources,
-    P: StorageAccessPolicy<R, Bytes32>,
-    SC: StackCtor<N>,
-    const N: usize,
-> NewModelAccountCache<A, R, P, SC, N>
+        A: Allocator + Clone,
+        R: Resources,
+        P: StorageAccessPolicy<R, Bytes32>,
+        SC: StackCtor<N>,
+        const N: usize,
+    > NewModelAccountCache<A, R, P, SC, N>
 {
     pub fn new_from_parts(allocator: A) -> Self {
         Self {
@@ -90,7 +90,7 @@ impl<
 
     /// Read element and initialize it if needed
     fn materialize_element<const PROOF_ENV: bool>(
-        &mut self,
+        &'_ mut self,
         ee_type: ExecutionEnvironmentType,
         resources: &mut R,
         address: &B160,
@@ -99,7 +99,7 @@ impl<
         oracle: &mut impl IOOracle,
         is_selfdestruct: bool,
         is_access_list: bool,
-    ) -> Result<AddressItem<A>, SystemError> {
+    ) -> Result<AddressItem<'_, A>, SystemError> {
         let ergs = match ee_type {
             ExecutionEnvironmentType::NoEE => {
                 if is_access_list {
@@ -286,7 +286,11 @@ impl<
                 addr,
                 move |old_balance: &U256| {
                     let (new_value, of) = op(*old_balance, *amount);
-                    if of { Err(err) } else { Ok(new_value) }
+                    if of {
+                        Err(err)
+                    } else {
+                        Ok(new_value)
+                    }
                 },
                 storage,
                 preimages_cache,
@@ -653,8 +657,8 @@ impl<
                 Err(internal_error!("Deployment cannot happen in NoEE").into())
             }
             ExecutionEnvironmentType::EVM => {
-                use crypto::MiniDigest;
                 use crypto::blake2s::Blake2s256;
+                use crypto::MiniDigest;
                 let preimage_len = observable_bytecode.len()
                     + bytecode_padding_len(observable_bytecode.len())
                     + artifacts.len();
@@ -718,8 +722,8 @@ impl<
             ExecutionEnvironmentType::EVM => {
                 let native_cost = keccak256_native_cost::<R>(deployed_code.len());
                 resources.charge(&R::from_native(native_cost))?;
-                use crypto::MiniDigest;
                 use crypto::sha3::Keccak256;
+                use crypto::MiniDigest;
                 let digest = Keccak256::digest(deployed_code);
                 Bytes32::from_array(digest)
             }

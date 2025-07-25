@@ -1,13 +1,13 @@
 use core::marker::PhantomData;
 
-use crate::bootloader::Bytes32;
-use crate::bootloader::account_models::AccountModel;
 use crate::bootloader::account_models::contract::Contract;
 use crate::bootloader::account_models::eoa::EOA;
+use crate::bootloader::account_models::AccountModel;
 use crate::bootloader::account_models::{ExecutionResult, TxError};
 use crate::bootloader::errors::BootloaderSubsystemError;
 use crate::bootloader::runner::RunnerMemoryBuffers;
 use crate::bootloader::transaction::ZkSyncTransaction;
+use crate::bootloader::Bytes32;
 use ruint::aliases::B160;
 use system_hooks::HooksStorage;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;

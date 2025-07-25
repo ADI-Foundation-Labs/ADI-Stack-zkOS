@@ -1,7 +1,7 @@
 use crate::bootloader::rlp;
 use arrayvec::ArrayVec;
-use crypto::MiniDigest;
 use crypto::sha3::Keccak256;
+use crypto::MiniDigest;
 use ruint::aliases::{B160, U256};
 use zk_ee::utils::Bytes32;
 

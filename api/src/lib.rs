@@ -1,10 +1,8 @@
-#![feature(allocator_api)]
-
 use std::{path::PathBuf, str::FromStr};
 
 use forward_system::run::{
-    BatchContext, StorageCommitment,
     test_impl::{InMemoryPreimageSource, InMemoryTree, TxListSource},
+    BatchContext, StorageCommitment,
 };
 use oracle_provider::{ReadWitnessSource, ZkEENonDeterminismSource};
 pub mod helpers;

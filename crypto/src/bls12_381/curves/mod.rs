@@ -1,6 +1,6 @@
 use ark_ec::bls12::{Bls12Config, TwistType};
 
-use crate::bls12_381::fields::{Fq, Fq2Config, Fq6Config, Fq12Config};
+use crate::bls12_381::fields::{Fq, Fq12Config, Fq2Config, Fq6Config};
 
 pub mod g1;
 pub mod g2;

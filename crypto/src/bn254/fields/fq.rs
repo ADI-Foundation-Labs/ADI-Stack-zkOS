@@ -11,7 +11,7 @@ pub fn init() {
 
 pub type Fq = Fp256<MontBackend<FqConfig, 4>>;
 use crate::ark_ff_delegation::{BigInt, BigIntMacro, Fp, Fp256, MontBackend, MontConfig};
-use crate::bigint_delegation::{DelegatedModParams, DelegatedMontParams, u256};
+use crate::bigint_delegation::{u256, DelegatedModParams, DelegatedMontParams};
 use ark_ff::ark_ff_macros::unroll_for_loops;
 use ark_ff::{AdditiveGroup, Zero};
 use core::mem::MaybeUninit;
@@ -317,7 +317,7 @@ mod test {
         let a = Fq::from_str("-1").unwrap();
         let ref_a = RefFq::from_str("-1").unwrap();
 
-        assert_eq!(a.0.0, ref_a.0.0);
+        assert_eq!(a.0 .0, ref_a.0 .0);
     }
 
     // NOTE: those tests are backported as we need to init static and run single thread
@@ -326,7 +326,7 @@ mod test {
 
     pub const ITERATIONS: usize = 100;
     use crate::bn254::curves::Bn254;
-    use ark_ec::{CurveGroup, PrimeGroup, pairing::*};
+    use ark_ec::{pairing::*, CurveGroup, PrimeGroup};
     use ark_ff::{CyclotomicMultSubgroup, PrimeField};
     use ark_std::test_rng;
 

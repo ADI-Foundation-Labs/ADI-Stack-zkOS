@@ -1,6 +1,6 @@
 use crate::{
     ark_ff_delegation::BigInt,
-    bigint_delegation::{DelegatedModParams, DelegatedMontParams, u256},
+    bigint_delegation::{u256, DelegatedModParams, DelegatedMontParams},
 };
 use core::mem::MaybeUninit;
 use core::ops::{AddAssign, MulAssign, SubAssign};
@@ -167,7 +167,7 @@ mod tests {
         type Parameters = ();
 
         fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-            use proptest::prelude::{Strategy, any};
+            use proptest::prelude::{any, Strategy};
 
             any::<u256::U256Wrapper<FieldParams>>().prop_map(|x| Self(x.0).to_representation())
         }

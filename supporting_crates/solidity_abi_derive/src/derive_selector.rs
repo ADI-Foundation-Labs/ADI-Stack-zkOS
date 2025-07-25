@@ -1,9 +1,9 @@
-use proc_macro_error2::abort_call_site;
 use proc_macro2::{Literal, Span};
+use proc_macro_error2::abort_call_site;
 use quote::quote;
 use syn::{
-    AngleBracketedGenericArguments, FnArg, GenericArgument, Ident, ImplItemFn, PathArguments,
-    Signature, Type, TypePath, TypeReference, TypeTuple, parse_macro_input, token::Paren,
+    parse_macro_input, token::Paren, AngleBracketedGenericArguments, FnArg, GenericArgument, Ident,
+    ImplItemFn, PathArguments, Signature, Type, TypePath, TypeReference, TypeTuple,
 };
 
 pub(crate) fn derive(

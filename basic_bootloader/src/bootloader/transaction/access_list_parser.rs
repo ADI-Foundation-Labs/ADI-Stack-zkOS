@@ -55,7 +55,11 @@ impl<'a> AccessListIter<'a> {
 
     // Check an offset is the expected value, to enforce strict encoding.
     fn check_offset(offset: usize, expected: usize) -> Result<(), ()> {
-        if offset != expected { Err(()) } else { Ok(()) }
+        if offset != expected {
+            Err(())
+        } else {
+            Ok(())
+        }
     }
 
     fn new(slice: &'a [u8], offset: usize) -> Result<Self, ()> {

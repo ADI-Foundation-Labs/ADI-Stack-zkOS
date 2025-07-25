@@ -9,7 +9,7 @@ use basic_system::system_implementation::system::FullIO;
 use stack_trait::StackCtor;
 use zk_ee::memory::*;
 use zk_ee::reference_implementations::BaseResources;
-use zk_ee::system::{EthereumLikeTypes, SystemTypes, logger::Logger};
+use zk_ee::system::{logger::Logger, EthereumLikeTypes, SystemTypes};
 use zk_ee::system_io_oracle::IOOracle;
 use zk_ee::types_config::EthereumIOTypesConfig;
 

@@ -1,15 +1,15 @@
 use alloc::{alloc::Global, collections::BTreeMap};
 use core::{alloc::Allocator, marker::PhantomData};
-use storage_models::common_structs::{PreimageCacheModel, snapshottable_io::SnapshottableIo};
+use storage_models::common_structs::{snapshottable_io::SnapshottableIo, PreimageCacheModel};
 use zk_ee::{
-    common_structs::{NewPreimagesPublicationStorage, PreimageType, history_map::CacheSnapshotId},
+    common_structs::{history_map::CacheSnapshotId, NewPreimagesPublicationStorage, PreimageType},
     execution_environment_type::ExecutionEnvironmentType,
     internal_error,
     system::{
-        IOResultKeeper, Resources,
         errors::{internal::InternalError, system::SystemError},
+        IOResultKeeper, Resources,
     },
-    system_io_oracle::{GENERIC_PREIMAGE_QUERY_ID, IOOracle},
+    system_io_oracle::{IOOracle, GENERIC_PREIMAGE_QUERY_ID},
     types_config::EthereumIOTypesConfig,
     utils::{Bytes32, UsizeAlignedByteBox},
 };
@@ -102,8 +102,8 @@ impl<R: Resources, A: Allocator + Clone> BytecodeAndAccountDataPreimagesStorage<
             if PROOF_ENV {
                 match preimage_type {
                     PreimageType::AccountData => {
-                        use crypto::MiniDigest;
                         use crypto::blake2s::Blake2s256;
+                        use crypto::MiniDigest;
                         let digest = Blake2s256::digest(buffered.as_slice());
                         let mut result = Bytes32::uninit();
                         let recomputed_hash = unsafe {
@@ -119,8 +119,8 @@ impl<R: Resources, A: Allocator + Clone> BytecodeAndAccountDataPreimagesStorage<
                         }
                     }
                     PreimageType::Bytecode => {
-                        use crypto::MiniDigest;
                         use crypto::blake2s::Blake2s256;
+                        use crypto::MiniDigest;
                         let digest = Blake2s256::digest(buffered.as_slice());
                         let mut result = Bytes32::uninit();
                         let recomputed_hash = unsafe {
@@ -140,8 +140,8 @@ impl<R: Resources, A: Allocator + Clone> BytecodeAndAccountDataPreimagesStorage<
                 debug_assert!({
                     match preimage_type {
                         PreimageType::AccountData => {
-                            use crypto::MiniDigest;
                             use crypto::blake2s::Blake2s256;
+                            use crypto::MiniDigest;
                             let digest = Blake2s256::digest(buffered.as_slice());
                             let mut result = Bytes32::uninit();
                             let recomputed_hash = unsafe {
@@ -155,8 +155,8 @@ impl<R: Resources, A: Allocator + Clone> BytecodeAndAccountDataPreimagesStorage<
                             recomputed_hash == *hash
                         }
                         PreimageType::Bytecode => {
-                            use crypto::MiniDigest;
                             use crypto::blake2s::Blake2s256;
+                            use crypto::MiniDigest;
                             let digest = Blake2s256::digest(buffered.as_slice());
                             let mut result = Bytes32::uninit();
                             let recomputed_hash = unsafe {

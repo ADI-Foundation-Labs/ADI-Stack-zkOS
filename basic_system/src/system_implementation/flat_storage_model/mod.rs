@@ -19,25 +19,25 @@ pub use self::storage_cache::*;
 use core::alloc::Allocator;
 use crypto::MiniDigest;
 use ruint::aliases::B160;
+use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::StorageCacheModel;
 use storage_models::common_structs::StorageModel;
-use storage_models::common_structs::snapshottable_io::SnapshottableIo;
-use zk_ee::common_structs::{ValueDiffCompressionStrategy, derive_flat_storage_key_with_hasher};
+use zk_ee::common_structs::{derive_flat_storage_key_with_hasher, ValueDiffCompressionStrategy};
 use zk_ee::internal_error;
+use zk_ee::system::errors::internal::InternalError;
 use zk_ee::system::BalanceSubsystemError;
 use zk_ee::system::DeconstructionSubsystemError;
 use zk_ee::system::NonceSubsystemError;
 use zk_ee::system::Resources;
-use zk_ee::system::errors::internal::InternalError;
 use zk_ee::{
     common_structs::{
-        WarmStorageKey, history_map::CacheSnapshotId, state_root_view::StateRootView,
+        history_map::CacheSnapshotId, state_root_view::StateRootView, WarmStorageKey,
     },
     execution_environment_type::ExecutionEnvironmentType,
     memory::stack_trait::StackCtor,
     system::{
-        AccountData, AccountDataRequest, IOResultKeeper, Maybe, errors::system::SystemError,
-        logger::Logger,
+        errors::system::SystemError, logger::Logger, AccountData, AccountDataRequest,
+        IOResultKeeper, Maybe,
     },
     system_io_oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
@@ -77,13 +77,13 @@ pub struct FlatTreeWithAccountsUnderHashesStorageModelStateSnapshot {
 }
 
 impl<
-    A: Allocator + Clone + Default,
-    R: Resources,
-    P: StorageAccessPolicy<R, Bytes32>,
-    SC: StackCtor<N>,
-    const N: usize,
-    const PROOF_ENV: bool,
-> StorageModel for FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, N, PROOF_ENV>
+        A: Allocator + Clone + Default,
+        R: Resources,
+        P: StorageAccessPolicy<R, Bytes32>,
+        SC: StackCtor<N>,
+        const N: usize,
+        const PROOF_ENV: bool,
+    > StorageModel for FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, N, PROOF_ENV>
 {
     type Allocator = A;
     type Resources = R;
@@ -474,13 +474,13 @@ impl<
 }
 
 impl<
-    A: Allocator + Clone + Default,
-    R: Resources,
-    P: StorageAccessPolicy<R, Bytes32>,
-    SC: StackCtor<N>,
-    const N: usize,
-    const PROOF_ENV: bool,
-> SnapshottableIo for FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, N, PROOF_ENV>
+        A: Allocator + Clone + Default,
+        R: Resources,
+        P: StorageAccessPolicy<R, Bytes32>,
+        SC: StackCtor<N>,
+        const N: usize,
+        const PROOF_ENV: bool,
+    > SnapshottableIo for FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, N, PROOF_ENV>
 {
     type StateSnapshot = FlatTreeWithAccountsUnderHashesStorageModelStateSnapshot;
 

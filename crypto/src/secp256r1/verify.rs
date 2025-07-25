@@ -1,9 +1,9 @@
 use super::{
-    ECMULT_TABLE_SIZE_A, Secp256r1Err, WINDOW_A, WINDOW_G,
     context::{GeneratorMultiplesTable, TABLE_G},
     points::Affine,
     scalar::{Scalar, Signature},
     wnaf::Wnaf,
+    Secp256r1Err, ECMULT_TABLE_SIZE_A, WINDOW_A, WINDOW_G,
 };
 use core::mem::MaybeUninit;
 
@@ -104,7 +104,7 @@ impl OddMultiplesTable {
 
 #[cfg(test)]
 mod test {
-    use super::{Scalar, ecmult};
+    use super::{ecmult, Scalar};
 
     use crate::secp256r1::{
         context::TABLE_G,

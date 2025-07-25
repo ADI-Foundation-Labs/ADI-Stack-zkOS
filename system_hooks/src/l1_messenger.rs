@@ -11,11 +11,11 @@ use zk_ee::{
     internal_error,
     kv_markers::MAX_EVENT_TOPICS,
     system::{
-        CallModifier, CompletedExecution, ExternalCallRequest,
         errors::{runtime::RuntimeError, system::SystemError},
         logger::Logger,
+        CallModifier, CompletedExecution, ExternalCallRequest,
     },
-    utils::{Bytes32, b160_to_u256},
+    utils::{b160_to_u256, Bytes32},
 };
 
 pub fn l1_messenger_hook<'a, S: EthereumLikeTypes>(

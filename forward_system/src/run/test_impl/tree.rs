@@ -1,6 +1,6 @@
 use crate::run::{LeafProof, ReadStorage, ReadStorageTree};
 use basic_system::system_implementation::flat_storage_model::{
-    Blake2sStorageHasher, FlatStorageBacking, TREE_HEIGHT, TestingTree,
+    Blake2sStorageHasher, FlatStorageBacking, TestingTree, TREE_HEIGHT,
 };
 use std::alloc::Global;
 use std::collections::HashMap;

@@ -35,11 +35,11 @@ macro_rules! location {
 }
 
 impl core::fmt::Display for ErrorLocation {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+    fn fmt(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         #[cfg(feature = "error_origins")]
         {
             let Self { line, file } = self;
-            write!(f, "{file}:{line}")
+            write!(_f, "{file}:{line}")
         }
         #[cfg(not(feature = "error_origins"))]
         {

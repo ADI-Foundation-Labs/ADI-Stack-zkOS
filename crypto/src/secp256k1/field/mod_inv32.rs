@@ -323,17 +323,7 @@ impl Signed30 {
 
     fn normalize(&self, sign: i32, mod_info: &ModInfo) -> Self {
         const M30: i32 = (u32::MAX >> 2) as i32;
-        let [
-            mut r0,
-            mut r1,
-            mut r2,
-            mut r3,
-            mut r4,
-            mut r5,
-            mut r6,
-            mut r7,
-            mut r8,
-        ] = self.0;
+        let [mut r0, mut r1, mut r2, mut r3, mut r4, mut r5, mut r6, mut r7, mut r8] = self.0;
 
         let mut cond_add = r8 >> 31;
         r0 += mod_info.modulus.0[0] & cond_add;

@@ -1,10 +1,11 @@
 use ark_ec::{
-    AffineRepr, PrimeGroup, bls12,
+    bls12,
     bls12::Bls12Config,
     hashing::curve_maps::wb::{IsogenyMap, WBConfig},
     models::CurveConfig,
     scalar_mul::glv::GLVConfig,
     short_weierstrass::{Affine, SWCurveConfig},
+    AffineRepr, PrimeGroup,
 };
 use ark_ff::{AdditiveGroup, One, PrimeField, Zero};
 
@@ -17,10 +18,10 @@ use core::ops::Neg;
 
 use super::g1_swu_iso;
 use crate::bls12_381::{
-    Fq, Fr,
     util::{
-        EncodingFlags, G1_SERIALIZED_SIZE, read_g1_compressed, read_g1_uncompressed, serialize_fq,
+        read_g1_compressed, read_g1_uncompressed, serialize_fq, EncodingFlags, G1_SERIALIZED_SIZE,
     },
+    Fq, Fr,
 };
 
 pub type G1Affine = bls12::G1Affine<crate::bls12_381::curves::Config>;

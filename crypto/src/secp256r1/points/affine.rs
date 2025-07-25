@@ -1,6 +1,6 @@
 use core::ops::Neg;
 
-use crate::secp256r1::{Secp256r1Err, field::FieldElement};
+use crate::secp256r1::{field::FieldElement, Secp256r1Err};
 
 use super::Jacobian;
 

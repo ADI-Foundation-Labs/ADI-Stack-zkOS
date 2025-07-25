@@ -5,8 +5,8 @@ use basic_bootloader::bootloader::config::BasicBootloaderForwardSimulationConfig
 use basic_bootloader::bootloader::constants::MAX_BLOCK_GAS_LIMIT;
 use basic_system::system_implementation::flat_storage_model::FlatStorageCommitment;
 use basic_system::system_implementation::flat_storage_model::{
-    ACCOUNT_PROPERTIES_STORAGE_ADDRESS, AccountProperties, TREE_HEIGHT,
-    address_into_special_storage_key,
+    address_into_special_storage_key, AccountProperties, ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
+    TREE_HEIGHT,
 };
 use ethers::signers::LocalWallet;
 use forward_system::run::test_impl::{

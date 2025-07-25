@@ -1,11 +1,11 @@
-use crate::ERC_20_TRANSFER_CALLDATA;
 use crate::TxEip1559;
+use crate::ERC_20_TRANSFER_CALLDATA;
 use alloy::primitives::TxKind;
 use alloy::signers::local::PrivateKeySigner;
 use rig::alloy::primitives::address;
 use rig::alloy::rpc::types::TransactionRequest;
 use rig::ruint::aliases::{B160, U256};
-use rig::{BlockContext, Chain, alloy, zksync_web3_rs};
+use rig::{alloy, zksync_web3_rs, BlockContext, Chain};
 use std::str::FromStr;
 use zksync_web3_rs::signers::{LocalWallet, Signer};
 
@@ -38,7 +38,7 @@ fn run_tx(tx: Vec<u8>, basefee: u64, native_price: u64, should_succeed: bool, si
     );
     let key = crate::compute_balance_slot(wallet.address());
     let value = rig::ruint::aliases::B256::from(U256::from(1_000_000_000_000_000_u64));
-    chain.set_storage_slot(B160::from_be_bytes(TO.0.0), key, value);
+    chain.set_storage_slot(B160::from_be_bytes(TO.0 .0), key, value);
 
     let block_context = BlockContext {
         native_price: U256::from(native_price),

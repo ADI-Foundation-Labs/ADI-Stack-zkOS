@@ -1,13 +1,13 @@
-use crate::bootloader::DEBUG_OUTPUT;
 use crate::bootloader::constants::SPECIAL_ADDRESS_SPACE_BOUND;
 use crate::bootloader::supported_ees::SupportedEEVMState;
+use crate::bootloader::DEBUG_OUTPUT;
 use alloc::boxed::Box;
 use core::fmt::Write;
 use core::mem::MaybeUninit;
-use evm_interpreter::ERGS_PER_GAS;
-use evm_interpreter::gas_constants::CALL_STIPEND;
 use evm_interpreter::gas_constants::CALLVALUE;
+use evm_interpreter::gas_constants::CALL_STIPEND;
 use evm_interpreter::gas_constants::NEWACCOUNT;
+use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
 use system_hooks::*;

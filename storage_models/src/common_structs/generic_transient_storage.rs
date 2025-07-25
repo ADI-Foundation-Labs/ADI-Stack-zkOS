@@ -24,12 +24,12 @@ pub struct GenericTransientStorage<
 }
 
 impl<
-    K: KeyLikeWithBounds,
-    V: Clone + Default,
-    SC: StackCtor<N>,
-    const N: usize,
-    A: Allocator + Clone,
-> GenericTransientStorage<K, V, SC, N, A>
+        K: KeyLikeWithBounds,
+        V: Clone + Default,
+        SC: StackCtor<N>,
+        const N: usize,
+        A: Allocator + Clone,
+    > GenericTransientStorage<K, V, SC, N, A>
 {
     pub fn new_from_parts(allocator: A) -> Self {
         Self {

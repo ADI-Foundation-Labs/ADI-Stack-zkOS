@@ -1,5 +1,4 @@
 #![feature(allocator_api)]
-#![feature(get_mut_unchecked)]
 #![allow(clippy::new_without_default)]
 #![allow(clippy::type_complexity)]
 #![allow(clippy::too_many_arguments)]

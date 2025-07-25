@@ -6,8 +6,8 @@ use crate::ark_ff_delegation::MontFp;
 use ark_ec::{
     hashing::curve_maps::{swu::SWUConfig, wb::IsogenyMap},
     models::{
-        CurveConfig,
         short_weierstrass::{Affine, SWCurveConfig},
+        CurveConfig,
     },
 };
 #[cfg(not(any(all(target_arch = "riscv32", feature = "bigint_ops"), test)))]

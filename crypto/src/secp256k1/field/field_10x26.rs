@@ -85,7 +85,11 @@ impl FieldElement10x26 {
     #[inline(always)]
     pub(super) fn from_bytes(bytes: &[u8; 32]) -> Option<Self> {
         let val = Self::from_bytes_unchecked(bytes);
-        if val.overflow() { None } else { Some(val) }
+        if val.overflow() {
+            None
+        } else {
+            Some(val)
+        }
     }
 
     #[inline(always)]
@@ -794,7 +798,7 @@ impl proptest::arbitrary::Arbitrary for FieldElement10x26 {
     type Parameters = ();
 
     fn arbitrary_with(_args: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::{Strategy, any};
+        use proptest::prelude::{any, Strategy};
 
         any::<[u32; 10]>().prop_map(|limbs| Self(limbs).normalize())
     }

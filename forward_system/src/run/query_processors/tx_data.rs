@@ -3,7 +3,7 @@ use crate::run::NextTxResponse;
 use crate::run::TxSource;
 use zk_ee::oracle::ReadIterWrapper;
 use zk_ee::system_io_oracle::{
-    NEXT_TX_SIZE_QUERY_ID, TX_DATA_WORDS_QUERY_ID, dyn_usize_iterator::DynUsizeIterator,
+    dyn_usize_iterator::DynUsizeIterator, NEXT_TX_SIZE_QUERY_ID, TX_DATA_WORDS_QUERY_ID,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

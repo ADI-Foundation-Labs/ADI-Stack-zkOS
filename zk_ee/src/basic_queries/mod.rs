@@ -1,10 +1,10 @@
-use crate::common_structs::BasicIOImplementerFSM;
 use crate::common_structs::state_root_view::StateRootView;
+use crate::common_structs::BasicIOImplementerFSM;
 use crate::system_io_oracle::INITIALIZE_IO_IMPLEMENTER_QUERY_ID;
 use crate::types_config::{EthereumIOTypesConfig, SystemIOTypesConfig};
 use crate::{
     kv_markers::{InitialStorageSlotData, StorageAddress},
-    system_io_oracle::{INITIAL_STORAGE_SLOT_VALUE_QUERY_ID, SimpleOracleQuery},
+    system_io_oracle::{SimpleOracleQuery, INITIAL_STORAGE_SLOT_VALUE_QUERY_ID},
 };
 
 pub struct InitialStorageSlotQuery<IOTypes: SystemIOTypesConfig> {

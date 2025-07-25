@@ -7,10 +7,10 @@
 use zk_ee::system::{Computational, Ergs, EthereumLikeTypes, Resource, Resources};
 
 use crate::{
-    ERGS_PER_GAS, ExitCode,
     native_resource_constants::{
         HEAP_EXPANSION_BASE_NATIVE_COST, HEAP_EXPANSION_PER_BYTE_NATIVE_COST,
     },
+    ExitCode, ERGS_PER_GAS,
 };
 
 /// Wraps underlying system resources and implements gas accounting on top of it
@@ -117,7 +117,7 @@ impl<S: EthereumLikeTypes> Gas<S> {
 pub mod gas_utils {
     use zk_ee::system::Ergs;
 
-    use crate::{ERGS_PER_GAS, ExitCode};
+    use crate::{ExitCode, ERGS_PER_GAS};
 
     #[inline]
     /// Returns gas and natve cost of copying 'len' bytes

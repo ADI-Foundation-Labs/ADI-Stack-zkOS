@@ -132,7 +132,7 @@ impl proptest::arbitrary::Arbitrary for Scalar {
     type Parameters = ();
 
     fn arbitrary_with(_: Self::Parameters) -> Self::Strategy {
-        use proptest::prelude::{Strategy, any};
+        use proptest::prelude::{any, Strategy};
 
         any::<ScalarInner>().prop_map(|inner| Self(inner))
     }

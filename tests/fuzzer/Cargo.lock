@@ -8356,7 +8356,6 @@ dependencies = [
  "evm_interpreter",
  "forward_system",
  "oracle_provider",
- "risc_v_simulator",
  "ruint",
  "zk_ee",
  "zksync_os_runner",

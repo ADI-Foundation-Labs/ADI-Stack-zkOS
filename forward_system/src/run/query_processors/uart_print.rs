@@ -1,7 +1,7 @@
 use super::*;
 use oracle_provider::OracleQueryProcessor;
-use zk_ee::system_io_oracle::UART_QUERY_ID;
 use zk_ee::system_io_oracle::dyn_usize_iterator::DynUsizeIterator;
+use zk_ee::system_io_oracle::UART_QUERY_ID;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct UARTPrintReponsder;

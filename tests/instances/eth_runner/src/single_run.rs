@@ -3,7 +3,7 @@ use crate::block_hashes::BlockHashes;
 use crate::calltrace::CallTrace;
 use crate::native_model::compute_ratio;
 use crate::post_check::post_check;
-use crate::prestate::{DiffTrace, PrestateTrace, populate_prestate};
+use crate::prestate::{populate_prestate, DiffTrace, PrestateTrace};
 use crate::receipts::{BlockReceipts, TransactionReceipt};
 use rig::log::info;
 use rig::*;

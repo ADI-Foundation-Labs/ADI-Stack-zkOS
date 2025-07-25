@@ -1,12 +1,13 @@
 use core::ops::Neg;
 
 use ark_ec::{
-    AffineRepr, CurveGroup, PrimeGroup, bls12,
+    bls12,
     bls12::Bls12Config,
     hashing::curve_maps::wb::{IsogenyMap, WBConfig},
     models::CurveConfig,
     scalar_mul::glv::GLVConfig,
     short_weierstrass::{Affine, Projective, SWCurveConfig},
+    AffineRepr, CurveGroup, PrimeGroup,
 };
 use ark_ff::{AdditiveGroup, Field, PrimeField, Zero};
 use ark_serialize::{Compress, SerializationError};
@@ -18,7 +19,7 @@ use ark_ff::{BigInt, MontFp};
 
 use super::{
     g2_swu_iso,
-    util::{EncodingFlags, G2_SERIALIZED_SIZE, serialize_fq},
+    util::{serialize_fq, EncodingFlags, G2_SERIALIZED_SIZE},
 };
 use crate::bls12_381::{
     util::{read_g2_compressed, read_g2_uncompressed},

@@ -3,9 +3,9 @@ use core::alloc::GlobalAlloc;
 use core::alloc::Layout;
 use core::cell::UnsafeCell;
 use core::cmp::Ordering;
-use core::ptr::NonNull;
 use core::ptr::addr_of_mut;
 use core::ptr::null_mut;
+use core::ptr::NonNull;
 use talc::*;
 
 pub fn is_aligned_to(ptr: *mut u8, align: usize) -> bool {
@@ -100,7 +100,7 @@ unsafe impl core::alloc::Allocator for TalcWrapper {
         }
 
         let ptr = unsafe { self.quasi_lock().malloc(layout).map_err(|_| AllocError) }?;
-        assert!(
+        debug_assert!(
             ptr.is_aligned_to(layout.align()),
             "allocated ptr {:?} with non-matching layout {:?}",
             ptr,
@@ -112,7 +112,7 @@ unsafe impl core::alloc::Allocator for TalcWrapper {
 
     unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
         if layout.size() != 0 {
-            assert!(
+            debug_assert!(
                 ptr.is_aligned_to(layout.align()),
                 "trying to deallocate ptr {:?} with non-matching layout {:?}",
                 ptr,

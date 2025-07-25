@@ -6,11 +6,11 @@ use alloy::consensus::{TxEip1559, TxEip2930, TxLegacy};
 use alloy::primitives::TxKind;
 use alloy::signers::local::PrivateKeySigner;
 use hex::FromHex;
-use rig::alloy::primitives::{FixedBytes, address};
+use rig::alloy::primitives::{address, FixedBytes};
 use rig::alloy::rpc::types::{AccessList, AccessListItem, TransactionRequest};
 use rig::ethers::types::Address;
 use rig::ruint::aliases::{B160, U256};
-use rig::{Chain, alloy, ethers, zksync_web3_rs};
+use rig::{alloy, ethers, zksync_web3_rs, Chain};
 use std::str::FromStr;
 use zksync_web3_rs::eip712::Eip712Meta;
 use zksync_web3_rs::eip712::PaymasterParams;
@@ -257,7 +257,7 @@ fn run_base_system_common(use_aa: bool, use_paymaster: bool) {
             U256::from(1_000_000_000_000_000_u64),
         )
         .set_balance(
-            B160::from_be_bytes(eoa_wallet.address().0.0),
+            B160::from_be_bytes(eoa_wallet.address().0 .0),
             U256::from(1_000_000_000_000_000_u64),
         )
         .set_balance(
@@ -329,12 +329,12 @@ fn run_block_of_erc20(n: usize) {
 
     wallets.iter().zip(dsts.clone()).for_each(|(wallet, to)| {
         chain.set_balance(
-            B160::from_be_bytes(wallet.address().0.0),
+            B160::from_be_bytes(wallet.address().0 .0),
             U256::from(1_000_000_000_000_000_u64),
         );
         let key = compute_balance_slot(wallet.address());
         let value = rig::ruint::aliases::B256::from(U256::from(1_000_000_000_000_000_u64));
-        chain.set_storage_slot(B160::from_be_bytes(to.0.0), key, value)
+        chain.set_storage_slot(B160::from_be_bytes(to.0 .0), key, value)
     });
 
     let output = chain.run_block(transactions, None, None);
@@ -466,12 +466,10 @@ fn test_tx_with_access_list() {
     let encoded_mint_tx = {
         let access_list = AccessList::from(vec![AccessListItem {
             address: to,
-            storage_keys: vec![
-                FixedBytes::from_hex(
-                    "0000000000000000000000000000000000000000000000000000000000000000",
-                )
-                .unwrap(),
-            ],
+            storage_keys: vec![FixedBytes::from_hex(
+                "0000000000000000000000000000000000000000000000000000000000000000",
+            )
+            .unwrap()],
         }]);
         let mint_tx = TxEip2930 {
             chain_id: 37u64,

@@ -1,6 +1,5 @@
 #![cfg_attr(not(feature = "testing"), no_std)]
 #![feature(allocator_api)]
-#![feature(slice_swap_unchecked)]
 #![feature(ptr_as_ref_unchecked)]
 #![allow(clippy::new_without_default)]
 #![allow(clippy::needless_lifetimes)]

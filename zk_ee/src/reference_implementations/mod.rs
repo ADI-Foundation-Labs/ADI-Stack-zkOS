@@ -6,7 +6,7 @@
 
 use crate::{
     out_of_native_resources,
-    system::{Computational, Ergs, Resource, Resources, errors::system::SystemError},
+    system::{errors::system::SystemError, Computational, Ergs, Resource, Resources},
 };
 
 /// Native resource that counts down, as done for ergs.

@@ -4,8 +4,8 @@
 //! - l1 -> l2 txs logs, to prove execution result on l1.
 use super::history_list::HistoryList;
 use crate::internal_error;
-use crate::system::IOResultKeeper;
 use crate::system::errors::internal::InternalError;
+use crate::system::IOResultKeeper;
 use crate::{
     memory::stack_trait::StackCtor,
     system::errors::system::SystemError,
@@ -14,8 +14,8 @@ use crate::{
 };
 use alloc::alloc::Global;
 use core::alloc::Allocator;
-use crypto::MiniDigest;
 use crypto::sha3::Keccak256;
+use crypto::MiniDigest;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
 

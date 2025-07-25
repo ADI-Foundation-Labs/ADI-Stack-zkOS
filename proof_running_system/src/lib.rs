@@ -1,9 +1,7 @@
 #![cfg_attr(all(not(feature = "testing"), not(test)), no_std)]
 #![feature(allocator_api)]
-#![feature(pointer_is_aligned_to)]
-#![feature(slice_ptr_get)]
-#![feature(const_trait_impl)]
 #![feature(unsafe_cell_access)]
+#![feature(pointer_is_aligned_to)]
 
 extern crate alloc;
 

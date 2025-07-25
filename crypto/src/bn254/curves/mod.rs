@@ -7,7 +7,7 @@ use ark_ec::{
 #[cfg(not(any(all(target_arch = "riscv32", feature = "bigint_ops"), test)))]
 use ark_ff::MontFp;
 
-use crate::bn254::fields::{Fq, Fq2, Fq2Config, Fq6Config, Fq12Config};
+use crate::bn254::fields::{Fq, Fq12Config, Fq2, Fq2Config, Fq6Config};
 
 pub mod g1;
 pub mod g2;

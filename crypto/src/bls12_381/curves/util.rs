@@ -1,4 +1,4 @@
-use ark_ec::{AffineRepr, short_weierstrass::Affine};
+use ark_ec::{short_weierstrass::Affine, AffineRepr};
 use ark_ff::PrimeField;
 use ark_serialize::SerializationError;
 
@@ -8,7 +8,7 @@ use crate::ark_ff_delegation::BigInt;
 use ark_ff::BigInt;
 
 use crate::bls12_381::{
-    Fq, Fq2, G1Affine, G2Affine, g1::Config as G1Config, g2::Config as G2Config,
+    g1::Config as G1Config, g2::Config as G2Config, Fq, Fq2, G1Affine, G2Affine,
 };
 
 pub const G1_SERIALIZED_SIZE: usize = 48;

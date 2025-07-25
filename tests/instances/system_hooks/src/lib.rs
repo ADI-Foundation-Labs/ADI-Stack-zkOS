@@ -9,10 +9,10 @@ use rig::alloy::rpc::types::TransactionRequest;
 use rig::forward_system::run::ExecutionResult;
 use rig::ruint::aliases::B160;
 use rig::utils::{
-    ACCOUNT_PROPERTIES_STORAGE_ADDRESS, AccountProperties, address_into_special_storage_key,
+    address_into_special_storage_key, AccountProperties, ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
 };
 use rig::zk_ee::utils::Bytes32;
-use rig::{Chain, alloy};
+use rig::{alloy, Chain};
 
 #[test]
 fn test_set_bytecode_details_evm() {

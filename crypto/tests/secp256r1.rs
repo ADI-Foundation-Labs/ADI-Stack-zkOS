@@ -1,8 +1,8 @@
 use crypto::{
     p256::{
         ecdsa::{
-            Signature, SigningKey, VerifyingKey,
             signature::hazmat::{PrehashSigner, PrehashVerifier},
+            Signature, SigningKey, VerifyingKey,
         },
         elliptic_curve::{rand_core::OsRng, sec1::ToEncodedPoint},
     },
