@@ -39,18 +39,21 @@ pub trait EvmStackInterface {
 pub enum EvmError {
     // error codes
     OutOfGas,
-    CodeStoreOutOfGas,   // TODO unused
-    CallTooDeep,         // TODO unused
-    InsufficientBalance, // TODO unused
-    CreateCollision,     // TODO unused
-    ExecutionReverted,   // TODO unused
+    /// TODO currently this error is not used
+    CodeStoreOutOfGas,
+    /// TODO currently this error is not used
+    CallTooDeep,
+    /// TODO currently this error is not used
+    InsufficientBalance,
+    /// TODO currently this error is not used
+    CreateCollision,
     CreateContractSizeLimit,
-    CreateInitcodeSizeLimit, // TODO unused
+    CreateInitcodeSizeLimit,
     InvalidJump,
-    ReturnDataOutOfBounds, // TODO unused
-    GasUintOverflow,       // TODO unused
+    ReturnDataOutOfBounds,
     CreateContractStartingWithEF,
-    NonceOverflow, // TODO unused
+    /// TODO currently this error is not used
+    NonceOverflow,
 
     InvalidOpcode, // TODO wrap actual opcode?
     InvalidOpcodeFE,
@@ -60,5 +63,4 @@ pub enum EvmError {
     StateChangeDuringStaticCall,
     MemoryLimitOOG,
     InvalidOperandOOG,
-    OutOfOffset, // TODO name is unclear
 }

@@ -221,7 +221,7 @@ impl<S: EthereumLikeTypes> Interpreter<'_, S> {
         let (end, of) = source_offset.overflowing_add(len);
         let returndata_len = self.returndata.len();
         if of || end > returndata_len {
-            return Err(ExitCode::EvmError(EvmError::OutOfOffset));
+            return Err(ExitCode::EvmError(EvmError::ReturnDataOutOfBounds));
         }
 
         if len == 0 {

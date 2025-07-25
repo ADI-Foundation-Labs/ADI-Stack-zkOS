@@ -665,6 +665,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
 
         let nominal_token_value = launch_params.external_call.nominal_token_value;
 
+        // TODO should be moved to EVM EE
         // EIP-161: contracts should be initialized with nonce 1
         // Note: this has to be done before we actually deploy the bytecode,
         // as constructor execution should see the deployed_address as having
@@ -733,7 +734,6 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                 ));
 
                 if tracer.is_after_execution_frame_enabled() {
-                    // TODO resources
                     tracer.after_execution_frame_completed(Some((
                         &resources_returned,
                         CallOrDeployResultRef::DeploymentResult(&deployment_result),
