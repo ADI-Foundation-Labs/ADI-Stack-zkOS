@@ -1,5 +1,4 @@
 #![cfg_attr(all(not(feature = "testing"), not(test)), no_std)]
-#![allow(incomplete_features)]
 #![feature(allocator_api)]
 #![feature(get_mut_unchecked)]
 #![feature(ptr_alignment_type)]
@@ -10,7 +9,6 @@
 #![feature(array_windows)]
 #![feature(btree_cursors)]
 #![feature(slice_from_ptr_range)]
-#![feature(const_trait_impl)]
 #![allow(clippy::new_without_default)]
 #![allow(clippy::needless_lifetimes)]
 #![allow(clippy::needless_borrow)]

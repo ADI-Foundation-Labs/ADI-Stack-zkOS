@@ -1,8 +1,5 @@
 #![cfg_attr(not(feature = "testing"), no_std)]
-#![allow(incomplete_features)]
 #![feature(allocator_api)]
-#![feature(const_trait_impl)]
-#![feature(associated_type_defaults)]
 #![feature(get_mut_unchecked)]
 #![feature(array_windows)]
 #![feature(slice_from_ptr_range)]

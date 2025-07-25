@@ -1,7 +1,6 @@
 #![cfg_attr(not(test), no_std)]
 #![feature(never_type)]
 #![feature(exhaustive_patterns)]
-#![feature(associated_type_defaults)]
 #![feature(allocator_api)]
 #![feature(btreemap_alloc)]
 

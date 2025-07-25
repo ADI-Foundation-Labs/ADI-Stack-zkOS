@@ -19,7 +19,7 @@ pub trait ReadonlyKVMarker: 'static {
 
     type Key: UsizeSerializable;
     type Value: UsizeDeserializable;
-    type AccessStatsBitmask: bitflags::Flags<Bits = u32> = EmptyBitflags;
+    type AccessStatsBitmask: bitflags::Flags<Bits = u32>;
 }
 
 pub trait ReadWriteKVMarker: ReadonlyKVMarker

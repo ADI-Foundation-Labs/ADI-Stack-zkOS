@@ -17,7 +17,6 @@ pub use self::interaction_params::*;
 use super::IOSubsystemExt;
 use super::errors::internal::InternalError;
 use super::errors::subsystem::Subsystem;
-use super::errors::subsystem::SubsystemError;
 use super::system::System;
 use super::system::SystemTypes;
 use crate::internal_error;
@@ -45,8 +44,8 @@ pub trait ExecutionEnvironment<'ee, S: SystemTypes, Es: Subsystem>: Sized {
 
     const EE_VERSION_BYTE: u8;
 
-    type UsageError = <Es as Subsystem>::Interface;
-    type SubsystemError = SubsystemError<Es>;
+    type UsageError;
+    type SubsystemError;
 
     ///
     /// Initialize a new (empty) EE state.

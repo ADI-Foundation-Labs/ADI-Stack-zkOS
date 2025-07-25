@@ -1,6 +1,5 @@
 #![cfg_attr(all(not(feature = "testing"), not(test)), no_std)]
 #![feature(allocator_api)]
-#![allow(incomplete_features)]
 #![feature(get_mut_unchecked)]
 #![feature(ptr_alignment_type)]
 #![feature(btreemap_alloc)]

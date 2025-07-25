@@ -3,14 +3,13 @@ use super::{
     interface::{InterfaceError, InterfaceErrorKind},
     internal::InternalError,
     location::ErrorLocation,
-    no_errors::NoErrors,
     runtime::RuntimeError,
 };
 
 pub trait Subsystem: core::fmt::Debug {
     const SUBSYSTEM_NAME: &'static str;
-    type Interface: InterfaceErrorKind = NoErrors;
-    type Cascaded: ICascadedInner = NoErrors;
+    type Interface: InterfaceErrorKind;
+    type Cascaded: ICascadedInner;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
