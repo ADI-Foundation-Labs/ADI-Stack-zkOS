@@ -311,7 +311,7 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
 
                     opcodes::RETURN => self.ret(),
                     opcodes::REVERT => self.revert(),
-                    opcodes::INVALID => Err(ExitCode::InvalidFEOpcode),
+                    opcodes::INVALID => Err(ExitCode::EvmError(EvmError::InvalidOpcodeFE)),
                     opcodes::BASEFEE => self.basefee(system),
                     opcodes::ORIGIN => self.origin(system),
                     opcodes::CALLER => self.caller(),
@@ -343,7 +343,7 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
                     opcodes::CHAINID => self.chainid(system),
                     opcodes::BLOBHASH => self.blobhash(system),
                     opcodes::BLOBBASEFEE => self.blobbasefee(system),
-                    _ => Err(ExitCode::OpcodeNotFound),
+                    _ => Err(ExitCode::EvmError(EvmError::InvalidOpcode)),
                 });
 
             if tracer.evm_tracer().is_after_evm_execution_step_enabled() {

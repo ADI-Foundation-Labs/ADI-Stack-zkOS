@@ -32,9 +32,33 @@ pub trait EvmFrameInterface<S: SystemTypes> {
 pub trait EvmStackInterface {
     fn to_slice(&self) -> &[U256];
     fn len(&self) -> usize;
-    fn peek_n(&self, index: usize) -> Result<&U256, EvmStackError>;
+    fn peek_n(&self, index: usize) -> Result<&U256, EvmError>;
 }
 
-pub enum EvmStackError {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EvmError {
+    // error codes
+    OutOfGas,
+    CodeStoreOutOfGas,   // TODO unused
+    CallTooDeep,         // TODO unused
+    InsufficientBalance, // TODO unused
+    CreateCollision,     // TODO unused
+    ExecutionReverted,   // TODO unused
+    CreateContractSizeLimit,
+    CreateInitcodeSizeLimit,
+    InvalidJump,
+    ReturnDataOutOfBounds,        // TODO unused
+    GasUintOverflow,              // TODO unused
+    CreateContractStartingWithEF, // TODO unused
+    NonceOverflow,                // TODO unused
+
+    InvalidOpcode, // TODO wrap actual opcode?
+    InvalidOpcodeFE,
     StackUnderflow,
+    StackOverflow,
+    CallNotAllowedInsideStatic,
+    StateChangeDuringStaticCall,
+    MemoryLimitOOG,
+    InvalidOperandOOG,
+    OutOfOffset, // TODO name is unclear
 }

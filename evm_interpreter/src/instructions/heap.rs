@@ -10,7 +10,8 @@ impl<S: EthereumLikeTypes> Interpreter<'_, S> {
         self.gas
             .spend_gas_and_native(gas_constants::VERYLOW, MLOAD_NATIVE_COST)?;
         let stack_top = self.stack.top_mut()?;
-        let index = Self::cast_to_usize(stack_top, ExitCode::InvalidOperandOOG)?;
+        let index =
+            Self::cast_to_usize(stack_top, ExitCode::EvmError(EvmError::InvalidOperandOOG))?;
         Self::resize_heap_implementation(&mut self.heap, &mut self.gas, index, 32)?;
         let mut value: ruint::Uint<256, 4> = U256::ZERO;
         unsafe {
@@ -37,7 +38,7 @@ impl<S: EthereumLikeTypes> Interpreter<'_, S> {
             .spend_gas_and_native(gas_constants::VERYLOW, MSTORE_NATIVE_COST)?;
         let (index, value) = self.stack.pop_2()?;
         let mut le_value = *value;
-        let index = Self::cast_to_usize(index, ExitCode::InvalidOperandOOG)?;
+        let index = Self::cast_to_usize(index, ExitCode::EvmError(EvmError::InvalidOperandOOG))?;
 
         self.resize_heap(index, 32)?;
 
@@ -63,7 +64,7 @@ impl<S: EthereumLikeTypes> Interpreter<'_, S> {
         self.gas
             .spend_gas_and_native(gas_constants::VERYLOW, MSTORE8_NATIVE_COST)?;
         let (index, value) = self.stack.pop_2()?;
-        let index = Self::cast_to_usize(&index, ExitCode::InvalidOperandOOG)?;
+        let index = Self::cast_to_usize(&index, ExitCode::EvmError(EvmError::InvalidOperandOOG))?;
         let value = value.byte(0);
         self.resize_heap(index, 1)?;
 
@@ -91,7 +92,7 @@ impl<S: EthereumLikeTypes> Interpreter<'_, S> {
     pub fn mcopy(&mut self) -> InstructionResult {
         let (dst_offset, src_offset, len) = self.stack.pop_3()?;
 
-        let len = Self::cast_to_usize(&len, ExitCode::InvalidOperandOOG)?;
+        let len = Self::cast_to_usize(&len, ExitCode::EvmError(EvmError::InvalidOperandOOG))?;
         let (gas_cost, native_cost) = gas_utils::copy_cost_plus_very_low_gas(len as u64)?;
         self.gas.spend_gas_and_native(gas_cost, native_cost)?;
 
@@ -99,8 +100,10 @@ impl<S: EthereumLikeTypes> Interpreter<'_, S> {
             return Ok(());
         }
 
-        let dst_offset = Self::cast_to_usize(&dst_offset, ExitCode::InvalidOperandOOG)?;
-        let src_offset = Self::cast_to_usize(&src_offset, ExitCode::InvalidOperandOOG)?;
+        let dst_offset =
+            Self::cast_to_usize(&dst_offset, ExitCode::EvmError(EvmError::InvalidOperandOOG))?;
+        let src_offset =
+            Self::cast_to_usize(&src_offset, ExitCode::EvmError(EvmError::InvalidOperandOOG))?;
         self.resize_heap(core::cmp::max(dst_offset, src_offset), len)?;
         unsafe {
             let src_ptr = self.heap().as_ptr().add(src_offset);

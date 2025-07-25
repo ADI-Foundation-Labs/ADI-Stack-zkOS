@@ -10,7 +10,7 @@ use crate::{
     native_resource_constants::{
         HEAP_EXPANSION_BASE_NATIVE_COST, HEAP_EXPANSION_PER_BYTE_NATIVE_COST,
     },
-    ExitCode, ERGS_PER_GAS,
+    EvmError, ExitCode, ERGS_PER_GAS,
 };
 
 /// Wraps underlying system resources and implements gas accounting on top of it
@@ -65,7 +65,7 @@ impl<S: EthereumLikeTypes> Gas<S> {
     #[inline(always)]
     pub(crate) fn spend_gas(&mut self, to_spend: u64) -> Result<(), ExitCode> {
         let Some(ergs_cost) = to_spend.checked_mul(ERGS_PER_GAS) else {
-            return Err(ExitCode::OutOfGas);
+            return Err(ExitCode::EvmError(EvmError::OutOfGas));
         };
         let resource_cost = S::Resources::from_ergs(Ergs(ergs_cost));
         self.resources.charge(&resource_cost)?;
@@ -77,7 +77,7 @@ impl<S: EthereumLikeTypes> Gas<S> {
     pub(crate) fn spend_gas_and_native(&mut self, gas: u64, native: u64) -> Result<(), ExitCode> {
         use zk_ee::system::Computational;
         let Some(ergs_cost) = gas.checked_mul(ERGS_PER_GAS) else {
-            return Err(ExitCode::OutOfGas);
+            return Err(ExitCode::EvmError(EvmError::OutOfGas));
         };
         let resource_cost = S::Resources::from_ergs_and_native(
             Ergs(ergs_cost),
@@ -117,7 +117,7 @@ impl<S: EthereumLikeTypes> Gas<S> {
 pub mod gas_utils {
     use zk_ee::system::Ergs;
 
-    use crate::{ExitCode, ERGS_PER_GAS};
+    use crate::{EvmError, ExitCode, ERGS_PER_GAS};
 
     #[inline]
     /// Returns gas and natve cost of copying 'len' bytes
@@ -130,7 +130,7 @@ pub mod gas_utils {
                 .checked_add(crate::native_resource_constants::COPY_BASE_NATIVE_COST)?;
             Some((gas, native))
         };
-        get_cost(len).ok_or(ExitCode::OutOfGas)
+        get_cost(len).ok_or(ExitCode::EvmError(EvmError::OutOfGas))
     }
 
     #[inline]
@@ -140,7 +140,7 @@ pub mod gas_utils {
         if let Some(gas_cost) = gas_cost.checked_add(crate::gas_constants::VERYLOW) {
             Ok((gas_cost, native_cost))
         } else {
-            Err(ExitCode::OutOfGas)
+            Err(ExitCode::EvmError(EvmError::OutOfGas))
         }
     }
 
