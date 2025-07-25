@@ -1,5 +1,7 @@
 use crate::{colors, init_logger};
 use alloy::signers::local::PrivateKeySigner;
+use basic_bootloader::bootloader::config::BasicBootloaderCallSimulationConfig;
+use basic_bootloader::bootloader::config::BasicBootloaderForwardSimulationConfig;
 use basic_bootloader::bootloader::constants::MAX_BLOCK_GAS_LIMIT;
 use basic_system::system_implementation::flat_storage_model::FlatStorageCommitment;
 use basic_system::system_implementation::flat_storage_model::{
@@ -168,7 +170,13 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             transactions: transactions.into(),
         };
 
-        let block_output: BatchOutput = forward_system::run::run_batch_with_oracle_dump_ext(
+        let block_output: BatchOutput = forward_system::run::run_batch_with_oracle_dump_ext::<
+            _,
+            _,
+            _,
+            _,
+            BasicBootloaderCallSimulationConfig,
+        >(
             block_metadata,
             self.state_tree.clone(),
             self.preimage_source.clone(),
@@ -251,7 +259,13 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             )
         };
 
-        let block_output: BatchOutput = forward_system::run::run_batch_with_oracle_dump_ext(
+        let block_output: BatchOutput = forward_system::run::run_batch_with_oracle_dump_ext::<
+            _,
+            _,
+            _,
+            _,
+            BasicBootloaderForwardSimulationConfig,
+        >(
             block_metadata,
             self.state_tree.clone(),
             self.preimage_source.clone(),

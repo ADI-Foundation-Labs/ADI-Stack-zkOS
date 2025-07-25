@@ -13,7 +13,8 @@ use crate::run::result_keeper::ForwardRunningResultKeeper;
 use crate::system::bootloader::run_forward;
 use crate::system::system::CallSimulationBootloader;
 use basic_bootloader::bootloader::config::{
-    BasicBootloaderCallSimulationConfig, BasicBootloaderForwardSimulationConfig,
+    BasicBootloaderCallSimulationConfig, BasicBootloaderExecutionConfig,
+    BasicBootloaderForwardSimulationConfig,
 };
 use errors::ForwardSubsystemError;
 use oracle_provider::MemorySource;
@@ -165,7 +166,7 @@ pub fn run_batch_with_oracle_dump<
     tx_source: TS,
     tx_result_callback: TR,
 ) -> Result<BatchOutput, ForwardSubsystemError> {
-    run_batch_with_oracle_dump_ext(
+    run_batch_with_oracle_dump_ext::<T, PS, TS, TR, BasicBootloaderForwardSimulationConfig>(
         batch_context,
         tree,
         preimage_source,
@@ -180,6 +181,7 @@ pub fn run_batch_with_oracle_dump_ext<
     PS: PreimageSource + Clone + serde::Serialize,
     TS: TxSource + Clone + serde::Serialize,
     TR: TxResultCallback,
+    Config: BasicBootloaderExecutionConfig,
 >(
     batch_context: BatchContext,
     tree: T,
@@ -223,7 +225,7 @@ pub fn run_batch_with_oracle_dump_ext<
 
     let mut result_keeper = ForwardRunningResultKeeper::new(tx_result_callback);
 
-    run_forward::<BasicBootloaderForwardSimulationConfig>(oracle, &mut result_keeper);
+    run_forward::<Config>(oracle, &mut result_keeper);
     Ok(result_keeper.into())
 }
 
