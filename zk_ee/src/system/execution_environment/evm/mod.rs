@@ -35,6 +35,7 @@ pub trait EvmStackInterface {
     fn peek_n(&self, index: usize) -> Result<&U256, EvmError>;
 }
 
+#[repr(u8)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EvmError {
     Revert,
