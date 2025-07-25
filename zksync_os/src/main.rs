@@ -138,11 +138,30 @@ unsafe impl core::alloc::GlobalAlloc for NullAllocator {
     }
 }
 
+// // This allocator actually allows link-time checks instead of unreachable panics
+// struct FakeAllocator;
+
+// unsafe impl core::alloc::GlobalAlloc for FakeAllocator {
+//     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
+//         extern "Rust" {
+//             fn fake_alloc_this_doesnt_exist(layout: core::alloc::Layout) -> *mut u8;
+//         }
+//         fake_alloc_this_doesnt_exist(layout)
+//     }
+//     unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
+//         extern "Rust" {
+//             fn fake_dealloc_this_doesnt_exist(ptr: *mut u8, layout: core::alloc::Layout);
+//         }
+//         fake_dealloc_this_doesnt_exist(ptr, layout)
+//     }
+// }
+
 use proof_running_system::system::bootloader::OptionalGlobalAllocator;
 #[global_allocator]
 static GLOBAL_ALLOC: OptionalGlobalAllocator = OptionalGlobalAllocator;
 // TODO: disable global alloc once dependencies are fixed
 // static GLOBAL_ALLOCATOR_PLACEHOLDER: NullAllocator = NullAllocator;
+// static GLOBAL_ALLOCATOR_PLACEHOLDER: FakeAllocator = FakeAllocator;
 
 core::arch::global_asm!(include_str!("memset.s"));
 core::arch::global_asm!(include_str!("memcpy.s"));

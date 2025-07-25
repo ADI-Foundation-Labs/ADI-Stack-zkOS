@@ -1,6 +1,6 @@
 use super::*;
 use crate::io_oracle::NonDeterminismCSRSourceImplementation;
-use alloc::alloc::{GlobalAlloc, Layout};
+use alloc::alloc::GlobalAlloc;
 use basic_bootloader::bootloader::config::BasicBootloaderProvingExecutionConfig;
 use core::alloc::Allocator;
 use core::mem::MaybeUninit;
@@ -108,14 +108,14 @@ pub struct OptionalGlobalAllocator;
 
 #[cfg(feature = "global-alloc")]
 unsafe impl GlobalAlloc for OptionalGlobalAllocator {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+    unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
         BootloaderAllocator::default()
             .allocate(layout)
             .expect("Global allocactor: alloc")
             .as_mut_ptr()
     }
 
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
         BootloaderAllocator::default().deallocate(
             core::ptr::NonNull::new(ptr).expect("Global allocator: dealloc"),
             layout,
@@ -125,14 +125,30 @@ unsafe impl GlobalAlloc for OptionalGlobalAllocator {
 
 #[cfg(not(feature = "global-alloc"))]
 unsafe impl GlobalAlloc for OptionalGlobalAllocator {
-    unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
-        panic!("global alloc not allowed")
+    unsafe fn alloc(&self, _layout: core::alloc::Layout) -> *mut u8 {
+        panic!("global alloc not allowed");
     }
-
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
+    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: core::alloc::Layout) {
         panic!("global alloc not allowed");
     }
 }
+
+// // TODO: eventually we can check it like so at link-time
+// #[cfg(not(feature = "global-alloc"))]
+// unsafe impl GlobalAlloc for OptionalGlobalAllocator {
+//     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
+//         extern "Rust" {
+//             fn fake_alloc_this_doesnt_exist(layout: core::alloc::Layout) -> *mut u8;
+//         }
+//         fake_alloc_this_doesnt_exist(layout)
+//     }
+//     unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
+//         extern "Rust" {
+//             fn fake_dealloc_this_doesnt_exist(ptr: *mut u8, layout: core::alloc::Layout);
+//         }
+//         fake_dealloc_this_doesnt_exist(ptr, layout)
+//     }
+// }
 
 ///
 /// main zksync_os program, that is responsible for running the proving flow.
