@@ -116,7 +116,7 @@ impl<S: EthereumLikeTypes> EvmTracer<S> for EvmOpcodesLogger<S> {
     }
 
     #[inline(always)]
-    fn is_on_fault_enabled(&self) -> bool {
+    fn is_on_opcode_error_enabled(&self) -> bool {
         true
     }
 

@@ -6,7 +6,7 @@ use crate::system::{
 pub trait EvmTracer<S: SystemTypes> {
     fn is_on_evm_execution_step_enabled(&self) -> bool;
     fn is_after_evm_execution_step_enabled(&self) -> bool;
-    fn is_on_fault_enabled(&self) -> bool;
+    fn is_on_opcode_error_enabled(&self) -> bool;
 
     fn before_evm_interpreter_execution_step(
         &mut self,
@@ -37,7 +37,7 @@ impl<S: SystemTypes> EvmTracer<S> for NopEvmTracer {
     }
 
     #[inline(always)]
-    fn is_on_fault_enabled(&self) -> bool {
+    fn is_on_opcode_error_enabled(&self) -> bool {
         false
     }
 

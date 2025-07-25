@@ -365,7 +365,7 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
             }
         };
 
-        if tracer.evm_tracer().is_on_fault_enabled() {
+        if tracer.evm_tracer().is_on_opcode_error_enabled() {
             if let ExitCode::EvmError(evm_error) = &result {
                 tracer.evm_tracer().on_opcode_error(evm_error, self);
             }
@@ -405,7 +405,7 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
                 // EIP-158: reject code of length > 24576.
                 let max_code_size_exceeded = return_values.returndata.len() > MAX_CODE_SIZE;
                 if invalid_code || max_code_size_exceeded {
-                    if tracer.evm_tracer().is_on_fault_enabled() {
+                    if tracer.evm_tracer().is_on_opcode_error_enabled() {
                         let evm_error = if invalid_code {
                             EvmError::CreateContractStartingWithEF
                         } else {
