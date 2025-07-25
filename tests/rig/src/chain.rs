@@ -27,6 +27,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use zk_ee::common_structs::derive_flat_storage_key;
 use zk_ee::system::metadata::{BlockHashes, BlockMetadataFromOracle};
+use zk_ee::system::tracer::NopTracer;
 use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::utils::Bytes32;
 
@@ -208,10 +209,12 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         // forward run
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
+        let mut nop_tracer = NopTracer {};
 
         run_forward::<BasicBootloaderCallSimulationConfig, _, _, _>(
             oracle.clone(),
             &mut result_keeper,
+            &mut nop_tracer,
         );
 
         let block_output: BatchOutput = result_keeper.into();
@@ -294,10 +297,12 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         // forward run
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
+        let mut nop_tracer = NopTracer {};
 
         run_forward::<BasicBootloaderForwardSimulationConfig, _, _, _>(
             oracle.clone(),
             &mut result_keeper,
+            &mut nop_tracer,
         );
 
         let block_output: BatchOutput = result_keeper.into();

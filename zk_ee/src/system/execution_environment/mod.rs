@@ -19,6 +19,7 @@ use super::errors::subsystem::Subsystem;
 use super::errors::subsystem::SubsystemError;
 use super::system::System;
 use super::system::SystemTypes;
+use super::tracer::Tracer;
 use super::IOSubsystemExt;
 use crate::common_structs::CalleeAccountProperties;
 use crate::internal_error;
@@ -29,6 +30,11 @@ use crate::types_config::*;
 pub enum CallOrDeployResult<'a, S: SystemTypes> {
     CallResult(CallResult<'a, S>),
     DeploymentResult(DeploymentResult<'a, S>),
+}
+
+pub enum CallOrDeployResultRef<'a, 'external, S: SystemTypes> {
+    CallResult(&'a CallResult<'external, S>),
+    DeploymentResult(&'a DeploymentResult<'external, S>),
 }
 
 // we should consider some bound of amount of data that is deployment-specific,
@@ -88,6 +94,7 @@ pub trait ExecutionEnvironment<'ee, S: SystemTypes, Es: Subsystem>: Sized {
         system: &mut System<S>,
         frame_state: ExecutionEnvironmentLaunchParams<'i, S>,
         heap: SliceVec<'h, u8>,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, Self::SubsystemError>;
 
     ///
@@ -106,6 +113,7 @@ pub trait ExecutionEnvironment<'ee, S: SystemTypes, Es: Subsystem>: Sized {
         system: &mut System<S>,
         returned_resources: S::Resources,
         call_result: CallResult<'res, S>,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, Self::SubsystemError>;
 
     /// Continues after the bootloader handled a completed deployment.
@@ -114,6 +122,7 @@ pub trait ExecutionEnvironment<'ee, S: SystemTypes, Es: Subsystem>: Sized {
         system: &mut System<S>,
         returned_resources: S::Resources,
         deployment_result: DeploymentResult<'res, S>,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, Self::SubsystemError>;
 
     type DeploymentExtraParameters: EEDeploymentExtraParameters<S>;

@@ -20,6 +20,7 @@ use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::memory::ArrayBuilder;
 use zk_ee::system::errors::interface::InterfaceError;
 use zk_ee::system::errors::subsystem::SubsystemError;
+use zk_ee::system::tracer::Tracer;
 use zk_ee::system::{
     errors::{runtime::RuntimeError, system::SystemError},
     logger::Logger,
@@ -70,6 +71,7 @@ where
         caller_is_code: bool,
         caller_nonce: u64,
         resources: &mut S::Resources,
+        _tracer: &mut impl Tracer<S>,
     ) -> Result<(), TxError> {
         // safe to panic, validated by the structure
         let from = transaction.from.read();
@@ -179,6 +181,7 @@ where
         // This data is read before bumping nonce
         current_tx_nonce: u64,
         resources: &mut S::Resources,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<ExecutionResult<'a>, BootloaderSubsystemError> {
         // panic is not reachable, validated by the structure
         let from = transaction.from.read();
@@ -212,6 +215,7 @@ where
                 from,
                 nominal_token_value,
                 current_tx_nonce,
+                tracer,
             )?,
             None => {
                 let final_state = BasicBootloader::run_single_interaction(
@@ -224,6 +228,7 @@ where
                     resources.clone(),
                     &nominal_token_value,
                     true,
+                    tracer,
                 )?;
 
                 let CompletedExecution {
@@ -322,6 +327,7 @@ where
         from: B160,
         caller_ee_type: ExecutionEnvironmentType,
         resources: &mut S::Resources,
+        _tracer: &mut impl Tracer<S>,
     ) -> Result<(), TxError> {
         let amount = transaction
             .max_fee_per_gas
@@ -381,6 +387,7 @@ where
         paymaster: B160,
         _caller_ee_type: ExecutionEnvironmentType,
         resources: &mut S::Resources,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<(), TxError> {
         let paymaster_input = transaction.paymaster_input();
         require_or_revert!(
@@ -429,6 +436,7 @@ where
                 paymaster,
                 token,
                 resources,
+                tracer,
             )?;
             if current_allowance < min_allowance {
                 // Some tokens, e.g. USDT require that the allowance is
@@ -443,6 +451,7 @@ where
                     token,
                     U256::ZERO,
                     resources,
+                    tracer,
                 )?;
                 require_or_revert!(
                     success == U256::from(1),
@@ -460,6 +469,7 @@ where
                     token,
                     min_allowance,
                     resources,
+                    tracer,
                 )?;
                 require_or_revert!(
                     success == U256::from(1),
@@ -541,6 +551,7 @@ fn process_deployment<'a, S: EthereumLikeTypes>(
     from: B160,
     nominal_token_value: U256,
     existing_nonce: u64,
+    tracer: &mut impl Tracer<S>,
 ) -> Result<TxExecutionResult<'a, S>, BootloaderSubsystemError>
 where
     S::IO: IOSubsystemExt,
@@ -599,6 +610,7 @@ where
         system_functions,
         to_ee_type,
         ExecutionEnvironmentSpawnRequest::RequestedDeployment(deployment_parameters),
+        tracer,
     )?;
     let TransactionEndPoint::CompletedDeployment(CompletedDeployment {
         resources_returned,
@@ -651,6 +663,7 @@ fn erc20_allowance<S: EthereumLikeTypes>(
     paymaster: B160,
     token: B160,
     resources: &mut S::Resources,
+    tracer: &mut impl Tracer<S>,
 ) -> Result<U256, TxError>
 where
     S::IO: IOSubsystemExt,
@@ -695,6 +708,7 @@ where
         resources.clone(),
         &U256::ZERO,
         true,
+        tracer,
     )
     .map_err(TxError::oon_as_validation)?;
 
@@ -732,6 +746,7 @@ fn erc20_approve<S: EthereumLikeTypes>(
     token: B160,
     amount: U256,
     resources: &mut S::Resources,
+    tracer: &mut impl Tracer<S>,
 ) -> Result<U256, TxError>
 where
     S::IO: IOSubsystemExt,
@@ -775,6 +790,7 @@ where
         resources.clone(),
         &U256::ZERO,
         true,
+        tracer,
     )
     .map_err(TxError::oon_as_validation)?;
 
