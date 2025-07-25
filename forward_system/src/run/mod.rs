@@ -136,7 +136,7 @@ pub fn make_oracle_for_proofs_and_dumps<
         tree,
         preimage_source,
         tx_source,
-        Some(io_implementer_init_data(storage_commitment))
+        Some(io_implementer_init_data(storage_commitment)),
     )
 }
 
