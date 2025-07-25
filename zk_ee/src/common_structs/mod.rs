@@ -1,5 +1,5 @@
 pub mod cache_record;
-pub mod callee_parameters;
+pub mod callee_account_properties;
 pub mod events_storage;
 pub mod generic_ethereum_like_fsm_state;
 pub mod history_list;
@@ -11,7 +11,7 @@ pub mod state_root_view;
 pub mod warm_storage_key;
 pub mod warm_storage_value;
 
-pub use self::callee_parameters::*;
+pub use self::callee_account_properties::*;
 pub use self::events_storage::*;
 pub use self::generic_ethereum_like_fsm_state::*;
 pub use self::logs_storage::*;
