@@ -388,9 +388,6 @@ pub enum ExitCode {
 
     ExternalCall,
 
-    // revert code
-    Revert = 0x20, // revert opcode
-
     EvmError(EvmError),
 
     // Fatal internal error
@@ -428,6 +425,6 @@ impl From<InternalError> for ExitCode {
 
 impl ExitCode {
     fn is_error(&self) -> bool {
-        matches!(self, Self::EvmError(_))
+        *self != Self::EvmError(EvmError::Revert) && matches!(self, Self::EvmError(_))
     }
 }

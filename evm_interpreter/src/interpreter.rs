@@ -85,7 +85,7 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
             ExitCode::Stop => (true, false),
             ExitCode::SelfDestruct => (true, false),
             ExitCode::Return => (false, false),
-            ExitCode::Revert => (false, true),
+            ExitCode::EvmError(EvmError::Revert) => (false, true),
             _ => (true, true),
         };
 

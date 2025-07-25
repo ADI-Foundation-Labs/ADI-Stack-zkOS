@@ -78,6 +78,6 @@ impl<S: EthereumLikeTypes> Interpreter<'_, S> {
             }
             self.returndata_location = offset..end;
         }
-        Err(ExitCode::Revert)
+        Err(ExitCode::EvmError(EvmError::Revert))
     }
 }
