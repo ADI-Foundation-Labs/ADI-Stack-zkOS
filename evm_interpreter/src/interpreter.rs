@@ -365,7 +365,7 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
 
         if tracer.evm_tracer().is_on_fault_enabled() {
             if let ExitCode::EvmError(evm_error) = &result {
-                tracer.evm_tracer().on_fault(evm_error, self);
+                tracer.evm_tracer().on_opcode_error(evm_error, self);
             }
         }
 
@@ -409,7 +409,7 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
                         } else {
                             EvmError::CreateContractSizeLimit
                         };
-                        tracer.evm_tracer().on_fault(&evm_error, self);
+                        tracer.evm_tracer().on_opcode_error(&evm_error, self);
                     }
                     // Spend all remaining resources
                     self.gas.consume_all_gas();

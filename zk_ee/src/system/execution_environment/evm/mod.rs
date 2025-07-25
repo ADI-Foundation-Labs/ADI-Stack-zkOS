@@ -37,7 +37,6 @@ pub trait EvmStackInterface {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EvmError {
-    // error codes
     OutOfGas,
     /// TODO currently this error is not used
     CodeStoreOutOfGas,

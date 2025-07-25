@@ -19,7 +19,7 @@ pub trait EvmTracer<S: SystemTypes> {
         frame_state: &impl EvmFrameInterface<S>,
     );
 
-    fn on_fault(&self, error: &EvmError, frame_state: &impl EvmFrameInterface<S>);
+    fn on_opcode_error(&mut self, error: &EvmError, frame_state: &impl EvmFrameInterface<S>);
 }
 
 #[derive(Default)]
@@ -57,7 +57,7 @@ impl<S: SystemTypes> EvmTracer<S> for NopEvmTracer {
         unreachable!()
     }
 
-    fn on_fault(&self, _error: &EvmError, _frame_state: &impl EvmFrameInterface<S>) {
+    fn on_opcode_error(&mut self, _error: &EvmError, _frame_state: &impl EvmFrameInterface<S>) {
         unreachable!()
     }
 }

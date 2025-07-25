@@ -4,7 +4,6 @@ use std::{collections::HashMap, marker::PhantomData};
 
 use evm_interpreter::{opcodes::OpCode, ERGS_PER_GAS};
 use ruint::aliases::U256;
-use serde::Serialize;
 use zk_ee::{
     system::{
         evm::{EvmError, EvmFrameInterface, EvmStackInterface},
@@ -16,7 +15,8 @@ use zk_ee::{
     utils::Bytes32,
 };
 
-#[derive(Default, Debug, Serialize)]
+#[allow(dead_code)]
+#[derive(Default, Debug)]
 pub struct EvmExecutionStep {
     pc: usize,
     opcode_raw: u8,
@@ -29,10 +29,11 @@ pub struct EvmExecutionStep {
     storage: Option<Vec<(Bytes32, Bytes32)>>,
     transient_storage: Option<Vec<(Bytes32, Bytes32)>>,
     depth: usize,
-    refund: u64, // Always zero for now
+    refund: u64,             // Always zero for now
+    error: Option<EvmError>, // Note: error catching can be inconsistent
 }
 
-#[derive(Default, Debug, Serialize)]
+#[derive(Default, Debug)]
 pub struct TransactionLog {
     pub finished: bool,
     pub steps: Vec<EvmExecutionStep>,
@@ -116,7 +117,7 @@ impl<S: EthereumLikeTypes> EvmTracer<S> for EvmOpcodesLogger<S> {
 
     #[inline(always)]
     fn is_on_fault_enabled(&self) -> bool {
-        false
+        true
     }
 
     fn before_evm_interpreter_execution_step(
@@ -190,6 +191,7 @@ impl<S: EthereumLikeTypes> EvmTracer<S> for EvmOpcodesLogger<S> {
             transient_storage,
             depth: self.current_call_depth,
             refund: 0, // Always zero for now
+            error: None,
         })
     }
 
@@ -201,8 +203,13 @@ impl<S: EthereumLikeTypes> EvmTracer<S> for EvmOpcodesLogger<S> {
         unreachable!()
     }
 
-    fn on_fault(&self, _error: &EvmError, _frame_state: &impl EvmFrameInterface<S>) {
-        unreachable!()
+    fn on_opcode_error(&mut self, error: &EvmError, frame_state: &impl EvmFrameInterface<S>) {
+        let tx_log = self.transaction_logs.last_mut().expect("Should exist");
+        let last_opcode = tx_log.steps.last_mut().expect("Should exist");
+
+        assert_eq!(last_opcode.pc, frame_state.instruction_pointer());
+
+        last_opcode.error = Some(error.clone());
     }
 }
 
