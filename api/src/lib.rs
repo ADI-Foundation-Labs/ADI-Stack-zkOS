@@ -1,3 +1,5 @@
+#![feature(allocator_api)]
+
 use std::{path::PathBuf, str::FromStr};
 
 use forward_system::run::{
