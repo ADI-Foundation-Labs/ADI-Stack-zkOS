@@ -2,6 +2,8 @@
 #![feature(allocator_api)]
 #![feature(btreemap_alloc)]
 #![feature(array_windows)]
+#![feature(maybe_uninit_write_slice)]
+#![feature(slice_from_ptr_range)]
 #![allow(clippy::new_without_default)]
 #![allow(clippy::needless_lifetimes)]
 #![allow(clippy::needless_borrow)]
