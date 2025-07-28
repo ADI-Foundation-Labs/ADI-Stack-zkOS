@@ -2,18 +2,24 @@
 #![feature(assert_matches)]
 
 use bytes::Bytes;
+use cfg_if::cfg_if;
 use rig::forward_system::run::BatchOutput;
 use rig::forward_system::run::ExecutionResult::Revert;
+use rig::ProfilerConfig;
 use rig::{
     ethers::{abi::Address, signers::Signer, types::TransactionRequest},
     ruint::aliases::{B160, U256},
 };
 use std::assert_matches::assert_matches;
+#[cfg(feature = "flamegraph")]
+use std::fs;
+use std::path::PathBuf;
 
 fn run_precompile(
     precompile_id: &str,
     gas: Option<impl Into<rig::ethers::prelude::U256>>,
     input: &[u8],
+    path: Option<PathBuf>,
 ) -> BatchOutput {
     let gas = match gas {
         Some(x) => x.into(),
@@ -39,7 +45,9 @@ fn run_precompile(
         &wallet,
     );
 
-    let batch_output = chain.run_block(vec![tx], None, None);
+    let profiler_config = path.map(ProfilerConfig::new);
+
+    let batch_output = chain.run_block(vec![tx], None, profiler_config);
 
     batch_output
 }
@@ -597,14 +605,35 @@ const TESTS: [Test; 78] = [
     }
 ];
 
+fn create_flamegraph_dir(_path: &str) -> Option<PathBuf> {
+    cfg_if! {
+        if #[cfg(feature = "flamegraph")] {
+            let dir = PathBuf::from(_path);
+            if dir.exists() {
+                fs::remove_dir(&dir).unwrap();
+            }
+            fs::create_dir(&dir).unwrap();
+            Some(dir)
+        } else {
+            None
+        }
+    }
+}
+
 #[test]
 fn test_precompiles() {
+    let flamegraphs_dir = create_flamegraph_dir("flamegraphs");
+
     for test in TESTS.iter() {
         let input = hex::decode(test.input).unwrap();
         let expected = hex::decode(test.expected).unwrap();
         dbg!(test.name);
 
-        let tx_result = run_precompile(test.precompile_id, None::<u64>, &input)
+        let path = flamegraphs_dir
+            .as_ref()
+            .map(|p| p.join(format!("{}.svg", test.name)));
+        
+        let tx_result = run_precompile(test.precompile_id, None::<u64>, &input, path)
             .tx_results
             .first()
             .unwrap()
@@ -628,7 +657,7 @@ fn test_precompile_no_gas_no_output() {
         let _expected = hex::decode(test.expected).unwrap();
         dbg!(test.precompile_id);
 
-        let res = run_precompile(test.precompile_id, Some(21000), input)
+        let res = run_precompile(test.precompile_id, Some(21000), input, None)
             .tx_results
             .first()
             .unwrap()
@@ -655,6 +684,7 @@ fn test_modexp_out_of_gas() {
         "0000000000000000000000000000000000000005",
         Some(50_000),
         &input,
+        None,
     );
     let res = b.tx_results.first().unwrap().clone().unwrap();
 
@@ -680,6 +710,7 @@ fn test_modexp_out_of_gas_ref() {
         "0000000000000000000000000000000000000005",
         Some(50_000),
         &input,
+        None,
     )
     .tx_results
     .first()
@@ -703,6 +734,7 @@ fn test_modexp_out_of_gas_ref() {
         "0000000000000000000000000000000000000005",
         Some(50_000),
         &input,
+        None,
     )
     .tx_results
     .first()
@@ -726,6 +758,7 @@ fn test_modexp_out_of_gas_ref() {
         "0000000000000000000000000000000000000005",
         Some(50_000),
         &input,
+        None,
     )
     .tx_results
     .first()
@@ -749,6 +782,7 @@ fn test_modexp_out_of_gas_ref() {
         "0000000000000000000000000000000000000005",
         Some(50_000),
         &input,
+        None,
     )
     .tx_results
     .first()
@@ -815,6 +849,7 @@ fn test_ecpairing_precompile_invalid_input() {
         "0000000000000000000000000000000000000008",
         Some(50_000),
         &input,
+        None,
     )
     .tx_results
     .first()
@@ -849,6 +884,7 @@ fn test_modexp_gas_cost_correct() {
         "0000000000000000000000000000000000000005",
         None::<u64>,
         &input,
+        None,
     )
     .tx_results
     .first()
@@ -880,6 +916,7 @@ fn test_ecpairing_gas_burned_if_input_invalid() {
         "0000000000000000000000000000000000000005",
         Some(50_000),
         &input,
+        None,
     )
     .tx_results
     .first()
@@ -902,6 +939,7 @@ fn bench_sha() {
             "0000000000000000000000000000000000000002",
             None::<u64>,
             &input,
+            None,
         )
         .tx_results
         .first()
@@ -922,6 +960,7 @@ fn bench_ripemd() {
             "0000000000000000000000000000000000000003",
             None::<u64>,
             &input,
+            None,
         )
         .tx_results
         .first()
@@ -942,6 +981,7 @@ fn bench_id() {
             "0000000000000000000000000000000000000004",
             None::<u64>,
             &input,
+            None,
         )
         .tx_results
         .first()
@@ -962,6 +1002,7 @@ fn bench_keccak() {
             "000000000000000000000000000000000000000b",
             None::<u64>,
             &input,
+            None,
         )
         .tx_results
         .first()
@@ -990,6 +1031,7 @@ fn bench_ecpairing() {
             "0000000000000000000000000000000000000008",
             None::<u64>,
             &input,
+            None,
         )
         .tx_results
         .first()
@@ -1046,6 +1088,7 @@ fn bench_modexp() {
             "0000000000000000000000000000000000000005",
             None::<u64>,
             &input,
+            None,
         )
         .tx_results
         .first()

@@ -16,6 +16,7 @@ pub(super) fn init() {
 }
 
 impl PartialEq for DelegatedU256 {
+    #[inline(always)]
     fn eq(&self, other: &Self) -> bool {
         unsafe {
             // maybe copy values into scratch if they live in ROM
@@ -34,6 +35,7 @@ impl PartialEq for DelegatedU256 {
 impl Eq for DelegatedU256 {}
 
 impl Ord for DelegatedU256 {
+    #[inline(always)]
     fn cmp(&self, other: &Self) -> Ordering {
         unsafe {
             let scratch = copy_to_scratch(self as *const Self);
@@ -55,6 +57,7 @@ impl Ord for DelegatedU256 {
 }
 
 impl PartialOrd for DelegatedU256 {
+    #[inline(always)]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
@@ -64,6 +67,7 @@ impl DelegatedU256 {
     pub const ZERO: Self = Self([0; 4]);
     pub const ONE: Self = Self([1, 0, 0, 0]);
 
+    #[inline(always)]
     pub fn zero() -> Self {
         #[allow(invalid_value)]
         #[allow(clippy::uninit_assumed_init)]
@@ -75,6 +79,7 @@ impl DelegatedU256 {
         result
     }
 
+    #[inline(always)]
     pub fn one() -> Self {
         #[allow(invalid_value)]
         #[allow(clippy::uninit_assumed_init)]
@@ -86,6 +91,7 @@ impl DelegatedU256 {
         result
     }
 
+    #[inline(always)]
     pub fn write_zero(&mut self) {
         #[allow(static_mut_refs)]
         unsafe {
@@ -93,6 +99,7 @@ impl DelegatedU256 {
         }
     }
 
+    #[inline(always)]
     pub fn write_one(&mut self) {
         #[allow(static_mut_refs)]
         unsafe {
@@ -100,6 +107,7 @@ impl DelegatedU256 {
         }
     }
 
+    #[inline(always)]
     pub fn is_zero_mut(&mut self) -> bool {
         #[allow(static_mut_refs)]
         let eq = unsafe { bigint_op_delegation::<EQ_OP_BIT_IDX>(self as *mut Self, ZERO.as_ptr()) };
@@ -107,6 +115,7 @@ impl DelegatedU256 {
         eq != 0
     }
 
+    #[inline(always)]
     pub fn is_zero(&self) -> bool {
         let eq = unsafe {
             let src = copy_if_needed(self as *const Self);
@@ -118,6 +127,7 @@ impl DelegatedU256 {
         eq != 0
     }
 
+    #[inline(always)]
     pub fn is_one(&self) -> bool {
         let eq = unsafe {
             let src = copy_if_needed(self as *const Self);
@@ -129,14 +139,17 @@ impl DelegatedU256 {
         eq != 0
     }
 
+    #[inline(always)]
     pub fn is_odd(&self) -> bool {
         self.0[0] & 1 == 1
     }
 
+    #[inline(always)]
     pub fn is_even(&self) -> bool {
         !self.is_odd()
     }
 
+    #[inline(never)]
     pub fn overflowing_add_assign(&mut self, rhs: &Self) -> bool {
         unsafe {
             with_ram_operand(rhs as *const Self, |rhs_ptr| {
@@ -146,6 +159,7 @@ impl DelegatedU256 {
         }
     }
 
+    #[inline(always)]
     pub fn overflowing_add_assign_with_carry(&mut self, rhs: &Self, carry: bool) -> bool {
         unsafe {
             with_ram_operand(rhs as *const Self, |rhs_ptr| {
@@ -160,6 +174,7 @@ impl DelegatedU256 {
         }
     }
 
+    #[inline(always)]
     pub fn overflowing_sub_assign(&mut self, rhs: &Self) -> bool {
         unsafe {
             with_ram_operand(rhs as *const Self, |rhs_ptr| {
@@ -170,6 +185,7 @@ impl DelegatedU256 {
         }
     }
 
+    #[inline(always)]
     pub fn overflowing_sub_assign_with_borrow(&mut self, rhs: &Self, borrow: bool) -> bool {
         unsafe {
             with_ram_operand(rhs as *const Self, |rhs_ptr| {
@@ -184,6 +200,7 @@ impl DelegatedU256 {
         }
     }
 
+    #[inline(always)]
     pub fn overflowing_sub_and_negate_assign(&mut self, rhs: &Self) -> bool {
         unsafe {
             with_ram_operand(rhs as *const Self, |rhs_ptr| {
@@ -195,6 +212,7 @@ impl DelegatedU256 {
         }
     }
 
+    #[inline(always)]
     pub fn mul_low_assign(&mut self, rhs: &Self) -> bool {
         unsafe {
             with_ram_operand(rhs as *const Self, |rhs_ptr| {
@@ -205,6 +223,7 @@ impl DelegatedU256 {
         }
     }
 
+    #[inline(always)]
     pub fn mul_high_assign(&mut self, rhs: &Self) {
         unsafe {
             with_ram_operand(rhs as *const Self, |rhs_ptr| {
@@ -214,6 +233,7 @@ impl DelegatedU256 {
     }
 
     /// Compute the wide product of `self * rhs`. Stores the low 256 bits in `self` and returns the high bits
+    #[inline(always)]
     pub fn widening_mul_assign(&mut self, rhs: &Self) -> Self {
         unsafe {
             #[allow(invalid_value)]
@@ -234,6 +254,7 @@ impl DelegatedU256 {
         }
     }
 
+    #[inline(always)]
     pub fn widening_mul_assign_into(&mut self, high: &mut Self, rhs: &Self) {
         unsafe {
             with_ram_operand(rhs as *const Self, |rhs_ptr| {
@@ -243,6 +264,7 @@ impl DelegatedU256 {
         }
     }
 
+    #[inline(always)]
     pub fn not_assign(&mut self) {
         self.0[0] = !self.0[0];
         self.0[1] = !self.0[1];
@@ -252,6 +274,7 @@ impl DelegatedU256 {
 }
 
 impl From<u8> for DelegatedU256 {
+    #[inline(always)]
     fn from(value: u8) -> Self {
         let mut result = Self::zero();
         result.as_limbs_mut()[0] = value as u64;
@@ -260,6 +283,7 @@ impl From<u8> for DelegatedU256 {
 }
 
 impl From<u16> for DelegatedU256 {
+    #[inline(always)]
     fn from(value: u16) -> Self {
         let mut result = Self::zero();
         result.as_limbs_mut()[0] = value as u64;
@@ -268,6 +292,7 @@ impl From<u16> for DelegatedU256 {
 }
 
 impl From<u32> for DelegatedU256 {
+    #[inline(always)]
     fn from(value: u32) -> Self {
         let mut result = Self::zero();
         result.as_limbs_mut()[0] = value as u64;
@@ -276,6 +301,7 @@ impl From<u32> for DelegatedU256 {
 }
 
 impl From<u64> for DelegatedU256 {
+    #[inline(always)]
     fn from(value: u64) -> Self {
         let mut result = Self::zero();
         result.as_limbs_mut()[0] = value;
@@ -284,6 +310,7 @@ impl From<u64> for DelegatedU256 {
 }
 
 impl From<u128> for DelegatedU256 {
+    #[inline(always)]
     fn from(value: u128) -> Self {
         let mut result = Self::zero();
         result.as_limbs_mut()[0] = value as u64;
@@ -293,6 +320,7 @@ impl From<u128> for DelegatedU256 {
 }
 
 impl<'a> BitXorAssign<&'a Self> for DelegatedU256 {
+    #[inline(always)]
     fn bitxor_assign(&mut self, rhs: &'a Self) {
         self.0[0] ^= rhs.0[0];
         self.0[1] ^= rhs.0[1];
@@ -322,6 +350,7 @@ impl<'a> BitOrAssign<&'a Self> for DelegatedU256 {
 }
 
 impl ShrAssign<u32> for DelegatedU256 {
+    #[inline(always)]
     fn shr_assign(&mut self, rhs: u32) {
         if rhs != 0 {
             let (limbs, bits) = (rhs / 64, rhs % 64);
@@ -385,6 +414,7 @@ impl ShrAssign<u32> for DelegatedU256 {
 }
 
 impl ShlAssign<u32> for DelegatedU256 {
+    #[inline(always)]
     fn shl_assign(&mut self, rhs: u32) {
         if rhs != 0 {
             let (limbs, bits) = (rhs / 64, rhs % 64);
@@ -449,6 +479,7 @@ impl ShlAssign<u32> for DelegatedU256 {
 
 /// # Safety
 /// `operand` must be 32 bytes aligned and point to 32 bytes of accessible memory.
+#[inline(always)]
 pub unsafe fn write_zero_into_ptr(operand: *mut DelegatedU256) {
     #[allow(static_mut_refs)]
     unsafe {
@@ -458,6 +489,7 @@ pub unsafe fn write_zero_into_ptr(operand: *mut DelegatedU256) {
 
 /// # Safety
 /// `operand` must be 32 bytes aligned and point to 32 bytes of accessible memory.
+#[inline(always)]
 pub unsafe fn write_one_into_ptr(operand: *mut DelegatedU256) {
     #[allow(static_mut_refs)]
     unsafe {

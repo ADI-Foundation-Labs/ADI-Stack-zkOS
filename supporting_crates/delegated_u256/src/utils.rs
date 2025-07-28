@@ -3,22 +3,27 @@ use core::mem::MaybeUninit;
 use super::DelegatedU256;
 
 impl DelegatedU256 {
+    #[inline(always)]
     pub const fn as_limbs(&self) -> &[u64; 4] {
         &self.0
     }
 
+    #[inline(always)]
     pub const fn as_limbs_mut(&mut self) -> &mut [u64; 4] {
         &mut self.0
     }
 
+    #[inline(always)]
     pub const fn to_limbs(self) -> [u64; 4] {
         self.0
     }
 
+    #[inline(always)]
     pub const fn from_limbs(limbs: [u64; 4]) -> Self {
         Self(limbs)
     }
 
+    #[inline(always)]
     pub const fn from_be_bytes(input: &[u8; 32]) -> Self {
         unsafe {
             #[allow(invalid_value)]
@@ -39,12 +44,14 @@ impl DelegatedU256 {
         }
     }
 
+    #[inline(always)]
     pub fn to_be_bytes(&self) -> [u8; 32] {
         let mut res = self.clone();
         res.bytereverse();
         unsafe { core::mem::transmute(res) }
     }
 
+    #[inline(always)]
     pub fn from_le_bytes(input: &[u8; 32]) -> Self {
         unsafe {
             #[allow(invalid_value)]
@@ -65,14 +72,17 @@ impl DelegatedU256 {
         }
     }
 
+    #[inline(always)]
     pub fn to_le_bytes(&self) -> [u8; 32] {
         unsafe { core::mem::transmute(self.clone()) }
     }
 
+    #[inline(always)]
     pub fn as_le_bytes(&self) -> &[u8; 32] {
         unsafe { core::mem::transmute(&self.0) }
     }
 
+    #[inline(always)]
     pub fn bytereverse(&mut self) {
         let limbs = self.as_limbs_mut();
         unsafe {
@@ -84,6 +94,7 @@ impl DelegatedU256 {
         }
     }
 
+    #[inline(always)]
     pub fn bit_len(&self) -> usize {
         let mut len = 256usize;
         for el in self.0.iter().rev() {
@@ -101,6 +112,7 @@ impl DelegatedU256 {
         len
     }
 
+    #[inline(always)]
     pub fn byte(&self, byte_idx: usize) -> u8 {
         if byte_idx >= 32 {
             0
@@ -109,6 +121,7 @@ impl DelegatedU256 {
         }
     }
 
+    #[inline(always)]
     pub fn bit(&self, bit_idx: usize) -> bool {
         if bit_idx >= 256 {
             false

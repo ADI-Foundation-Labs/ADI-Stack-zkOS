@@ -20,9 +20,7 @@ impl Clone for DelegatedU256 {
             #[allow(invalid_value)]
             #[allow(clippy::uninit_assumed_init)]
             let mut result = MaybeUninit::<Self>::uninit().assume_init();
-            with_ram_operand(self.0.as_ptr().cast(), |src_ptr| {
-                let _ = bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut result as *mut Self, src_ptr);
-            });
+            bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut result as *mut _, self as *const _);
             result
         }
     }
@@ -59,16 +57,13 @@ pub(super) unsafe fn with_ram_operand<T, F: FnMut(*const DelegatedU256) -> T>(
 ) -> T {
     #[cfg(target_arch = "riscv32")]
     {
-        let mut scratch_mu = MaybeUninit::<DelegatedU256>::uninit();
-
-        let scratch_ptr = if operand.addr() < ROM_BOUND {
-            scratch_mu.as_mut_ptr().write(operand.read());
-            scratch_mu.as_ptr()
+        if operand.addr() < ROM_BOUND {
+            let mut scratch_mu = MaybeUninit::<DelegatedU256>::uninit();
+            scratch_mu.as_mut_ptr().write(operand.read()); 
+            f(scratch_mu.as_ptr())
         } else {
-            operand
-        };
-
-        f(scratch_ptr)
+            f(operand)
+        }
     }
 
     #[cfg(not(target_arch = "riscv32"))]
