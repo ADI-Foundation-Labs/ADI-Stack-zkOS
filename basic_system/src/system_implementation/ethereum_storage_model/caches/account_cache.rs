@@ -1,18 +1,17 @@
 //! Account cache, backed by a history map.
 //! This caches the actual account data, which will
 //! then be published into the preimage storage.
-use super::AccountPropertiesMetadata;
-use super::BytecodeAndAccountDataPreimagesStorage;
-use super::NewStorageWithAccountPropertiesUnderHash;
+use super::super::cost_constants::*;
 use crate::system_functions::keccak256::keccak256_native_cost;
+use crate::system_implementation::cache_structs::storage_values::StorageAccessPolicy;
+use crate::system_implementation::cache_structs::AccountPropertiesMetadataNoPubdata;
 use crate::system_implementation::cache_structs::BitsOrd160;
-use crate::system_implementation::flat_storage_model::account_cache_entry::AccountProperties;
-use crate::system_implementation::flat_storage_model::bytecode_padding_len;
-use crate::system_implementation::flat_storage_model::cost_constants::*;
-use crate::system_implementation::flat_storage_model::AccountAggregateDataHash;
-use crate::system_implementation::flat_storage_model::PreimageRequest;
-use crate::system_implementation::flat_storage_model::StorageAccessPolicy;
-use alloc::collections::BTreeSet;
+use crate::system_implementation::ethereum_storage_model::caches::account_properties::EthereumAccountProperties;
+use crate::system_implementation::ethereum_storage_model::caches::account_properties::EthereumAccountPropertiesQuery;
+use crate::system_implementation::ethereum_storage_model::caches::full_storage_cache::EthereumStorageCache;
+use crate::system_implementation::ethereum_storage_model::caches::preimage::BytecodeKeccakPreimagesStorage;
+use crate::system_implementation::ethereum_storage_model::caches::preimage::PreimageRequestForUnknownLength;
+use crate::system_implementation::ethereum_storage_model::caches::EMPTY_STRING_KECCAK_HASH;
 use core::alloc::Allocator;
 use core::marker::PhantomData;
 use evm_interpreter::errors::EvmSubsystemError;
@@ -20,7 +19,6 @@ use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
 use storage_models::common_structs::PreimageCacheModel;
-use storage_models::common_structs::StorageCacheModel;
 use zk_ee::common_structs::cache_record::Appearance;
 use zk_ee::common_structs::cache_record::CacheRecord;
 use zk_ee::common_structs::history_map::CacheSnapshotId;
@@ -38,46 +36,45 @@ use zk_ee::system::DeconstructionSubsystemError;
 use zk_ee::system::NonceError;
 use zk_ee::system::NonceSubsystemError;
 use zk_ee::system::Resource;
+use zk_ee::system_io_oracle::SimpleOracleQuery;
 use zk_ee::utils::BitsOrd;
 use zk_ee::utils::Bytes32;
 use zk_ee::wrap_error;
 use zk_ee::{
     system::{
         errors::{internal::InternalError, system::SystemError},
-        AccountData, AccountDataRequest, Ergs, IOResultKeeper, Maybe, Resources,
+        AccountData, AccountDataRequest, Ergs, Maybe, Resources,
     },
     system_io_oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
 };
 
-type AddressItem<'a, A> = HistoryMapItemRefMut<
+pub type AddressItem<'a, A> = HistoryMapItemRefMut<
     'a,
     BitsOrd<160, 3>,
-    CacheRecord<AccountProperties, AccountPropertiesMetadata>,
+    CacheRecord<EthereumAccountProperties, AccountPropertiesMetadataNoPubdata>,
     A,
 >;
 
-pub struct NewModelAccountCache<
+pub struct EthereumAccountCache<
     A: Allocator + Clone, // = Global,
     R: Resources,
-    P: StorageAccessPolicy<R, Bytes32>,
     SC: StackCtor<N>,
     const N: usize,
 > {
-    pub(crate) cache:
-        HistoryMap<BitsOrd160, CacheRecord<AccountProperties, AccountPropertiesMetadata>, A>,
+    pub(crate) cache: HistoryMap<
+        BitsOrd160,
+        CacheRecord<EthereumAccountProperties, AccountPropertiesMetadataNoPubdata>,
+        A,
+    >,
     pub(crate) current_tx_number: u32,
+    #[allow(dead_code)]
     alloc: A,
-    phantom: PhantomData<(R, P, SC)>,
+    phantom: PhantomData<(R, SC)>,
 }
 
-impl<
-        A: Allocator + Clone,
-        R: Resources,
-        P: StorageAccessPolicy<R, Bytes32>,
-        SC: StackCtor<N>,
-        const N: usize,
-    > NewModelAccountCache<A, R, P, SC, N>
+impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
+    EthereumAccountCache<A, R, SC, N>
 {
     pub fn new_from_parts(allocator: A) -> Self {
         Self {
@@ -94,8 +91,6 @@ impl<
         ee_type: ExecutionEnvironmentType,
         resources: &mut R,
         address: &B160,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
-        preimages_cache: &mut impl PreimageCacheModel<Resources = R, PreimageRequest = PreimageRequest>,
         oracle: &mut impl IOOracle,
         is_selfdestruct: bool,
         is_access_list: bool,
@@ -148,45 +143,18 @@ impl<
                     }
                 }
 
-                // to avoid divergence we read as-if infinite ergs
-                let hash = resources.with_infinite_ergs(|inf_resources| {
-                    storage.read_special_account_property::<AccountAggregateDataHash>(
-                        ExecutionEnvironmentType::NoEE,
-                        inf_resources,
-                        address,
-                        oracle,
-                    )
-                })?;
+                // we just ask the oracle for properties
 
-                let acc_data = match hash == Bytes32::ZERO {
-                    true => (AccountProperties::default(), Appearance::Unset),
-                    false => {
-                        let preimage = preimages_cache.get_preimage::<PROOF_ENV>(
-                            ee_type,
-                            &PreimageRequest {
-                                hash,
-                                expected_preimage_len_in_bytes: AccountProperties::ENCODED_SIZE
-                                    as u32,
-                                preimage_type: PreimageType::AccountData,
-                            },
-                            resources,
-                            oracle,
-                        )?;
-                        // it's redundant as preimages cache should just check it, but why not
-                        assert_eq!(preimage.len(), AccountProperties::ENCODED_SIZE);
-
-                        let props =
-                            AccountProperties::decode(preimage.try_into().map_err(|_| {
-                                internal_error!("Unexpected preimage length for AccountProperties")
-                            })?);
-
-                        (props, Appearance::Retrieved)
-                    }
+                let acc_data = EthereumAccountPropertiesQuery::get(oracle, address)?;
+                let appearance = if acc_data.computed_is_unset {
+                    Appearance::Unset
+                } else {
+                    Appearance::Retrieved
                 };
 
                 // Note: we initialize it as cold, should be warmed up separately
                 // Since in case of revert it should become cold again and initial record can't be rolled back
-                Ok(CacheRecord::new(acc_data.0, acc_data.1))
+                Ok(CacheRecord::new(acc_data, appearance))
             })
             .and_then(|mut x| {
                 // Warm up element according to EVM rules if needed
@@ -233,8 +201,6 @@ impl<
         resources: &mut R,
         address: &B160,
         update_fn: impl FnOnce(&U256) -> Result<U256, BalanceSubsystemError>,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
-        preimages_cache: &mut impl PreimageCacheModel<Resources = R, PreimageRequest = PreimageRequest>,
         oracle: &mut impl IOOracle,
         is_selfdestruct: bool,
     ) -> Result<U256, BalanceSubsystemError> {
@@ -242,8 +208,6 @@ impl<
             ee_type,
             resources,
             address,
-            storage,
-            preimages_cache,
             oracle,
             is_selfdestruct,
             false,
@@ -272,8 +236,6 @@ impl<
         from: &B160,
         to: &B160,
         amount: &U256,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
-        preimages_cache: &mut impl PreimageCacheModel<Resources = R, PreimageRequest = PreimageRequest>,
         oracle: &mut impl IOOracle,
         is_selfdestruct: bool,
     ) -> Result<(), BalanceSubsystemError> {
@@ -292,8 +254,6 @@ impl<
                         Ok(new_value)
                     }
                 },
-                storage,
-                preimages_cache,
                 oracle,
                 is_selfdestruct,
             )
@@ -314,78 +274,49 @@ impl<
         Ok(())
     }
 
-    // special method, not part of the trait as it's not overly generic
-    pub fn persist_changes(
-        &self,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
-        preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
-        oracle: &mut impl IOOracle,
-        _result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
-    ) -> Result<(), SystemError> {
-        self.cache.apply_to_all_updated_elements(|l, r, addr| {
-            if l.value() == r.value() {
-                return Ok(());
-            }
-            // We don't care of the left side, since we're storing the entire snapshot.
-            let encoding = r.value().encoding();
-            let properties_hash = r.value().compute_hash();
+    // // special method, not part of the trait as it's not overly generic
+    // pub fn persist_changes(
+    //     &self,
+    //     storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
+    //     preimages_cache: &mut BytecodeKeccakPreimagesStorage<R, A>,
+    //     oracle: &mut impl IOOracle,
+    //     _result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
+    // ) -> Result<(), SystemError> {
+    //     self.cache.apply_to_all_updated_elements(|l, r, addr| {
+    //         if l.value() == r.value() {
+    //             return Ok(());
+    //         }
+    //         // We don't care of the left side, since we're storing the entire snapshot.
+    //         let encoding = r.value().encoding();
+    //         let properties_hash = r.value().compute_hash();
 
-            // Not part of a transaction, should be included in other costs.
-            let mut inf_resources = R::FORMAL_INFINITE;
+    //         // Not part of a transaction, should be included in other costs.
+    //         let mut inf_resources = R::FORMAL_INFINITE;
 
-            let _ = preimages_cache.record_preimage::<false>(
-                ExecutionEnvironmentType::NoEE,
-                &(PreimageRequest {
-                    hash: properties_hash,
-                    expected_preimage_len_in_bytes: AccountProperties::ENCODED_SIZE as u32,
-                    preimage_type: PreimageType::AccountData,
-                }),
-                &mut inf_resources,
-                &[&encoding],
-            )?;
+    //         let _ = preimages_cache.record_preimage::<false>(
+    //             ExecutionEnvironmentType::NoEE,
+    //             &(PreimageRequestForUnknownLength {
+    //                 hash: properties_hash,
+    //                 preimage_type: PreimageType::AccountData,
+    //             }),
+    //             &mut inf_resources,
+    //             &[&encoding],
+    //         )?;
 
-            storage.write_special_account_property::<AccountAggregateDataHash>(
-                ExecutionEnvironmentType::NoEE,
-                &mut inf_resources,
-                &addr.0,
-                &properties_hash,
-                oracle,
-            )?;
+    //         storage.write_special_account_property::<AccountAggregateDataHash>(
+    //             ExecutionEnvironmentType::NoEE,
+    //             &mut inf_resources,
+    //             &addr.0,
+    //             &properties_hash,
+    //             oracle,
+    //         )?;
 
-            Ok(())
-        })
-    }
+    //         Ok(())
+    //     })
+    // }
 
     pub fn calculate_pubdata_used_by_tx(&self) -> u32 {
-        let mut visited_elements = BTreeSet::new_in(self.alloc.clone());
-
-        let mut pubdata_used = 0u32;
-        for element_history in self.cache.iter_altered_since_commit() {
-            // Elements are sorted chronologically
-
-            let element_key = element_history.key();
-
-            // Skip if already calculated pubdata for this element
-            if visited_elements.contains(element_key) {
-                continue;
-            }
-            visited_elements.insert(element_key);
-
-            let current = element_history.current();
-            let initial = element_history.initial();
-
-            if current.value() != initial.value() {
-                pubdata_used += 32; // key
-                pubdata_used += AccountProperties::diff_compression_length(
-                    initial.value(),
-                    current.value(),
-                    current.metadata().not_publish_bytecode,
-                )
-                .unwrap();
-            }
-        }
-
-        pubdata_used
+        0
     }
 
     pub fn begin_new_tx(&mut self) {
@@ -436,8 +367,6 @@ impl<
         ee_type: ExecutionEnvironmentType,
         resources: &mut R,
         address: &B160,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
-        preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
         is_access_list: bool,
     ) -> Result<(), SystemError> {
@@ -445,8 +374,6 @@ impl<
             ee_type,
             resources,
             address,
-            storage,
-            preimages_cache,
             oracle,
             false,
             is_access_list,
@@ -485,8 +412,7 @@ impl<
                 CodeVersion,
             >,
         >,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
-        preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
+        preimages_cache: &mut BytecodeKeccakPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
     ) -> Result<
         AccountData<
@@ -503,16 +429,8 @@ impl<
         >,
         SystemError,
     > {
-        let account_data = self.materialize_element::<PROOF_ENV>(
-            ee_type,
-            resources,
-            address,
-            storage,
-            preimages_cache,
-            oracle,
-            false,
-            false,
-        )?;
+        let account_data = self
+            .materialize_element::<PROOF_ENV>(ee_type, resources, address, oracle, false, false)?;
 
         let full_data = account_data.current().value();
 
@@ -521,42 +439,40 @@ impl<
         // NOTE: we didn't yet decommit the bytecode, BUT charged for it (all properties are warm at
         // once or not), so if we do not access it ever we will not need to pollute preimages cache
 
+        let bytecode = {
+            // we charged for "cold" behavior already, so we just ask for preimage
+            if full_data.bytecode_hash == EMPTY_STRING_KECCAK_HASH {
+                let res: &'static [u8] = &[];
+
+                res
+            } else {
+                // can try to get preimage
+                let preimage_type = PreimageRequestForUnknownLength {
+                    hash: full_data.bytecode_hash,
+                    preimage_type: PreimageType::Bytecode,
+                };
+                preimages_cache.get_preimage::<PROOF_ENV>(
+                    ee_type,
+                    &preimage_type,
+                    resources,
+                    oracle,
+                )?
+            }
+        };
+
+        let code_length = bytecode.len() as u32;
+
         Ok(AccountData {
-            ee_version: Maybe::construct(|| full_data.versioning_data.ee_version()),
-            observable_bytecode_hash: Maybe::construct(|| full_data.observable_bytecode_hash),
-            observable_bytecode_len: Maybe::construct(|| full_data.observable_bytecode_len),
+            ee_version: Maybe::construct(|| ExecutionEnvironmentType::EVM as u8),
+            observable_bytecode_hash: Maybe::construct(|| full_data.bytecode_hash),
+            observable_bytecode_len: Maybe::construct(|| code_length),
             nonce: Maybe::construct(|| full_data.nonce),
             bytecode_hash: Maybe::construct(|| full_data.bytecode_hash),
-            unpadded_code_len: Maybe::construct(|| full_data.unpadded_code_len),
-            artifacts_len: Maybe::construct(|| full_data.artifacts_len),
+            unpadded_code_len: Maybe::construct(|| code_length),
+            artifacts_len: Maybe::construct(|| 0),
             nominal_token_balance: Maybe::construct(|| full_data.balance),
-            bytecode: Maybe::try_construct(|| {
-                // we charged for "cold" behavior already, so we just ask for preimage
-
-                if full_data.bytecode_hash.is_zero() {
-                    assert!(full_data.observable_bytecode_hash.is_zero());
-                    assert_eq!(full_data.unpadded_code_len, 0);
-                    assert_eq!(full_data.artifacts_len, 0);
-                    assert_eq!(full_data.observable_bytecode_len, 0);
-
-                    let res: &'static [u8] = &[];
-                    Ok(res)
-                } else {
-                    // can try to get preimage
-                    let preimage_type = PreimageRequest {
-                        hash: full_data.bytecode_hash,
-                        expected_preimage_len_in_bytes: full_data.full_bytecode_len(),
-                        preimage_type: PreimageType::Bytecode,
-                    };
-                    preimages_cache.get_preimage::<PROOF_ENV>(
-                        ee_type,
-                        &preimage_type,
-                        resources,
-                        oracle,
-                    )
-                }
-            })?,
-            code_version: Maybe::construct(|| full_data.versioning_data.code_version()),
+            bytecode: Maybe::construct(|| bytecode),
+            code_version: Maybe::construct(|| 0),
         })
     }
 
@@ -566,20 +482,10 @@ impl<
         resources: &mut R,
         address: &B160,
         increment_by: u64,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
-        preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
     ) -> Result<u64, NonceSubsystemError> {
-        let mut account_data = self.materialize_element::<PROOF_ENV>(
-            ee_type,
-            resources,
-            address,
-            storage,
-            preimages_cache,
-            oracle,
-            false,
-            false,
-        )?;
+        let mut account_data = self
+            .materialize_element::<PROOF_ENV>(ee_type, resources, address, oracle, false, false)?;
 
         resources.charge(&R::from_native(R::Native::from_computational(
             WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
@@ -606,19 +512,10 @@ impl<
         resources: &mut R,
         address: &B160,
         update_fn: impl FnOnce(&U256) -> Result<U256, BalanceSubsystemError>,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
-        preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
     ) -> Result<U256, BalanceSubsystemError> {
         self.update_nominal_token_value_inner::<PROOF_ENV>(
-            ee_type,
-            resources,
-            address,
-            update_fn,
-            storage,
-            preimages_cache,
-            oracle,
-            false,
+            ee_type, resources, address, update_fn, oracle, false,
         )
     }
 
@@ -629,27 +526,16 @@ impl<
         from: &B160,
         to: &B160,
         amount: &U256,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
-        preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
     ) -> Result<(), BalanceSubsystemError> {
         self.transfer_nominal_token_value_inner::<PROOF_ENV>(
-            from_ee,
-            resources,
-            from,
-            to,
-            amount,
-            storage,
-            preimages_cache,
-            oracle,
-            false,
+            from_ee, resources, from, to, amount, oracle, false,
         )
     }
 
     fn compute_bytecode_hash(
         from_ee: ExecutionEnvironmentType,
         observable_bytecode: &[u8],
-        artifacts: &[u8],
         resources: &mut R,
     ) -> Result<Bytes32, SystemError> {
         match from_ee {
@@ -657,19 +543,13 @@ impl<
                 Err(internal_error!("Deployment cannot happen in NoEE").into())
             }
             ExecutionEnvironmentType::EVM => {
-                use crypto::blake2s::Blake2s256;
+                use crypto::sha3::Keccak256;
                 use crypto::MiniDigest;
-                let preimage_len = observable_bytecode.len()
-                    + bytecode_padding_len(observable_bytecode.len())
-                    + artifacts.len();
+                let preimage_len = observable_bytecode.len();
                 let native_cost = blake2s_native_cost(preimage_len);
                 resources.charge(&R::from_native(R::Native::from_computational(native_cost)))?;
-                let mut hasher = Blake2s256::new();
-                let padding = [0u8; core::mem::size_of::<u64>() - 1];
-                hasher.update(observable_bytecode);
-                hasher.update(&padding[..bytecode_padding_len(observable_bytecode.len())]);
-                hasher.update(artifacts);
-                Ok(Bytes32::from_array(hasher.finalize()))
+
+                Ok(Bytes32::from_array(Keccak256::digest(observable_bytecode)))
             }
         }
     }
@@ -680,11 +560,9 @@ impl<
         resources: &mut R,
         at_address: &B160,
         deployed_code: &[u8],
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
-        preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
+        preimages_cache: &mut BytecodeKeccakPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
     ) -> Result<&'static [u8], SystemError> {
-        let alloc = self.alloc.clone();
         // Charge for code deposit cost
         match from_ee {
             ExecutionEnvironmentType::NoEE => (),
@@ -706,66 +584,41 @@ impl<
                 from_ee,
                 inf_resources,
                 at_address,
-                storage,
-                preimages_cache,
                 oracle,
                 false,
                 false,
             )
         })?;
+        match account_data.current().appearance() {
+            Appearance::Unset => {}
+            Appearance::Retrieved | Appearance::Updated => {
+                panic!("Trying to deploy into non-empty account")
+            }
+            Appearance::Deconstructed => {
+                todo!();
+            }
+        }
 
-        // compute observable and true hashes of bytecode
-        let observable_bytecode_hash = match from_ee {
+        let (deployed_code, bytecode_hash) = match from_ee {
             ExecutionEnvironmentType::NoEE => {
                 return Err(internal_error!("Deployment cannot happen in NoEE").into());
             }
             ExecutionEnvironmentType::EVM => {
                 let native_cost = keccak256_native_cost::<R>(deployed_code.len());
                 resources.charge(&R::from_native(native_cost))?;
-                use crypto::sha3::Keccak256;
-                use crypto::MiniDigest;
-                let digest = Keccak256::digest(deployed_code);
-                Bytes32::from_array(digest)
-            }
-        };
-        let observable_bytecode_len = deployed_code.len() as u32;
+                let bytecode_hash = Self::compute_bytecode_hash(from_ee, deployed_code, resources)?;
 
-        let (deployed_code, bytecode_hash, artifacts_len, code_version) = match from_ee {
-            ExecutionEnvironmentType::NoEE => {
-                return Err(internal_error!("Deployment cannot happen in NoEE").into());
-            }
-            ExecutionEnvironmentType::EVM => {
-                let artifacts = evm_interpreter::BytecodePreprocessingData::create_artifacts(
-                    alloc,
-                    deployed_code,
-                    resources,
-                )?;
-                let artifacts = artifacts.as_slice();
-                let bytecode_hash =
-                    Self::compute_bytecode_hash(from_ee, deployed_code, artifacts, resources)?;
-                let artifacts_len = artifacts.len() as u32;
-                let padding_len = bytecode_padding_len(deployed_code.len());
-                let bytecode_len = observable_bytecode_len + (padding_len as u32) + artifacts_len;
-
-                let padding = [0u8; core::mem::size_of::<u64>() - 1];
-                let padding = &padding[..padding_len];
                 // save bytecode
                 let deployed_code = preimages_cache.record_preimage::<PROOF_ENV>(
                     from_ee,
-                    &(PreimageRequest {
+                    &(PreimageRequestForUnknownLength {
                         hash: bytecode_hash,
-                        expected_preimage_len_in_bytes: bytecode_len,
                         preimage_type: PreimageType::Bytecode,
                     }),
                     resources,
-                    &[deployed_code, padding, artifacts],
+                    &[deployed_code],
                 )?;
-                (
-                    deployed_code,
-                    bytecode_hash,
-                    artifacts_len,
-                    evm_interpreter::ARTIFACTS_CACHING_CODE_VERSION_BYTE,
-                )
+                (deployed_code, bytecode_hash)
             }
         };
 
@@ -775,19 +628,9 @@ impl<
 
         account_data.update(|cache_record| {
             cache_record.update(|v, m| {
-                v.observable_bytecode_hash = observable_bytecode_hash;
-                v.observable_bytecode_len = observable_bytecode_len;
                 v.bytecode_hash = bytecode_hash;
-                v.unpadded_code_len = observable_bytecode_len;
-                v.artifacts_len = artifacts_len;
-                v.versioning_data.set_as_deployed();
-                v.versioning_data.set_ee_version(from_ee as u8);
-                v.versioning_data.set_code_version(code_version);
 
                 m.deployed_in_tx = Some(cur_tx);
-                // This is unlikely to happen, this case shouldn't be reachable by higher level logic
-                // but just in case if force deployed contract was redeployed with regular deployment we want to publish it
-                m.not_publish_bytecode = false;
 
                 Ok(())
             })
@@ -796,136 +639,18 @@ impl<
         Ok(deployed_code)
     }
 
-    /// Assumes [code_hash] is of default version, which does not contain
-    /// artifacts cached in the bytecode.
-    /// As this storage model caches artifacts, this function decommitts
-    /// the code from [code_hash], computes the artifacts and re-hashes
-    /// to get the actual [bytecode_hash] for the account.
-    pub fn set_bytecode_details<const PROOF_ENV: bool>(
-        &mut self,
-        resources: &mut R,
-        at_address: &B160,
-        ee: ExecutionEnvironmentType,
-        code_hash: Bytes32,
-        unpadded_bytecode_len: u32,
-        artifacts_len: u32,
-        observable_bytecode_hash: Bytes32,
-        observable_bytecode_len: u32,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
-        preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
-        oracle: &mut impl IOOracle,
-    ) -> Result<(), SystemError> {
-        let cur_tx = self.current_tx_number;
-        let alloc = self.alloc.clone();
-
-        let mut account_data = resources.with_infinite_ergs(|inf_resources| {
-            self.materialize_element::<PROOF_ENV>(
-                ExecutionEnvironmentType::NoEE,
-                inf_resources,
-                at_address,
-                storage,
-                preimages_cache,
-                oracle,
-                false,
-                false,
-            )
-        })?;
-
-        let request = PreimageRequest {
-            hash: code_hash,
-            expected_preimage_len_in_bytes: unpadded_bytecode_len,
-            preimage_type: PreimageType::Bytecode,
-        };
-        let deployed_code =
-            preimages_cache.get_preimage::<PROOF_ENV>(ee, &request, resources, oracle)?;
-
-        let (_deployed_code, bytecode_hash, artifacts_len, code_version) = match ee {
-            ExecutionEnvironmentType::NoEE => {
-                return Err(internal_error!("Deployment cannot happen in NoEE").into());
-            }
-            ExecutionEnvironmentType::EVM => {
-                // For EVM, default code version doesn't cache artifacts
-                assert_eq!(artifacts_len, 0);
-                let artifacts = evm_interpreter::BytecodePreprocessingData::create_artifacts(
-                    alloc,
-                    deployed_code,
-                    resources,
-                )?;
-                let artifacts = artifacts.as_slice();
-                let bytecode_hash =
-                    Self::compute_bytecode_hash(ee, deployed_code, artifacts, resources)?;
-                let artifacts_len = artifacts.len() as u32;
-                let padding_len = bytecode_padding_len(deployed_code.len());
-                let bytecode_len = observable_bytecode_len + (padding_len as u32) + artifacts_len;
-
-                let padding = [0u8; core::mem::size_of::<u64>() - 1];
-                let padding = &padding[..padding_len];
-                // save bytecode
-                let deployed_code = preimages_cache.record_preimage::<PROOF_ENV>(
-                    ee,
-                    &(PreimageRequest {
-                        hash: bytecode_hash,
-                        expected_preimage_len_in_bytes: bytecode_len,
-                        preimage_type: PreimageType::Bytecode,
-                    }),
-                    resources,
-                    &[deployed_code, padding, artifacts],
-                )?;
-                (
-                    deployed_code,
-                    bytecode_hash,
-                    artifacts_len,
-                    evm_interpreter::ARTIFACTS_CACHING_CODE_VERSION_BYTE,
-                )
-            }
-        };
-
-        resources.charge(&R::from_native(R::Native::from_computational(
-            WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
-        )))?;
-
-        account_data.update(|cache_record| {
-            cache_record.update(|v, m| {
-                v.observable_bytecode_hash = observable_bytecode_hash;
-                v.observable_bytecode_len = observable_bytecode_len;
-                v.bytecode_hash = bytecode_hash;
-                v.unpadded_code_len = unpadded_bytecode_len;
-                v.artifacts_len = artifacts_len;
-                v.versioning_data.set_as_deployed();
-                v.versioning_data.set_ee_version(ee as u8);
-                v.versioning_data.set_code_version(code_version);
-
-                m.deployed_in_tx = Some(cur_tx);
-                m.not_publish_bytecode = true;
-
-                Ok(())
-            })
-        })?;
-
-        Ok(())
-    }
-
     pub fn mark_for_deconstruction<const PROOF_ENV: bool>(
         &mut self,
         from_ee: ExecutionEnvironmentType,
         resources: &mut R,
         at_address: &B160,
         nominal_token_beneficiary: &B160,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
-        preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
         in_constructor: bool,
     ) -> Result<(), DeconstructionSubsystemError> {
         let cur_tx = self.current_tx_number;
         let mut account_data = self.materialize_element::<PROOF_ENV>(
-            from_ee,
-            resources,
-            at_address,
-            storage,
-            preimages_cache,
-            oracle,
-            true,
-            false,
+            from_ee, resources, at_address, oracle, true, false,
         )?;
         resources.charge(&R::from_native(R::Native::from_computational(
             WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
@@ -958,8 +683,6 @@ impl<
                 at_address,
                 nominal_token_beneficiary,
                 &transfer_amount,
-                storage,
-                preimages_cache,
                 oracle,
                 true,
             )
@@ -984,8 +707,7 @@ impl<
                     }?;
                     let beneficiary_properties = entry.current().value();
 
-                    let beneficiary_is_empty = beneficiary_properties.nonce == 0
-                        && beneficiary_properties.unpadded_code_len == 0
+                    let beneficiary_is_empty = beneficiary_properties.is_empty_modulo_balance()
                         // We need to check with the transferred amount,
                         // this means it was 0 before the transfer.
                         && beneficiary_properties.balance == transfer_amount;
@@ -1001,20 +723,20 @@ impl<
         Ok(())
     }
 
-    pub fn finish_tx(
+    pub fn finish_tx<P: StorageAccessPolicy<R, Bytes32>>(
         &mut self,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
+        storage: &mut EthereumStorageCache<A, SC, N, R, P>,
     ) -> Result<(), InternalError> {
         // Actually deconstructing accounts
         self.cache
             .apply_to_last_record_of_pending_changes(|key, head_history_record| {
                 if head_history_record.value.appearance() == Appearance::Deconstructed {
                     head_history_record.value.update(|x, _| {
-                        *x = AccountProperties::TRIVIAL_VALUE;
+                        *x = EthereumAccountProperties::TRIVIAL_VALUE;
                         Ok(())
                     })?;
                     storage
-                        .0
+                        .slot_values
                         .clear_state_impl(key)
                         .expect("must clear state for code deconstruction in same TX");
                 }

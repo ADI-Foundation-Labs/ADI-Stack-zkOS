@@ -14,6 +14,16 @@ use element_with_history::ElementWithHistory;
 
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
+pub struct NopSnapshotId;
+
+impl NopSnapshotId {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
 pub struct CacheSnapshotId(usize);
 
 impl CacheSnapshotId {

@@ -8,7 +8,6 @@ use cost_constants::EVENT_STORAGE_BASE_NATIVE_COST;
 use cost_constants::EVENT_TOPIC_NATIVE_COST;
 use cost_constants::WARM_TSTORAGE_READ_NATIVE_COST;
 use cost_constants::WARM_TSTORAGE_WRITE_NATIVE_COST;
-use crypto::blake2s::Blake2s256;
 use crypto::MiniDigest;
 use evm_interpreter::gas_constants::LOG;
 use evm_interpreter::gas_constants::LOGDATA;
@@ -18,11 +17,11 @@ use evm_interpreter::gas_constants::TSTORE;
 use storage_models::common_structs::generic_transient_storage::GenericTransientStorage;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::StorageModel;
-use zk_ee::common_structs::BasicIOImplementerFSM;
 use zk_ee::common_structs::L2_TO_L1_LOG_SERIALIZE_SIZE;
 use zk_ee::interface_error;
+#[cfg(not(feature = "wrap-in-batch"))]
+use zk_ee::kv_markers::UsizeDeserializable;
 use zk_ee::out_of_ergs_error;
-use zk_ee::system::metadata::BlockMetadataFromOracle;
 use zk_ee::{
     common_structs::{EventsStorage, LogsStorage},
     memory::ArrayBuilder,
@@ -34,16 +33,17 @@ use zk_ee::{
     utils::UsizeAlignedByteBox,
 };
 
-pub struct FullIO<
+pub struct TypedFullIO<
     A: Allocator + Clone + Default,
     R: Resources,
     P: StorageAccessPolicy<R, Bytes32>,
     SC: StackCtor<N>,
     const N: usize,
     O: IOOracle,
+    M: StorageModel<IOTypes = EthereumIOTypesConfig, Resources = R, InitData = P>,
     const PROOF_ENV: bool,
 > {
-    pub(crate) storage: FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, N, PROOF_ENV>,
+    pub(crate) storage: M,
     pub(crate) transient_storage: GenericTransientStorage<WarmStorageKey, Bytes32, SC, N, A>,
     pub(crate) logs_storage: LogsStorage<SC, N, A>,
     pub(crate) events_storage: EventsStorage<MAX_EVENT_TOPICS, SC, N, A>,
@@ -52,8 +52,8 @@ pub struct FullIO<
     pub(crate) tx_number: u32,
 }
 
-pub struct FullIOStateSnapshot {
-    io: FlatTreeWithAccountsUnderHashesStorageModelStateSnapshot,
+pub struct TypedFullIOStateSnapshot<M: StorageModel> {
+    io: M::StateSnapshot,
     transient: CacheSnapshotId,
     messages: usize,
     events: usize,
@@ -66,12 +66,13 @@ impl<
         SC: StackCtor<N>,
         const N: usize,
         O: IOOracle,
+        M: StorageModel<IOTypes = EthereumIOTypesConfig, Resources = R, InitData = P>,
         const PROOF_ENV: bool,
-    > IOSubsystem for FullIO<A, R, P, SC, N, O, PROOF_ENV>
+    > IOSubsystem for TypedFullIO<A, R, P, SC, N, O, M, PROOF_ENV>
 {
     type IOTypes = EthereumIOTypesConfig;
     type Resources = R;
-    type StateSnapshot = FullIOStateSnapshot;
+    type StateSnapshot = TypedFullIOStateSnapshot<M>;
 
     fn storage_read<const TRANSIENT: bool>(
         &mut self,
@@ -349,13 +350,13 @@ impl<
             + self.logs_storage.calculate_pubdata_used_by_tx()? as u64)
     }
 
-    fn start_io_frame(&mut self) -> Result<FullIOStateSnapshot, InternalError> {
+    fn start_io_frame(&mut self) -> Result<Self::StateSnapshot, InternalError> {
         let io = self.storage.start_frame();
         let transient = self.transient_storage.start_frame();
         let messages = self.logs_storage.start_frame();
         let events = self.events_storage.start_frame();
 
-        Ok(FullIOStateSnapshot {
+        Ok(TypedFullIOStateSnapshot {
             io,
             transient,
             messages,
@@ -365,7 +366,7 @@ impl<
 
     fn finish_io_frame(
         &mut self,
-        rollback_handle: Option<&FullIOStateSnapshot>,
+        rollback_handle: Option<&Self::StateSnapshot>,
     ) -> Result<(), InternalError> {
         self.storage.finish_frame(rollback_handle.map(|x| &x.io))?;
         self.transient_storage
@@ -379,17 +380,17 @@ impl<
     }
 }
 
-pub trait FinishIO {
+pub trait TypedFinishIO {
+    type IOStateCommittment: Clone + UsizeDeserializable + UsizeDeserializable;
     type FinalData;
 
     fn finish(
         self,
-        block_metadata: BlockMetadataFromOracle,
-        current_block_hash: Bytes32,
-        l1_to_l2_txs_hash: Bytes32,
-        upgrade_tx_hash: Bytes32,
+        state_commitment: Option<&mut Self::IOStateCommittment>,
+        l2_to_l1_logs_hasher: &mut impl MiniDigest,
+        pubdata_hasher: &mut impl MiniDigest,
         result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
-        logger: impl Logger,
+        logger: &mut impl Logger,
     ) -> Self::FinalData;
 }
 
@@ -400,33 +401,35 @@ impl<
         SC: StackCtor<N>,
         const N: usize,
         O: IOOracle,
-    > FinishIO for FullIO<A, R, P, SC, N, O, false>
+        M: StorageModel<IOTypes = EthereumIOTypesConfig, Resources = R, InitData = P>,
+    > TypedFinishIO for TypedFullIO<A, R, P, SC, N, O, M, false>
 {
+    type IOStateCommittment = M::StorageCommitment;
     type FinalData = O;
+
     fn finish(
         mut self,
-        _block_metadata: BlockMetadataFromOracle,
-        current_block_hash: Bytes32,
-        _l1_to_l2_txs_hash: Bytes32,
-        _upgrade_tx_hash: Bytes32,
+        state_commitment: Option<&mut Self::IOStateCommittment>,
+        l2_to_l1_logs_hasher: &mut impl MiniDigest,
+        pubdata_hasher: &mut impl MiniDigest,
         result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
-        mut logger: impl Logger,
+        logger: &mut impl Logger,
     ) -> Self::FinalData {
-        result_keeper.pubdata(current_block_hash.as_u8_ref());
         // dump pubdata and state diffs
+
+        // we don't need to append pubdata to the hash, but caller should care about it
         self.storage
             .finish(
                 &mut self.oracle,
-                // no storage commitment
-                None,
-                // we don't need to append pubdata to the hash
-                &mut NopHasher,
+                state_commitment,
+                pubdata_hasher,
                 result_keeper,
-                &mut logger,
+                logger,
             )
             .expect("Failed to finish storage");
         self.logs_storage
-            .apply_pubdata(&mut NopHasher, result_keeper);
+            .apply_pubdata(l2_to_l1_logs_hasher, result_keeper);
+
         result_keeper.logs(self.logs_storage.messages_ref_iter());
         result_keeper.events(self.events_storage.events_ref_iter());
 
@@ -444,223 +447,37 @@ impl<
         SC: StackCtor<N>,
         const N: usize,
         O: IOOracle,
-    > FinishIO for FullIO<A, R, P, SC, N, O, true>
+        M: StorageModel<IOTypes = EthereumIOTypesConfig, Resources = R, InitData = P>,
+    > TypedFinishIO for TypedFullIO<A, R, P, SC, N, O, M, true>
 {
-    type FinalData = (O, Bytes32);
+    type FinalData = O;
+    type IOStateCommittment = M::StorageCommitment;
+
     fn finish(
         mut self,
-        block_metadata: BlockMetadataFromOracle,
-        current_block_hash: Bytes32,
-        l1_to_l2_txs_hash: Bytes32,
-        upgrade_tx_hash: Bytes32,
+        state_commitment: Option<&mut Self::IOStateCommittment>,
+        l2_to_l1_logs_hasher: &mut impl MiniDigest,
+        pubdata_hasher: &mut impl MiniDigest,
         result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
-        mut logger: impl Logger,
+        logger: &mut impl Logger,
     ) -> Self::FinalData {
-        let mut state_commitment = {
-            use zk_ee::system_io_oracle::INITIALIZE_IO_IMPLEMENTER_QUERY_ID;
-
-            // TODO (EVM-989): read only state commitment
-            let fsm_state: BasicIOImplementerFSM<FlatStorageCommitment<TREE_HEIGHT>> = self
-                .oracle
-                .query_with_empty_input(INITIALIZE_IO_IMPLEMENTER_QUERY_ID)
-                .unwrap();
-
-            fsm_state.state_root_view
-        };
-
-        let mut blocks_hasher = Blake2s256::new();
-        for block_hash in block_metadata.block_hashes.0.iter() {
-            blocks_hasher.update(&block_hash.to_be_bytes::<32>());
-        }
-
-        // chain state before
-        let chain_state_commitment_before = ChainStateCommitment {
-            state_root: state_commitment.root,
-            next_free_slot: state_commitment.next_free_slot,
-            block_number: block_metadata.block_number - 1,
-            last_256_block_hashes_blake: blocks_hasher.finalize().into(),
-            // TODO(EVM-1080): we should set and validate that current block timestamp >= previous
-            last_block_timestamp: 0,
-        };
-
-        // finishing IO, applying changes
-        let mut pubdata_hasher = Blake2s256::new();
-        pubdata_hasher.update(current_block_hash.as_u8_ref());
-        let mut l2_to_l1_logs_hasher = Blake2s256::new();
-
         self.storage
             .finish(
                 &mut self.oracle,
-                Some(&mut state_commitment),
-                &mut pubdata_hasher,
+                state_commitment,
+                pubdata_hasher,
                 result_keeper,
-                &mut logger,
+                logger,
             )
             .expect("Failed to finish storage");
         self.logs_storage
-            .apply_l2_to_l1_logs_hashes_to_hasher(&mut l2_to_l1_logs_hasher);
+            .apply_l2_to_l1_logs_hashes_to_hasher(l2_to_l1_logs_hasher);
         self.logs_storage
-            .apply_pubdata(&mut pubdata_hasher, result_keeper);
+            .apply_pubdata(pubdata_hasher, result_keeper);
         result_keeper.logs(self.logs_storage.messages_ref_iter());
         result_keeper.events(self.events_storage.events_ref_iter());
 
-        let pubdata_hash = pubdata_hasher.finalize();
-        let l2_to_l1_logs_hashes_hash = l2_to_l1_logs_hasher.finalize();
-
-        blocks_hasher = Blake2s256::new();
-        for block_hash in block_metadata.block_hashes.0.iter().skip(1) {
-            blocks_hasher.update(&block_hash.to_be_bytes::<32>());
-        }
-        blocks_hasher.update(current_block_hash.as_u8_ref());
-
-        // chain state after
-        let chain_state_commitment_after = ChainStateCommitment {
-            state_root: state_commitment.root,
-            next_free_slot: state_commitment.next_free_slot,
-            block_number: block_metadata.block_number,
-            last_256_block_hashes_blake: blocks_hasher.finalize().into(),
-            // TODO(EVM-1080): we should set and validate that current block timestamp >= previous
-            last_block_timestamp: 0,
-        };
-
-        // other outputs to be opened on the settlement layer/aggregation program
-        let block_output = BlocksOutput {
-            chain_id: U256::try_from(block_metadata.chain_id).unwrap(),
-            first_block_timestamp: block_metadata.timestamp,
-            last_block_timestamp: block_metadata.timestamp,
-            pubdata_hash: pubdata_hash.into(),
-            priority_ops_hashes_hash: l1_to_l2_txs_hash,
-            l2_to_l1_logs_hashes_hash: l2_to_l1_logs_hashes_hash.into(),
-            upgrade_tx_hash,
-        };
-
-        let public_input = BlocksPublicInput {
-            state_before: chain_state_commitment_before.hash().into(),
-            state_after: chain_state_commitment_after.hash().into(),
-            blocks_output: block_output.hash().into(),
-        };
-
-        (self.oracle, public_input.hash().into())
-    }
-}
-
-#[cfg(feature = "wrap-in-batch")]
-impl<
-        A: Allocator + Clone + Default,
-        R: Resources,
-        P: StorageAccessPolicy<R, Bytes32> + Default,
-        SC: StackCtor<N>,
-        const N: usize,
-        O: IOOracle,
-    > FinishIO for FullIO<A, R, P, SC, N, O, true>
-{
-    type FinalData = (O, Bytes32);
-    fn finish(
-        mut self,
-        block_metadata: BlockMetadataFromOracle,
-        current_block_hash: Bytes32,
-        _l1_to_l2_txs_hash: Bytes32,
-        upgrade_tx_hash: Bytes32,
-        result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
-        mut logger: impl Logger,
-    ) -> Self::FinalData {
-        let mut state_commitment = {
-            // TODO (EVM-989): read only state commitment
-            use zk_ee::system_io_oracle::INITIALIZE_IO_IMPLEMENTER_QUERY_ID;
-            let fsm_state: BasicIOImplementerFSM<FlatStorageCommitment<TREE_HEIGHT>> = self
-                .oracle
-                .query_with_empty_input(INITIALIZE_IO_IMPLEMENTER_QUERY_ID)
-                .unwrap();
-
-            fsm_state.state_root_view
-        };
-
-        // chain state before
-        // currently we generate simplified commitment(only to state) for tests.
-        let _ = logger.write_fmt(format_args!(
-            "PI calculation: state commitment before {:?}\n",
-            state_commitment
-        ));
-        let mut chain_state_hasher = Blake2s256::new();
-        chain_state_hasher.update(state_commitment.root.as_u8_ref());
-        chain_state_hasher.update(state_commitment.next_free_slot.to_be_bytes());
-        let chain_state_commitment_before = chain_state_hasher.finalize();
-
-        // finishing IO, applying changes
-        let mut pubdata_hasher = crypto::sha3::Keccak256::new();
-        pubdata_hasher.update(current_block_hash.as_u8_ref());
-
-        self.storage
-            .finish(
-                &mut self.oracle,
-                Some(&mut state_commitment),
-                &mut pubdata_hasher,
-                result_keeper,
-                &mut logger,
-            )
-            .expect("Failed to finish storage");
-
-        self.logs_storage
-            .apply_pubdata(&mut pubdata_hasher, result_keeper);
-        result_keeper.logs(self.logs_storage.messages_ref_iter());
-        result_keeper.events(self.events_storage.events_ref_iter());
-        let mut full_root_hasher = crypto::sha3::Keccak256::new();
-        full_root_hasher.update(self.logs_storage.tree_root().as_u8_ref());
-        full_root_hasher.update([0u8; 32]); // aggregated root 0 for now
-        let full_l2_to_l1_logs_root = full_root_hasher.finalize();
-        let l1_txs_commitment = self.logs_storage.l1_txs_commitment();
-
-        let pubdata_hash = pubdata_hasher.finalize();
-
-        // chain state after
-        // currently we generate simplified commitment(only to state) for tests.
-        let _ = logger.write_fmt(format_args!(
-            "PI calculation: state commitment after {:?}\n",
-            state_commitment
-        ));
-        let mut chain_state_hasher = Blake2s256::new();
-        chain_state_hasher.update(state_commitment.root.as_u8_ref());
-        chain_state_hasher.update(state_commitment.next_free_slot.to_be_bytes());
-        let chain_state_commitment_after = chain_state_hasher.finalize();
-
-        let mut da_commitment_hasher = crypto::sha3::Keccak256::new();
-        da_commitment_hasher.update([0u8; 32]); // we don't have to validate state diffs hash
-        da_commitment_hasher.update(pubdata_hash); // full pubdata keccak
-        da_commitment_hasher.update([1u8]); // with calldata we should provide 1 blob
-        da_commitment_hasher.update([0u8; 32]); // its hash will be ignored on the settlement layer
-        let da_commitment = da_commitment_hasher.finalize();
-        let batch_output = public_input::BatchOutput {
-            chain_id: U256::try_from(block_metadata.chain_id).unwrap(),
-            first_block_timestamp: block_metadata.timestamp,
-            last_block_timestamp: block_metadata.timestamp,
-            used_l2_da_validator_address: ruint::aliases::B160::ZERO,
-            pubdata_commitment: da_commitment.into(),
-            number_of_layer_1_txs: U256::try_from(l1_txs_commitment.0).unwrap(),
-            priority_operations_hash: l1_txs_commitment.1,
-            l2_logs_tree_root: full_l2_to_l1_logs_root.into(),
-            upgrade_tx_hash,
-        };
-        let _ = logger.write_fmt(format_args!(
-            "PI calculation: batch output {:?}\n",
-            batch_output,
-        ));
-
-        let public_input = public_input::BatchPublicInput {
-            state_before: chain_state_commitment_before.into(),
-            state_after: chain_state_commitment_after.into(),
-            batch_output: batch_output.hash().into(),
-        };
-        let _ = logger.write_fmt(format_args!(
-            "PI calculation: final batch public input {:?}\n",
-            public_input,
-        ));
-        let public_input_hash = public_input.hash().into();
-        let _ = logger.write_fmt(format_args!(
-            "PI calculation: final batch public input hash {:?}\n",
-            public_input_hash,
-        ));
-
-        (self.oracle, public_input_hash)
+        self.oracle
     }
 }
 
@@ -672,17 +489,17 @@ impl<
         const N: usize,
         O: IOOracle,
         const PROOF_ENV: bool,
-    > IOSubsystemExt for FullIO<A, R, P, SC, N, O, PROOF_ENV>
+        M: StorageModel<IOTypes = EthereumIOTypesConfig, Resources = R, InitData = P, Allocator = A>,
+    > IOSubsystemExt for TypedFullIO<A, R, P, SC, N, O, M, PROOF_ENV>
 where
-    Self: FinishIO,
+    Self: TypedFinishIO,
 {
     type IOOracle = O;
 
     fn init_from_oracle(oracle: Self::IOOracle) -> Result<Self, InternalError> {
         let allocator = A::default();
 
-        let storage =
-            FlatTreeWithAccountsUnderHashesStorageModel::construct(P::default(), allocator.clone());
+        let storage = M::construct(P::default(), allocator.clone());
 
         let transient_storage =
             GenericTransientStorage::<WarmStorageKey, Bytes32, SC, N, A>::new_from_parts(
@@ -935,6 +752,7 @@ impl<
         const N: usize,
         O: IOOracle,
         const PROOF_ENV: bool,
-    > EthereumLikeIOSubsystem for FullIO<A, R, P, SC, N, O, PROOF_ENV>
+        M: StorageModel<IOTypes = EthereumIOTypesConfig, Resources = R, InitData = P, Allocator = A>,
+    > EthereumLikeIOSubsystem for TypedFullIO<A, R, P, SC, N, O, M, PROOF_ENV>
 {
 }

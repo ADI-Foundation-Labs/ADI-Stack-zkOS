@@ -1,7 +1,4 @@
 //! Storage cache, backed by a history map.
-use crate::system_implementation::flat_storage_model::address_into_special_storage_key;
-use crate::system_implementation::flat_storage_model::AccountAggregateDataHash;
-use alloc::collections::BTreeSet;
 use core::alloc::Allocator;
 use ruint::aliases::B160;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
@@ -21,23 +18,17 @@ use zk_ee::{
 
 use crate::system_implementation::cache_structs::storage_values::*;
 use zk_ee::common_structs::history_map::*;
-use zk_ee::common_structs::ValueDiffCompressionStrategy;
 
-/// This storage knows concrete definitions where wer store account data hashes, etc
-///
-/// The address of the account which storage will be used to save mapping from account addresses to
-/// partial account data(nonce, code length, etc). (key is an address, value is encoded partial
-/// account data).
-///
-pub const ACCOUNT_PROPERTIES_STORAGE_ADDRESS: B160 = B160::from_limbs([0x8003, 0, 0]);
-
-pub struct NewStorageWithAccountPropertiesUnderHash<
+pub struct EthereumStorageCache<
     A: Allocator + Clone,
     SC: StackCtor<N>,
     const N: usize,
     R: Resources,
     P: StorageAccessPolicy<R, Bytes32>,
->(pub GenericPubdataAwareStorageValuesCache<WarmStorageKey, Bytes32, A, SC, N, R, P>);
+> {
+    pub(crate) slot_values:
+        GenericPubdataAwareStorageValuesCache<WarmStorageKey, Bytes32, A, SC, N, R, P>,
+}
 
 impl<
         A: Allocator + Clone,
@@ -45,7 +36,7 @@ impl<
         const N: usize,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32>,
-    > StorageCacheModel for NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>
+    > StorageCacheModel for EthereumStorageCache<A, SC, N, R, P>
 {
     type IOTypes = EthereumIOTypesConfig;
     type Resources = R;
@@ -68,7 +59,7 @@ impl<
             key: *key,
         };
 
-        self.0
+        self.slot_values
             .apply_read_impl(ee_type, &sa, &key, resources, oracle, false)
     }
 
@@ -93,7 +84,7 @@ impl<
             key: *key,
         };
 
-        self.0
+        self.slot_values
             .apply_read_impl(ee_type, &sa, &key, resources, oracle, is_access_list)?;
         Ok(())
     }
@@ -118,7 +109,7 @@ impl<
         };
 
         let old_value = self
-            .0
+            .slot_values
             .apply_write_impl(ee_type, &sa, &key, new_value, oracle, resources)?;
 
         Ok(old_value)
@@ -126,84 +117,23 @@ impl<
 
     fn read_special_account_property<T: storage_models::common_structs::SpecialAccountProperty>(
         &mut self,
-        ee_type: ExecutionEnvironmentType,
-        resources: &mut Self::Resources,
-        address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
-        oracle: &mut impl IOOracle,
+        _ee_type: ExecutionEnvironmentType,
+        _resources: &mut Self::Resources,
+        _address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
+        _oracle: &mut impl IOOracle,
     ) -> Result<T::Value, SystemError> {
-        if core::any::TypeId::of::<T>() != core::any::TypeId::of::<AccountAggregateDataHash>() {
-            panic!("unsupported property type in this model");
-        }
-        // this is the only tricky part, and the only special account property that we support is a hash
-        // of the total account properties
-
-        let key = address_into_special_storage_key(address);
-
-        // we just need to create a proper access function
-
-        let sa = StorageAddress {
-            address: ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
-            key,
-        };
-
-        let key = WarmStorageKey {
-            address: ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
-            key,
-        };
-
-        let raw_value = self
-            .0
-            .apply_read_impl(ee_type, &sa, &key, resources, oracle, false)?;
-
-        let value = unsafe {
-            // we checked TypeId above, so we reinterpret. No drop/forget needed
-            core::ptr::read((&raw_value as *const Bytes32).cast::<T::Value>())
-        };
-
-        Ok(value)
+        panic!("unreachable for such cache");
     }
 
     fn write_special_account_property<T: storage_models::common_structs::SpecialAccountProperty>(
         &mut self,
-        ee_type: ExecutionEnvironmentType,
-        resources: &mut Self::Resources,
-        address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
-        new_value: &T::Value,
-        oracle: &mut impl IOOracle,
+        _ee_type: ExecutionEnvironmentType,
+        _resources: &mut Self::Resources,
+        _address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
+        _new_value: &T::Value,
+        _oracle: &mut impl IOOracle,
     ) -> Result<T::Value, SystemError> {
-        if core::any::TypeId::of::<T>() != core::any::TypeId::of::<AccountAggregateDataHash>() {
-            panic!("unsupported property type in this model");
-        }
-        // this is the only tricky part, and the only special account property that we support is a hash
-        // of the total account properties
-
-        let key = address_into_special_storage_key(address);
-
-        let sa = StorageAddress {
-            address: ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
-            key,
-        };
-
-        let key = WarmStorageKey {
-            address: ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
-            key,
-        };
-
-        let new_value = unsafe {
-            // we checked TypeId above, so we reinterpret. No drop/forget needed
-            core::ptr::read((new_value as *const T::Value).cast::<Bytes32>())
-        };
-
-        let old_value = self
-            .0
-            .apply_write_impl(ee_type, &sa, &key, &new_value, oracle, resources)?;
-
-        let old_value = unsafe {
-            // we checked TypeId above, so we reinterpret. No drop/forget needed
-            core::ptr::read((&old_value as *const Bytes32).cast::<T::Value>())
-        };
-
-        Ok(old_value)
+        panic!("unreachable for such cache");
     }
 }
 
@@ -213,23 +143,23 @@ impl<
         const N: usize,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32>,
-    > SnapshottableIo for NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>
+    > SnapshottableIo for EthereumStorageCache<A, SC, N, R, P>
 {
     type StateSnapshot = CacheSnapshotId;
 
     fn begin_new_tx(&mut self) {
-        self.0.begin_new_tx();
+        self.slot_values.begin_new_tx();
     }
 
     fn start_frame(&mut self) -> Self::StateSnapshot {
-        self.0.start_frame()
+        self.slot_values.start_frame()
     }
 
     fn finish_frame(
         &mut self,
         rollback_handle: Option<&Self::StateSnapshot>,
     ) -> Result<(), InternalError> {
-        self.0.finish_frame_impl(rollback_handle)
+        self.slot_values.finish_frame_impl(rollback_handle)
     }
 }
 
@@ -239,13 +169,13 @@ impl<
         const N: usize,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32>,
-    > NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>
+    > EthereumStorageCache<A, SC, N, R, P>
 {
     pub fn iter_as_storage_types(
         &self,
     ) -> impl Iterator<Item = (WarmStorageKey, WarmStorageValue)> + Clone + use<'_, A, SC, N, R, P>
     {
-        self.0.cache.iter().map(|item| {
+        self.slot_values.cache.iter().map(|item| {
             let current_record = item.current();
             let initial_record = item.initial();
             (
@@ -285,38 +215,6 @@ impl<
     }
 
     pub fn calculate_pubdata_used_by_tx(&self) -> u32 {
-        let mut visited_elements = BTreeSet::new_in(self.0.alloc.clone());
-
-        let mut pubdata_used = 0u32;
-        for element_history in self.0.cache.iter_altered_since_commit() {
-            // Elements are sorted chronologically
-
-            let element_key = element_history.key();
-
-            // we publish preimages for account details, so no need to publish hash
-            if element_key.address == ACCOUNT_PROPERTIES_STORAGE_ADDRESS {
-                continue;
-            }
-
-            // Skip if already calculated pubdata for this element
-            if visited_elements.contains(element_key) {
-                continue;
-            }
-            visited_elements.insert(element_key);
-
-            let current_value = element_history.current().value();
-            let initial_value = element_history.initial().value();
-
-            if initial_value != current_value {
-                // TODO(EVM-1074): use tree index instead of key for repeated writes
-                pubdata_used += 32; // key
-                pubdata_used += ValueDiffCompressionStrategy::optimal_compression_length(
-                    initial_value,
-                    current_value,
-                ) as u32;
-            }
-        }
-
-        pubdata_used
+        0
     }
 }

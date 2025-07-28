@@ -2,8 +2,9 @@ use std::alloc::Global;
 
 use basic_bootloader::bootloader::BasicBootloader;
 use basic_system::system_functions::NoStdSystemFunctions;
+use basic_system::system_implementation::flat_storage_model::FlatTreeWithAccountsUnderHashesStorageModel;
 use basic_system::system_implementation::system::EthereumLikeStorageAccessCostModel;
-use basic_system::system_implementation::system::FullIO;
+use basic_system::system_implementation::system::TypedFullIO;
 use oracle_provider::DummyMemorySource;
 use oracle_provider::ZkEENonDeterminismSource;
 use zk_ee::memory::stack_trait::VecStackCtor;
@@ -25,13 +26,21 @@ type Native = zk_ee::reference_implementations::DecreasingNative;
 impl<O: IOOracle> SystemTypes for ForwardSystemTypes<O> {
     type IOTypes = EthereumIOTypesConfig;
     type Resources = BaseResources<Native>;
-    type IO = FullIO<
+    type IO = TypedFullIO<
         Self::Allocator,
         Self::Resources,
         EthereumLikeStorageAccessCostModel,
         VecStackCtor,
         0,
         O,
+        FlatTreeWithAccountsUnderHashesStorageModel<
+            Self::Allocator,
+            Self::Resources,
+            EthereumLikeStorageAccessCostModel,
+            VecStackCtor,
+            0,
+            false,
+        >,
         false,
     >;
     type SystemFunctions = NoStdSystemFunctions;

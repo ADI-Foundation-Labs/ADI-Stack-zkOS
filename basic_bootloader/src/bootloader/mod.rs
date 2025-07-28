@@ -1,4 +1,9 @@
 use alloc::vec::Vec;
+use basic_system::system_implementation::flat_storage_model::FlatStorageCommitment;
+use basic_system::system_implementation::flat_storage_model::TREE_HEIGHT;
+use basic_system::system_implementation::system::{
+    DefaultHeaderStructurePostWork, FinishIO, SystemPostWork, TypedFinishIO,
+};
 use constants::{MAX_TX_LEN_WORDS, TX_OFFSET_WORDS};
 use errors::BootloaderSubsystemError;
 use result_keeper::ResultKeeperExt;
@@ -29,7 +34,6 @@ use alloc::boxed::Box;
 use core::alloc::Allocator;
 use core::fmt::Write;
 use core::mem::MaybeUninit;
-use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
 use zk_ee::{internal_error, oracle::*};
 
@@ -160,18 +164,101 @@ impl<'a> SafeUsizeWritable for TxDataBufferWriter<'a> {
     }
 }
 
+pub trait TxHashesCollector {
+    fn add_tx_hash(&mut self, tx_hash: &Bytes32);
+    fn finish(self) -> Bytes32;
+}
+
+pub struct RollingKeccakHash {
+    inner: Bytes32,
+    hasher: crypto::sha3::Keccak256,
+}
+
+pub struct AccumulatingBlake2sHash {
+    hasher: crypto::blake2s::Blake2s256,
+}
+
+impl TxHashesCollector for RollingKeccakHash {
+    fn add_tx_hash(&mut self, tx_hash: &Bytes32) {
+        if self.inner.is_zero() {
+            self.inner = *tx_hash;
+        } else {
+            self.inner = Bytes32::from_array({
+                self.hasher.update(self.inner.as_u8_array_ref());
+                self.hasher.update(tx_hash.as_u8_array_ref());
+                self.hasher.finalize_reset()
+            });
+        }
+    }
+
+    fn finish(self) -> Bytes32 {
+        self.inner
+    }
+}
+
+pub trait UpgradeTxCollector {
+    fn add_upgrade_tx_hash(&mut self, tx_hash: &Bytes32);
+    fn finish(self) -> Bytes32;
+}
+
+pub struct UpgradeTx {
+    inner: Bytes32,
+}
+
+impl UpgradeTxCollector for UpgradeTx {
+    fn add_upgrade_tx_hash(&mut self, tx_hash: &Bytes32) {
+        if self.inner.is_zero() == false {
+            panic!("duplicate upgrade tx");
+        }
+        self.inner = *tx_hash;
+    }
+
+    fn finish(self) -> Bytes32 {
+        self.inner
+    }
+}
+
+pub trait EnforcedTxCollector {
+    fn add_enforced_tx_hash(&mut self, tx_hash: &Bytes32);
+    fn finish(self) -> Bytes32;
+}
+
+impl EnforcedTxCollector for AccumulatingBlake2sHash {
+    fn add_enforced_tx_hash(&mut self, tx_hash: &Bytes32) {
+        self.hasher.update(tx_hash.as_u8_array_ref());
+    }
+
+    fn finish(self) -> Bytes32 {
+        Bytes32::from_array(self.hasher.finalize())
+    }
+}
+
+pub trait BlockGasCounter {
+    fn count_gas(&mut self, gas_used: u64);
+}
+
+impl BlockGasCounter for u64 {
+    fn count_gas(&mut self, gas_used: u64) {
+        *self += gas_used;
+    }
+}
+
 impl<S: EthereumLikeTypes> BasicBootloader<S> {
     /// Runs the transactions that it loads from the oracle.
     /// This code runs both in sequencer (then it uses ForwardOracle - that stores data in local variables)
     /// and in prover (where oracle uses CRS registers to communicate).
-    pub fn run_prepared<Config: BasicBootloaderExecutionConfig>(
+    pub fn run_prepared_ext<Config: BasicBootloaderExecutionConfig>(
         oracle: <S::IO as IOSubsystemExt>::IOOracle,
         result_keeper: &mut impl ResultKeeperExt,
-    ) -> Result<<S::IO as IOSubsystemExt>::FinalData, BootloaderSubsystemError>
+        tx_hashes_collector: &mut impl TxHashesCollector,
+        upgrade_tx_collector: &mut impl UpgradeTxCollector,
+        enforced_tx_collector: &mut impl EnforcedTxCollector,
+        gas_counter: &mut impl BlockGasCounter,
+    ) -> Result<System<S>, BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt,
     {
-        cycle_marker::start!("run_prepared");
+        cycle_marker::start!("run_prepared_ext");
         // we will model initial calldata buffer as just another "heap"
         let mut system: System<S> =
             System::init_from_oracle(oracle).expect("system must be able to initialize itself");
@@ -201,12 +288,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             system_functions.add_contract_deployer();
         }
 
-        let mut tx_rolling_hash = [0u8; 32];
-        let mut l1_to_l2_txs_hasher = crypto::blake2s::Blake2s256::new();
-
         let mut first_tx = true;
-        let mut upgrade_tx_hash = Bytes32::zero();
-        let mut block_gas_used = 0;
 
         // now we can run every transaction
         while let Some(next_tx_data_len_bytes) = {
@@ -273,7 +355,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                         },
                         ExecutionResult::Revert { output } => (false, output, None),
                     };
-                    block_gas_used += tx_processing_result.gas_used;
+                    gas_counter.count_gas(tx_processing_result.gas_used);
                     result_keeper.tx_processed(Ok(TxProcessingOutput {
                         status,
                         output: &output,
@@ -284,17 +366,14 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                         pubdata_used: tx_processing_result.pubdata_used,
                     }));
 
-                    let mut keccak = Keccak256::new();
-                    keccak.update(tx_rolling_hash);
-                    keccak.update(tx_processing_result.tx_hash.as_u8_ref());
-                    tx_rolling_hash = keccak.finalize();
+                    tx_hashes_collector.add_tx_hash(&tx_processing_result.tx_hash);
 
                     if tx_processing_result.is_l1_tx {
-                        l1_to_l2_txs_hasher.update(tx_processing_result.tx_hash.as_u8_ref());
+                        enforced_tx_collector.add_enforced_tx_hash(&tx_processing_result.tx_hash);
                     }
 
                     if tx_processing_result.is_upgrade_tx {
-                        upgrade_tx_hash = tx_processing_result.tx_hash;
+                        upgrade_tx_collector.add_upgrade_tx_hash(&tx_processing_result.tx_hash);
                     }
                 }
             }
@@ -337,6 +416,70 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             let _ = logger.write_fmt(format_args!("====================================\n"));
         }
 
+        let _ = system
+            .get_logger()
+            .write_fmt(format_args!("Bootloader completed\n"));
+
+        let mut logger = system.get_logger();
+        let _ = logger.write_fmt(format_args!(
+            "Bootloader execution is complete, will proceed with applying changes\n"
+        ));
+
+        cycle_marker::end!("run_prepared_ext");
+
+        Ok(system)
+    }
+
+    /// Runs the transactions that it loads from the oracle.
+    /// This code runs both in sequencer (then it uses ForwardOracle - that stores data in local variables)
+    /// and in prover (where oracle uses CRS registers to communicate).
+    pub fn run_prepared<Config: BasicBootloaderExecutionConfig, const PROOF_ENV: bool>(
+        oracle: <S::IO as IOSubsystemExt>::IOOracle,
+        result_keeper: &mut impl ResultKeeperExt,
+    ) -> Result<
+        <DefaultHeaderStructurePostWork<PROOF_ENV> as SystemPostWork<S>>::FinalData,
+        BootloaderSubsystemError,
+    >
+    where
+        S::IO: IOSubsystemExt
+            + TypedFinishIO<
+                FinalData = <S::IO as IOSubsystemExt>::IOOracle,
+                IOStateCommittment = FlatStorageCommitment<TREE_HEIGHT>,
+            >,
+        DefaultHeaderStructurePostWork<PROOF_ENV>: SystemPostWork<S>, // As we can not tell that boolean is only true/false ...
+    {
+        cycle_marker::start!("run_prepared");
+
+        // Here we use "default" implementation for our STF
+
+        let mut tx_hashes_collector = RollingKeccakHash {
+            inner: Bytes32::ZERO,
+            hasher: crypto::sha3::Keccak256::new(),
+        };
+
+        let mut upgrade_tx_monitor = UpgradeTx {
+            inner: Bytes32::ZERO,
+        };
+
+        let mut l1_to_l2_tx_hasher = AccumulatingBlake2sHash {
+            hasher: crypto::blake2s::Blake2s256::new(),
+        };
+
+        let mut block_gas_used = 0u64;
+
+        let system = Self::run_prepared_ext::<Config>(
+            oracle,
+            result_keeper,
+            &mut tx_hashes_collector,
+            &mut upgrade_tx_monitor,
+            &mut l1_to_l2_tx_hasher,
+            &mut block_gas_used,
+        )?;
+
+        let tx_rolling_hash = tx_hashes_collector.finish();
+        let l1_to_l2_tx_hash = l1_to_l2_tx_hasher.finish();
+        let upgrade_tx_hash = upgrade_tx_monitor.finish();
+
         let block_number = system.get_block_number();
         let previous_block_hash = system.get_blockhash(block_number);
         let beneficiary = system.get_coinbase();
@@ -353,7 +496,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         let block_header = BlockHeader::new(
             Bytes32::from(previous_block_hash.to_be_bytes::<32>()),
             beneficiary,
-            tx_rolling_hash.into(),
+            tx_rolling_hash,
             block_number,
             gas_limit,
             block_gas_used,
@@ -363,8 +506,6 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         );
         let block_hash = Bytes32::from(block_header.hash());
         result_keeper.block_sealed(block_header);
-
-        let l1_to_l2_tx_hash = Bytes32::from(l1_to_l2_txs_hasher.finalize());
 
         #[cfg(not(target_arch = "riscv32"))]
         cycle_marker::log_marker(
@@ -384,9 +525,17 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             "Bootloader execution is complete, will proceed with applying changes\n"
         ));
 
-        let r = system.finish(block_hash, l1_to_l2_tx_hash, upgrade_tx_hash, result_keeper);
+        let finisher = DefaultHeaderStructurePostWork::<PROOF_ENV> {
+            current_block_hash: block_hash,
+            upgrade_tx_hash,
+            l1_to_l2_txs_hash: l1_to_l2_tx_hash,
+        };
+
+        let result = finisher.finish(system, result_keeper, &mut logger);
+
         cycle_marker::end!("run_prepared");
+
         #[allow(clippy::let_and_return)]
-        Ok(r)
+        Ok(result)
     }
 }

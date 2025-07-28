@@ -1,5 +1,5 @@
 use super::USIZE_SIZE;
-use core::alloc::Allocator;
+use core::{alloc::Allocator, mem::MaybeUninit};
 
 pub const fn num_usize_words_for_u8_capacity(u8_capacity: usize) -> usize {
     u8_capacity.next_multiple_of(USIZE_SIZE) / USIZE_SIZE
@@ -99,40 +99,25 @@ impl<A: Allocator> UsizeAlignedByteBox<A> {
         }
     }
 
-    pub fn truncated_to_byte_length(&mut self, byte_len: usize) {
-        assert!(byte_len <= self.byte_capacity);
-        self.byte_capacity = byte_len;
-    }
+    pub fn from_init_fn_in(
+        buffer_size: usize,
+        init_fn: impl FnOnce(&mut [MaybeUninit<usize>]) -> usize,
+        allocator: A,
+    ) -> Self {
+        let mut inner: alloc::boxed::Box<[MaybeUninit<usize>], A> =
+            unsafe { alloc::boxed::Box::new_uninit_slice_in(buffer_size, allocator) };
+        let written = init_fn(&mut inner);
+        assert!(written <= buffer_size); // we do not want to truncate or realloc, but we will expose only written part below
+        let byte_capacity = written * USIZE_SIZE;
 
-    pub fn into_pinned(self) -> UsizeAlignedPinnedByteBox<A>
-    where
-        A: 'static,
-    {
-        let Self {
-            inner,
-            byte_capacity,
-        } = self;
-
-        UsizeAlignedPinnedByteBox {
-            inner: alloc::boxed::Box::into_pin(inner),
+        Self {
+            inner: unsafe { inner.assume_init() },
             byte_capacity,
         }
     }
-}
 
-#[derive(Clone, Debug)]
-pub struct UsizeAlignedPinnedByteBox<A: Allocator> {
-    inner: core::pin::Pin<alloc::boxed::Box<[usize], A>>,
-    byte_capacity: usize,
-}
-
-impl<A: Allocator> UsizeAlignedPinnedByteBox<A> {
-    pub fn as_slice(&self) -> &[u8] {
-        debug_assert!(self.inner.len() * USIZE_SIZE >= self.byte_capacity);
-        unsafe { core::slice::from_raw_parts(self.inner.as_ptr().cast::<u8>(), self.byte_capacity) }
-    }
-
-    pub fn len(&self) -> usize {
-        self.byte_capacity
+    pub fn truncated_to_byte_length(&mut self, byte_len: usize) {
+        assert!(byte_len <= self.byte_capacity);
+        self.byte_capacity = byte_len;
     }
 }

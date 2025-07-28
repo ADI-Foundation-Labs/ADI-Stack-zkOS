@@ -171,12 +171,9 @@ pub(crate) fn parse_node_from_bytes<'a>(
             Ok((ParsedNode::Extension(extension_node), pieces))
         } else {
             let leaf_node = LeafNode {
-                // key: key,
-                // prefix,
                 path_segment,
                 raw_nibbles_encoding: nibbles_encoding.full_encoding(),
                 parent_node: NodeType::unlinked(),
-                // raw_encoding,
                 value: pieces[1],
             };
 
@@ -196,29 +193,14 @@ pub(crate) fn parse_node_from_bytes<'a>(
         // verify well-formedness of branches too much, just to the extend that they are short enough
 
         let child_nodes = [NodeType::unlinked(); 16];
-        // let mut child_encoding_lengths = [0u8; 16];
         for branch_value in pieces[..16].iter() {
             if branch_value.data().len() > 32 {
                 return Err(());
             }
         }
-        // for (idx, branch_value) in pieces[..16].iter().enumerate() {
-        //     if branch_value.data().len() > 32 {
-        //         return Err(());
-        //     }
-        //     child_encoding_lengths[idx] = branch_value.full_encoding().len() as u8;
-        //     if branch_value.is_empty() {
-        //         child_nodes[idx] = NodeType::empty();
-        //     }
-        // }
         let branch_node = BranchNode {
-            // key,
-            // prefix: branch_prefix_as_path,
             parent_node: NodeType::unlinked(),
             child_nodes,
-            // branches_encodings_concatenation,
-            // child_encoding_lengths,
-            // raw_encoding,
             _marker: core::marker::PhantomData,
         };
 

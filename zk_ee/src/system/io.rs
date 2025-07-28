@@ -7,12 +7,10 @@ use core::marker::PhantomData;
 
 use super::errors::internal::InternalError;
 use super::errors::system::SystemError;
-use super::logger::Logger;
-use super::{IOResultKeeper, Resources};
+use super::Resources;
 use crate::define_subsystem;
 use crate::execution_environment_type::ExecutionEnvironmentType;
 use crate::kv_markers::MAX_EVENT_TOPICS;
-use crate::system::metadata::BlockMetadataFromOracle;
 use crate::system_io_oracle::IOOracle;
 use crate::types_config::{EthereumIOTypesConfig, SystemIOTypesConfig};
 use crate::utils::Bytes32;
@@ -302,7 +300,6 @@ impl<A, B, C, D, E, F, G, H, I, J> AccountDataRequest<AccountData<A, B, C, D, E,
 ///
 pub trait IOSubsystemExt: IOSubsystem {
     type IOOracle: IOOracle;
-    type FinalData;
 
     fn init_from_oracle(oracle: Self::IOOracle) -> Result<Self, InternalError>;
 
@@ -433,16 +430,6 @@ pub trait IOSubsystemExt: IOSubsystem {
         observable_bytecode_hash: Bytes32,
         observable_bytecode_len: u32,
     ) -> Result<(), SystemError>;
-
-    fn finish(
-        self,
-        block_metadata: BlockMetadataFromOracle,
-        current_block_hash: Bytes32,
-        l1_to_l2_txs_hash: Bytes32,
-        upgrade_tx_hash: Bytes32,
-        result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
-        logger: impl Logger,
-    ) -> Self::FinalData;
 
     /// Emit a log for a l1 -> l2 tx.
     fn emit_l1_l2_tx_log(

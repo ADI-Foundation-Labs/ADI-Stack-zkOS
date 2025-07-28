@@ -85,6 +85,8 @@ pub trait InterningBuffer<'a>: ByteBuffer {
 }
 
 pub trait InterningWordBuffer<'a>: WordBuffer {
+    fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<usize>];
+    unsafe fn set_word_len(&mut self, len: usize);
     fn flush(self) -> &'a [usize];
     fn flush_as_bytes(self, byte_len: usize) -> &'a [u8];
 }
@@ -99,6 +101,12 @@ impl WordBuffer for () {
 }
 
 impl<'a> InterningWordBuffer<'a> for () {
+    fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<usize>] {
+        &mut []
+    }
+
+    unsafe fn set_word_len(&mut self, _len: usize) {}
+
     fn flush(self) -> &'a [usize] {
         unreachable!()
     }
@@ -165,6 +173,15 @@ impl<'a> WordBuffer for MaybeUninitWordBuffer<'a> {
 }
 
 impl<'a> InterningWordBuffer<'a> for MaybeUninitWordBuffer<'a> {
+    fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<usize>] {
+        &mut self.buffer[self.num_written..]
+    }
+
+    unsafe fn set_word_len(&mut self, len: usize) {
+        assert!(len <= self.buffer.len());
+        self.num_written = len;
+    }
+
     fn flush_as_bytes(self, byte_len: usize) -> &'a [u8] {
         assert!(byte_len <= self.num_written * core::mem::size_of::<usize>());
         unsafe { core::slice::from_raw_parts(self.buffer.as_ptr().cast(), byte_len) }

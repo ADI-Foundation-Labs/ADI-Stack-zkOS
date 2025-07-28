@@ -62,7 +62,7 @@ pub trait EthereumLikeTypes: SystemTypes<IOTypes = EthereumIOTypesConfig> {}
 
 pub struct System<S: SystemTypes> {
     pub io: S::IO,
-    metadata: Metadata<S::IOTypes>,
+    pub metadata: Metadata<S::IOTypes>,
     allocator: S::Allocator,
 }
 
@@ -302,25 +302,6 @@ where
             artifacts_len,
             observable_bytecode_hash,
             observable_bytecode_len,
-        )
-    }
-
-    /// Finish system execution.
-    pub fn finish(
-        self,
-        block_hash: Bytes32,
-        l1_to_l2_txs_hash: Bytes32,
-        upgrade_tx_hash: Bytes32,
-        result_keeper: &mut impl IOResultKeeper<S::IOTypes>,
-    ) -> <S::IO as IOSubsystemExt>::FinalData {
-        let logger = self.get_logger();
-        self.io.finish(
-            self.metadata.block_level_metadata,
-            block_hash,
-            l1_to_l2_txs_hash,
-            upgrade_tx_hash,
-            result_keeper,
-            logger,
         )
     }
 }

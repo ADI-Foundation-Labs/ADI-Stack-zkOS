@@ -1,31 +1,19 @@
 //!
-//! This module contains flat(aka new ZKsyncOS) storage model implementation.
+//! This module contains Ethereum storage model implementation.
 //!
-//! It's fixed height merkle tree with linked list in the leaves sorted by storage keys.
-//! Account data hashes stored in this tree and published separately.
-//!
-pub mod account_cache;
-mod account_cache_entry;
-pub mod cost_constants;
-pub mod preimage_cache;
-mod simple_growable_storage;
-pub mod storage_cache;
 
-pub use self::account_cache::*;
-pub use self::account_cache_entry::*;
-pub use self::preimage_cache::*;
-pub use self::simple_growable_storage::*;
-pub use self::storage_cache::*;
 use crate::system_implementation::cache_structs::storage_values::GenericPubdataAwareStorageValuesCache;
 use crate::system_implementation::cache_structs::storage_values::StorageAccessPolicy;
+use crate::system_implementation::ethereum_storage_model::caches::account_cache::EthereumAccountCache;
+use crate::system_implementation::ethereum_storage_model::caches::full_storage_cache::EthereumStorageCache;
+use crate::system_implementation::ethereum_storage_model::caches::preimage::BytecodeKeccakPreimagesStorage;
+use crate::system_implementation::ethereum_storage_model::persist_changes::EthereumStoragePersister;
 use core::alloc::Allocator;
 use crypto::MiniDigest;
-use ruint::aliases::B160;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
-use storage_models::common_structs::SpecialAccountProperty;
 use storage_models::common_structs::StorageCacheModel;
 use storage_models::common_structs::StorageModel;
-use zk_ee::common_structs::{derive_flat_storage_key_with_hasher, ValueDiffCompressionStrategy};
+use zk_ee::common_structs::history_map::NopSnapshotId;
 use zk_ee::internal_error;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::system::BalanceSubsystemError;
@@ -47,26 +35,7 @@ use zk_ee::{
     utils::Bytes32,
 };
 
-pub fn address_into_special_storage_key(address: &B160) -> Bytes32 {
-    let mut key = Bytes32::zero();
-    key.as_u8_array_mut()[12..].copy_from_slice(&address.to_be_bytes::<{ B160::BYTES }>());
-
-    key
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct AccountAggregateDataHash;
-
-impl SpecialAccountProperty for AccountAggregateDataHash {
-    type Value = Bytes32;
-}
-
-pub const TREE_HEIGHT: usize = 64;
-
-// This model only touches storage related things, even though preimages cache can be reused
-// by "signals" in theory, but we do not expect that in practice
-
-pub struct FlatTreeWithAccountsUnderHashesStorageModel<
+pub struct EthereumStorageModel<
     A: Allocator + Clone,
     R: Resources,
     P: StorageAccessPolicy<R, Bytes32>,
@@ -74,16 +43,16 @@ pub struct FlatTreeWithAccountsUnderHashesStorageModel<
     const N: usize,
     const PROOF_ENV: bool,
 > {
-    pub(crate) storage_cache: NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
-    pub(crate) preimages_cache: BytecodeAndAccountDataPreimagesStorage<R, A>,
-    pub(crate) account_data_cache: NewModelAccountCache<A, R, P, SC, N>,
+    pub(crate) account_cache: EthereumAccountCache<A, R, SC, N>,
+    pub(crate) storage_cache: EthereumStorageCache<A, SC, N, R, P>,
+    pub(crate) preimages_cache: BytecodeKeccakPreimagesStorage<R, A>,
     pub(crate) allocator: A,
 }
 
-pub struct FlatTreeWithAccountsUnderHashesStorageModelStateSnapshot {
+pub struct EthereumStorageModelStateSnapshot {
     storage: CacheSnapshotId,
     account_data: CacheSnapshotId,
-    preimages: CacheSnapshotId,
+    preimages: NopSnapshotId,
 }
 
 impl<
@@ -93,43 +62,42 @@ impl<
         SC: StackCtor<N>,
         const N: usize,
         const PROOF_ENV: bool,
-    > StorageModel for FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, N, PROOF_ENV>
+    > StorageModel for EthereumStorageModel<A, R, P, SC, N, PROOF_ENV>
 {
     type Allocator = A;
     type Resources = R;
-    type StorageCommitment = FlatStorageCommitment<TREE_HEIGHT>;
+    type StorageCommitment = Bytes32;
 
     type IOTypes = EthereumIOTypesConfig;
     type InitData = P;
 
     fn finish_tx(&mut self) -> Result<(), zk_ee::system::errors::internal::InternalError> {
-        self.account_data_cache.finish_tx(&mut self.storage_cache)
+        self.account_cache.finish_tx(&mut self.storage_cache)
     }
 
     fn construct(init_data: Self::InitData, allocator: Self::Allocator) -> Self {
         let resources_policy = init_data;
-        let storage_cache = NewStorageWithAccountPropertiesUnderHash::<A, SC, N, R, P>(
-            GenericPubdataAwareStorageValuesCache::new_from_parts(
+        let storage_cache = EthereumStorageCache::<A, SC, N, R, P> {
+            slot_values: GenericPubdataAwareStorageValuesCache::new_from_parts(
                 allocator.clone(),
                 resources_policy,
             ),
-        );
+        };
+
         let preimages_cache =
-            BytecodeAndAccountDataPreimagesStorage::<R, A>::new_from_parts(allocator.clone());
-        let account_data_cache =
-            NewModelAccountCache::<A, R, P, SC, N>::new_from_parts(allocator.clone());
+            BytecodeKeccakPreimagesStorage::<R, A>::new_from_parts(allocator.clone());
+        let account_cache = EthereumAccountCache::<A, R, SC, N>::new_from_parts(allocator.clone());
 
         Self {
             storage_cache,
             preimages_cache,
-            account_data_cache,
+            account_cache,
             allocator,
         }
     }
 
     fn pubdata_used_by_tx(&self) -> u32 {
-        self.account_data_cache.calculate_pubdata_used_by_tx()
-            + self.storage_cache.calculate_pubdata_used_by_tx()
+        0
     }
 
     fn finish(
@@ -141,20 +109,13 @@ impl<
         logger: &mut impl Logger,
     ) -> Result<(), InternalError> {
         let Self {
-            mut storage_cache,
-            mut preimages_cache,
-            mut account_data_cache,
+            storage_cache,
+            preimages_cache: _,
+            mut account_cache,
             allocator,
         } = self;
-        // flush accounts into storage
-        account_data_cache
-            .persist_changes(
-                &mut storage_cache,
-                &mut preimages_cache,
-                oracle,
-                result_keeper,
-            )
-            .expect("must persist changes from account cache");
+
+        // Here we have to cascade everything
 
         // 1. Return uncompressed state diffs for sequencer
         result_keeper.storage_diffs(storage_cache.net_diffs_iter().map(|(k, v)| {
@@ -162,66 +123,28 @@ impl<
             let value = v.current_value;
             (address, key, value)
         }));
-        preimages_cache.report_new_preimages(result_keeper)?;
 
-        // 2. Commit to/return compressed pubdata
-        let encdoded_state_diffs_count =
-            (storage_cache.net_diffs_iter().count() as u32).to_be_bytes();
-        pubdata_hasher.update(&encdoded_state_diffs_count);
-        result_keeper.pubdata(&encdoded_state_diffs_count);
-
-        let mut hasher = crypto::blake2s::Blake2s256::new();
-        storage_cache
-            .0
-            .cache
-            .apply_to_all_updated_elements::<_, ()>(|l, r, k| {
-                // TODO(EVM-1074): use tree index instead of key for repeated writes
-                let derived_key =
-                    derive_flat_storage_key_with_hasher(&k.address, &k.key, &mut hasher);
-                pubdata_hasher.update(derived_key.as_u8_ref());
-                result_keeper.pubdata(derived_key.as_u8_ref());
-
-                if l.value() == r.value() {
-                    return Ok(());
-                }
-                // we publish preimages for account details
-                if k.address == ACCOUNT_PROPERTIES_STORAGE_ADDRESS {
-                    let account_address = B160::try_from_be_slice(&k.key.as_u8_ref()[12..])
-                        .unwrap()
-                        .into();
-                    let cache_item = account_data_cache.cache.get(&account_address).ok_or(())?;
-                    let (l, r) = cache_item.get_initial_and_last_values().ok_or(())?;
-                    AccountProperties::diff_compression::<PROOF_ENV, _, _>(
-                        l.value(),
-                        r.value(),
-                        r.metadata().not_publish_bytecode,
-                        pubdata_hasher,
-                        result_keeper,
-                        &mut preimages_cache,
-                        oracle,
-                    )
-                    .map_err(|_| ())?;
-                } else {
-                    ValueDiffCompressionStrategy::optimal_compression(
-                        l.value(),
-                        r.value(),
-                        pubdata_hasher,
-                        result_keeper,
-                    );
-                }
-                Ok(())
-            })
-            .map_err(|_| internal_error!("Failed to compute pubdata"))?;
+        // 2. Account data diffs
 
         // 3. Verify/apply reads and writes
         cycle_marker::wrap!("verify_and_apply_batch", {
             if let Some(state_commitment) = state_commitment {
-                let it = storage_cache.net_accesses_iter();
-                state_commitment.verify_and_apply_batch(oracle, it, allocator, logger)
+                let mut storage_level_updater = EthereumStoragePersister;
+                storage_level_updater.persist_changes(
+                    &mut account_cache,
+                    &storage_cache,
+                    &state_commitment,
+                    oracle,
+                    logger,
+                    allocator.clone(),
+                )?;
+
+                Ok(())
             } else {
                 Ok(())
             }
         })?;
+
         Ok(())
     }
 
@@ -309,13 +232,12 @@ impl<
         >,
         SystemError,
     > {
-        self.account_data_cache
+        self.account_cache
             .read_account_properties::<PROOF_ENV, _, _, _, _, _, _, _, _, _, _>(
                 ee_type,
                 resources,
                 address,
                 request,
-                &mut self.storage_cache,
                 &mut self.preimages_cache,
                 oracle,
             )
@@ -329,12 +251,10 @@ impl<
         oracle: &mut impl IOOracle,
         is_access_list: bool,
     ) -> Result<(), SystemError> {
-        self.account_data_cache.touch_account::<PROOF_ENV>(
+        self.account_cache.touch_account::<PROOF_ENV>(
             ee_type,
             resources,
             address,
-            &mut self.storage_cache,
-            &mut self.preimages_cache,
             oracle,
             is_access_list,
         )
@@ -346,7 +266,7 @@ impl<
         resources: &mut Self::Resources,
         address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
     ) -> Result<<Self::IOTypes as SystemIOTypesConfig>::NominalTokenValue, SystemError> {
-        self.account_data_cache
+        self.account_cache
             .read_account_balance_assuming_warm(ee_type, resources, address)
     }
 
@@ -358,12 +278,11 @@ impl<
         bytecode: &[u8],
         oracle: &mut impl IOOracle,
     ) -> Result<&'static [u8], SystemError> {
-        self.account_data_cache.deploy_code::<PROOF_ENV>(
+        self.account_cache.deploy_code::<PROOF_ENV>(
             from_ee,
             resources,
             at_address,
             bytecode,
-            &mut self.storage_cache,
             &mut self.preimages_cache,
             oracle,
         )
@@ -381,19 +300,7 @@ impl<
         observable_bytecode_len: u32,
         oracle: &mut impl IOOracle,
     ) -> Result<(), SystemError> {
-        self.account_data_cache.set_bytecode_details::<PROOF_ENV>(
-            resources,
-            at_address,
-            ee,
-            bytecode_hash,
-            bytecode_len,
-            artifacts_len,
-            observable_bytecode_hash,
-            observable_bytecode_len,
-            &mut self.storage_cache,
-            &mut self.preimages_cache,
-            oracle,
-        )
+        unimplemented!("not valid for this storage model");
     }
 
     fn mark_for_deconstruction(
@@ -405,17 +312,14 @@ impl<
         oracle: &mut impl IOOracle,
         in_constructor: bool,
     ) -> Result<(), DeconstructionSubsystemError> {
-        self.account_data_cache
-            .mark_for_deconstruction::<PROOF_ENV>(
-                from_ee,
-                resources,
-                at_address,
-                nominal_token_beneficiary,
-                &mut self.storage_cache,
-                &mut self.preimages_cache,
-                oracle,
-                in_constructor,
-            )
+        self.account_cache.mark_for_deconstruction::<PROOF_ENV>(
+            from_ee,
+            resources,
+            at_address,
+            nominal_token_beneficiary,
+            oracle,
+            in_constructor,
+        )
     }
 
     fn increment_nonce(
@@ -426,13 +330,11 @@ impl<
         increment_by: u64,
         oracle: &mut impl IOOracle,
     ) -> Result<u64, NonceSubsystemError> {
-        self.account_data_cache.increment_nonce::<PROOF_ENV>(
+        self.account_cache.increment_nonce::<PROOF_ENV>(
             ee_type,
             resources,
             address,
             increment_by,
-            &mut self.storage_cache,
-            &mut self.preimages_cache,
             oracle,
         )
     }
@@ -446,17 +348,8 @@ impl<
         amount: &<Self::IOTypes as SystemIOTypesConfig>::NominalTokenValue,
         oracle: &mut impl IOOracle,
     ) -> Result<(), BalanceSubsystemError> {
-        self.account_data_cache
-            .transfer_nominal_token_value::<PROOF_ENV>(
-                from_ee,
-                resources,
-                from,
-                to,
-                amount,
-                &mut self.storage_cache,
-                &mut self.preimages_cache,
-                oracle,
-            )
+        self.account_cache
+            .transfer_nominal_token_value::<PROOF_ENV>(from_ee, resources, from, to, amount, oracle)
     }
 
     fn update_nominal_token_value(
@@ -473,16 +366,8 @@ impl<
         oracle: &mut impl IOOracle,
     ) -> Result<<Self::IOTypes as SystemIOTypesConfig>::NominalTokenValue, BalanceSubsystemError>
     {
-        self.account_data_cache
-            .update_nominal_token_value::<PROOF_ENV>(
-                from_ee,
-                resources,
-                address,
-                update_fn,
-                &mut self.storage_cache,
-                &mut self.preimages_cache,
-                oracle,
-            )
+        self.account_cache
+            .update_nominal_token_value::<PROOF_ENV>(from_ee, resources, address, update_fn, oracle)
     }
 }
 
@@ -493,22 +378,22 @@ impl<
         SC: StackCtor<N>,
         const N: usize,
         const PROOF_ENV: bool,
-    > SnapshottableIo for FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, N, PROOF_ENV>
+    > SnapshottableIo for EthereumStorageModel<A, R, P, SC, N, PROOF_ENV>
 {
-    type StateSnapshot = FlatTreeWithAccountsUnderHashesStorageModelStateSnapshot;
+    type StateSnapshot = EthereumStorageModelStateSnapshot;
 
     fn begin_new_tx(&mut self) {
         self.storage_cache.begin_new_tx();
         self.preimages_cache.begin_new_tx();
-        self.account_data_cache.begin_new_tx();
+        self.account_cache.begin_new_tx();
     }
 
     fn start_frame(&mut self) -> Self::StateSnapshot {
         let storage_handle = self.storage_cache.start_frame();
         let preimages_handle = self.preimages_cache.start_frame();
-        let account_handle = self.account_data_cache.start_frame();
+        let account_handle = self.account_cache.start_frame();
 
-        FlatTreeWithAccountsUnderHashesStorageModelStateSnapshot {
+        EthereumStorageModelStateSnapshot {
             storage: storage_handle,
             preimages: preimages_handle,
             account_data: account_handle,
@@ -523,7 +408,7 @@ impl<
             .finish_frame(rollback_handle.map(|x| &x.storage))?;
         self.preimages_cache
             .finish_frame(rollback_handle.map(|x| &x.preimages))?;
-        self.account_data_cache
+        self.account_cache
             .finish_frame(rollback_handle.map(|x| &x.account_data))?;
 
         Ok(())

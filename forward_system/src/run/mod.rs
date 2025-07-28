@@ -328,7 +328,7 @@ pub fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
 
     let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
 
-    CallSimulationBootloader::run_prepared::<BasicBootloaderCallSimulationConfig>(
+    CallSimulationBootloader::run_prepared::<BasicBootloaderCallSimulationConfig, false>(
         oracle,
         &mut result_keeper,
     )

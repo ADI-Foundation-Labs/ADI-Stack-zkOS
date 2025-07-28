@@ -115,6 +115,40 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         Ok(new)
     }
 
+    pub fn purge_for_reuse(
+        &mut self,
+        root_hash: [u8; 32],
+        interner: &mut (impl Interner<'a> + 'a),
+    ) -> Result<(), ()> {
+        let root = if root_hash == EMPTY_ROOT_HASH.as_u8_array() {
+            NodeType::empty()
+        } else {
+            NodeType::opaque_nontrivial_root()
+        };
+
+        let interned_root_node_key = if root.is_empty() {
+            EMPTY_SLICE_ENCODING
+        } else {
+            let mut buffer = interner.get_buffer(33)?;
+            buffer.write_byte(0x80 + 32);
+            buffer.write_slice(&root_hash);
+
+            buffer.flush()
+        };
+
+        self.root = root;
+        self.interned_root_node_key = interned_root_node_key;
+        self.leaf_nodes.clear();
+        self.extension_nodes.clear();
+        self.branch_nodes.clear();
+        self.branch_unreferenced_values.clear();
+        self.branch_terminal_values.clear();
+        self.keys_cache.clear();
+        // preimages cache will persist for convenience
+
+        Ok(())
+    }
+
     // we will not use a separate pre-fill of the tree to avoid
     pub fn get(
         &mut self,

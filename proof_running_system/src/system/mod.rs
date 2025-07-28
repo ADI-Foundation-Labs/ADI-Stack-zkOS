@@ -4,8 +4,9 @@ use crate::system::bootloader::BootloaderAllocator;
 use alloc::alloc::Allocator;
 use basic_bootloader::bootloader::BasicBootloader;
 use basic_system::system_functions::NoStdSystemFunctions;
+use basic_system::system_implementation::flat_storage_model::FlatTreeWithAccountsUnderHashesStorageModel;
 use basic_system::system_implementation::system::EthereumLikeStorageAccessCostModel;
-use basic_system::system_implementation::system::FullIO;
+use basic_system::system_implementation::system::TypedFullIO;
 use stack_trait::StackCtor;
 use zk_ee::memory::*;
 use zk_ee::reference_implementations::BaseResources;
@@ -32,13 +33,21 @@ type Native = zk_ee::reference_implementations::DecreasingNative;
 impl<O: IOOracle, L: Logger + Default> SystemTypes for ProofRunningSystemTypes<O, L> {
     type IOTypes = EthereumIOTypesConfig;
     type Resources = BaseResources<Native>;
-    type IO = FullIO<
+    type IO = TypedFullIO<
         Self::Allocator,
         Self::Resources,
         EthereumLikeStorageAccessCostModel,
         LVStackCtor,
         32,
         O,
+        FlatTreeWithAccountsUnderHashesStorageModel<
+            Self::Allocator,
+            Self::Resources,
+            EthereumLikeStorageAccessCostModel,
+            LVStackCtor,
+            32,
+            true,
+        >,
         true,
     >;
     type SystemFunctions = NoStdSystemFunctions;

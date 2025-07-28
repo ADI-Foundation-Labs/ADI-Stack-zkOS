@@ -12,7 +12,7 @@ pub fn run_forward<Config: BasicBootloaderExecutionConfig>(
     oracle: ZkEENonDeterminismSource<DummyMemorySource>,
     result_keeper: &mut impl ResultKeeperExt,
 ) {
-    if let Err(err) = ForwardBootloader::run_prepared::<Config>(oracle, result_keeper) {
+    if let Err(err) = ForwardBootloader::run_prepared::<Config, false>(oracle, result_keeper) {
         panic!("Forward run failed with: {err}")
     };
 }

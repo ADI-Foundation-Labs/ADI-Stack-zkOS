@@ -1,4 +1,5 @@
 //! Implementation of the system interface.
+use crate::system_implementation::cache_structs::storage_values::StorageAccessPolicy;
 use crate::system_implementation::flat_storage_model::FlatTreeWithAccountsUnderHashesStorageModel;
 use crate::system_implementation::flat_storage_model::*;
 use crate::system_implementation::system::public_input::{
@@ -26,10 +27,14 @@ use zk_ee::{
 
 mod io_subsystem;
 mod public_input;
+mod storage_model_subtyped_io;
+mod system_post_work;
 
 pub use self::io_subsystem::*;
 pub use self::public_input::BatchOutput;
 pub use self::public_input::BatchPublicInput;
+pub use self::storage_model_subtyped_io::*;
+pub use self::system_post_work::*;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EthereumLikeStorageAccessCostModel;

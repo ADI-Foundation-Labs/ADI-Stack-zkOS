@@ -11,7 +11,7 @@ use zk_ee::{
     },
     system_io_oracle::{IOOracle, GENERIC_PREIMAGE_QUERY_ID},
     types_config::EthereumIOTypesConfig,
-    utils::{Bytes32, UsizeAlignedByteBox},
+    utils::{Bytes32, UsizeAlignedByteBox, USIZE_SIZE},
 };
 
 use crate::system_implementation::flat_storage_model::cost_constants::blake2s_native_cost;
@@ -91,6 +91,11 @@ impl<R: Resources, A: Allocator + Clone> BytecodeAndAccountDataPreimagesStorage<
             let it = oracle
                 .raw_query(GENERIC_PREIMAGE_QUERY_ID, hash)
                 .expect("must make an iterator for preimage");
+            // IMPORTANT: oracle should be somewhat "sane", it also limits the number of cycles spent below
+            assert!(
+                it.len()
+                    <= expected_preimage_len_in_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE
+            );
             let mut buffered =
                 UsizeAlignedByteBox::from_usize_iterator_in(it, self.allocator.clone());
             // truncate

@@ -1,5 +1,6 @@
 use super::snapshottable_io::SnapshottableIo;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
+use zk_ee::kv_markers::{UsizeDeserializable, UsizeSerializable};
 use zk_ee::system::{BalanceSubsystemError, DeconstructionSubsystemError, NonceSubsystemError};
 use zk_ee::system_io_oracle::IOOracle;
 use zk_ee::utils::Bytes32;
@@ -21,7 +22,7 @@ use zk_ee::{
 pub trait StorageModel: Sized + SnapshottableIo {
     type IOTypes: SystemIOTypesConfig;
     type Resources: Resources;
-    type StorageCommitment;
+    type StorageCommitment: Clone + UsizeSerializable + UsizeDeserializable; // easier to have it here than propagate
 
     fn finish_tx(&mut self) -> Result<(), InternalError>;
 

@@ -7,9 +7,9 @@ pub mod dyn_usize_iterator;
 /// so e.g. if one asks for preimage it gives SOME data, but validity of this data
 /// versus image (that depends on which hash is used) it beyond the scope of this trait
 ///
-use core::num::NonZeroU32;
+use core::{mem::MaybeUninit, num::NonZeroU32};
 
-use crate::system::errors::internal::InternalError;
+use crate::{system::errors::internal::InternalError, utils::Bytes32};
 
 use super::kv_markers::{UsizeDeserializable, UsizeSerializable};
 
@@ -23,7 +23,7 @@ pub const UART_QUERY_ID: u32 = 0xffffffff;
 pub const BASIC_SUBSPACE_MASK: u32 = 0x40_00_01_00;
 pub const GENERIC_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x01_00;
 pub const PREIMAGE_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x02_00;
-pub const STORAGE_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x04_00;
+pub const ACCOUNT_AND_STORAGE_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x04_00;
 pub const STATE_AND_MERKLE_PATHS_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x08_00;
 pub const ADVISE_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x10_00;
 
@@ -39,7 +39,10 @@ pub const GENERIC_PREIMAGE_QUERY_ID: u32 = PREIMAGE_SUBSPACE_MASK | 0;
 pub const BYTECODE_HASH_PREIMAGE_QUERY_ID: u32 = PREIMAGE_SUBSPACE_MASK | 1;
 
 #[allow(clippy::identity_op)]
-pub const INITIAL_STORAGE_SLOT_VALUE_QUERY_ID: u32 = STORAGE_SUBSPACE_MASK | 0;
+pub const INITIAL_STORAGE_SLOT_VALUE_QUERY_ID: u32 = ACCOUNT_AND_STORAGE_SUBSPACE_MASK | 0;
+
+#[allow(clippy::identity_op)]
+pub const INITIAL_STATE_COMMITTMENT_QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 0;
 
 ///
 /// Convenience trait to define all expected types under one umbrella.
@@ -181,6 +184,30 @@ pub trait IOOracle: 'static + Sized {
         let size = self.query_with_empty_input::<u32>(NEXT_TX_SIZE_QUERY_ID)?;
 
         Ok(NonZeroU32::new(size))
+    }
+
+    ///
+    /// Convenience to expose preimage into the preallocated buffer of bounded size
+    ///
+    fn expose_preimage(
+        &mut self,
+        query_type: u32,
+        hash: &Bytes32,
+        destination: &mut [MaybeUninit<usize>],
+    ) -> Result<usize, InternalError> {
+        let mut it = self
+            .raw_query(query_type, hash)
+            .expect("must make an iterator for preimage");
+        assert!(it.len() <= destination.len());
+        let words_written = it.len();
+        for i in 0..it.len() {
+            unsafe {
+                // Contract of ExactSizeIterator
+                destination[i].write(it.next().unwrap_unchecked());
+            }
+        }
+
+        Ok(words_written)
     }
 }
 

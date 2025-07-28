@@ -3,7 +3,10 @@ use oracle_provider::OracleQueryProcessor;
 use serde::{Deserialize, Serialize};
 use zk_ee::kv_markers::{UsizeDeserializable, UsizeSerializable};
 use zk_ee::system_io_oracle::dyn_usize_iterator::DynUsizeIterator;
+
 mod block_metadata;
+mod ethereum_header;
+mod ethereum_storage;
 mod generic_preimage;
 mod io_implementer_init;
 mod read_storage;
