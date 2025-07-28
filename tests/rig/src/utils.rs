@@ -2,13 +2,12 @@
 //! This module contains bunch of standalone utility methods, useful for testing.
 //!
 
-use alloy::consensus::SignableTransaction;
+use alloy::consensus::{SignableTransaction, Transaction};
 use alloy::network::TxSignerSync;
 #[allow(deprecated)]
 use alloy::primitives::Signature;
 use alloy::rpc::types::TransactionRequest;
 use alloy::signers::local::PrivateKeySigner;
-use basic_system::system_implementation::flat_storage_model::DEFAULT_CODE_VERSION_BYTE;
 use ethers::abi::{AbiEncode, Token, Uint};
 use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::U256;
@@ -16,8 +15,6 @@ use std::io::Read;
 use std::ops::Add;
 use std::path::PathBuf;
 use std::str::FromStr;
-use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::utils::Bytes32;
 use zksync_web3_rs::eip712::{Eip712Transaction, Eip712TransactionRequest};
 use zksync_web3_rs::signers::Signer;
 use zksync_web3_rs::zks_utils::EIP712_TX_TYPE;
@@ -40,7 +37,7 @@ pub fn load_wasm_bytecode(contract_name: &str) -> Vec<u8> {
         contract_name
     );
     let mut file = std::fs::File::open(path.as_str())
-        .unwrap_or_else(|_| panic!("Expecting '{}' to exist.", path));
+        .unwrap_or_else(|_| panic!("Expecting '{path}' to exist."));
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer).unwrap();
 
@@ -63,7 +60,7 @@ pub fn load_sol_bytecode(project_name: &str, contract_name: &str) -> Vec<u8> {
 
     hex::decode(
         &std::fs::read_to_string(path.as_str())
-            .unwrap_or_else(|_| panic!("Expecring '{}' to exist.", path))[2..],
+            .unwrap_or_else(|_| panic!("Expecring '{path}' to exist."))[2..],
     )
     .unwrap()
 }
@@ -101,7 +98,7 @@ pub fn sign_and_encode_alloy_tx(
     }
     let tx_type = tx.ty();
     let from = wallet.address().into_array();
-    let to = tx.to().to().map(|to| to.into_array());
+    let to = tx.to().map(|to| to.into_array());
     let gas_limit = tx.gas_limit() as u128;
     let max_fee_per_gas = tx.max_fee_per_gas();
     let max_priority_fee_per_gas = tx.max_priority_fee_per_gas();
@@ -146,37 +143,40 @@ pub fn sign_and_encode_alloy_tx(
 
 #[allow(deprecated)]
 pub fn encode_alloy_rpc_tx(tx: alloy::rpc::types::Transaction) -> Vec<u8> {
-    let tx_type = tx.transaction_type.unwrap_or(0);
-    let from = tx.from.into_array();
-    let to = tx.to.map(|a| a.into_array());
-    let gas_limit = tx.gas as u128;
+    use alloy::consensus::Typed2718;
+    let tx_type = tx.inner.tx_type().ty();
+    let from = tx.as_recovered().signer().into_array();
+    let to = tx.to().map(|a| a.into_array());
+    let gas_limit = tx.gas_limit() as u128;
     let (max_fee_per_gas, max_priority_fee_per_gas) = if tx_type == 2 {
-        (tx.max_fee_per_gas.unwrap(), tx.max_priority_fee_per_gas)
+        (tx.max_fee_per_gas(), tx.max_priority_fee_per_gas())
     } else {
-        (tx.gas_price.unwrap(), tx.gas_price)
+        (tx.gas_price().unwrap(), tx.gas_price())
     };
-    let nonce = tx.nonce as u128;
-    let value = tx.value.to_be_bytes();
-    let data = tx.input.to_vec();
-    let sig: alloy::primitives::Signature = tx.signature.unwrap_or_default().try_into().unwrap();
+    let nonce = tx.nonce() as u128;
+    let value = tx.value().to_be_bytes();
+    let data = tx.input().to_vec();
+    let sig: alloy::primitives::Signature = *tx.clone().into_signed().signature();
     let mut signature = sig.as_bytes().to_vec();
-    let is_eip155 = sig.has_eip155_value();
+    let is_eip155 = tx.inner.is_replay_protected();
     if signature[64] <= 1 {
         signature[64] += 27;
     }
-    let access_list = tx
-        .access_list
-        .map(|access_list: alloy::rpc::types::AccessList| {
-            access_list
-                .0
-                .into_iter()
-                .map(|item| {
-                    let address = item.address.into_array();
-                    let keys: Vec<[u8; 32]> = item.storage_keys.into_iter().map(|k| k.0).collect();
-                    (address, keys)
-                })
-                .collect()
-        });
+    let access_list =
+        tx.access_list()
+            .cloned()
+            .map(|access_list: alloy::rpc::types::AccessList| {
+                access_list
+                    .0
+                    .into_iter()
+                    .map(|item| {
+                        let address = item.address.into_array();
+                        let keys: Vec<[u8; 32]> =
+                            item.storage_keys.into_iter().map(|k| k.0).collect();
+                        (address, keys)
+                    })
+                    .collect()
+            });
     let reserved_dynamic = access_list.map(encode_access_list);
 
     encode_tx(
@@ -420,30 +420,6 @@ fn encode_tx(
         Token::Bytes(reserved_dynamic.unwrap_or_default()),
     ])
     .to_vec()
-}
-
-pub fn evm_bytecode_into_account_properties(bytecode: &[u8]) -> AccountProperties {
-    use crypto::blake2s::Blake2s256;
-    use crypto::sha3::Keccak256;
-    use crypto::MiniDigest;
-
-    let observable_bytecode_hash = Bytes32::from_array(Keccak256::digest(bytecode));
-    let bytecode_hash = Bytes32::from_array(Blake2s256::digest(bytecode));
-    let mut result = AccountProperties::TRIVIAL_VALUE;
-    result.observable_bytecode_hash = observable_bytecode_hash;
-    result.bytecode_hash = bytecode_hash;
-    result.versioning_data.set_as_deployed();
-    result
-        .versioning_data
-        .set_ee_version(ExecutionEnvironmentType::EVM as u8);
-    result
-        .versioning_data
-        .set_code_version(DEFAULT_CODE_VERSION_BYTE);
-    result.bytecode_len = bytecode.len() as u32;
-    result.artifacts_len = 0;
-    result.observable_bytecode_len = bytecode.len() as u32;
-
-    result
 }
 
 #[cfg(test)]

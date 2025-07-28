@@ -1,6 +1,6 @@
-use crate::utils::evm_bytecode_into_account_properties;
 use crate::{colors, init_logger};
 use alloy::signers::local::PrivateKeySigner;
+use basic_bootloader::bootloader::config::BasicBootloaderCallSimulationConfig;
 use basic_bootloader::bootloader::config::BasicBootloaderForwardSimulationConfig;
 use basic_bootloader::bootloader::constants::MAX_BLOCK_GAS_LIMIT;
 use basic_system::system_implementation::flat_storage_model::FlatStorageCommitment;
@@ -111,7 +111,7 @@ impl Chain<true> {
 
 #[derive(Debug)]
 pub struct BlockExtraStats {
-    pub native_used: Option<u64>,
+    pub computational_native_used: Option<u64>,
     pub effective_used: Option<u64>,
 }
 
@@ -152,6 +152,76 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         let result = items.borrow().clone();
         result
+    }
+
+    ///
+    /// Simulate block, do not validate transactions
+    ///
+    pub fn simulate_block(
+        &mut self,
+        transactions: Vec<Vec<u8>>,
+        block_context: Option<BlockContext>,
+    ) -> BatchOutput {
+        let block_context = block_context.unwrap_or_default();
+        let block_metadata = BlockMetadataFromOracle {
+            chain_id: self.chain_id,
+            block_number: self.block_number + 1,
+            block_hashes: BlockHashes(self.block_hashes),
+            timestamp: block_context.timestamp,
+            eip1559_basefee: block_context.eip1559_basefee,
+            gas_per_pubdata: block_context.gas_per_pubdata,
+            native_price: block_context.native_price,
+            coinbase: block_context.coinbase,
+            gas_limit: block_context.gas_limit,
+            mix_hash: block_context.mix_hash,
+        };
+        let state_commitment = FlatStorageCommitment::<{ TREE_HEIGHT }> {
+            root: *self.state_tree.storage_tree.root(),
+            next_free_slot: self.state_tree.storage_tree.next_free_slot,
+        };
+        let tx_source = TxListSource {
+            transactions: transactions.into(),
+        };
+
+        let oracle = ForwardRunningOracle {
+            io_implementer_init_data: Some(io_implementer_init_data(Some(state_commitment))),
+            preimage_source: self.preimage_source.clone(),
+            tree: self.state_tree.clone(),
+            block_metadata,
+            next_tx: None,
+            tx_source: tx_source.clone(),
+        };
+
+        // dump oracle if env variable set
+        if let Ok(path) = std::env::var("ORACLE_DUMP_FILE") {
+            let aux_oracle: ForwardRunningOracleAux<
+                InMemoryTree<RANDOMIZED_TREE>,
+                InMemoryPreimageSource,
+                TxListSource,
+            > = oracle.clone().into();
+            let serialized_oracle = bincode::serialize(&aux_oracle).expect("should serialize");
+            let mut file = File::create(&path).expect("should create file");
+            file.write_all(&serialized_oracle)
+                .expect("should write to file");
+            info!("Successfully wrote oracle dump to: {path}");
+        }
+
+        // forward run
+        let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
+
+        run_forward::<BasicBootloaderCallSimulationConfig, _, _, _>(
+            oracle.clone(),
+            &mut result_keeper,
+        );
+
+        let block_output: BatchOutput = result_keeper.into();
+        trace!(
+            "{}Block output:{} \n{:#?}",
+            colors::MAGENTA,
+            colors::RESET,
+            block_output.tx_results
+        );
+        block_output
     }
 
     ///
@@ -219,7 +289,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             let mut file = File::create(&path).expect("should create file");
             file.write_all(&serialized_oracle)
                 .expect("should write to file");
-            info!("Successfully wrote oracle dumo to: {}", path);
+            info!("Successfully wrote oracle dumo to: {path}");
         }
 
         // forward run
@@ -239,22 +309,21 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         );
         #[allow(unused_mut)]
         let mut stats = BlockExtraStats {
-            native_used: None,
+            computational_native_used: None,
             effective_used: None,
         };
 
-        #[cfg(feature = "report_native")]
         {
             let native_used: u64 = block_output
                 .tx_results
                 .iter()
                 .map(|res| {
                     res.as_ref()
-                        .map(|tx_out| tx_out.native_used)
+                        .map(|tx_out| tx_out.computational_native_used)
                         .unwrap_or_default()
                 })
                 .sum::<u64>();
-            stats.native_used = Some(native_used);
+            stats.computational_native_used = Some(native_used);
         }
 
         if let Some(path) = witness_output_file {
@@ -315,7 +384,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
                 let mut file = File::create(&output_csr).expect("Failed to create csr reads file");
                 // Write each u32 as an 8-character hexadecimal string without newlines
                 for num in items.borrow().iter() {
-                    write!(file, "{:08X}", num).expect("Failed to write to file");
+                    write!(file, "{num:08X}").expect("Failed to write to file");
                 }
                 debug!(
                     "Successfully wrote {} u32 csr reads elements to file: {}",
@@ -330,7 +399,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
                 colors::RESET
             );
             for word in proof_output.into_iter() {
-                debug!("{:08x}", word);
+                debug!("{word:08x}");
             }
 
             // Ensure that proof running didn't fail: check that output is not zero
@@ -375,19 +444,20 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         nonce: Option<u64>,
         bytecode: Option<Vec<u8>>,
     ) {
+        use zksync_os_api::helpers::*;
         let mut account_properties = self.get_account_properties(&address);
         if let Some(bytecode) = bytecode {
-            account_properties = evm_bytecode_into_account_properties(&bytecode);
+            let bytecode_and_artifacts = set_properties_code(&mut account_properties, &bytecode);
             // Save bytecode preimage
             self.preimage_source
                 .inner
-                .insert(account_properties.bytecode_hash, bytecode);
+                .insert(account_properties.bytecode_hash, bytecode_and_artifacts);
         }
         if let Some(nominal_token_balance) = balance {
-            account_properties.balance = nominal_token_balance;
+            set_properties_balance(&mut account_properties, nominal_token_balance);
         }
         if let Some(nonce) = nonce {
-            account_properties.nonce = nonce;
+            set_properties_nonce(&mut account_properties, nonce);
         }
 
         let encoding = account_properties.encoding();
@@ -454,9 +524,11 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
     /// **Note, that other account fields will be zeroed out(balance, code).**
     ///
     pub fn set_evm_bytecode(&mut self, address: B160, bytecode: &[u8]) -> &mut Self {
-        let account_properties = evm_bytecode_into_account_properties(bytecode);
-        let encoding = account_properties.encoding();
-        let properties_hash = account_properties.compute_hash();
+        use zksync_os_api::helpers::*;
+        let mut account = AccountProperties::default();
+        let bytecode_and_artifacts = set_properties_code(&mut account, bytecode);
+        let encoding = account.encoding();
+        let properties_hash = account.compute_hash();
 
         let key = address_into_special_storage_key(&address);
         let flat_key = derive_flat_storage_key(&ACCOUNT_PROPERTIES_STORAGE_ADDRESS, &key);
@@ -470,11 +542,17 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             .insert(&flat_key, &properties_hash);
         self.preimage_source
             .inner
-            .insert(account_properties.bytecode_hash, bytecode.to_vec());
+            .insert(account.bytecode_hash, bytecode_and_artifacts);
         self.preimage_source
             .inner
             .insert(properties_hash, encoding.to_vec());
 
+        self
+    }
+
+    /// Set a preimage, used to test forced deployments
+    pub fn set_preimage(&mut self, hash: Bytes32, preimage: &[u8]) -> &mut Self {
+        self.preimage_source.inner.insert(hash, preimage.to_vec());
         self
     }
 
@@ -485,7 +563,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         use ethers::signers::Signer;
         let r =
             LocalWallet::new(&mut ethers::core::rand::thread_rng()).with_chain_id(self.chain_id);
-        info!("Generated wallet: {:0x?}", r);
+        info!("Generated wallet: {r:0x?}");
         r
     }
 
@@ -495,7 +573,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
     pub fn random_signer(&self) -> PrivateKeySigner {
         use alloy::signers::Signer;
         let r = PrivateKeySigner::random().with_chain_id(Some(self.chain_id));
-        info!("Generated wallet: {:0x?}", r);
+        info!("Generated wallet: {r:0x?}");
         r
     }
 }
@@ -503,10 +581,13 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 // bunch of internal utility methods
 fn get_zksync_os_path(app_name: &Option<String>, extension: &str) -> PathBuf {
     let app = app_name.as_deref().unwrap_or("app");
-    let filename = format!("{}.{}", app, extension);
-    PathBuf::from(std::env::var("CARGO_WORKSPACE_DIR").unwrap())
-        .join("zksync_os")
-        .join(filename)
+    let filename = format!("{app}.{extension}");
+    let zksync_os_path = std::env::var("OVERRIDE_ZKSYNC_OS_PATH")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            PathBuf::from(std::env::var("CARGO_WORKSPACE_DIR").unwrap()).join("zksync_os")
+        });
+    zksync_os_path.join(filename)
 }
 
 fn get_zksync_os_img_path(app_name: &Option<String>) -> PathBuf {
