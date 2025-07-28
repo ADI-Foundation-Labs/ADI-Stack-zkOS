@@ -392,16 +392,16 @@ impl FieldElement5x52 {
         self.0[4] &= 0x0FFFFFFFFFFFF;
 
         /* The first pass ensures the magnitude is 1, ... */
-        self.0[0] += x * 0x1000003D1;
-        self.0[1] += self.0[0] >> 52;
+        self.0[0] = self.0[0].overflowing_add(x * 0x1000003D1).0;
+        self.0[1] = self.0[1].overflowing_add(self.0[0] >> 52).0;
         self.0[0] &= 0xFFFFFFFFFFFFF;
-        self.0[2] += self.0[1] >> 52;
+        self.0[2] = self.0[2].overflowing_add(self.0[1] >> 52).0;
         self.0[1] &= 0xFFFFFFFFFFFFF;
         let mut m = self.0[1];
-        self.0[3] += self.0[2] >> 52;
+        self.0[3] = self.0[3].overflowing_add(self.0[2] >> 52).0;
         self.0[2] &= 0xFFFFFFFFFFFFF;
         m &= self.0[2];
-        self.0[4] += self.0[3] >> 52;
+        self.0[4] = self.0[4].overflowing_add(self.0[3] >> 52).0;
         self.0[3] &= 0xFFFFFFFFFFFFF;
         m &= self.0[3];
 

@@ -561,31 +561,31 @@ impl FieldElement10x26 {
         self.0[9] &= 0x03FFFFF;
 
         // The first pass ensures the magnitude is 1, ...
-        self.0[0] += x * 0x3D1;
-        self.0[1] += x << 6;
-        self.0[1] += self.0[0] >> 26;
+        self.0[0] = self.0[0].overflowing_add(x * 0x3D1).0;
+        self.0[1] = self.0[1].overflowing_add(x << 6).0;
+        self.0[1] = self.0[1].overflowing_add(self.0[0] >> 26).0;
         self.0[0] &= 0x3FFFFFF;
-        self.0[2] += self.0[1] >> 26;
+        self.0[2] = self.0[2].overflowing_add(self.0[1] >> 26).0;
         self.0[1] &= 0x3FFFFFF;
-        self.0[3] += self.0[2] >> 26;
+        self.0[3] = self.0[3].overflowing_add(self.0[2] >> 26).0;
         self.0[2] &= 0x3FFFFFF;
         let mut m = self.0[2];
-        self.0[4] += self.0[3] >> 26;
+        self.0[4] = self.0[4].overflowing_add(self.0[3] >> 26).0;
         self.0[3] &= 0x3FFFFFF;
         m &= self.0[3];
-        self.0[5] += self.0[4] >> 26;
+        self.0[5] = self.0[5].overflowing_add(self.0[4] >> 26).0;
         self.0[4] &= 0x3FFFFFF;
         m &= self.0[4];
-        self.0[6] += self.0[5] >> 26;
+        self.0[6] = self.0[6].overflowing_add(self.0[5] >> 26).0;
         self.0[5] &= 0x3FFFFFF;
         m &= self.0[5];
-        self.0[7] += self.0[6] >> 26;
+        self.0[7] = self.0[7].overflowing_add(self.0[6] >> 26).0;
         self.0[6] &= 0x3FFFFFF;
         m &= self.0[6];
-        self.0[8] += self.0[7] >> 26;
+        self.0[8] = self.0[8].overflowing_add(self.0[7] >> 26).0;
         self.0[7] &= 0x3FFFFFF;
         m &= self.0[7];
-        self.0[9] += self.0[8] >> 26;
+        self.0[9] = self.0[9].overflowing_add(self.0[8] >> 26).0;
         self.0[8] &= 0x3FFFFFF;
         m &= self.0[8];
 
