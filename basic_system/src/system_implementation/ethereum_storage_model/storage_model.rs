@@ -14,7 +14,6 @@ use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::StorageCacheModel;
 use storage_models::common_structs::StorageModel;
 use zk_ee::common_structs::history_map::NopSnapshotId;
-use zk_ee::internal_error;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::system::BalanceSubsystemError;
 use zk_ee::system::DeconstructionSubsystemError;
@@ -22,7 +21,7 @@ use zk_ee::system::NonceSubsystemError;
 use zk_ee::system::Resources;
 use zk_ee::{
     common_structs::{
-        history_map::CacheSnapshotId, state_root_view::StateRootView, WarmStorageKey,
+        history_map::CacheSnapshotId, WarmStorageKey,
     },
     execution_environment_type::ExecutionEnvironmentType,
     memory::stack_trait::StackCtor,

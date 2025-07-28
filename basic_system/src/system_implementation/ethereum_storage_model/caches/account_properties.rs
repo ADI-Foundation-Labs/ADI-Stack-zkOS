@@ -1,5 +1,5 @@
 use crate::system_implementation::ethereum_storage_model::mpt::RLPSlice;
-use crate::system_implementation::ethereum_storage_model::{ByteBuffer, EMPTY_ROOT_HASH};
+use crate::system_implementation::ethereum_storage_model::EMPTY_ROOT_HASH;
 use core::mem::MaybeUninit;
 use ruint::aliases::{B160, U256};
 use zk_ee::kv_markers::ExactSizeChain;

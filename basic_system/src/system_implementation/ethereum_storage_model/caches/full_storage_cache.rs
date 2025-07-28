@@ -1,6 +1,5 @@
 //! Storage cache, backed by a history map.
 use core::alloc::Allocator;
-use ruint::aliases::B160;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::StorageCacheModel;
 use zk_ee::common_structs::cache_record::Appearance;

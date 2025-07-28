@@ -105,7 +105,7 @@ impl<A: Allocator> UsizeAlignedByteBox<A> {
         allocator: A,
     ) -> Self {
         let mut inner: alloc::boxed::Box<[MaybeUninit<usize>], A> =
-            unsafe { alloc::boxed::Box::new_uninit_slice_in(buffer_size, allocator) };
+            alloc::boxed::Box::new_uninit_slice_in(buffer_size, allocator);
         let written = init_fn(&mut inner);
         assert!(written <= buffer_size); // we do not want to truncate or realloc, but we will expose only written part below
         let byte_capacity = written * USIZE_SIZE;

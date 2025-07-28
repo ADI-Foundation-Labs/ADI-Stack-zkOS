@@ -2,7 +2,7 @@ use alloc::vec::Vec;
 use basic_system::system_implementation::flat_storage_model::FlatStorageCommitment;
 use basic_system::system_implementation::flat_storage_model::TREE_HEIGHT;
 use basic_system::system_implementation::system::{
-    DefaultHeaderStructurePostWork, FinishIO, SystemPostWork, TypedFinishIO,
+    DefaultHeaderStructurePostWork, SystemPostWork, TypedFinishIO,
 };
 use constants::{MAX_TX_LEN_WORDS, TX_OFFSET_WORDS};
 use errors::BootloaderSubsystemError;

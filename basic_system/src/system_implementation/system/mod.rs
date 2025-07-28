@@ -1,6 +1,5 @@
 //! Implementation of the system interface.
 use crate::system_implementation::cache_structs::storage_values::StorageAccessPolicy;
-use crate::system_implementation::flat_storage_model::FlatTreeWithAccountsUnderHashesStorageModel;
 use crate::system_implementation::flat_storage_model::*;
 use crate::system_implementation::system::public_input::{
     BlocksOutput, BlocksPublicInput, ChainStateCommitment,
@@ -17,7 +16,6 @@ use zk_ee::common_structs::history_map::CacheSnapshotId;
 use zk_ee::common_structs::WarmStorageKey;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::utils::Bytes32;
-use zk_ee::utils::NopHasher;
 use zk_ee::{
     kv_markers::MAX_EVENT_TOPICS,
     memory::stack_trait::StackCtor,
@@ -25,12 +23,10 @@ use zk_ee::{
     system_io_oracle::IOOracle,
 };
 
-mod io_subsystem;
 mod public_input;
 mod storage_model_subtyped_io;
 mod system_post_work;
 
-pub use self::io_subsystem::*;
 pub use self::public_input::BatchOutput;
 pub use self::public_input::BatchPublicInput;
 pub use self::storage_model_subtyped_io::*;
