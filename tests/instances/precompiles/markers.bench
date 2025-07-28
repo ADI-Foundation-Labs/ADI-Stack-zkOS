@@ -11,17 +11,17 @@ Spent ergs for [ecrecover]: 768000
 Spent native for [ecrecover]: 522000
 
 Spent ergs for [process_transaction]: 6573056
-Spent native for [process_transaction]: 1777580
+Spent native for [process_transaction]: 1781708
 Spent ergs for [run_prepared]: 6573056
 
 === Cycle markers:
-run_prepared: net cycles: 1422234, net delegations: {1991: 4860, 1994: 83308}
-process_transaction: net cycles: 1056063, net delegations: {1994: 83308, 1991: 20}
-ecrecover: net cycles: 476475, net delegations: {1994: 43124}
-prepare_for_call: net cycles: 5240, net delegations: {}
-ecrecover: net cycles: 446453, net delegations: {1994: 40184}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4860, 1994: 83308}
+run_prepared: net cycles: 1066476, net delegations: {1994: 82541, 1991: 4860}
+process_transaction: net cycles: 699839, net delegations: {1994: 82541, 1991: 20}
+ecrecover: net cycles: 294421, net delegations: {1994: 42357}
+prepare_for_call: net cycles: 5217, net delegations: {}
+ecrecover: net cycles: 280549, net delegations: {1994: 40184}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 82541}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -36,17 +36,17 @@ Spent ergs for [ecrecover]: 768000
 Spent native for [ecrecover]: 522000
 
 Spent ergs for [process_transaction]: 6275072
-Spent native for [process_transaction]: 1777580
+Spent native for [process_transaction]: 1781708
 Spent ergs for [run_prepared]: 6275072
 
 === Cycle markers:
-run_prepared: net cycles: 971865, net delegations: {1991: 4860, 1994: 42678}
-process_transaction: net cycles: 605465, net delegations: {1991: 20, 1994: 42678}
-ecrecover: net cycles: 471901, net delegations: {1994: 42678}
-prepare_for_call: net cycles: 5240, net delegations: {}
-ecrecover: net cycles: 454, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42678, 1991: 4860}
+run_prepared: net cycles: 787699, net delegations: {1991: 4860, 1994: 42500}
+process_transaction: net cycles: 420833, net delegations: {1994: 42500, 1991: 20}
+ecrecover: net cycles: 295563, net delegations: {1994: 42500}
+prepare_for_call: net cycles: 5217, net delegations: {}
+ecrecover: net cycles: 436, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 42500}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -61,17 +61,17 @@ Spent ergs for [ecrecover]: 768000
 Spent native for [ecrecover]: 522000
 
 Spent ergs for [process_transaction]: 6560768
-Spent native for [process_transaction]: 1777580
+Spent native for [process_transaction]: 1781705
 Spent ergs for [run_prepared]: 6560768
 
 === Cycle markers:
-run_prepared: net cycles: 1414278, net delegations: {1991: 4860, 1994: 82561}
-process_transaction: net cycles: 1048532, net delegations: {1991: 20, 1994: 82561}
-ecrecover: net cycles: 466970, net delegations: {1994: 42204}
-prepare_for_call: net cycles: 5240, net delegations: {}
-ecrecover: net cycles: 448382, net delegations: {1994: 40357}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 82561, 1991: 4860}
+run_prepared: net cycles: 1067581, net delegations: {1994: 82796, 1991: 4860}
+process_transaction: net cycles: 701369, net delegations: {1991: 20, 1994: 82796}
+ecrecover: net cycles: 294698, net delegations: {1994: 42439}
+prepare_for_call: net cycles: 5217, net delegations: {}
+ecrecover: net cycles: 281757, net delegations: {1994: 40357}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 82796, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -86,17 +86,17 @@ Spent ergs for [ecrecover]: 768000
 Spent native for [ecrecover]: 522000
 
 Spent ergs for [process_transaction]: 6585344
-Spent native for [process_transaction]: 1777580
+Spent native for [process_transaction]: 1781711
 Spent ergs for [run_prepared]: 6585344
 
 === Cycle markers:
-run_prepared: net cycles: 1406581, net delegations: {1994: 81748, 1991: 4860}
-process_transaction: net cycles: 1040128, net delegations: {1994: 81748, 1991: 20}
-ecrecover: net cycles: 460358, net delegations: {1994: 41564}
-prepare_for_call: net cycles: 5240, net delegations: {}
-ecrecover: net cycles: 446453, net delegations: {1994: 40184}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 81748, 1991: 4860}
+run_prepared: net cycles: 1067086, net delegations: {1991: 4860, 1994: 82509}
+process_transaction: net cycles: 700167, net delegations: {1991: 20, 1994: 82509}
+ecrecover: net cycles: 294567, net delegations: {1994: 42325}
+prepare_for_call: net cycles: 5217, net delegations: {}
+ecrecover: net cycles: 280549, net delegations: {1994: 40184}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 82509, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -111,17 +111,17 @@ Spent ergs for [ecrecover]: 768000
 Spent native for [ecrecover]: 522000
 
 Spent ergs for [process_transaction]: 6573056
-Spent native for [process_transaction]: 1777580
+Spent native for [process_transaction]: 1781708
 Spent ergs for [run_prepared]: 6573056
 
 === Cycle markers:
-run_prepared: net cycles: 967802, net delegations: {1991: 4860, 1994: 42247}
-process_transaction: net cycles: 601631, net delegations: {1991: 20, 1994: 42247}
-ecrecover: net cycles: 468067, net delegations: {1994: 42247}
-prepare_for_call: net cycles: 5240, net delegations: {}
-ecrecover: net cycles: 454, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42247, 1991: 4860}
+run_prepared: net cycles: 785860, net delegations: {1994: 42255, 1991: 4860}
+process_transaction: net cycles: 419223, net delegations: {1994: 42255, 1991: 20}
+ecrecover: net cycles: 293943, net delegations: {1994: 42255}
+prepare_for_call: net cycles: 5217, net delegations: {}
+ecrecover: net cycles: 436, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 42255, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -136,17 +136,17 @@ Spent ergs for [ecrecover]: 768000
 Spent native for [ecrecover]: 522000
 
 Spent ergs for [process_transaction]: 6573056
-Spent native for [process_transaction]: 1777580
+Spent native for [process_transaction]: 1781708
 Spent ergs for [run_prepared]: 6573056
 
 === Cycle markers:
-run_prepared: net cycles: 969060, net delegations: {1991: 4860, 1994: 42433}
-process_transaction: net cycles: 602889, net delegations: {1991: 20, 1994: 42433}
-ecrecover: net cycles: 469325, net delegations: {1994: 42433}
-prepare_for_call: net cycles: 5240, net delegations: {}
-ecrecover: net cycles: 454, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4860, 1994: 42433}
+run_prepared: net cycles: 780147, net delegations: {1994: 41472, 1991: 4860}
+process_transaction: net cycles: 413510, net delegations: {1994: 41472, 1991: 20}
+ecrecover: net cycles: 288230, net delegations: {1994: 41472}
+prepare_for_call: net cycles: 5217, net delegations: {}
+ecrecover: net cycles: 436, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 41472}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -161,17 +161,17 @@ Spent ergs for [ecrecover]: 768000
 Spent native for [ecrecover]: 522000
 
 Spent ergs for [process_transaction]: 6573056
-Spent native for [process_transaction]: 1777580
+Spent native for [process_transaction]: 1781708
 Spent ergs for [run_prepared]: 6573056
 
 === Cycle markers:
-run_prepared: net cycles: 965676, net delegations: {1994: 42038, 1991: 4860}
-process_transaction: net cycles: 599505, net delegations: {1991: 20, 1994: 42038}
-ecrecover: net cycles: 465760, net delegations: {1994: 42038}
-prepare_for_call: net cycles: 5240, net delegations: {}
-ecrecover: net cycles: 635, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42038, 1991: 4860}
+run_prepared: net cycles: 781643, net delegations: {1991: 4860, 1994: 41608}
+process_transaction: net cycles: 415006, net delegations: {1991: 20, 1994: 41608}
+ecrecover: net cycles: 289545, net delegations: {1994: 41608}
+prepare_for_call: net cycles: 5217, net delegations: {}
+ecrecover: net cycles: 617, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 41608}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -186,17 +186,17 @@ Spent ergs for [ecrecover]: 768000
 Spent native for [ecrecover]: 522000
 
 Spent ergs for [process_transaction]: 6474752
-Spent native for [process_transaction]: 1777580
+Spent native for [process_transaction]: 1781708
 Spent ergs for [run_prepared]: 6474752
 
 === Cycle markers:
-run_prepared: net cycles: 967059, net delegations: {1994: 42211, 1991: 4860}
-process_transaction: net cycles: 601119, net delegations: {1994: 42211, 1991: 20}
-ecrecover: net cycles: 467185, net delegations: {1994: 42211}
-prepare_for_call: net cycles: 5240, net delegations: {}
-ecrecover: net cycles: 824, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42211, 1991: 4860}
+run_prepared: net cycles: 787522, net delegations: {1991: 4860, 1994: 42489}
+process_transaction: net cycles: 421116, net delegations: {1994: 42489, 1991: 20}
+ecrecover: net cycles: 295466, net delegations: {1994: 42489}
+prepare_for_call: net cycles: 5217, net delegations: {}
+ecrecover: net cycles: 806, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 42489}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -211,17 +211,17 @@ Spent ergs for [ecrecover]: 768000
 Spent native for [ecrecover]: 522000
 
 Spent ergs for [process_transaction]: 6573056
-Spent native for [process_transaction]: 1777580
+Spent native for [process_transaction]: 1781708
 Spent ergs for [run_prepared]: 6573056
 
 === Cycle markers:
-run_prepared: net cycles: 1418118, net delegations: {1991: 4890, 1994: 82725}
-process_transaction: net cycles: 1051457, net delegations: {1994: 82725, 1991: 20}
-ecrecover: net cycles: 466097, net delegations: {1994: 42025}
-prepare_for_call: net cycles: 5240, net delegations: {}
-ecrecover: net cycles: 452225, net delegations: {1994: 40700}
-verify_and_apply_batch: net cycles: 85881, net delegations: {1991: 2090}
-Total delegations: {1994: 82725, 1991: 4890}
+run_prepared: net cycles: 1064829, net delegations: {1991: 4860, 1994: 82247}
+process_transaction: net cycles: 698192, net delegations: {1994: 82247, 1991: 20}
+ecrecover: net cycles: 288939, net delegations: {1994: 41547}
+prepare_for_call: net cycles: 5217, net delegations: {}
+ecrecover: net cycles: 284384, net delegations: {1994: 40700}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 82247, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -236,17 +236,17 @@ Spent ergs for [sha256]: 27648
 Spent native for [sha256]: 14200
 
 Spent ergs for [process_transaction]: 5832704
-Spent native for [process_transaction]: 1269780
+Spent native for [process_transaction]: 1273908
 Spent ergs for [run_prepared]: 5832704
 
 === Cycle markers:
-run_prepared: net cycles: 978478, net delegations: {1991: 4860, 1994: 42055}
-process_transaction: net cycles: 612503, net delegations: {1994: 42055, 1991: 20}
-ecrecover: net cycles: 466214, net delegations: {1994: 42055}
-prepare_for_call: net cycles: 5240, net delegations: {}
-sha256: net cycles: 13121, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42055, 1991: 4860}
+run_prepared: net cycles: 804288, net delegations: {1991: 4880, 1994: 42294}
+process_transaction: net cycles: 432198, net delegations: {1991: 20, 1994: 42294}
+ecrecover: net cycles: 294193, net delegations: {1994: 42294}
+prepare_for_call: net cycles: 5217, net delegations: {}
+sha256: net cycles: 13112, net delegations: {}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1994: 42294, 1991: 4880}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -261,17 +261,17 @@ Spent ergs for [sha256]: 18432
 Spent native for [sha256]: 5800
 
 Spent ergs for [process_transaction]: 5406720
-Spent native for [process_transaction]: 1226380
+Spent native for [process_transaction]: 1230383
 Spent ergs for [run_prepared]: 5406720
 
 === Cycle markers:
-run_prepared: net cycles: 937143, net delegations: {1994: 42318, 1991: 4860}
-process_transaction: net cycles: 571201, net delegations: {1994: 42318, 1991: 20}
-ecrecover: net cycles: 468740, net delegations: {1994: 42318}
-prepare_for_call: net cycles: 5240, net delegations: {}
-sha256: net cycles: 4823, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42318, 1991: 4860}
+run_prepared: net cycles: 763002, net delegations: {1994: 42715, 1991: 4880}
+process_transaction: net cycles: 390945, net delegations: {1994: 42715, 1991: 20}
+ecrecover: net cycles: 296768, net delegations: {1994: 42715}
+prepare_for_call: net cycles: 5217, net delegations: {}
+sha256: net cycles: 4814, net delegations: {}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1994: 42715, 1991: 4880}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -286,17 +286,17 @@ Spent ergs for [ripemd]: 276480
 Spent native for [ripemd]: 14200
 
 Spent ergs for [process_transaction]: 6081536
-Spent native for [process_transaction]: 1269780
+Spent native for [process_transaction]: 1273908
 Spent ergs for [run_prepared]: 6081536
 
 === Cycle markers:
-run_prepared: net cycles: 977586, net delegations: {1994: 42522, 1991: 4890}
-process_transaction: net cycles: 610961, net delegations: {1991: 20, 1994: 42522}
-ecrecover: net cycles: 469760, net delegations: {1994: 42522}
-prepare_for_call: net cycles: 5240, net delegations: {}
-ripemd: net cycles: 8014, net delegations: {}
-verify_and_apply_batch: net cycles: 85881, net delegations: {1991: 2090}
-Total delegations: {1994: 42522, 1991: 4890}
+run_prepared: net cycles: 795188, net delegations: {1991: 4910, 1994: 41548}
+process_transaction: net cycles: 422163, net delegations: {1994: 41548, 1991: 20}
+ecrecover: net cycles: 289244, net delegations: {1994: 41548}
+prepare_for_call: net cycles: 5217, net delegations: {}
+ripemd: net cycles: 8007, net delegations: {}
+verify_and_apply_batch: net cycles: 91820, net delegations: {1991: 2110}
+Total delegations: {1991: 4910, 1994: 41548}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -311,17 +311,17 @@ Spent ergs for [ripemd]: 184320
 Spent native for [ripemd]: 5800
 
 Spent ergs for [process_transaction]: 5572608
-Spent native for [process_transaction]: 1226380
+Spent native for [process_transaction]: 1230383
 Spent ergs for [run_prepared]: 5572608
 
 === Cycle markers:
-run_prepared: net cycles: 932248, net delegations: {1994: 41481, 1991: 4880}
-process_transaction: net cycles: 560497, net delegations: {1991: 20, 1994: 41481}
-ecrecover: net cycles: 459693, net delegations: {1994: 41481}
-prepare_for_call: net cycles: 5240, net delegations: {}
-ripemd: net cycles: 3147, net delegations: {}
-verify_and_apply_batch: net cycles: 91041, net delegations: {1991: 2080}
-Total delegations: {1994: 41481, 1991: 4880}
+run_prepared: net cycles: 759168, net delegations: {1991: 4880, 1994: 42424}
+process_transaction: net cycles: 386952, net delegations: {1991: 20, 1994: 42424}
+ecrecover: net cycles: 294434, net delegations: {1994: 42424}
+prepare_for_call: net cycles: 5217, net delegations: {}
+ripemd: net cycles: 3136, net delegations: {}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1991: 4880, 1994: 42424}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -336,17 +336,17 @@ Spent ergs for [id]: 6912
 Spent native for [id]: 1300
 
 Spent ergs for [process_transaction]: 5811968
-Spent native for [process_transaction]: 1256880
+Spent native for [process_transaction]: 1261008
 Spent ergs for [run_prepared]: 5811968
 
 === Cycle markers:
-run_prepared: net cycles: 974037, net delegations: {1991: 4880, 1994: 42348}
-process_transaction: net cycles: 602252, net delegations: {1994: 42348, 1991: 20}
-ecrecover: net cycles: 468809, net delegations: {1994: 42348}
-prepare_for_call: net cycles: 5240, net delegations: {}
-id: net cycles: 174, net delegations: {}
-verify_and_apply_batch: net cycles: 91041, net delegations: {1991: 2080}
-Total delegations: {1991: 4880, 1994: 42348}
+run_prepared: net cycles: 782314, net delegations: {1991: 4890, 1994: 41613}
+process_transaction: net cycles: 415223, net delegations: {1991: 20, 1994: 41613}
+ecrecover: net cycles: 290066, net delegations: {1994: 41613}
+prepare_for_call: net cycles: 5217, net delegations: {}
+id: net cycles: 163, net delegations: {}
+verify_and_apply_batch: net cycles: 85886, net delegations: {1991: 2090}
+Total delegations: {1994: 41613, 1991: 4890}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -360,18 +360,18 @@ Spent ergs for [modexp]: 11508224
 
 Spent native for [modexp]: 2301644800
 
-Spent ergs for [process_transaction]: 23581952
-Spent native for [process_transaction]: 2302935380
-Spent ergs for [run_prepared]: 23581952
+Spent ergs for [process_transaction]: 17603072
+Spent native for [process_transaction]: 2302939626
+Spent ergs for [run_prepared]: 17603072
 
 === Cycle markers:
-run_prepared: net cycles: 1010900, net delegations: {1991: 4860, 1994: 42380}
-process_transaction: net cycles: 644608, net delegations: {1994: 42380, 1991: 20}
-ecrecover: net cycles: 468810, net delegations: {1994: 42380}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 7832, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4860, 1994: 42380}
+run_prepared: net cycles: 824384, net delegations: {1994: 41746, 1991: 4860}
+process_transaction: net cycles: 457564, net delegations: {1994: 41746, 1991: 20}
+ecrecover: net cycles: 290052, net delegations: {1994: 41746}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 7819, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 41746, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -386,17 +386,17 @@ Spent ergs for [modexp]: 348160
 Spent native for [modexp]: 69632000
 
 Spent ergs for [process_transaction]: 6056960
-Spent native for [process_transaction]: 70887580
+Spent native for [process_transaction]: 70891731
 Spent ergs for [run_prepared]: 6056960
 
 === Cycle markers:
-run_prepared: net cycles: 1985679, net delegations: {1994: 42875, 1991: 4860}
-process_transaction: net cycles: 1619226, net delegations: {1994: 42875, 1991: 20}
-ecrecover: net cycles: 473881, net delegations: {1994: 42875}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 1011888, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42875, 1991: 4860}
+run_prepared: net cycles: 1800895, net delegations: {1991: 4860, 1994: 42713}
+process_transaction: net cycles: 1433976, net delegations: {1994: 42713, 1991: 20}
+ecrecover: net cycles: 296921, net delegations: {1994: 42713}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 1011871, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 42713, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -411,17 +411,17 @@ Spent ergs for [modexp]: 348160
 Spent native for [modexp]: 69632000
 
 Spent ergs for [process_transaction]: 6097920
-Spent native for [process_transaction]: 70887580
+Spent native for [process_transaction]: 70891741
 Spent ergs for [run_prepared]: 6097920
 
 === Cycle markers:
-run_prepared: net cycles: 2540283, net delegations: {1994: 42371, 1991: 4860}
-process_transaction: net cycles: 2173936, net delegations: {1994: 42371, 1991: 20}
-ecrecover: net cycles: 468996, net delegations: {1994: 42371}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 1571427, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4860, 1994: 42371}
+run_prepared: net cycles: 2355631, net delegations: {1991: 4860, 1994: 42021}
+process_transaction: net cycles: 1988818, net delegations: {1994: 42021, 1991: 20}
+ecrecover: net cycles: 292168, net delegations: {1994: 42021}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 1571410, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 42021}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -436,17 +436,17 @@ Spent ergs for [modexp]: 348160
 Spent native for [modexp]: 69632000
 
 Spent ergs for [process_transaction]: 6090752
-Spent native for [process_transaction]: 70887580
+Spent native for [process_transaction]: 70891740
 Spent ergs for [run_prepared]: 6090752
 
 === Cycle markers:
-run_prepared: net cycles: 2487924, net delegations: {1991: 4860, 1994: 41867}
-process_transaction: net cycles: 2121701, net delegations: {1994: 41867, 1991: 20}
-ecrecover: net cycles: 464451, net delegations: {1994: 41867}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 1523892, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4860, 1994: 41867}
+run_prepared: net cycles: 2306853, net delegations: {1994: 41736, 1991: 4890}
+process_transaction: net cycles: 1939674, net delegations: {1991: 20, 1994: 41736}
+ecrecover: net cycles: 290716, net delegations: {1994: 41736}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 1523873, net delegations: {}
+verify_and_apply_batch: net cycles: 85886, net delegations: {1991: 2090}
+Total delegations: {1994: 41736, 1991: 4890}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -461,17 +461,17 @@ Spent ergs for [modexp]: 51200
 Spent native for [modexp]: 10240000
 
 Spent ergs for [process_transaction]: 6063104
-Spent native for [process_transaction]: 11513080
+Spent native for [process_transaction]: 11517305
 Spent ergs for [run_prepared]: 6063104
 
 === Cycle markers:
-run_prepared: net cycles: 1114522, net delegations: {1991: 4880, 1994: 41095}
-process_transaction: net cycles: 742148, net delegations: {1994: 41095, 1991: 20}
-ecrecover: net cycles: 455702, net delegations: {1994: 41095}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 135438, net delegations: {}
-verify_and_apply_batch: net cycles: 91048, net delegations: {1991: 2080}
-Total delegations: {1994: 41095, 1991: 4880}
+run_prepared: net cycles: 944113, net delegations: {1991: 4880, 1994: 42191}
+process_transaction: net cycles: 571281, net delegations: {1991: 20, 1994: 42191}
+ecrecover: net cycles: 293125, net delegations: {1994: 42191}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 135421, net delegations: {}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1991: 4880, 1994: 42191}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -486,17 +486,17 @@ Spent ergs for [modexp]: 51200
 Spent native for [modexp]: 10240000
 
 Spent ergs for [process_transaction]: 6063104
-Spent native for [process_transaction]: 11513080
+Spent native for [process_transaction]: 11517305
 Spent ergs for [run_prepared]: 6063104
 
 === Cycle markers:
-run_prepared: net cycles: 1125828, net delegations: {1991: 4890, 1994: 41633}
-process_transaction: net cycles: 758621, net delegations: {1994: 41633, 1991: 20}
-ecrecover: net cycles: 460992, net delegations: {1994: 41633}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 146621, net delegations: {}
-verify_and_apply_batch: net cycles: 85881, net delegations: {1991: 2090}
-Total delegations: {1994: 41633, 1991: 4890}
+run_prepared: net cycles: 960068, net delegations: {1994: 42922, 1991: 4910}
+process_transaction: net cycles: 586461, net delegations: {1994: 42922, 1991: 20}
+ecrecover: net cycles: 297122, net delegations: {1994: 42922}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 146604, net delegations: {}
+verify_and_apply_batch: net cycles: 91820, net delegations: {1991: 2110}
+Total delegations: {1991: 4910, 1994: 42922}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -511,17 +511,17 @@ Spent ergs for [modexp]: 87296
 Spent native for [modexp]: 17459200
 
 Spent ergs for [process_transaction]: 6104320
-Spent native for [process_transaction]: 18732280
+Spent native for [process_transaction]: 18736507
 Spent ergs for [run_prepared]: 6104320
 
 === Cycle markers:
-run_prepared: net cycles: 1291676, net delegations: {1991: 4860, 1994: 42056}
-process_transaction: net cycles: 925384, net delegations: {1994: 42056, 1991: 20}
-ecrecover: net cycles: 466092, net delegations: {1994: 42056}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 308349, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42056, 1991: 4860}
+run_prepared: net cycles: 1117206, net delegations: {1991: 4880, 1994: 42360}
+process_transaction: net cycles: 744799, net delegations: {1994: 42360, 1991: 20}
+ecrecover: net cycles: 293797, net delegations: {1994: 42360}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 308332, net delegations: {}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1994: 42360, 1991: 4880}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -536,17 +536,17 @@ Spent ergs for [modexp]: 51200
 Spent native for [modexp]: 10240000
 
 Spent ergs for [process_transaction]: 6578176
-Spent native for [process_transaction]: 11548080
+Spent native for [process_transaction]: 11552433
 Spent ergs for [run_prepared]: 6578176
 
 === Cycle markers:
-run_prepared: net cycles: 1483021, net delegations: {1994: 41749, 1991: 4860}
-process_transaction: net cycles: 1116147, net delegations: {1994: 41749, 1991: 20}
-ecrecover: net cycles: 463044, net delegations: {1994: 41749}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 466690, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 41749, 1991: 4860}
+run_prepared: net cycles: 1309846, net delegations: {1994: 42004, 1991: 4880}
+process_transaction: net cycles: 936857, net delegations: {1994: 42004, 1991: 20}
+ecrecover: net cycles: 292044, net delegations: {1994: 42004}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 466673, net delegations: {}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1994: 42004, 1991: 4880}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -561,17 +561,17 @@ Spent ergs for [modexp]: 51200
 Spent native for [modexp]: 10240000
 
 Spent ergs for [process_transaction]: 6578176
-Spent native for [process_transaction]: 11548080
+Spent native for [process_transaction]: 11552433
 Spent ergs for [run_prepared]: 6578176
 
 === Cycle markers:
-run_prepared: net cycles: 1536782, net delegations: {1991: 4860, 1994: 42714}
-process_transaction: net cycles: 1169908, net delegations: {1994: 42714, 1991: 20}
-ecrecover: net cycles: 473083, net delegations: {1994: 42714}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 510412, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42714, 1991: 4860}
+run_prepared: net cycles: 1352932, net delegations: {1994: 42721, 1991: 4860}
+process_transaction: net cycles: 985592, net delegations: {1991: 20, 1994: 42721}
+ecrecover: net cycles: 297057, net delegations: {1994: 42721}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 510395, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 42721}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -586,17 +586,17 @@ Spent ergs for [modexp]: 349440
 Spent native for [modexp]: 69888000
 
 Spent ergs for [process_transaction]: 6881536
-Spent native for [process_transaction]: 71196080
+Spent native for [process_transaction]: 71200435
 Spent ergs for [run_prepared]: 6881536
 
 === Cycle markers:
-run_prepared: net cycles: 2121497, net delegations: {1991: 4860, 1994: 41910}
-process_transaction: net cycles: 1754622, net delegations: {1991: 20, 1994: 41910}
-ecrecover: net cycles: 464108, net delegations: {1994: 41910}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 1104058, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4860, 1994: 41910}
+run_prepared: net cycles: 1940882, net delegations: {1991: 4860, 1994: 41869}
+process_transaction: net cycles: 1573541, net delegations: {1991: 20, 1994: 41869}
+ecrecover: net cycles: 291317, net delegations: {1994: 41869}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 1104041, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 41869, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -611,17 +611,17 @@ Spent ergs for [modexp]: 87296
 Spent native for [modexp]: 17459200
 
 Spent ergs for [process_transaction]: 7668992
-Spent native for [process_transaction]: 18837280
+Spent native for [process_transaction]: 18841889
 Spent ergs for [run_prepared]: 7668992
 
 === Cycle markers:
-run_prepared: net cycles: 2836801, net delegations: {1994: 42240, 1991: 4890}
-process_transaction: net cycles: 2468732, net delegations: {1994: 42240, 1991: 20}
-ecrecover: net cycles: 467641, net delegations: {1994: 42240}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 1744929, net delegations: {}
-verify_and_apply_batch: net cycles: 85881, net delegations: {1991: 2090}
-Total delegations: {1994: 42240, 1991: 4890}
+run_prepared: net cycles: 2655028, net delegations: {1991: 4880, 1994: 41350}
+process_transaction: net cycles: 2281334, net delegations: {1991: 20, 1994: 41350}
+ecrecover: net cycles: 288533, net delegations: {1994: 41350}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 1744912, net delegations: {}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1991: 4880, 1994: 41350}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -636,17 +636,17 @@ Spent ergs for [modexp]: 87296
 Spent native for [modexp]: 17459200
 
 Spent ergs for [process_transaction]: 7668992
-Spent native for [process_transaction]: 18837280
+Spent native for [process_transaction]: 18841889
 Spent ergs for [run_prepared]: 7668992
 
 === Cycle markers:
-run_prepared: net cycles: 3006532, net delegations: {1994: 42220, 1991: 4860}
-process_transaction: net cycles: 2638953, net delegations: {1991: 20, 1994: 42220}
-ecrecover: net cycles: 467763, net delegations: {1994: 42220}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 1915028, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4860, 1994: 42220}
+run_prepared: net cycles: 2821404, net delegations: {1994: 41818, 1991: 4860}
+process_transaction: net cycles: 2453359, net delegations: {1991: 20, 1994: 41818}
+ecrecover: net cycles: 290459, net delegations: {1994: 41818}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 1915011, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 41818}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -661,17 +661,17 @@ Spent ergs for [modexp]: 1398016
 Spent native for [modexp]: 279603200
 
 Spent ergs for [process_transaction]: 8984832
-Spent native for [process_transaction]: 280981280
+Spent native for [process_transaction]: 280985891
 Spent ergs for [run_prepared]: 8984832
 
 === Cycle markers:
-run_prepared: net cycles: 5292822, net delegations: {1991: 4910, 1994: 42393}
-process_transaction: net cycles: 4918818, net delegations: {1994: 42393, 1991: 20}
-ecrecover: net cycles: 469350, net delegations: {1994: 42393}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 4193228, net delegations: {}
-verify_and_apply_batch: net cycles: 91816, net delegations: {1991: 2110}
-Total delegations: {1991: 4910, 1994: 42393}
+run_prepared: net cycles: 5099319, net delegations: {1991: 4860, 1994: 41701}
+process_transaction: net cycles: 4731274, net delegations: {1991: 20, 1994: 41701}
+ecrecover: net cycles: 290096, net delegations: {1994: 41701}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 4193211, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 41701, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -686,17 +686,17 @@ Spent ergs for [modexp]: 349440
 Spent native for [modexp]: 69888000
 
 Spent ergs for [process_transaction]: 10019072
-Spent native for [process_transaction]: 71406080
+Spent native for [process_transaction]: 71411201
 Spent ergs for [run_prepared]: 10019072
 
 === Cycle markers:
-run_prepared: net cycles: 7987096, net delegations: {1991: 4890, 1994: 42231}
-process_transaction: net cycles: 7617619, net delegations: {1994: 42231, 1991: 20}
-ecrecover: net cycles: 467128, net delegations: {1994: 42231}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 6754784, net delegations: {}
-verify_and_apply_batch: net cycles: 85881, net delegations: {1991: 2090}
-Total delegations: {1991: 4890, 1994: 42231}
+run_prepared: net cycles: 7804126, net delegations: {1994: 42125, 1991: 4860}
+process_transaction: net cycles: 7434673, net delegations: {1994: 42125, 1991: 20}
+ecrecover: net cycles: 292472, net delegations: {1994: 42125}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 6754767, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 42125, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -711,17 +711,17 @@ Spent ergs for [modexp]: 349440
 Spent native for [modexp]: 69888000
 
 Spent ergs for [process_transaction]: 10019072
-Spent native for [process_transaction]: 71406080
+Spent native for [process_transaction]: 71411201
 Spent ergs for [run_prepared]: 10019072
 
 === Cycle markers:
-run_prepared: net cycles: 8672654, net delegations: {1991: 4880, 1994: 42634}
-process_transaction: net cycles: 8297996, net delegations: {1994: 42634, 1991: 20}
-ecrecover: net cycles: 471630, net delegations: {1994: 42634}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 7430659, net delegations: {}
-verify_and_apply_batch: net cycles: 91062, net delegations: {1991: 2080}
-Total delegations: {1994: 42634, 1991: 4880}
+run_prepared: net cycles: 8484158, net delegations: {1991: 4910, 1994: 41689}
+process_transaction: net cycles: 8108281, net delegations: {1994: 41689, 1991: 20}
+ecrecover: net cycles: 290205, net delegations: {1994: 41689}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 7430642, net delegations: {}
+verify_and_apply_batch: net cycles: 91820, net delegations: {1991: 2110}
+Total delegations: {1991: 4910, 1994: 41689}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -736,17 +736,17 @@ Spent ergs for [modexp]: 5592320
 Spent native for [modexp]: 1118464000
 
 Spent ergs for [process_transaction]: 15267072
-Spent native for [process_transaction]: 1119982080
+Spent native for [process_transaction]: 1119987203
 Spent ergs for [run_prepared]: 15267072
 
 === Cycle markers:
-run_prepared: net cycles: 17611890, net delegations: {1994: 42776, 1991: 4880}
-process_transaction: net cycles: 17237678, net delegations: {1991: 20, 1994: 42776}
-ecrecover: net cycles: 472924, net delegations: {1994: 42776}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 16368959, net delegations: {}
-verify_and_apply_batch: net cycles: 91041, net delegations: {1991: 2080}
-Total delegations: {1991: 4880, 1994: 42776}
+run_prepared: net cycles: 17425303, net delegations: {1994: 42375, 1991: 4880}
+process_transaction: net cycles: 17050626, net delegations: {1994: 42375, 1991: 20}
+ecrecover: net cycles: 294162, net delegations: {1994: 42375}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 16368942, net delegations: {}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1994: 42375, 1991: 4880}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -761,17 +761,17 @@ Spent ergs for [modexp]: 1398016
 Spent native for [modexp]: 279603200
 
 Spent ergs for [process_transaction]: 15234304
-Spent native for [process_transaction]: 281383780
+Spent native for [process_transaction]: 281389925
 Spent ergs for [run_prepared]: 15234304
 
 === Cycle markers:
-run_prepared: net cycles: 28148381, net delegations: {1991: 4860, 1994: 42357}
-process_transaction: net cycles: 27776614, net delegations: {1994: 42357, 1991: 20}
-ecrecover: net cycles: 468373, net delegations: {1994: 42357}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 26650704, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42357, 1991: 4860}
+run_prepared: net cycles: 27964551, net delegations: {1994: 41898, 1991: 4890}
+process_transaction: net cycles: 27591828, net delegations: {1991: 20, 1994: 41898}
+ecrecover: net cycles: 291877, net delegations: {1994: 41898}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 26650687, net delegations: {}
+verify_and_apply_batch: net cycles: 85886, net delegations: {1991: 2090}
+Total delegations: {1991: 4890, 1994: 41898}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -786,17 +786,17 @@ Spent ergs for [modexp]: 1398016
 Spent native for [modexp]: 279603200
 
 Spent ergs for [process_transaction]: 15234304
-Spent native for [process_transaction]: 281383780
+Spent native for [process_transaction]: 281389925
 Spent ergs for [run_prepared]: 15234304
 
 === Cycle markers:
-run_prepared: net cycles: 30838277, net delegations: {1991: 4860, 1994: 41877}
-process_transaction: net cycles: 30466510, net delegations: {1991: 20, 1994: 41877}
-ecrecover: net cycles: 463226, net delegations: {1994: 41877}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 29345747, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 41877, 1991: 4860}
+run_prepared: net cycles: 30662193, net delegations: {1991: 4860, 1994: 42395}
+process_transaction: net cycles: 30289960, net delegations: {1994: 42395, 1991: 20}
+ecrecover: net cycles: 294966, net delegations: {1994: 42395}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 29345730, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 42395, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -810,18 +810,18 @@ Spent ergs for [modexp]: 22369536
 
 Spent native for [modexp]: 4473907200
 
-Spent ergs for [process_transaction]: 45830912
-Spent native for [process_transaction]: 4475687780
-Spent ergs for [run_prepared]: 45830912
+Spent ergs for [process_transaction]: 36210944
+Spent native for [process_transaction]: 4475693927
+Spent ergs for [run_prepared]: 36210944
 
 === Cycle markers:
-run_prepared: net cycles: 66257372, net delegations: {1991: 4860, 1994: 42028}
-process_transaction: net cycles: 65885800, net delegations: {1991: 20, 1994: 42028}
-ecrecover: net cycles: 465479, net delegations: {1994: 42028}
-prepare_for_call: net cycles: 5240, net delegations: {}
-modexp: net cycles: 64762715, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4860, 1994: 42028}
+run_prepared: net cycles: 66080732, net delegations: {1991: 4890, 1994: 42557}
+process_transaction: net cycles: 65708142, net delegations: {1994: 42557, 1991: 20}
+ecrecover: net cycles: 296112, net delegations: {1994: 42557}
+prepare_for_call: net cycles: 5217, net delegations: {}
+modexp: net cycles: 64762697, net delegations: {}
+verify_and_apply_batch: net cycles: 85886, net delegations: {1991: 2090}
+Total delegations: {1991: 4890, 1994: 42557}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -836,17 +836,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5414400
-Spent native for [process_transaction]: 1273180
+Spent native for [process_transaction]: 1277180
 Spent ergs for [run_prepared]: 5414400
 
 === Cycle markers:
-run_prepared: net cycles: 941275, net delegations: {1991: 4880, 1994: 42571}
-process_transaction: net cycles: 569842, net delegations: {1991: 20, 1994: 42571}
-ecrecover: net cycles: 470467, net delegations: {1994: 42571}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 1891, net delegations: {}
-verify_and_apply_batch: net cycles: 91041, net delegations: {1991: 2080}
-Total delegations: {1991: 4880, 1994: 42571}
+run_prepared: net cycles: 750443, net delegations: {1991: 4890, 1994: 42096}
+process_transaction: net cycles: 383704, net delegations: {1994: 42096, 1991: 20}
+ecrecover: net cycles: 292599, net delegations: {1994: 42096}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 1894, net delegations: {}
+verify_and_apply_batch: net cycles: 85886, net delegations: {1991: 2090}
+Total delegations: {1991: 4890, 1994: 42096}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -861,17 +861,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5545472
-Spent native for [process_transaction]: 1308180
+Spent native for [process_transaction]: 1312308
 Spent ergs for [run_prepared]: 5545472
 
 === Cycle markers:
-run_prepared: net cycles: 970255, net delegations: {1991: 4890, 1994: 42295}
-process_transaction: net cycles: 604019, net delegations: {1991: 20, 1994: 42295}
-ecrecover: net cycles: 468621, net delegations: {1994: 42295}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2137, net delegations: {}
-verify_and_apply_batch: net cycles: 85881, net delegations: {1991: 2090}
-Total delegations: {1994: 42295, 1991: 4890}
+run_prepared: net cycles: 785289, net delegations: {1991: 4860, 1994: 41998}
+process_transaction: net cycles: 419077, net delegations: {1991: 20, 1994: 41998}
+ecrecover: net cycles: 291948, net delegations: {1994: 41998}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 2140, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 41998}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -886,17 +886,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5938688
-Spent native for [process_transaction]: 1308180
+Spent native for [process_transaction]: 1312308
 Spent ergs for [run_prepared]: 5938688
 
 === Cycle markers:
-run_prepared: net cycles: 962515, net delegations: {1994: 41880, 1991: 4850}
-process_transaction: net cycles: 598644, net delegations: {1991: 20, 1994: 41880}
-ecrecover: net cycles: 462730, net delegations: {1994: 41813}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2408, net delegations: {1994: 67}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 41880, 1991: 4850}
+run_prepared: net cycles: 838299, net delegations: {1994: 43945, 1991: 4880}
+process_transaction: net cycles: 466013, net delegations: {1994: 43945, 1991: 20}
+ecrecover: net cycles: 292975, net delegations: {1994: 42066}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 48049, net delegations: {1994: 1879}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1991: 4880, 1994: 43945}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -911,17 +911,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5938688
-Spent native for [process_transaction]: 1308180
+Spent native for [process_transaction]: 1312308
 Spent ergs for [run_prepared]: 5938688
 
 === Cycle markers:
-run_prepared: net cycles: 968648, net delegations: {1991: 4850, 1994: 42420}
-process_transaction: net cycles: 604777, net delegations: {1991: 20, 1994: 42420}
-ecrecover: net cycles: 468858, net delegations: {1994: 42352}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2413, net delegations: {1994: 68}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4850, 1994: 42420}
+run_prepared: net cycles: 840435, net delegations: {1991: 4880, 1994: 44411}
+process_transaction: net cycles: 468149, net delegations: {1991: 20, 1994: 44411}
+ecrecover: net cycles: 295272, net delegations: {1994: 42476}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 47888, net delegations: {1994: 1935}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1994: 44411, 1991: 4880}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -936,17 +936,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5545472
-Spent native for [process_transaction]: 1308180
+Spent native for [process_transaction]: 1312308
 Spent ergs for [run_prepared]: 5545472
 
 === Cycle markers:
-run_prepared: net cycles: 975593, net delegations: {1991: 4860, 1994: 42910}
-process_transaction: net cycles: 609847, net delegations: {1991: 20, 1994: 42910}
-ecrecover: net cycles: 474449, net delegations: {1994: 42910}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2137, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4860, 1994: 42910}
+run_prepared: net cycles: 790861, net delegations: {1994: 42081, 1991: 4880}
+process_transaction: net cycles: 419000, net delegations: {1994: 42081, 1991: 20}
+ecrecover: net cycles: 291871, net delegations: {1994: 42081}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 2140, net delegations: {}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1994: 42081, 1991: 4880}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -961,17 +961,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5479936
-Spent native for [process_transaction]: 1290680
+Spent native for [process_transaction]: 1294744
 Spent ergs for [run_prepared]: 5479936
 
 === Cycle markers:
-run_prepared: net cycles: 948761, net delegations: {1991: 4890, 1994: 42080}
-process_transaction: net cycles: 582701, net delegations: {1994: 42080, 1991: 20}
-ecrecover: net cycles: 465170, net delegations: {1994: 42080}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2040, net delegations: {}
-verify_and_apply_batch: net cycles: 85881, net delegations: {1991: 2090}
-Total delegations: {1991: 4890, 1994: 42080}
+run_prepared: net cycles: 776268, net delegations: {1991: 4880, 1994: 42561}
+process_transaction: net cycles: 404583, net delegations: {1994: 42561, 1991: 20}
+ecrecover: net cycles: 295321, net delegations: {1994: 42561}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 2043, net delegations: {}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1991: 4880, 1994: 42561}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -986,17 +986,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5496320
-Spent native for [process_transaction]: 1290680
+Spent native for [process_transaction]: 1294760
 Spent ergs for [run_prepared]: 5496320
 
 === Cycle markers:
-run_prepared: net cycles: 951417, net delegations: {1994: 42216, 1991: 4860}
-process_transaction: net cycles: 585334, net delegations: {1994: 42216, 1991: 20}
-ecrecover: net cycles: 467587, net delegations: {1994: 42216}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2064, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4860, 1994: 42216}
+run_prepared: net cycles: 772243, net delegations: {1994: 42569, 1991: 4890}
+process_transaction: net cycles: 405204, net delegations: {1994: 42569, 1991: 20}
+ecrecover: net cycles: 295726, net delegations: {1994: 42569}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 2067, net delegations: {}
+verify_and_apply_batch: net cycles: 85886, net delegations: {1991: 2090}
+Total delegations: {1991: 4890, 1994: 42569}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1011,17 +1011,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5414400
-Spent native for [process_transaction]: 1273180
+Spent native for [process_transaction]: 1277180
 Spent ergs for [run_prepared]: 5414400
 
 === Cycle markers:
-run_prepared: net cycles: 940905, net delegations: {1994: 42521, 1991: 4880}
-process_transaction: net cycles: 569472, net delegations: {1991: 20, 1994: 42521}
-ecrecover: net cycles: 470097, net delegations: {1994: 42521}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 1891, net delegations: {}
-verify_and_apply_batch: net cycles: 91041, net delegations: {1991: 2080}
-Total delegations: {1991: 4880, 1994: 42521}
+run_prepared: net cycles: 749120, net delegations: {1991: 4860, 1994: 41971}
+process_transaction: net cycles: 382871, net delegations: {1994: 41971, 1991: 20}
+ecrecover: net cycles: 291766, net delegations: {1994: 41971}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 1894, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 41971}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1036,17 +1036,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5611008
-Spent native for [process_transaction]: 1325680
+Spent native for [process_transaction]: 1329872
 Spent ergs for [run_prepared]: 5611008
 
 === Cycle markers:
-run_prepared: net cycles: 984142, net delegations: {1994: 41913, 1991: 4890}
-process_transaction: net cycles: 617536, net delegations: {1994: 41913, 1991: 20}
-ecrecover: net cycles: 464543, net delegations: {1994: 41913}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2137, net delegations: {}
-verify_and_apply_batch: net cycles: 85881, net delegations: {1991: 2090}
-Total delegations: {1994: 41913, 1991: 4890}
+run_prepared: net cycles: 801062, net delegations: {1994: 41619, 1991: 4890}
+process_transaction: net cycles: 433990, net delegations: {1991: 20, 1994: 41619}
+ecrecover: net cycles: 289266, net delegations: {1994: 41619}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 2140, net delegations: {}
+verify_and_apply_batch: net cycles: 85886, net delegations: {1991: 2090}
+Total delegations: {1994: 41619, 1991: 4890}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1061,17 +1061,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5551616
-Spent native for [process_transaction]: 1308180
+Spent native for [process_transaction]: 1312308
 Spent ergs for [run_prepared]: 5551616
 
 === Cycle markers:
-run_prepared: net cycles: 972238, net delegations: {1991: 4850, 1994: 42790}
-process_transaction: net cycles: 608367, net delegations: {1991: 20, 1994: 42790}
-ecrecover: net cycles: 472260, net delegations: {1994: 42725}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2601, net delegations: {1994: 65}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4850, 1994: 42790}
+run_prepared: net cycles: 790921, net delegations: {1994: 41525, 1991: 4880}
+process_transaction: net cycles: 418859, net delegations: {1991: 20, 1994: 41525}
+ecrecover: net cycles: 288319, net delegations: {1994: 41428}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 5551, net delegations: {1994: 97}
+verify_and_apply_batch: net cycles: 91052, net delegations: {1991: 2080}
+Total delegations: {1991: 4880, 1994: 41525}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1086,17 +1086,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5617152
-Spent native for [process_transaction]: 1325680
+Spent native for [process_transaction]: 1329872
 Spent ergs for [run_prepared]: 5617152
 
 === Cycle markers:
-run_prepared: net cycles: 987499, net delegations: {1994: 42008, 1991: 4870}
-process_transaction: net cycles: 617802, net delegations: {1994: 42008, 1991: 20}
-ecrecover: net cycles: 464100, net delegations: {1994: 41943}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2601, net delegations: {1994: 65}
-verify_and_apply_batch: net cycles: 91041, net delegations: {1991: 2080}
-Total delegations: {1991: 4870, 1994: 42008}
+run_prepared: net cycles: 808455, net delegations: {1991: 4860, 1994: 42337}
+process_transaction: net cycles: 441659, net delegations: {1994: 42337, 1991: 20}
+ecrecover: net cycles: 293524, net delegations: {1994: 42240}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 5551, net delegations: {1994: 97}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 42337}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1111,17 +1111,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5486080
-Spent native for [process_transaction]: 1290680
+Spent native for [process_transaction]: 1294744
 Spent ergs for [run_prepared]: 5486080
 
 === Cycle markers:
-run_prepared: net cycles: 946889, net delegations: {1991: 4850, 1994: 42083}
-process_transaction: net cycles: 583194, net delegations: {1994: 42083, 1991: 20}
-ecrecover: net cycles: 465093, net delegations: {1994: 42018}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2365, net delegations: {1994: 65}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4850, 1994: 42083}
+run_prepared: net cycles: 779380, net delegations: {1991: 4880, 1994: 42466}
+process_transaction: net cycles: 407076, net delegations: {1991: 20, 1994: 42466}
+ecrecover: net cycles: 294725, net delegations: {1994: 42369}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 5132, net delegations: {1994: 97}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1994: 42466, 1991: 4880}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1136,17 +1136,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5551616
-Spent native for [process_transaction]: 1308180
+Spent native for [process_transaction]: 1312308
 Spent ergs for [run_prepared]: 5551616
 
 === Cycle markers:
-run_prepared: net cycles: 974088, net delegations: {1991: 4870, 1994: 42431}
-process_transaction: net cycles: 604567, net delegations: {1994: 42431, 1991: 20}
-ecrecover: net cycles: 468599, net delegations: {1994: 42366}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2462, net delegations: {1994: 65}
-verify_and_apply_batch: net cycles: 91041, net delegations: {1991: 2080}
-Total delegations: {1991: 4870, 1994: 42431}
+run_prepared: net cycles: 793570, net delegations: {1994: 42782, 1991: 4860}
+process_transaction: net cycles: 427164, net delegations: {1994: 42782, 1991: 20}
+ecrecover: net cycles: 296946, net delegations: {1994: 42685}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 5229, net delegations: {1994: 97}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 42782, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1161,17 +1161,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5617152
-Spent native for [process_transaction]: 1325680
+Spent native for [process_transaction]: 1329872
 Spent ergs for [run_prepared]: 5617152
 
 === Cycle markers:
-run_prepared: net cycles: 989555, net delegations: {1994: 42759, 1991: 4850}
-process_transaction: net cycles: 625508, net delegations: {1991: 20, 1994: 42759}
-ecrecover: net cycles: 471945, net delegations: {1994: 42694}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2462, net delegations: {1994: 65}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4850, 1994: 42759}
+run_prepared: net cycles: 810511, net delegations: {1991: 4890, 1994: 42584}
+process_transaction: net cycles: 443225, net delegations: {1991: 20, 1994: 42584}
+ecrecover: net cycles: 295412, net delegations: {1994: 42487}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 5229, net delegations: {1994: 97}
+verify_and_apply_batch: net cycles: 85886, net delegations: {1991: 2090}
+Total delegations: {1991: 4890, 1994: 42584}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1186,17 +1186,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5557760
-Spent native for [process_transaction]: 1308180
+Spent native for [process_transaction]: 1312308
 Spent ergs for [run_prepared]: 5557760
 
 === Cycle markers:
-run_prepared: net cycles: 972365, net delegations: {1994: 42293, 1991: 4870}
-process_transaction: net cycles: 602844, net delegations: {1991: 20, 1994: 42293}
-ecrecover: net cycles: 466876, net delegations: {1994: 42228}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2462, net delegations: {1994: 65}
-verify_and_apply_batch: net cycles: 91041, net delegations: {1991: 2080}
-Total delegations: {1994: 42293, 1991: 4870}
+run_prepared: net cycles: 839093, net delegations: {1994: 45362, 1991: 4910}
+process_transaction: net cycles: 466263, net delegations: {1994: 45362, 1991: 20}
+ecrecover: net cycles: 297620, net delegations: {1994: 42950}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 43654, net delegations: {1994: 2412}
+verify_and_apply_batch: net cycles: 91820, net delegations: {1991: 2110}
+Total delegations: {1991: 4910, 1994: 45362}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1211,17 +1211,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5623296
-Spent native for [process_transaction]: 1325680
+Spent native for [process_transaction]: 1329872
 Spent ergs for [run_prepared]: 5623296
 
 === Cycle markers:
-run_prepared: net cycles: 983304, net delegations: {1991: 4850, 1994: 42142}
-process_transaction: net cycles: 619257, net delegations: {1991: 20, 1994: 42142}
-ecrecover: net cycles: 465694, net delegations: {1994: 42077}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2462, net delegations: {1994: 65}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42142, 1991: 4850}
+run_prepared: net cycles: 846150, net delegations: {1991: 4890, 1994: 44521}
+process_transaction: net cycles: 478883, net delegations: {1991: 20, 1994: 44521}
+ecrecover: net cycles: 292645, net delegations: {1994: 42109}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 43654, net delegations: {1994: 2412}
+verify_and_apply_batch: net cycles: 85886, net delegations: {1991: 2090}
+Total delegations: {1991: 4890, 1994: 44521}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1236,17 +1236,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 5938688
-Spent native for [process_transaction]: 1308180
+Spent native for [process_transaction]: 1312308
 Spent ergs for [run_prepared]: 5938688
 
 === Cycle markers:
-run_prepared: net cycles: 977509, net delegations: {1991: 4870, 1994: 42729}
-process_transaction: net cycles: 607988, net delegations: {1994: 42729, 1991: 20}
-ecrecover: net cycles: 472078, net delegations: {1994: 42663}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2404, net delegations: {1994: 66}
-verify_and_apply_batch: net cycles: 91041, net delegations: {1991: 2080}
-Total delegations: {1994: 42729, 1991: 4870}
+run_prepared: net cycles: 840998, net delegations: {1994: 44672, 1991: 4880}
+process_transaction: net cycles: 468712, net delegations: {1991: 20, 1994: 44672}
+ecrecover: net cycles: 296703, net delegations: {1994: 42714}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 47020, net delegations: {1994: 1958}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1991: 4880, 1994: 44672}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1261,17 +1261,17 @@ Spent ergs for [bn254_ecadd]: 38400
 Spent native for [bn254_ecadd]: 52600
 
 Spent ergs for [process_transaction]: 6004224
-Spent native for [process_transaction]: 1325680
+Spent native for [process_transaction]: 1329872
 Spent ergs for [run_prepared]: 6004224
 
 === Cycle markers:
-run_prepared: net cycles: 982916, net delegations: {1994: 41589, 1991: 4870}
-process_transaction: net cycles: 613219, net delegations: {1994: 41589, 1991: 20}
-ecrecover: net cycles: 459714, net delegations: {1994: 41523}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecadd: net cycles: 2404, net delegations: {1994: 66}
-verify_and_apply_batch: net cycles: 91041, net delegations: {1991: 2080}
-Total delegations: {1991: 4870, 1994: 41589}
+run_prepared: net cycles: 809179, net delegations: {1994: 42284, 1991: 4890}
+process_transaction: net cycles: 441682, net delegations: {1991: 20, 1994: 42284}
+ecrecover: net cycles: 292240, net delegations: {1994: 42093}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecadd: net cycles: 6858, net delegations: {1994: 191}
+verify_and_apply_batch: net cycles: 85886, net delegations: {1991: 2090}
+Total delegations: {1991: 4890, 1994: 42284}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1286,17 +1286,17 @@ Spent ergs for [bn254_ecmul]: 1536000
 Spent native for [bn254_ecmul]: 1073000
 
 Spent ergs for [process_transaction]: 7010304
-Spent native for [process_transaction]: 2311080
+Spent native for [process_transaction]: 2315176
 Spent ergs for [run_prepared]: 7010304
 
 === Cycle markers:
-run_prepared: net cycles: 943345, net delegations: {1994: 41573, 1991: 4860}
-process_transaction: net cycles: 577262, net delegations: {1991: 20, 1994: 41573}
-ecrecover: net cycles: 460656, net delegations: {1994: 41573}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecmul: net cycles: 1065, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4860, 1994: 41573}
+run_prepared: net cycles: 768621, net delegations: {1991: 4890, 1994: 42231}
+process_transaction: net cycles: 401582, net delegations: {1991: 20, 1994: 42231}
+ecrecover: net cycles: 293255, net delegations: {1994: 42231}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecmul: net cycles: 1056, net delegations: {}
+verify_and_apply_batch: net cycles: 85886, net delegations: {1991: 2090}
+Total delegations: {1991: 4890, 1994: 42231}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1311,17 +1311,17 @@ Spent ergs for [bn254_ecmul]: 1536000
 Spent native for [bn254_ecmul]: 1073000
 
 Spent ergs for [process_transaction]: 6912000
-Spent native for [process_transaction]: 2293580
+Spent native for [process_transaction]: 2297580
 Spent ergs for [run_prepared]: 6912000
 
 === Cycle markers:
-run_prepared: net cycles: 932553, net delegations: {1994: 42251, 1991: 4860}
-process_transaction: net cycles: 566540, net delegations: {1994: 42251, 1991: 20}
-ecrecover: net cycles: 468279, net delegations: {1994: 42251}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecmul: net cycles: 920, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4860, 1994: 42251}
+run_prepared: net cycles: 751097, net delegations: {1991: 4860, 1994: 42370}
+process_transaction: net cycles: 384618, net delegations: {1991: 20, 1994: 42370}
+ecrecover: net cycles: 294637, net delegations: {1994: 42370}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecmul: net cycles: 911, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 42370}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1336,17 +1336,17 @@ Spent ergs for [bn254_ecmul]: 1536000
 Spent native for [bn254_ecmul]: 1073000
 
 Spent ergs for [process_transaction]: 7231488
-Spent native for [process_transaction]: 2311080
+Spent native for [process_transaction]: 2315176
 Spent ergs for [run_prepared]: 7231488
 
 === Cycle markers:
-run_prepared: net cycles: 941396, net delegations: {1991: 4850, 1994: 41548}
-process_transaction: net cycles: 577613, net delegations: {1994: 41548, 1991: 20}
-ecrecover: net cycles: 459697, net delegations: {1994: 41483}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecmul: net cycles: 2130, net delegations: {1994: 65}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4850, 1994: 41548}
+run_prepared: net cycles: 919636, net delegations: {1991: 4880, 1994: 56315}
+process_transaction: net cycles: 547669, net delegations: {1991: 20, 1994: 56315}
+ecrecover: net cycles: 291567, net delegations: {1994: 41935}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecmul: net cycles: 148831, net delegations: {1994: 14380}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1994: 56315, 1991: 4880}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1361,17 +1361,17 @@ Spent ergs for [bn254_ecmul]: 1536000
 Spent native for [bn254_ecmul]: 1073000
 
 Spent ergs for [process_transaction]: 7305216
-Spent native for [process_transaction]: 2311080
+Spent native for [process_transaction]: 2315176
 Spent ergs for [run_prepared]: 7305216
 
 === Cycle markers:
-run_prepared: net cycles: 949932, net delegations: {1994: 42361, 1991: 4850}
-process_transaction: net cycles: 586149, net delegations: {1994: 42361, 1991: 20}
-ecrecover: net cycles: 468229, net delegations: {1994: 42295}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecmul: net cycles: 2134, net delegations: {1994: 66}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42361, 1991: 4850}
+run_prepared: net cycles: 1237459, net delegations: {1991: 4890, 1994: 96737}
+process_transaction: net cycles: 870226, net delegations: {1994: 96737, 1991: 20}
+ecrecover: net cycles: 295109, net delegations: {1994: 42473}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecmul: net cycles: 467846, net delegations: {1994: 54264}
+verify_and_apply_batch: net cycles: 85886, net delegations: {1991: 2090}
+Total delegations: {1994: 96737, 1991: 4890}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1386,17 +1386,17 @@ Spent ergs for [bn254_ecmul]: 1536000
 Spent native for [bn254_ecmul]: 1073000
 
 Spent ergs for [process_transaction]: 7305216
-Spent native for [process_transaction]: 2311080
+Spent native for [process_transaction]: 2315176
 Spent ergs for [run_prepared]: 7305216
 
 === Cycle markers:
-run_prepared: net cycles: 949037, net delegations: {1994: 42280, 1991: 4850}
-process_transaction: net cycles: 585254, net delegations: {1994: 42280, 1991: 20}
-ecrecover: net cycles: 467338, net delegations: {1994: 42215}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecmul: net cycles: 2130, net delegations: {1994: 65}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4850, 1994: 42280}
+run_prepared: net cycles: 1242189, net delegations: {1994: 96838, 1991: 4880}
+process_transaction: net cycles: 869797, net delegations: {1994: 96838, 1991: 20}
+ecrecover: net cycles: 294732, net delegations: {1994: 42504}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecmul: net cycles: 467794, net delegations: {1994: 54334}
+verify_and_apply_batch: net cycles: 91045, net delegations: {1991: 2080}
+Total delegations: {1994: 96838, 1991: 4880}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1411,17 +1411,17 @@ Spent ergs for [bn254_ecmul]: 1536000
 Spent native for [bn254_ecmul]: 1073000
 
 Spent ergs for [process_transaction]: 7302144
-Spent native for [process_transaction]: 2311080
+Spent native for [process_transaction]: 2315176
 Spent ergs for [run_prepared]: 7302144
 
 === Cycle markers:
-run_prepared: net cycles: 940942, net delegations: {1991: 4850, 1994: 41593}
-process_transaction: net cycles: 577159, net delegations: {1994: 41593, 1991: 20}
-ecrecover: net cycles: 459239, net delegations: {1994: 41527}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecmul: net cycles: 2134, net delegations: {1994: 66}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4850, 1994: 41593}
+run_prepared: net cycles: 1484405, net delegations: {1991: 4860, 1994: 123829}
+process_transaction: net cycles: 1117662, net delegations: {1994: 123829, 1991: 20}
+ecrecover: net cycles: 295270, net delegations: {1994: 42509}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecmul: net cycles: 715121, net delegations: {1994: 81320}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 123829}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1436,17 +1436,17 @@ Spent ergs for [bn254_ecmul]: 1536000
 Spent native for [bn254_ecmul]: 1073000
 
 Spent ergs for [process_transaction]: 7305216
-Spent native for [process_transaction]: 2311080
+Spent native for [process_transaction]: 2315176
 Spent ergs for [run_prepared]: 7305216
 
 === Cycle markers:
-run_prepared: net cycles: 954154, net delegations: {1991: 4900, 1994: 42151}
-process_transaction: net cycles: 583946, net delegations: {1991: 20, 1994: 42151}
-ecrecover: net cycles: 466026, net delegations: {1994: 42085}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecmul: net cycles: 2134, net delegations: {1994: 66}
-verify_and_apply_batch: net cycles: 91816, net delegations: {1991: 2110}
-Total delegations: {1991: 4900, 1994: 42151}
+run_prepared: net cycles: 1484225, net delegations: {1991: 4860, 1994: 123531}
+process_transaction: net cycles: 1117482, net delegations: {1994: 123531, 1991: 20}
+ecrecover: net cycles: 294180, net delegations: {1994: 42362}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecmul: net cycles: 716031, net delegations: {1994: 81169}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 123531}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1461,17 +1461,17 @@ Spent ergs for [bn254_ecmul]: 1536000
 Spent native for [bn254_ecmul]: 1073000
 
 Spent ergs for [process_transaction]: 7305216
-Spent native for [process_transaction]: 2311080
+Spent native for [process_transaction]: 2315176
 Spent ergs for [run_prepared]: 7305216
 
 === Cycle markers:
-run_prepared: net cycles: 949812, net delegations: {1991: 4850, 1994: 42338}
-process_transaction: net cycles: 586029, net delegations: {1991: 20, 1994: 42338}
-ecrecover: net cycles: 468108, net delegations: {1994: 42272}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_ecmul: net cycles: 2135, net delegations: {1994: 66}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4850, 1994: 42338}
+run_prepared: net cycles: 1481841, net delegations: {1991: 4860, 1994: 123199}
+process_transaction: net cycles: 1115098, net delegations: {1991: 20, 1994: 123199}
+ecrecover: net cycles: 291962, net delegations: {1994: 41941}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_ecmul: net cycles: 715865, net delegations: {1994: 81258}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 123199}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1486,17 +1486,17 @@ Spent ergs for [bn254_pairing]: 28928000
 Spent native for [bn254_pairing]: 45000000
 
 Spent ergs for [process_transaction]: 35870720
-Spent native for [process_transaction]: 46325580
+Spent native for [process_transaction]: 46329964
 Spent ergs for [run_prepared]: 35870720
 
 === Cycle markers:
-run_prepared: net cycles: 1042165, net delegations: {1994: 42580, 1991: 4850}
-process_transaction: net cycles: 677590, net delegations: {1994: 42580, 1991: 20}
-ecrecover: net cycles: 470162, net delegations: {1994: 42514}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_pairing: net cycles: 4136, net delegations: {1994: 66}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4850, 1994: 42580}
+run_prepared: net cycles: 16855717, net delegations: {1994: 1004988, 1991: 4860}
+process_transaction: net cycles: 16488739, net delegations: {1994: 1004988, 1991: 20}
+ecrecover: net cycles: 295118, net delegations: {1994: 42500}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_pairing: net cycles: 15998874, net delegations: {1994: 962488}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 1004988}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1511,17 +1511,17 @@ Spent ergs for [bn254_pairing]: 28928000
 Spent native for [bn254_pairing]: 45000000
 
 Spent ergs for [process_transaction]: 35864576
-Spent native for [process_transaction]: 46325580
+Spent native for [process_transaction]: 46329964
 Spent ergs for [run_prepared]: 35864576
 
 === Cycle markers:
-run_prepared: net cycles: 1036571, net delegations: {1994: 42010, 1991: 4850}
-process_transaction: net cycles: 671996, net delegations: {1994: 42010, 1991: 20}
-ecrecover: net cycles: 464580, net delegations: {1994: 41947}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_pairing: net cycles: 4124, net delegations: {1994: 63}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4850, 1994: 42010}
+run_prepared: net cycles: 16852515, net delegations: {1994: 1004516, 1991: 4860}
+process_transaction: net cycles: 16485308, net delegations: {1991: 20, 1994: 1004516}
+ecrecover: net cycles: 291081, net delegations: {1994: 41886}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_pairing: net cycles: 15999480, net delegations: {1994: 962630}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 1004516, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1536,17 +1536,17 @@ Spent ergs for [bn254_pairing]: 28928000
 Spent native for [bn254_pairing]: 45000000
 
 Spent ergs for [process_transaction]: 35870720
-Spent native for [process_transaction]: 46325580
+Spent native for [process_transaction]: 46329964
 Spent ergs for [run_prepared]: 35870720
 
 === Cycle markers:
-run_prepared: net cycles: 1039820, net delegations: {1994: 42383, 1991: 4850}
-process_transaction: net cycles: 675245, net delegations: {1994: 42383, 1991: 20}
-ecrecover: net cycles: 467813, net delegations: {1994: 42316}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_pairing: net cycles: 4140, net delegations: {1994: 67}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4850, 1994: 42383}
+run_prepared: net cycles: 16841140, net delegations: {1994: 1002590, 1991: 4860}
+process_transaction: net cycles: 16474162, net delegations: {1994: 1002590, 1991: 20}
+ecrecover: net cycles: 279748, net delegations: {1994: 40188}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_pairing: net cycles: 15999667, net delegations: {1994: 962402}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 1002590}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1561,17 +1561,17 @@ Spent ergs for [bn254_pairing]: 37632000
 Spent native for [bn254_pairing]: 60000000
 
 Spent ergs for [process_transaction]: 45358080
-Spent native for [process_transaction]: 61360580
+Spent native for [process_transaction]: 61365156
 Spent ergs for [run_prepared]: 45358080
 
 === Cycle markers:
-run_prepared: net cycles: 1092717, net delegations: {1991: 4850, 1994: 42314}
-process_transaction: net cycles: 727614, net delegations: {1994: 42314, 1991: 20}
-ecrecover: net cycles: 467644, net delegations: {1994: 42246}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_pairing: net cycles: 4144, net delegations: {1994: 68}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42314, 1991: 4850}
+run_prepared: net cycles: 22402954, net delegations: {1994: 1339260, 1991: 4860}
+process_transaction: net cycles: 22035254, net delegations: {1994: 1339260, 1991: 20}
+ecrecover: net cycles: 294212, net delegations: {1994: 42293}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_pairing: net cycles: 21493761, net delegations: {1994: 1296967}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 1339260}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1586,17 +1586,17 @@ Spent ergs for [bn254_pairing]: 37632000
 Spent native for [bn254_pairing]: 60000000
 
 Spent ergs for [process_transaction]: 45355008
-Spent native for [process_transaction]: 61360580
+Spent native for [process_transaction]: 61365156
 Spent ergs for [run_prepared]: 45355008
 
 === Cycle markers:
-run_prepared: net cycles: 1091706, net delegations: {1991: 4850, 1994: 42190}
-process_transaction: net cycles: 726603, net delegations: {1991: 20, 1994: 42190}
-ecrecover: net cycles: 466637, net delegations: {1994: 42123}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_pairing: net cycles: 4140, net delegations: {1994: 67}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42190, 1991: 4850}
+run_prepared: net cycles: 22402661, net delegations: {1994: 1339065, 1991: 4860}
+process_transaction: net cycles: 22034536, net delegations: {1991: 20, 1994: 1339065}
+ecrecover: net cycles: 292956, net delegations: {1994: 42101}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_pairing: net cycles: 21494299, net delegations: {1994: 1296964}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 1339065}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1611,17 +1611,17 @@ Spent ergs for [bn254_pairing]: 28928000
 Spent native for [bn254_pairing]: 45000000
 
 Spent ergs for [process_transaction]: 35870720
-Spent native for [process_transaction]: 46325580
+Spent native for [process_transaction]: 46329964
 Spent ergs for [run_prepared]: 35870720
 
 === Cycle markers:
-run_prepared: net cycles: 1038624, net delegations: {1991: 4850, 1994: 42193}
-process_transaction: net cycles: 674049, net delegations: {1994: 42193, 1991: 20}
-ecrecover: net cycles: 466621, net delegations: {1994: 42127}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_pairing: net cycles: 4136, net delegations: {1994: 66}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42193, 1991: 4850}
+run_prepared: net cycles: 16846054, net delegations: {1994: 1003856, 1991: 4860}
+process_transaction: net cycles: 16479076, net delegations: {1994: 1003856, 1991: 20}
+ecrecover: net cycles: 289746, net delegations: {1994: 41698}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_pairing: net cycles: 15994583, net delegations: {1994: 962158}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 1003856, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1636,17 +1636,17 @@ Spent ergs for [bn254_pairing]: 11520000
 Spent native for [bn254_pairing]: 15000000
 
 Spent ergs for [process_transaction]: 16896000
-Spent native for [process_transaction]: 16220580
+Spent native for [process_transaction]: 16224580
 Spent ergs for [run_prepared]: 16896000
 
 === Cycle markers:
-run_prepared: net cycles: 918882, net delegations: {1991: 4860, 1994: 41057}
-process_transaction: net cycles: 553294, net delegations: {1994: 41057, 1991: 20}
-ecrecover: net cycles: 455605, net delegations: {1994: 41057}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_pairing: net cycles: 313, net delegations: {}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4860, 1994: 41057}
+run_prepared: net cycles: 750943, net delegations: {1991: 4860, 1994: 42383}
+process_transaction: net cycles: 384827, net delegations: {1994: 42383, 1991: 20}
+ecrecover: net cycles: 295426, net delegations: {1994: 42383}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_pairing: net cycles: 301, net delegations: {}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 42383}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1661,17 +1661,17 @@ Spent ergs for [bn254_pairing]: 20224000
 Spent native for [bn254_pairing]: 30000000
 
 Spent ergs for [process_transaction]: 26189824
-Spent native for [process_transaction]: 31273080
+Spent native for [process_transaction]: 31277272
 Spent ergs for [run_prepared]: 26189824
 
 === Cycle markers:
-run_prepared: net cycles: 986279, net delegations: {1994: 42232, 1991: 4850}
-process_transaction: net cycles: 622232, net delegations: {1994: 42232, 1991: 20}
-ecrecover: net cycles: 467084, net delegations: {1994: 42167}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_pairing: net cycles: 4130, net delegations: {1994: 65}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42232, 1991: 4850}
+run_prepared: net cycles: 11300393, net delegations: {1991: 4860, 1994: 669991}
+process_transaction: net cycles: 10933519, net delegations: {1991: 20, 1994: 669991}
+ecrecover: net cycles: 293668, net delegations: {1994: 42236}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_pairing: net cycles: 10497378, net delegations: {1994: 627755}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 669991}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1686,17 +1686,17 @@ Spent ergs for [bn254_pairing]: 28928000
 Spent native for [bn254_pairing]: 45000000
 
 Spent ergs for [process_transaction]: 35483648
-Spent native for [process_transaction]: 46325580
+Spent native for [process_transaction]: 46329964
 Spent ergs for [run_prepared]: 35483648
 
 === Cycle markers:
-run_prepared: net cycles: 1036748, net delegations: {1991: 4850, 1994: 41960}
-process_transaction: net cycles: 672173, net delegations: {1994: 41960, 1991: 20}
-ecrecover: net cycles: 464751, net delegations: {1994: 41895}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_pairing: net cycles: 4130, net delegations: {1994: 65}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 41960, 1991: 4850}
+run_prepared: net cycles: 16865136, net delegations: {1994: 1006675, 1991: 4860}
+process_transaction: net cycles: 16497769, net delegations: {1991: 20, 1994: 1006675}
+ecrecover: net cycles: 293025, net delegations: {1994: 42134}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_pairing: net cycles: 16009997, net delegations: {1994: 964541}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 1006675, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1711,17 +1711,17 @@ Spent ergs for [bn254_pairing]: 28928000
 Spent native for [bn254_pairing]: 45000000
 
 Spent ergs for [process_transaction]: 35680256
-Spent native for [process_transaction]: 46325580
+Spent native for [process_transaction]: 46329964
 Spent ergs for [run_prepared]: 35680256
 
 === Cycle markers:
-run_prepared: net cycles: 1041047, net delegations: {1991: 4850, 1994: 42475}
-process_transaction: net cycles: 676472, net delegations: {1994: 42475, 1991: 20}
-ecrecover: net cycles: 469050, net delegations: {1994: 42410}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_pairing: net cycles: 4130, net delegations: {1994: 65}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42475, 1991: 4850}
+run_prepared: net cycles: 16854859, net delegations: {1991: 4860, 1994: 1004721}
+process_transaction: net cycles: 16487255, net delegations: {1991: 20, 1994: 1004721}
+ecrecover: net cycles: 293713, net delegations: {1994: 42233}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_pairing: net cycles: 15998795, net delegations: {1994: 962488}
+verify_and_apply_batch: net cycles: 85403, net delegations: {1991: 2060}
+Total delegations: {1994: 1004721, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1736,17 +1736,17 @@ Spent ergs for [bn254_pairing]: 28928000
 Spent native for [bn254_pairing]: 45000000
 
 Spent ergs for [process_transaction]: 35680256
-Spent native for [process_transaction]: 46325580
+Spent native for [process_transaction]: 46329964
 Spent ergs for [run_prepared]: 35680256
 
 === Cycle markers:
-run_prepared: net cycles: 1039764, net delegations: {1991: 4850, 1994: 42282}
-process_transaction: net cycles: 675189, net delegations: {1994: 42282, 1991: 20}
-ecrecover: net cycles: 467753, net delegations: {1994: 42214}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_pairing: net cycles: 4144, net delegations: {1994: 68}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4850, 1994: 42282}
+run_prepared: net cycles: 16849700, net delegations: {1994: 1003817, 1991: 4890}
+process_transaction: net cycles: 16481613, net delegations: {1994: 1003817, 1991: 20}
+ecrecover: net cycles: 287985, net delegations: {1994: 41413}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_pairing: net cycles: 15998881, net delegations: {1994: 962404}
+verify_and_apply_batch: net cycles: 85886, net delegations: {1991: 2090}
+Total delegations: {1994: 1003817, 1991: 4890}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1761,17 +1761,17 @@ Spent ergs for [bn254_pairing]: 98560000
 Spent native for [bn254_pairing]: 165000000
 
 Spent ergs for [process_transaction]: 109834240
-Spent native for [process_transaction]: 166710580
+Spent native for [process_transaction]: 166716500
 Spent ergs for [run_prepared]: 109834240
 
 === Cycle markers:
-run_prepared: net cycles: 1433129, net delegations: {1994: 42816, 1991: 4850}
-process_transaction: net cycles: 1064330, net delegations: {1991: 20, 1994: 42816}
-ecrecover: net cycles: 472774, net delegations: {1994: 42751}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_pairing: net cycles: 4130, net delegations: {1994: 65}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42816, 1991: 4850}
+run_prepared: net cycles: 61230040, net delegations: {1991: 4860, 1994: 3683184}
+process_transaction: net cycles: 60858449, net delegations: {1994: 3683184, 1991: 20}
+ecrecover: net cycles: 289073, net delegations: {1994: 41497}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_pairing: net cycles: 59990495, net delegations: {1994: 3641687}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 3683184}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1786,17 +1786,17 @@ Spent ergs for [bn254_pairing]: 98560000
 Spent native for [bn254_pairing]: 165000000
 
 Spent ergs for [process_transaction]: 110817280
-Spent native for [process_transaction]: 166710580
+Spent native for [process_transaction]: 166716500
 Spent ergs for [run_prepared]: 110817280
 
 === Cycle markers:
-run_prepared: net cycles: 1426209, net delegations: {1994: 42068, 1991: 4850}
-process_transaction: net cycles: 1057410, net delegations: {1991: 20, 1994: 42068}
-ecrecover: net cycles: 465854, net delegations: {1994: 42003}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_pairing: net cycles: 4130, net delegations: {1994: 65}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4850, 1994: 42068}
+run_prepared: net cycles: 61234248, net delegations: {1994: 3682399, 1991: 4910}
+process_transaction: net cycles: 60855473, net delegations: {1991: 20, 1994: 3682399}
+ecrecover: net cycles: 294148, net delegations: {1994: 42315}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_pairing: net cycles: 59982444, net delegations: {1994: 3640084}
+verify_and_apply_batch: net cycles: 92561, net delegations: {1991: 2110}
+Total delegations: {1991: 4910, 1994: 3682399}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1811,17 +1811,17 @@ Spent ergs for [bn254_pairing]: 28928000
 Spent native for [bn254_pairing]: 45000000
 
 Spent ergs for [process_transaction]: 35680256
-Spent native for [process_transaction]: 46325580
+Spent native for [process_transaction]: 46329964
 Spent ergs for [run_prepared]: 35680256
 
 === Cycle markers:
-run_prepared: net cycles: 1040758, net delegations: {1994: 42499, 1991: 4850}
-process_transaction: net cycles: 676183, net delegations: {1991: 20, 1994: 42499}
-ecrecover: net cycles: 468747, net delegations: {1994: 42431}
-prepare_for_call: net cycles: 5240, net delegations: {}
-bn254_pairing: net cycles: 4144, net delegations: {1994: 68}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 42499, 1991: 4850}
+run_prepared: net cycles: 16852461, net delegations: {1991: 4890, 1994: 1004192}
+process_transaction: net cycles: 16484374, net delegations: {1994: 1004192, 1991: 20}
+ecrecover: net cycles: 290746, net delegations: {1994: 41788}
+prepare_for_call: net cycles: 5217, net delegations: {}
+bn254_pairing: net cycles: 15998881, net delegations: {1994: 962404}
+verify_and_apply_batch: net cycles: 85886, net delegations: {1991: 2090}
+Total delegations: {1994: 1004192, 1991: 4890}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1836,17 +1836,17 @@ Spent ergs for [p256_verify]: 1280000
 Spent native for [p256_verify]: 0
 
 Spent ergs for [process_transaction]: 7311360
-Spent native for [process_transaction]: 1255580
+Spent native for [process_transaction]: 1259740
 Spent ergs for [run_prepared]: 7311360
 
 === Cycle markers:
-run_prepared: net cycles: 1822180, net delegations: {1991: 4890, 1994: 114787}
-process_transaction: net cycles: 1455662, net delegations: {1994: 114787, 1991: 20}
-ecrecover: net cycles: 468677, net delegations: {1994: 42381}
-prepare_for_call: net cycles: 5233, net delegations: {}
-p256_verify: net cycles: 853685, net delegations: {1994: 72406}
-verify_and_apply_batch: net cycles: 85881, net delegations: {1991: 2090}
-Total delegations: {1994: 114787, 1991: 4890}
+run_prepared: net cycles: 1294965, net delegations: {1994: 114348, 1991: 4860}
+process_transaction: net cycles: 928471, net delegations: {1994: 114348, 1991: 20}
+ecrecover: net cycles: 291044, net delegations: {1994: 41942}
+prepare_for_call: net cycles: 5210, net delegations: {}
+p256_verify: net cycles: 512398, net delegations: {1994: 72406}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 114348}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1861,17 +1861,17 @@ Spent ergs for [p256_verify]: 1280000
 Spent native for [p256_verify]: 0
 
 Spent ergs for [process_transaction]: 7308288
-Spent native for [process_transaction]: 1255580
+Spent native for [process_transaction]: 1259740
 Spent ergs for [run_prepared]: 7308288
 
 === Cycle markers:
-run_prepared: net cycles: 1831263, net delegations: {1994: 115557, 1991: 4890}
-process_transaction: net cycles: 1464320, net delegations: {1994: 115557, 1991: 20}
-ecrecover: net cycles: 477697, net delegations: {1994: 43158}
-prepare_for_call: net cycles: 5233, net delegations: {}
-p256_verify: net cycles: 853323, net delegations: {1994: 72399}
-verify_and_apply_batch: net cycles: 85881, net delegations: {1991: 2090}
-Total delegations: {1991: 4890, 1994: 115557}
+run_prepared: net cycles: 1295036, net delegations: {1991: 4890, 1994: 114169}
+process_transaction: net cycles: 927627, net delegations: {1991: 20, 1994: 114169}
+ecrecover: net cycles: 290634, net delegations: {1994: 41770}
+prepare_for_call: net cycles: 5210, net delegations: {}
+p256_verify: net cycles: 511964, net delegations: {1994: 72399}
+verify_and_apply_batch: net cycles: 85886, net delegations: {1991: 2090}
+Total delegations: {1994: 114169, 1991: 4890}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1886,17 +1886,17 @@ Spent ergs for [p256_verify]: 1280000
 Spent native for [p256_verify]: 0
 
 Spent ergs for [process_transaction]: 7311360
-Spent native for [process_transaction]: 1255580
+Spent native for [process_transaction]: 1259740
 Spent ergs for [run_prepared]: 7311360
 
 === Cycle markers:
-run_prepared: net cycles: 1820918, net delegations: {1994: 114691, 1991: 4860}
-process_transaction: net cycles: 1454890, net delegations: {1991: 20, 1994: 114691}
-ecrecover: net cycles: 467165, net delegations: {1994: 42252}
-prepare_for_call: net cycles: 5233, net delegations: {}
-p256_verify: net cycles: 854425, net delegations: {1994: 72439}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1991: 4860, 1994: 114691}
+run_prepared: net cycles: 1298986, net delegations: {1994: 114787, 1991: 4860}
+process_transaction: net cycles: 932492, net delegations: {1991: 20, 1994: 114787}
+ecrecover: net cycles: 294527, net delegations: {1994: 42348}
+prepare_for_call: net cycles: 5210, net delegations: {}
+p256_verify: net cycles: 512936, net delegations: {1994: 72439}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 114787, 1991: 4860}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1911,17 +1911,17 @@ Spent ergs for [p256_verify]: 1280000
 Spent native for [p256_verify]: 0
 
 Spent ergs for [process_transaction]: 7305216
-Spent native for [process_transaction]: 1255580
+Spent native for [process_transaction]: 1259740
 Spent ergs for [run_prepared]: 7305216
 
 === Cycle markers:
-run_prepared: net cycles: 1818452, net delegations: {1991: 4910, 1994: 113877}
-process_transaction: net cycles: 1445546, net delegations: {1991: 20, 1994: 113877}
-ecrecover: net cycles: 465538, net delegations: {1994: 42055}
-prepare_for_call: net cycles: 5233, net delegations: {}
-p256_verify: net cycles: 846708, net delegations: {1994: 71822}
-verify_and_apply_batch: net cycles: 91844, net delegations: {1991: 2110}
-Total delegations: {1994: 113877, 1991: 4910}
+run_prepared: net cycles: 1294490, net delegations: {1994: 114188, 1991: 4860}
+process_transaction: net cycles: 927571, net delegations: {1991: 20, 1994: 114188}
+ecrecover: net cycles: 294681, net delegations: {1994: 42366}
+prepare_for_call: net cycles: 5210, net delegations: {}
+p256_verify: net cycles: 507861, net delegations: {1994: 71822}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1991: 4860, 1994: 114188}
 ==================
 Spent ergs for [ecrecover]: 768000
 
@@ -1936,15 +1936,15 @@ Spent ergs for [p256_verify]: 1280000
 Spent native for [p256_verify]: 0
 
 Spent ergs for [process_transaction]: 7308288
-Spent native for [process_transaction]: 1255580
+Spent native for [process_transaction]: 1259740
 Spent ergs for [run_prepared]: 7308288
 
 === Cycle markers:
-run_prepared: net cycles: 1816794, net delegations: {1994: 114264, 1991: 4860}
-process_transaction: net cycles: 1450341, net delegations: {1994: 114264, 1991: 20}
-ecrecover: net cycles: 467983, net delegations: {1994: 42235}
-prepare_for_call: net cycles: 5233, net delegations: {}
-p256_verify: net cycles: 849058, net delegations: {1994: 72029}
-verify_and_apply_batch: net cycles: 85391, net delegations: {1991: 2060}
-Total delegations: {1994: 114264, 1991: 4860}
+run_prepared: net cycles: 1298264, net delegations: {1991: 4860, 1994: 114647}
+process_transaction: net cycles: 931345, net delegations: {1994: 114647, 1991: 20}
+ecrecover: net cycles: 296500, net delegations: {1994: 42618}
+prepare_for_call: net cycles: 5210, net delegations: {}
+p256_verify: net cycles: 509816, net delegations: {1994: 72029}
+verify_and_apply_batch: net cycles: 85396, net delegations: {1991: 2060}
+Total delegations: {1994: 114647, 1991: 4860}
 ==================

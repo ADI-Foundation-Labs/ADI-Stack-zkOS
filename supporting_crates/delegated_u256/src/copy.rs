@@ -20,7 +20,9 @@ impl Clone for DelegatedU256 {
             #[allow(invalid_value)]
             #[allow(clippy::uninit_assumed_init)]
             let mut result = MaybeUninit::<Self>::uninit().assume_init();
-            bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut result as *mut _, self as *const _);
+            with_ram_operand(self as *const Self, |src_ptr| {
+                bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut result as *mut _, src_ptr);
+            });
             result
         }
     }
@@ -35,6 +37,19 @@ impl Clone for DelegatedU256 {
                 );
             })
         }
+    }
+}
+
+impl DelegatedU256 {
+    // # Safety
+    // It's the responsibility of the caller to make sure `self` is not in ROM
+    #[inline(always)]
+    pub unsafe fn clone_unchecked(&self) -> Self {
+        #[allow(invalid_value)]
+        #[allow(clippy::uninit_assumed_init)]
+        let mut result = MaybeUninit::<Self>::uninit().assume_init();
+        bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut result as *mut _, self as *const _);
+        result
     }
 }
 
@@ -59,7 +74,7 @@ pub(super) unsafe fn with_ram_operand<T, F: FnMut(*const DelegatedU256) -> T>(
     {
         if operand.addr() < ROM_BOUND {
             let mut scratch_mu = MaybeUninit::<DelegatedU256>::uninit();
-            scratch_mu.as_mut_ptr().write(operand.read()); 
+            scratch_mu.as_mut_ptr().write(operand.read());
             f(scratch_mu.as_ptr())
         } else {
             f(operand)

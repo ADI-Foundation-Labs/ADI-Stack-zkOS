@@ -3,6 +3,11 @@ use core::{borrow, fmt::Debug, marker::PhantomData, mem::MaybeUninit};
 
 use delegated_u256::*;
 
+static mut TEMP: DelegatedU256 = DelegatedU256::ZERO;
+static mut MUL_COPY_PLACE_0: DelegatedU256 = DelegatedU256::ZERO;
+static mut MUL_COPY_PLACE_1: DelegatedU256 = DelegatedU256::ZERO;
+static mut MUL_COPY_PLACE_2: DelegatedU256 = DelegatedU256::ZERO;
+
 #[inline(always)]
 pub fn from_ark_ref(a: &BigInt<4>) -> &DelegatedU256 {
     debug_assert_eq!(
@@ -60,10 +65,16 @@ pub trait DelegatedBarretParams: DelegatedModParams {
 /// `DelegationModParams` should only provide references to mutable statics.
 /// It is the responsibility of the caller to make sure that is the case
 unsafe fn sub_mod_with_carry<T: DelegatedModParams>(a: &mut DelegatedU256, carry: bool) {
-    let borrow = a.overflowing_sub_assign(T::modulus());
+    let borrow = bigint_op_delegation::<SUB_OP_BIT_IDX>(
+        a as *mut DelegatedU256,
+        T::modulus() as *const DelegatedU256,
+    ) != 0;
 
     if borrow && !carry {
-        a.overflowing_add_assign(T::modulus());
+        bigint_op_delegation::<ADD_OP_BIT_IDX>(
+            a as *mut DelegatedU256,
+            T::modulus() as *const DelegatedU256,
+        );
     }
 }
 
@@ -85,7 +96,10 @@ pub unsafe fn add_mod_assign<T: DelegatedModParams>(a: &mut DelegatedU256, b: &D
 pub unsafe fn sub_mod_assign<T: DelegatedModParams>(a: &mut DelegatedU256, b: &DelegatedU256) {
     let borrow = a.overflowing_sub_assign(b);
     if borrow {
-        a.overflowing_add_assign(T::modulus());
+        bigint_op_delegation::<ADD_OP_BIT_IDX>(
+            a as *mut DelegatedU256,
+            T::modulus() as *const DelegatedU256,
+        );
     }
 }
 
@@ -95,8 +109,8 @@ pub unsafe fn sub_mod_assign<T: DelegatedModParams>(a: &mut DelegatedU256, b: &D
 /// `DelegationModParams` should only provide references to mutable statics.
 /// It is the responsibility of the caller to make sure that is the case
 pub unsafe fn double_mod_assign<T: DelegatedModParams>(a: &mut DelegatedU256) {
-    let temp = a.clone();
-    let carry = a.overflowing_add_assign(&temp);
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut TEMP, a);
+    let carry = bigint_op_delegation::<ADD_OP_BIT_IDX>(a, &TEMP) != 0;
     sub_mod_with_carry::<T>(a, carry);
 }
 
@@ -107,7 +121,10 @@ pub unsafe fn double_mod_assign<T: DelegatedModParams>(a: &mut DelegatedU256) {
 /// It is the responsibility of the caller to make sure that is the case
 pub unsafe fn neg_mod_assign<T: DelegatedModParams>(a: &mut DelegatedU256) {
     if !a.is_zero() {
-        a.overflowing_sub_and_negate_assign(T::modulus());
+        bigint_op_delegation::<SUB_AND_NEGATE_OP_BIT_IDX>(
+            a as *mut DelegatedU256,
+            T::modulus() as *const DelegatedU256,
+        );
     }
 }
 
@@ -122,26 +139,26 @@ pub unsafe fn mul_assign_barret<T: DelegatedBarretParams>(
 ) {
     let b = copy_if_needed(b);
 
-    let mut temp0 = a.clone();
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut MUL_COPY_PLACE_0, a);
 
     bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(a, b);
-    bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(&mut temp0, b);
+    bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(&mut MUL_COPY_PLACE_0, b);
 
-    let mut temp1 = temp0.clone();
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut MUL_COPY_PLACE_1, &MUL_COPY_PLACE_0);
 
     // multiply copy_place0 by 2^256 - modulus
-    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut temp1, T::neg_modulus());
-    bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(&mut temp0, T::neg_modulus());
+    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut MUL_COPY_PLACE_1, T::neg_modulus());
+    bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(&mut MUL_COPY_PLACE_0, T::neg_modulus());
 
     // add and propagate the carry
-    let carry = bigint_op_delegation::<ADD_OP_BIT_IDX>(a, &temp1) != 0;
+    let carry = bigint_op_delegation::<ADD_OP_BIT_IDX>(a, &MUL_COPY_PLACE_1) != 0;
     if carry {
-        bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut temp0, ONE.as_ptr());
+        bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut MUL_COPY_PLACE_0, ONE.as_ptr());
     }
 
-    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut temp0, T::neg_modulus());
+    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut MUL_COPY_PLACE_0, T::neg_modulus());
 
-    let carry = bigint_op_delegation::<ADD_OP_BIT_IDX>(a, &temp0) != 0;
+    let carry = bigint_op_delegation::<ADD_OP_BIT_IDX>(a, &MUL_COPY_PLACE_0) != 0;
     sub_mod_with_carry::<T>(a, carry);
 }
 
@@ -150,8 +167,8 @@ pub unsafe fn mul_assign_barret<T: DelegatedBarretParams>(
 /// `DelegationBarretParams` should only provide references to mutable statics.
 /// It is the responsibility of the caller to make sure that is the case
 pub unsafe fn square_assign_barret<T: DelegatedBarretParams>(a: &mut DelegatedU256) {
-    let b = a.clone();
-    mul_assign_barret::<T>(a, &b);
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut TEMP, a);
+    mul_assign_barret::<T>(a, &TEMP);
 }
 
 #[inline(always)]
@@ -159,8 +176,8 @@ pub unsafe fn square_assign_barret<T: DelegatedBarretParams>(a: &mut DelegatedU2
 /// `DelegationMontParams` should only provide references to mutable statics.
 /// It is the responsibility of the caller to make sure that is the case
 pub unsafe fn square_assign_montgomery<T: DelegatedMontParams>(a: &mut DelegatedU256) {
-    let b = a.clone();
-    mul_assign_montgomery::<T>(a, &b);
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut TEMP, a);
+    mul_assign_montgomery::<T>(a, &TEMP);
 }
 
 #[inline(always)]
@@ -174,29 +191,30 @@ pub unsafe fn mul_assign_montgomery<T: DelegatedMontParams>(
 ) {
     let b = copy_if_needed(b);
 
-    let mut temp0 = a.clone();
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut MUL_COPY_PLACE_0, a);
 
-    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut temp0, b);
+    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut MUL_COPY_PLACE_0, b);
     bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(a, b);
 
-    let mut temp1 = temp0.clone();
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut MUL_COPY_PLACE_1, &MUL_COPY_PLACE_0);
 
-    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut temp1, T::reduction_const());
+    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut MUL_COPY_PLACE_1, T::reduction_const());
 
-    let mut temp2 = temp1.clone();
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut MUL_COPY_PLACE_2, &MUL_COPY_PLACE_1);
 
-    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut temp2, T::modulus());
-    bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(&mut temp1, T::modulus());
+    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut MUL_COPY_PLACE_2, T::modulus());
+    bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(&mut MUL_COPY_PLACE_1, T::modulus());
 
-    let carry = bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut temp2, &temp0) != 0;
+    let carry =
+        bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut MUL_COPY_PLACE_2, &MUL_COPY_PLACE_0) != 0;
 
-    debug_assert!(temp2.is_zero());
+    debug_assert!(MUL_COPY_PLACE_2.is_zero());
 
     if carry {
-        bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut temp1, ONE.as_ptr());
+        bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut MUL_COPY_PLACE_1, ONE.as_ptr());
     }
 
-    let carry = bigint_op_delegation::<ADD_OP_BIT_IDX>(a, &temp1) != 0;
+    let carry = bigint_op_delegation::<ADD_OP_BIT_IDX>(a, &MUL_COPY_PLACE_1) != 0;
     sub_mod_with_carry::<T>(a, carry);
 }
 

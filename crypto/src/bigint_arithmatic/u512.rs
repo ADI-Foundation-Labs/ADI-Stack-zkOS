@@ -4,6 +4,15 @@ use core::{borrow, mem::MaybeUninit};
 use super::u256;
 use delegated_u256::*;
 
+static mut TEMP_0: DelegatedU256 = DelegatedU256::ZERO;
+static mut TEMP_1: DelegatedU512 = DelegatedU512(DelegatedU256::ZERO, DelegatedU256::ZERO);
+static mut MUL_COPY_PLACE_0: DelegatedU256 = DelegatedU256::ZERO;
+static mut MUL_COPY_PLACE_1: DelegatedU256 = DelegatedU256::ZERO;
+static mut MUL_COPY_PLACE_2: DelegatedU256 = DelegatedU256::ZERO;
+static mut MUL_COPY_PLACE_3: DelegatedU256 = DelegatedU256::ZERO;
+static mut MUL_COPY_PLACE_4: DelegatedU256 = DelegatedU256::ZERO;
+static mut MUL_COPY_PLACE_5: DelegatedU256 = DelegatedU256::ZERO;
+
 #[inline(always)]
 pub fn from_ark_ref(a: &BigInt<8>) -> &DelegatedU512 {
     debug_assert_eq!(
@@ -116,11 +125,12 @@ pub unsafe fn sub_mod_assign<T: DelegatedModParams>(a: &mut DelegatedU512, b: &D
 /// `DelegationModParams` should only provide references to mutable statics.
 /// It is the responsibility of the caller to make sure that is the case
 pub unsafe fn double_mod_assign<T: DelegatedModParams>(a: &mut DelegatedU512) {
-    let low = a.0.clone();
-    let carry = bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut a.0, &low) != 0;
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut TEMP_0, &a.0);
+    let carry = bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut a.0, &TEMP_0) != 0;
 
-    let high = a.1.clone();
-    let carry = bigint_op_delegation_with_carry_bit::<ADD_OP_BIT_IDX>(&mut a.1, &high, carry) != 0;
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut TEMP_0, &a.1);
+    let carry =
+        bigint_op_delegation_with_carry_bit::<ADD_OP_BIT_IDX>(&mut a.1, &TEMP_0, carry) != 0;
 
     sub_mod_with_carry::<T>(a, carry);
 }
@@ -153,105 +163,131 @@ pub unsafe fn mul_assign_montgomery<T: DelegatedMontParams>(
 ) {
     let (r0, r1) = {
         let b0 = copy_if_needed(&b.0);
-        let mut r0 = a.0.clone();
+        let r0 = &mut MUL_COPY_PLACE_0;
+        bigint_op_delegation::<MEMCOPY_BIT_IDX>(r0, &a.0);
 
-        let mut carry_1 = r0.clone();
+        let carry_1 = &mut MUL_COPY_PLACE_1;
+        bigint_op_delegation::<MEMCOPY_BIT_IDX>(carry_1, r0);
 
-        bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut r0, b0);
-        bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(&mut carry_1, b0);
+        bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(r0, b0);
+        bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(carry_1, b0);
 
-        let mut reduction_k = r0.clone();
-        bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut reduction_k, T::reduction_const());
+        let reduction_k = &mut MUL_COPY_PLACE_2;
+        bigint_op_delegation::<MEMCOPY_BIT_IDX>(reduction_k, r0);
+        bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(reduction_k, T::reduction_const());
 
-        let mut carry_2_low = T::modulus().0.clone();
-        bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut carry_2_low, &reduction_k);
+        let carry_2_low = &mut MUL_COPY_PLACE_3;
+        bigint_op_delegation::<MEMCOPY_BIT_IDX>(carry_2_low, &T::modulus().0);
 
-        let of = bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut carry_2_low, &r0) != 0;
+        bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(carry_2_low, reduction_k);
+        let of = bigint_op_delegation::<ADD_OP_BIT_IDX>(carry_2_low, r0) != 0;
 
-        let mut carry_2 = T::modulus().0.clone();
-        bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(&mut carry_2, &reduction_k);
+        let carry_2 = &mut MUL_COPY_PLACE_4;
+        bigint_op_delegation::<MEMCOPY_BIT_IDX>(carry_2, &T::modulus().0);
+
+        bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(carry_2, reduction_k);
 
         if of {
-            bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut carry_2, ONE.as_ptr());
+            bigint_op_delegation::<ADD_OP_BIT_IDX>(carry_2, ONE.as_ptr());
         }
 
+        // We can reuse MUL_COPY_PLACE_3
         debug_assert!(carry_2_low.is_zero());
 
-        let mut r1 = a.1.clone();
+        let r1 = &mut MUL_COPY_PLACE_3;
+        bigint_op_delegation::<MEMCOPY_BIT_IDX>(r1, &a.1);
 
-        let mut new_carry_1 = r1.clone();
+        let new_carry_1 = &mut MUL_COPY_PLACE_5;
+        bigint_op_delegation::<MEMCOPY_BIT_IDX>(new_carry_1, r1);
 
-        bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut r1, b0);
-        let of = bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut r1, &carry_1) != 0;
-        bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(&mut new_carry_1, b0);
+        bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(r1, b0);
+        let of = bigint_op_delegation::<ADD_OP_BIT_IDX>(r1, carry_1) != 0;
+
+        bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(new_carry_1, b0);
 
         if of {
-            bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut new_carry_1, ONE.as_ptr());
+            bigint_op_delegation::<ADD_OP_BIT_IDX>(new_carry_1, ONE.as_ptr());
         }
 
-        let mut new_carry_2_low = T::modulus().1.clone();
+        // now MUL_COPY_PLACE_1 is available
+        let carry_1 = new_carry_1;
 
-        bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut new_carry_2_low, &reduction_k);
-        let of0 = bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut new_carry_2_low, &r1) != 0;
-        let of1 = bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut new_carry_2_low, &carry_2) != 0;
+        let new_carry_2_low = &mut MUL_COPY_PLACE_1;
+        bigint_op_delegation::<MEMCOPY_BIT_IDX>(new_carry_2_low, &T::modulus().1);
 
-        let mut new_carry_2 = T::modulus().1.clone();
-        bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(&mut new_carry_2, &reduction_k);
+        bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(new_carry_2_low, reduction_k);
+        let of0 = bigint_op_delegation::<ADD_OP_BIT_IDX>(new_carry_2_low, r1) != 0;
+        let of1 = bigint_op_delegation::<ADD_OP_BIT_IDX>(new_carry_2_low, carry_2) != 0;
+
+        // we can reuse MUL_COPY_PLACE_4 now
+        let new_carry_2 = &mut MUL_COPY_PLACE_4;
+        bigint_op_delegation::<MEMCOPY_BIT_IDX>(new_carry_2, &T::modulus().1);
+
+        bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(new_carry_2, reduction_k);
 
         if of0 || of1 {
             let temp = DelegatedU256::from(of0 as u64 + of1 as u64);
-            bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut new_carry_2, &temp);
+            bigint_op_delegation::<ADD_OP_BIT_IDX>(new_carry_2, &temp);
         }
 
         let r0 = new_carry_2_low;
+        let carry_2 = new_carry_2;
 
-        let mut r1 = new_carry_1;
-        bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut r1, &new_carry_2);
+        let r1 = carry_1;
+        bigint_op_delegation::<ADD_OP_BIT_IDX>(r1, carry_2);
 
         debug_assert!(r1.as_limbs()[2..4].iter().all(|&x| x == 0));
 
+        // we use MUL_COPY_PLACE_1 and MUL_COPY_PLACE_5
         (r0, r1)
     };
 
     let b1 = copy_if_needed(&b.1);
 
-    let mut new_r0 = a.0.clone();
+    let new_r0 = &mut MUL_COPY_PLACE_0;
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(new_r0, &a.0);
 
-    let mut carry_1 = new_r0.clone();
+    let carry_1 = &mut MUL_COPY_PLACE_2;
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(carry_1, new_r0);
 
-    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut new_r0, b1);
-    let of = bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut new_r0, &r0) != 0;
-    bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(&mut carry_1, b1);
+    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(new_r0, b1);
+    let of = bigint_op_delegation::<ADD_OP_BIT_IDX>(new_r0, r0) != 0;
+    bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(carry_1, b1);
     if of {
-        bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut carry_1, ONE.as_ptr());
+        bigint_op_delegation::<ADD_OP_BIT_IDX>(carry_1, ONE.as_ptr());
     }
-
+    // MUL_COPY_PLACE_1 is free
     let r0 = new_r0;
 
-    let mut reduction_k = r0.clone();
+    let reduction_k = &mut MUL_COPY_PLACE_1;
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(reduction_k, r0);
 
-    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut reduction_k, T::reduction_const());
+    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(reduction_k, T::reduction_const());
 
-    let mut carry_2_low = T::modulus().0.clone();
+    let carry_2_low = &mut MUL_COPY_PLACE_3;
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(carry_2_low, &T::modulus().0);
 
-    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut carry_2_low, &reduction_k);
-    let of = bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut carry_2_low, &r0) != 0;
+    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(carry_2_low, reduction_k);
+    let of = bigint_op_delegation::<ADD_OP_BIT_IDX>(carry_2_low, r0) != 0;
 
-    let mut carry_2 = T::modulus().0.clone();
+    let carry_2 = &mut MUL_COPY_PLACE_4;
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(carry_2, &T::modulus().0);
 
-    bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(&mut carry_2, &reduction_k);
+    bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(carry_2, reduction_k);
 
     if of {
-        bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut carry_2, ONE.as_ptr());
+        bigint_op_delegation::<ADD_OP_BIT_IDX>(carry_2, ONE.as_ptr());
     }
 
+    // MUL_COPY_PLACE_3 is free
     debug_assert!(carry_2_low.is_zero());
 
-    let mut new_r1 = a.1.clone();
+    let new_r1 = &mut MUL_COPY_PLACE_3;
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(new_r1, &a.1);
 
-    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut new_r1, b1);
-    let of0 = bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut new_r1, &carry_1) != 0;
-    let of1 = bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut new_r1, &r1) != 0;
+    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(new_r1, b1);
+    let of0 = bigint_op_delegation::<ADD_OP_BIT_IDX>(new_r1, carry_1) != 0;
+    let of1 = bigint_op_delegation::<ADD_OP_BIT_IDX>(new_r1, r1) != 0;
 
     bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(&mut a.1, b1);
 
@@ -260,25 +296,28 @@ pub unsafe fn mul_assign_montgomery<T: DelegatedMontParams>(
         bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut a.1, &temp);
     }
 
+    // MUL_COPY_PLACE_5 is free
     let r1 = new_r1;
 
-    a.0 = T::modulus().1.clone();
-    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut a.0, &reduction_k);
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut a.0, &T::modulus().1);
+    bigint_op_delegation::<MUL_LOW_OP_BIT_IDX>(&mut a.0, reduction_k);
 
-    let of0 = bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut a.0, &r1) != 0;
-    let of1 = bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut a.0, &carry_2) != 0;
+    let of0 = bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut a.0, r1) != 0;
+    let of1 = bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut a.0, carry_2) != 0;
 
-    let mut new_carry_2 = T::modulus().1.clone();
-    bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(&mut new_carry_2, &reduction_k);
+    let new_carry_2 = &mut MUL_COPY_PLACE_4;
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(new_carry_2, &T::modulus().1);
+
+    bigint_op_delegation::<MUL_HIGH_OP_BIT_IDX>(new_carry_2, reduction_k);
 
     if of0 || of1 {
         let temp = DelegatedU256::from(of0 as u64 + of1 as u64);
-        bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut new_carry_2, &temp);
+        bigint_op_delegation::<ADD_OP_BIT_IDX>(new_carry_2, &temp);
     }
 
     let carry2 = new_carry_2;
 
-    bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut a.1, &carry2);
+    bigint_op_delegation::<ADD_OP_BIT_IDX>(&mut a.1, carry2);
 
     debug_assert!(a.1.as_limbs()[3..4].iter().all(|&x| x == 0));
 }
@@ -290,6 +329,8 @@ pub unsafe fn mul_assign_montgomery<T: DelegatedMontParams>(
 /// `DelegationMontParams` should only provide references to mutable statics.
 /// It is the responsibility of the caller to make sure that is the case
 pub unsafe fn square_assign_montgomery<T: DelegatedMontParams>(a: &mut DelegatedU512) {
-    let temp = DelegatedU512(a.0.clone(), a.1.clone());
-    mul_assign_montgomery::<T>(a, &temp);
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut TEMP_1.0, &a.0);
+    bigint_op_delegation::<MEMCOPY_BIT_IDX>(&mut TEMP_1.1, &a.1);
+
+    mul_assign_montgomery::<T>(a, &TEMP_1);
 }

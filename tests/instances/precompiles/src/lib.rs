@@ -5,7 +5,6 @@ use bytes::Bytes;
 use cfg_if::cfg_if;
 use rig::forward_system::run::BatchOutput;
 use rig::forward_system::run::ExecutionResult::Revert;
-use rig::BlockContext;
 use rig::ProfilerConfig;
 use rig::{
     ethers::{abi::Address, signers::Signer, types::TransactionRequest},
@@ -40,13 +39,15 @@ fn run_precompile(
         TransactionRequest::new()
             .to(addr)
             .gas(gas)
-            .gas_price(25_000)
+            .gas_price(1000)
             .data(input.to_vec())
             .nonce(0),
         &wallet,
     );
 
-    let batch_output = chain.run_block(vec![tx], None, None);
+    let profiler_config = path.map(ProfilerConfig::new);
+
+    let batch_output = chain.run_block(vec![tx], None, profiler_config);
 
     batch_output
 }
@@ -609,7 +610,7 @@ fn create_flamegraph_dir(_path: &str) -> Option<PathBuf> {
         if #[cfg(feature = "flamegraph")] {
             let dir = PathBuf::from(_path);
             if dir.exists() {
-                fs::remove_dir(&dir).unwrap();
+                fs::remove_dir_all(&dir).unwrap();
             }
             fs::create_dir(&dir).unwrap();
             Some(dir)
@@ -631,7 +632,7 @@ fn test_precompiles() {
         let path = flamegraphs_dir
             .as_ref()
             .map(|p| p.join(format!("{}.svg", test.name)));
-        
+
         let tx_result = run_precompile(test.precompile_id, None::<u64>, &input, path)
             .tx_results
             .first()
