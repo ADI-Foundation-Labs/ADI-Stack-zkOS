@@ -130,6 +130,7 @@ pub fn make_oracle_for_proofs_and_dumps<
     preimage_source: PS,
     tx_source: TS,
     storage_commitment: Option<StorageCommitment>,
+    add_uart: bool,
 ) -> ZkEENonDeterminismSource<M> {
     make_oracle_for_proofs_and_dumps_for_init_data(
         batch_context,
@@ -137,6 +138,7 @@ pub fn make_oracle_for_proofs_and_dumps<
         preimage_source,
         tx_source,
         Some(io_implementer_init_data(storage_commitment)),
+        add_uart,
     )
 }
 
@@ -151,6 +153,7 @@ pub fn make_oracle_for_proofs_and_dumps_for_init_data<
     preimage_source: PS,
     tx_source: TS,
     io_implementer_init_data: Option<BasicIOImplementerFSM<FlatStorageCommitment<TREE_HEIGHT>>>,
+    add_uart: bool,
 ) -> ZkEENonDeterminismSource<M> {
     let block_metadata_reponsder = BlockMetadataResponder {
         block_metadata: batch_context,
@@ -171,6 +174,11 @@ pub fn make_oracle_for_proofs_and_dumps_for_init_data<
     oracle.add_external_processor(preimage_responder);
     oracle.add_external_processor(tree_responder);
     oracle.add_external_processor(io_implementer_init_responder);
+
+    if add_uart {
+        let uart_responder = UARTPrintReponsder::default();
+        oracle.add_external_processor(uart_responder);
+    }
 
     oracle
 }

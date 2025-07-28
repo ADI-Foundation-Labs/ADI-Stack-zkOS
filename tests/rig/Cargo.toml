@@ -23,7 +23,12 @@ crypto = { path = "../../crypto" }
 cycle_marker = { path = "../../cycle_marker", optional = true }
 zksync_os_api = { path = "../../api" }
 
-prover_examples = { workspace = true, optional=true}
+prover_examples = { workspace = true, optional = true}
+
+alloy = { version = "1", features = ["full", "eip712", "consensus"]}
+alloy-primitives = { version = "1", features = ["arbitrary"] }
+alloy-rpc-types-debug = { version = "*", default-features = false }
+alloy-rlp = { version = "*" }
 
 ethers = "2.0.0" # ethers 2.0.0 is required due to dependency conflict TODO: replace with alloy
 futures = "0.3.30"
@@ -32,7 +37,6 @@ ruint = { version = "1.12.3", default-features = false, features = ["alloc"] }
 tokio = { version = "1.40.0", features = ["rt-multi-thread"] }
 env_logger = "0.11.6"
 log = "0.4.22" # tokio with `rt-multi-thread` feature needed to build ethers 2.0.0
-alloy = { version = "1", features = ["full", "eip712", "consensus"]}
 zksync-web3-rs = { git = "https://github.com/lambdaclass/zksync-web3-rs.git" }
 bincode = "1.3"
 

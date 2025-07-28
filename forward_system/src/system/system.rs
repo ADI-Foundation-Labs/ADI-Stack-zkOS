@@ -2,6 +2,7 @@ use std::alloc::Global;
 
 use basic_bootloader::bootloader::BasicBootloader;
 use basic_system::system_functions::NoStdSystemFunctions;
+use basic_system::system_implementation::ethereum_storage_model::EthereumStorageModel;
 use basic_system::system_implementation::flat_storage_model::FlatTreeWithAccountsUnderHashesStorageModel;
 use basic_system::system_implementation::system::EthereumLikeStorageAccessCostModel;
 use basic_system::system_implementation::system::TypedFullIO;
@@ -49,6 +50,35 @@ impl<O: IOOracle> SystemTypes for ForwardSystemTypes<O> {
 }
 
 impl<O: IOOracle> EthereumLikeTypes for ForwardSystemTypes<O> {}
+
+pub struct EthereumStorageSystemTypes<O>(O);
+
+impl<O: IOOracle> SystemTypes for EthereumStorageSystemTypes<O> {
+    type IOTypes = EthereumIOTypesConfig;
+    type Resources = BaseResources<Native>;
+    type IO = TypedFullIO<
+        Self::Allocator,
+        Self::Resources,
+        EthereumLikeStorageAccessCostModel,
+        VecStackCtor,
+        0,
+        O,
+        EthereumStorageModel<
+            Self::Allocator,
+            Self::Resources,
+            EthereumLikeStorageAccessCostModel,
+            VecStackCtor,
+            0,
+            false,
+        >,
+        false,
+    >;
+    type SystemFunctions = NoStdSystemFunctions;
+    type Allocator = Global;
+    type Logger = Logger;
+}
+
+impl<O: IOOracle> EthereumLikeTypes for EthereumStorageSystemTypes<O> {}
 
 pub type ForwardRunningSystem = ForwardSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>;
 

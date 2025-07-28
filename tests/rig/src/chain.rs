@@ -3,6 +3,7 @@ use alloy::signers::local::PrivateKeySigner;
 use basic_bootloader::bootloader::config::BasicBootloaderCallSimulationConfig;
 use basic_bootloader::bootloader::config::BasicBootloaderForwardSimulationConfig;
 use basic_bootloader::bootloader::constants::MAX_BLOCK_GAS_LIMIT;
+use basic_bootloader::bootloader::BasicBootloader;
 use basic_system::system_implementation::flat_storage_model::FlatStorageCommitment;
 use basic_system::system_implementation::flat_storage_model::{
     address_into_special_storage_key, AccountProperties, ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
@@ -246,6 +247,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             self.preimage_source.clone(),
             tx_source.clone(),
             Some(state_commitment),
+            true,
         );
 
         #[cfg(feature = "simulate_witness_gen")]
@@ -256,6 +258,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
                 self.preimage_source.clone(),
                 tx_source.clone(),
                 Some(state_commitment),
+                false,
             )
         };
 
@@ -394,6 +397,78 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
                 }
             }
         }
+    }
+
+    pub fn run_eth_block(
+        &mut self,
+        transactions: Vec<Vec<u8>>,
+        witness: alloy_rpc_types_debug::ExecutionWitness,
+        block_context: Option<BlockContext>,
+    ) -> BatchOutput {
+        use crypto::MiniDigest;
+
+        let mut headers = alloy::rlp::Rlp::new(&witness.headers[0]).unwrap();
+        let _ = headers.get_next::<[u8; 32]>().unwrap();
+        let _ = headers.get_next::<[u8; 32]>().unwrap();
+        let coinbase = headers.get_next::<[u8; 20]>().unwrap().unwrap();
+        let initial_root = headers.get_next::<[u8; 32]>().unwrap().unwrap();
+
+        let mut preimage_source = InMemoryPreimageSource::default();
+
+        // make an oracle
+        for el in witness.state.iter() {
+            let hash = crypto::sha3::Keccak256::digest(el);
+            preimage_source
+                .inner
+                .insert(Bytes32::from_array(hash), el.to_vec());
+        }
+
+        for el in witness.codes.iter() {
+            let hash = crypto::sha3::Keccak256::digest(el);
+            preimage_source
+                .inner
+                .insert(Bytes32::from_array(hash), el.to_vec());
+        }
+
+        let block_context = block_context.unwrap_or_default();
+        let block_metadata = BlockMetadataFromOracle {
+            chain_id: self.chain_id,
+            block_number: self.block_number + 1,
+            block_hashes: BlockHashes(self.block_hashes),
+            timestamp: block_context.timestamp,
+            eip1559_basefee: block_context.eip1559_basefee,
+            gas_per_pubdata: block_context.gas_per_pubdata,
+            native_price: block_context.native_price,
+            coinbase: block_context.coinbase,
+            gas_limit: block_context.gas_limit,
+            mix_hash: block_context.mix_hash,
+        };
+        let tx_source = TxListSource {
+            transactions: transactions.into(),
+        };
+
+        let block_metadata_reponsder = BlockMetadataResponder { block_metadata };
+        let tx_data_responder = TxDataResponder {
+            tx_source,
+            next_tx: None,
+        };
+        let preimage_responder = GenericPreimageResponder { preimage_source };
+
+        let mut oracle = ZkEENonDeterminismSource::default();
+        oracle.add_external_processor(block_metadata_reponsder);
+        oracle.add_external_processor(tx_data_responder);
+        oracle.add_external_processor(preimage_responder);
+        // oracle.add_external_processor(io_implementer_init_responder);
+        oracle.add_external_processor(UARTPrintReponsder);
+
+        use forward_system::run::result_keeper::ForwardRunningResultKeeper;
+        use forward_system::system::system::EthereumStorageSystemTypes;
+        use oracle_provider::DummyMemorySource;
+
+        let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
+        BasicBootloader::<EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>>::run_for_state_root_only::<BasicBootloaderForwardSimulationConfig, false>(oracle, &mut result_keeper).expect("must succeed");
+
+        result_keeper.into()
     }
 
     ///

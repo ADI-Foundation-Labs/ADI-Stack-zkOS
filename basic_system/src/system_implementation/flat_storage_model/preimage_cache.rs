@@ -91,10 +91,12 @@ impl<R: Resources, A: Allocator + Clone> BytecodeAndAccountDataPreimagesStorage<
             let it = oracle
                 .raw_query(GENERIC_PREIMAGE_QUERY_ID, hash)
                 .expect("must make an iterator for preimage");
-            // IMPORTANT: oracle should be somewhat "sane", it also limits the number of cycles spent below
+            // IMPORTANT: oracle should be somewhat "sane", it also limits the number of cycles spent below.
+            // We also allow some slack here to account for 64/32 bit archs
             assert!(
                 it.len()
-                    <= expected_preimage_len_in_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE
+                    <= (expected_preimage_len_in_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE).next_multiple_of(2),
+                "iterator length is {} words for usize = {} bytes and expected preimage length of {} bytes", it.len(), USIZE_SIZE, expected_preimage_len_in_bytes
             );
             let mut buffered =
                 UsizeAlignedByteBox::from_usize_iterator_in(it, self.allocator.clone());

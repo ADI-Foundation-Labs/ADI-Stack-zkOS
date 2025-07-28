@@ -117,3 +117,23 @@ fn main() -> anyhow::Result<()> {
         Command::ShowStatus { db } => live_run::show_status(db),
     }
 }
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn invoke_single_block() {
+        crate::single_run::single_run("blocks/19299001".to_string(), None, false, None, Some(1))
+            .expect("must succeed");
+    }
+
+    #[test]
+    fn invoke_single_eth_block() {
+        crate::single_run::single_eth_run(
+            "blocks/19299001".to_string(),
+            None,
+            "blocks/19299001/witness.json".to_string(),
+            Some(1),
+        )
+        .expect("must succeed");
+    }
+}

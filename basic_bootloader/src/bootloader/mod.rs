@@ -178,6 +178,20 @@ pub struct AccumulatingBlake2sHash {
     hasher: crypto::blake2s::Blake2s256,
 }
 
+impl TxHashesCollector for () {
+    fn add_tx_hash(&mut self, _tx_hash: &Bytes32) {}
+    fn finish(self) -> Bytes32 {
+        Bytes32::ZERO
+    }
+}
+
+impl EnforcedTxCollector for () {
+    fn add_enforced_tx_hash(&mut self, _tx_hash: &Bytes32) {}
+    fn finish(self) -> Bytes32 {
+        Bytes32::ZERO
+    }
+}
+
 impl TxHashesCollector for RollingKeccakHash {
     fn add_tx_hash(&mut self, tx_hash: &Bytes32) {
         if self.inner.is_zero() {
@@ -247,7 +261,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
     /// Runs the transactions that it loads from the oracle.
     /// This code runs both in sequencer (then it uses ForwardOracle - that stores data in local variables)
     /// and in prover (where oracle uses CRS registers to communicate).
-    pub fn run_prepared_ext<Config: BasicBootloaderExecutionConfig>(
+    pub fn run_prepared_tx_loop<Config: BasicBootloaderExecutionConfig>(
         oracle: <S::IO as IOSubsystemExt>::IOOracle,
         result_keeper: &mut impl ResultKeeperExt,
         tx_hashes_collector: &mut impl TxHashesCollector,
@@ -467,7 +481,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
 
         let mut block_gas_used = 0u64;
 
-        let system = Self::run_prepared_ext::<Config>(
+        let system = Self::run_prepared_tx_loop::<Config>(
             oracle,
             result_keeper,
             &mut tx_hashes_collector,
@@ -516,14 +530,8 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             .as_str(),
         );
 
-        let _ = system
-            .get_logger()
-            .write_fmt(format_args!("Bootloader completed\n"));
-
         let mut logger = system.get_logger();
-        let _ = logger.write_fmt(format_args!(
-            "Bootloader execution is complete, will proceed with applying changes\n"
-        ));
+        let _ = logger.write_fmt(format_args!("Basic header information was created\n"));
 
         let finisher = DefaultHeaderStructurePostWork::<PROOF_ENV> {
             current_block_hash: block_hash,
@@ -537,5 +545,69 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
 
         #[allow(clippy::let_and_return)]
         Ok(result)
+    }
+
+    pub fn run_for_state_root_only<Config: BasicBootloaderExecutionConfig, const PROOF_ENV: bool>(
+        oracle: <S::IO as IOSubsystemExt>::IOOracle,
+        result_keeper: &mut impl ResultKeeperExt,
+    ) -> Result<<S::IO as TypedFinishIO>::IOStateCommittment, BootloaderSubsystemError>
+    where
+        S::IO: IOSubsystemExt + TypedFinishIO,
+    {
+        cycle_marker::start!("run_for_state_root_only");
+
+        // Mini-STF that only produces final state root
+
+        let mut tx_hashes_collector = ();
+
+        let mut upgrade_tx_monitor = UpgradeTx {
+            inner: Bytes32::ZERO,
+        };
+
+        let mut l1_to_l2_tx_hasher = ();
+
+        let mut block_gas_used = 0u64;
+
+        let system = Self::run_prepared_tx_loop::<Config>(
+            oracle,
+            result_keeper,
+            &mut tx_hashes_collector,
+            &mut upgrade_tx_monitor,
+            &mut l1_to_l2_tx_hasher,
+            &mut block_gas_used,
+        )?;
+
+        let _ = TxHashesCollector::finish(tx_hashes_collector);
+        let _ = EnforcedTxCollector::finish(l1_to_l2_tx_hasher);
+        let _ = upgrade_tx_monitor.finish();
+
+        let mut logger = system.get_logger();
+
+        let System { mut io, .. } = system;
+
+        let initial_state_commitment = {
+            use zk_ee::system_io_oracle::IOOracle;
+            use zk_ee::system_io_oracle::INITIAL_STATE_COMMITTMENT_QUERY_ID;
+
+            io.oracle()
+                .query_with_empty_input::<<S::IO as TypedFinishIO>::IOStateCommittment>(
+                    INITIAL_STATE_COMMITTMENT_QUERY_ID,
+                )
+                .unwrap()
+        };
+
+        let mut state_commitment = initial_state_commitment.clone();
+
+        let _ = io.finish(
+            Some(&mut state_commitment),
+            &mut NopHasher,
+            &mut NopHasher,
+            result_keeper,
+            &mut logger,
+        );
+
+        cycle_marker::end!("run_for_state_root_only");
+
+        Ok(state_commitment)
     }
 }

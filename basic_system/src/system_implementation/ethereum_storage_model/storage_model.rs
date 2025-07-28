@@ -20,9 +20,7 @@ use zk_ee::system::DeconstructionSubsystemError;
 use zk_ee::system::NonceSubsystemError;
 use zk_ee::system::Resources;
 use zk_ee::{
-    common_structs::{
-        history_map::CacheSnapshotId, WarmStorageKey,
-    },
+    common_structs::{history_map::CacheSnapshotId, WarmStorageKey},
     execution_environment_type::ExecutionEnvironmentType,
     memory::stack_trait::StackCtor,
     system::{
