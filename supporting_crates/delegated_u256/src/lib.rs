@@ -11,8 +11,6 @@ mod utils;
 #[repr(align(32))]
 pub struct DelegatedU256([u64; 4]);
 
-use core::panic::PanicInfo;
-
 pub use arithmetic::*;
 pub use copy::*;
 pub use delegation::*;

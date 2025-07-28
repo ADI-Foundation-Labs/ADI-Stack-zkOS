@@ -159,12 +159,6 @@ impl DelegatedU256 {
         }
     }
 
-    #[inline(never)]
-    pub unsafe fn overflowing_add_assign_unchecked(&mut self, rhs: &Self) -> bool {
-        let carry = bigint_op_delegation::<ADD_OP_BIT_IDX>(self as *mut Self, rhs as *const Self);
-        carry != 0
-    }
-
     #[inline(always)]
     pub fn overflowing_add_assign_with_carry(&mut self, rhs: &Self, carry: bool) -> bool {
         unsafe {
@@ -192,13 +186,6 @@ impl DelegatedU256 {
     }
 
     #[inline(always)]
-    pub unsafe fn overflowing_sub_assign_unchecked(&mut self, rhs: &Self) -> bool {
-        let borrow = bigint_op_delegation::<SUB_OP_BIT_IDX>(self as *mut Self, rhs as *const Self);
-
-        borrow != 0
-    }
-
-    #[inline(always)]
     pub fn overflowing_sub_assign_with_borrow(&mut self, rhs: &Self, borrow: bool) -> bool {
         unsafe {
             with_ram_operand(rhs as *const Self, |rhs_ptr| {
@@ -223,16 +210,6 @@ impl DelegatedU256 {
                 borrow != 0
             })
         }
-    }
-
-    #[inline(always)]
-    pub unsafe fn overflowing_sub_and_negate_assign_unchecked(&mut self, rhs: &Self) -> bool {
-        let borrow = bigint_op_delegation::<SUB_AND_NEGATE_OP_BIT_IDX>(
-            self as *mut Self,
-            rhs as *const Self,
-        );
-
-        borrow != 0
     }
 
     #[inline(always)]

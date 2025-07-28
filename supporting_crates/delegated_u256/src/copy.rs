@@ -41,8 +41,8 @@ impl Clone for DelegatedU256 {
 }
 
 impl DelegatedU256 {
-    // # Safety
-    // It's the responsibility of the caller to make sure `self` is not in ROM
+    /// # Safety
+    /// It's the responsibility of the caller to make sure `self` is not in ROM
     #[inline(always)]
     pub unsafe fn clone_unchecked(&self) -> Self {
         #[allow(invalid_value)]
