@@ -12,12 +12,7 @@ impl MiniDigest for Keccak256 {
 
     #[inline(always)]
     fn digest(input: impl AsRef<[u8]>) -> Self::HashOutput {
-        let mut hasher = <Keccak256 as sha3::Digest>::new();
-        <Keccak256 as sha3::Digest>::update(&mut hasher, input);
-        let digest = <Keccak256 as sha3::Digest>::finalize(hasher);
-        let mut result = [0u8; 32];
-        result.copy_from_slice(digest.as_slice());
-        result
+        <Keccak256 as sha3::Digest>::digest(input).into()
     }
 
     #[inline(always)]
