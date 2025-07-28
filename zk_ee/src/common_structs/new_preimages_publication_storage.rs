@@ -1,5 +1,3 @@
-use crate::system::errors::InternalError;
-use crate::utils::Bytes32;
 use alloc::alloc::Global;
 use core::alloc::Allocator;
 
@@ -7,6 +5,7 @@ use super::{
     cache_record::{Appearance, CacheRecord},
     history_map::{CacheSnapshotId, HistoryMap, HistoryMapItemRef},
 };
+use crate::{system::errors::InternalError, utils::Bytes32};
 
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

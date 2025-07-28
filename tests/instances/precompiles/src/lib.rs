@@ -1,14 +1,14 @@
 #![cfg(test)]
 #![feature(assert_matches)]
 
+use std::assert_matches::assert_matches;
+
 use bytes::Bytes;
-use rig::forward_system::run::BatchOutput;
-use rig::forward_system::run::ExecutionResult::Revert;
 use rig::{
     ethers::{abi::Address, signers::Signer, types::TransactionRequest},
+    forward_system::run::{BatchOutput, ExecutionResult::Revert},
     ruint::aliases::{B160, U256},
 };
-use std::assert_matches::assert_matches;
 
 fn run_precompile(
     precompile_id: &str,

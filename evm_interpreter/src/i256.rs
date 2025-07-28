@@ -1,6 +1,7 @@
 // Based on https://github.com/bluealloy/revm/blob/main/crates/interpreter/src/instructions/i256.rs
 
 use core::cmp::Ordering;
+
 use ruint::aliases::U256;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]

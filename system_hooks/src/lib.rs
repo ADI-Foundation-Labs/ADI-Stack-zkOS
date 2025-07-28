@@ -28,15 +28,17 @@
 //!
 extern crate alloc;
 
-use crate::addresses_constants::*;
-use crate::contract_deployer::contract_deployer_hook;
-use crate::l1_messenger::l1_messenger_hook;
-use crate::l2_base_token::l2_base_token_hook;
 use alloc::collections::BTreeMap;
 use core::alloc::Allocator;
+
 use errors::FatalError;
 use precompiles::{pure_system_function_hook_impl, IdentityPrecompile};
 use zk_ee::system::{errors::InternalError, EthereumLikeTypes, System, SystemTypes, *};
+
+use crate::{
+    addresses_constants::*, contract_deployer::contract_deployer_hook,
+    l1_messenger::l1_messenger_hook, l2_base_token::l2_base_token_hook,
+};
 
 pub mod addresses_constants;
 #[cfg(feature = "mock-unsupported-precompiles")]

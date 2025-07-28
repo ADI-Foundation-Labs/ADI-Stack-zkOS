@@ -1,12 +1,12 @@
-use core::ops::Deref;
-use core::ops::DerefMut;
+use core::ops::{Deref, DerefMut};
+
+use ruint::aliases::B160;
+use zk_ee::{
+    kv_markers::ExactSizeChain,
+    system::{Ergs, EthereumLikeTypes, Resources, System},
+};
 
 use crate::*;
-use ruint::aliases::B160;
-use zk_ee::kv_markers::ExactSizeChain;
-use zk_ee::system::Ergs;
-use zk_ee::system::Resources;
-use zk_ee::system::{EthereumLikeTypes, System};
 
 #[inline(always)]
 unsafe fn assume(cond: bool) {

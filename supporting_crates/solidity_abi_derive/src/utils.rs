@@ -1,7 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::punctuated::Punctuated;
-use syn::{GenericParam, Generics, Ident, LifetimeParam};
+use syn::{punctuated::Punctuated, GenericParam, Generics, Ident, LifetimeParam};
 
 pub(crate) fn format_type_params_from_generics(
     generics: &Generics,

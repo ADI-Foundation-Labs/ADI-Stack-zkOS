@@ -1,8 +1,10 @@
-use super::*;
+use zk_ee::system::{
+    errors::{InternalError, SystemFunctionError},
+    SystemFunction,
+};
 
+use super::*;
 use crate::cost_constants::P256_VERIFY_COST_ERGS;
-use zk_ee::system::errors::SystemFunctionError;
-use zk_ee::system::{errors::InternalError, SystemFunction};
 
 // TODO(EVM-1072): think about error cases, as others follow evm specs
 /// p256 verify system function implementation.
@@ -74,11 +76,11 @@ pub fn secp256r1_verify_inner(
     x: &[u8; 32],
     y: &[u8; 32],
 ) -> Result<bool, ()> {
-    use crypto::p256::ecdsa::signature::hazmat::PrehashVerifier;
-    use crypto::p256::ecdsa::{Signature, VerifyingKey};
-    use crypto::p256::elliptic_curve::generic_array::GenericArray;
-    use crypto::p256::elliptic_curve::sec1::FromEncodedPoint;
-    use crypto::p256::{AffinePoint, EncodedPoint};
+    use crypto::p256::{
+        ecdsa::{signature::hazmat::PrehashVerifier, Signature, VerifyingKey},
+        elliptic_curve::{generic_array::GenericArray, sec1::FromEncodedPoint},
+        AffinePoint, EncodedPoint,
+    };
 
     // we expect pre-validation, so this check always works
     let signature = Signature::from_scalars(*r, *s).map_err(|_| ())?;

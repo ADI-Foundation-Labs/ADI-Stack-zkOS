@@ -1,10 +1,11 @@
 // Quasi-vector implementation that uses a chain of fixed-size allocated chunks
 
-use crate::memory_aux::PAGE_SIZE;
-
 use alloc::collections::LinkedList;
-use arrayvec::ArrayVec;
 use core::{alloc::Allocator, ptr::NonNull};
+
+use arrayvec::ArrayVec;
+
+use crate::memory_aux::PAGE_SIZE;
 
 // Invariants:
 // - last element in list is never an empty array

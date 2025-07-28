@@ -1,15 +1,15 @@
-#[cfg(not(any(all(target_arch = "riscv32", feature = "bigint_ops"), test)))]
-use crate::ark_ff::MontFp;
-#[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
-use crate::ark_ff_delegation::MontFp;
-use ark_ec::AffineRepr;
 use ark_ec::{
     models::{short_weierstrass::SWCurveConfig, CurveConfig},
     scalar_mul::glv::GLVConfig,
     short_weierstrass::{Affine, Projective},
+    AffineRepr,
 };
 use ark_ff::{AdditiveGroup, BigInt, Field, PrimeField, Zero};
 
+#[cfg(not(any(all(target_arch = "riscv32", feature = "bigint_ops"), test)))]
+use crate::ark_ff::MontFp;
+#[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
+use crate::ark_ff_delegation::MontFp;
 use crate::bn254::fields::{Fq, Fq2, Fr};
 pub type G2Affine = Affine<Config>;
 

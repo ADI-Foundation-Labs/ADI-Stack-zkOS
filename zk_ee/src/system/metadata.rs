@@ -1,5 +1,4 @@
-use crate::utils::Bytes32;
-
+use ruint::aliases::{B160, U256};
 #[cfg(feature = "testing")]
 use serde;
 
@@ -8,7 +7,7 @@ use super::{
     kv_markers::{ExactSizeChain, UsizeDeserializable, UsizeSerializable},
     types_config::SystemIOTypesConfig,
 };
-use ruint::aliases::{B160, U256};
+use crate::utils::Bytes32;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Metadata<IOTypes: SystemIOTypesConfig> {

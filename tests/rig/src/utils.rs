@@ -2,28 +2,27 @@
 //! This module contains bunch of standalone utility methods, useful for testing.
 //!
 
-use alloy::consensus::SignableTransaction;
-use alloy::network::TxSignerSync;
+use std::{io::Read, ops::Add, path::PathBuf, str::FromStr};
+
 #[allow(deprecated)]
 use alloy::primitives::Signature;
-use alloy::rpc::types::TransactionRequest;
-use alloy::signers::local::PrivateKeySigner;
+use alloy::{
+    consensus::SignableTransaction, network::TxSignerSync, rpc::types::TransactionRequest,
+    signers::local::PrivateKeySigner,
+};
 use basic_system::system_implementation::flat_storage_model::DEFAULT_CODE_VERSION_BYTE;
-use ethers::abi::{AbiEncode, Token, Uint};
-use ethers::types::transaction::eip2718::TypedTransaction;
-use ethers::types::U256;
-use std::io::Read;
-use std::ops::Add;
-use std::path::PathBuf;
-use std::str::FromStr;
-use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::utils::Bytes32;
-use zksync_web3_rs::eip712::{Eip712Transaction, Eip712TransactionRequest};
-use zksync_web3_rs::signers::Signer;
-use zksync_web3_rs::zks_utils::EIP712_TX_TYPE;
-
 pub use basic_system::system_implementation::flat_storage_model::{
     address_into_special_storage_key, AccountProperties, ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
+};
+use ethers::{
+    abi::{AbiEncode, Token, Uint},
+    types::{transaction::eip2718::TypedTransaction, U256},
+};
+use zk_ee::{execution_environment_type::ExecutionEnvironmentType, utils::Bytes32};
+use zksync_web3_rs::{
+    eip712::{Eip712Transaction, Eip712TransactionRequest},
+    signers::Signer,
+    zks_utils::EIP712_TX_TYPE,
 };
 
 ///
@@ -423,9 +422,7 @@ fn encode_tx(
 }
 
 pub fn evm_bytecode_into_account_properties(bytecode: &[u8]) -> AccountProperties {
-    use crypto::blake2s::Blake2s256;
-    use crypto::sha3::Keccak256;
-    use crypto::MiniDigest;
+    use crypto::{blake2s::Blake2s256, sha3::Keccak256, MiniDigest};
 
     let observable_bytecode_hash = Bytes32::from_array(Keccak256::digest(bytecode));
     let bytecode_hash = Bytes32::from_array(Blake2s256::digest(bytecode));
@@ -449,10 +446,11 @@ pub fn evm_bytecode_into_account_properties(bytecode: &[u8]) -> AccountPropertie
 #[cfg(test)]
 mod tests {
 
-    use super::encode_access_list;
     use basic_bootloader::bootloader::constants::TX_OFFSET;
     use ruint::aliases::B160;
     use zk_ee::utils::Bytes32;
+
+    use super::encode_access_list;
     #[test]
     fn test_encode_access_list() {
         use basic_bootloader::bootloader::transaction::access_list_parser::AccessListParser;

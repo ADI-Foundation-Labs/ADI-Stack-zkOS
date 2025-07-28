@@ -1,6 +1,7 @@
+use ruint::aliases::U256;
+
 use super::*;
 use crate::impls::u256_to_usize_checked;
-use ruint::aliases::U256;
 
 #[derive(Clone, Copy)]
 pub struct SolidityString<'a>(pub &'a str);
@@ -126,9 +127,10 @@ impl<'a> SolidityCodableReflectionRefWritable<'a> for SolidityStringRefMut<'a> {
 
 #[cfg(test)]
 mod tests {
+    use core::str;
+
     use super::SolidityString;
     use crate::impls::SelectorCodable;
-    use core::str;
 
     #[test]
     fn solidity_string_selector_codeable() {

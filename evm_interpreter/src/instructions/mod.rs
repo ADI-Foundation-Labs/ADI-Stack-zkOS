@@ -1,8 +1,7 @@
 use ruint::aliases::*;
 use zk_ee::utils::*;
 
-use crate::i256::*;
-use crate::*;
+use crate::{i256::*, *};
 
 pub mod arithmetic;
 pub mod bitwise;

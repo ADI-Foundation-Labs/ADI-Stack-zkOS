@@ -1,6 +1,7 @@
-use super::*;
 use crypto::MiniDigest;
 use ruint::algorithms::{add_nx1, inv_mod};
+
+use super::*;
 
 pub const MILLER_RABIN_BASES: [u32; 3] = [2, 7, 61];
 

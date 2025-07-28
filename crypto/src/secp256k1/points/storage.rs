@@ -1,6 +1,5 @@
-use crate::secp256k1::field::FieldStorage;
-
 use super::Affine;
+use crate::secp256k1::field::FieldStorage;
 
 #[derive(Debug, Clone, Copy)]
 

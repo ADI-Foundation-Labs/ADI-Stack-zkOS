@@ -23,11 +23,10 @@ pub mod secp256k1;
 pub mod sha256;
 pub mod sha3;
 
-pub use blake2 as blake2_ext;
-
 pub use ark_ec;
 pub use ark_ff;
 pub use ark_serialize;
+pub use blake2 as blake2_ext;
 
 pub fn init_lib() {
     #[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]

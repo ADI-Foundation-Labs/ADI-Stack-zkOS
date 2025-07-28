@@ -1,6 +1,7 @@
+use core::{fmt::Debug, marker::PhantomData, mem::MaybeUninit};
+
 use super::{delegation, DelegatedBarretParams, DelegatedModParams, DelegatedMontParams};
 use crate::ark_ff_delegation::{BigInt, BigInteger};
-use core::{fmt::Debug, marker::PhantomData, mem::MaybeUninit};
 
 pub(super) type U256 = BigInt<4>;
 
@@ -404,11 +405,11 @@ impl<T: DelegatedModParams<4> + Debug> proptest::arbitrary::Arbitrary for U256Wr
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::ark_ff_delegation::BigInt;
-
     use ark_ff::{BigInt as BigIntRef, BigInteger};
     use proptest::{prop_assert_eq, proptest};
+
+    use super::*;
+    use crate::ark_ff_delegation::BigInt;
 
     #[derive(Default, Debug)]
     struct ZeroMod;

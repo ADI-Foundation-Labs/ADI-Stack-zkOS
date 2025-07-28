@@ -2,21 +2,22 @@
 //! There are two kinds of such logs:
 //! - user messages (sent via l1 messenger system hook).
 //! - l1 -> l2 txs logs, to prove execution result on l1.
+use alloc::alloc::Global;
+use core::alloc::Allocator;
+
+use crypto::{sha3::Keccak256, MiniDigest};
+use ruint::aliases::{B160, U256};
+
 use super::history_list::HistoryList;
-use crate::system::errors::InternalError;
-use crate::system::IOResultKeeper;
 use crate::{
     memory::stack_trait::{StackCtor, StackCtorConst},
-    system::errors::SystemError,
+    system::{
+        errors::{InternalError, SystemError},
+        IOResultKeeper,
+    },
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::{Bytes32, UsizeAlignedByteBox},
 };
-use alloc::alloc::Global;
-use core::alloc::Allocator;
-use crypto::sha3::Keccak256;
-use crypto::MiniDigest;
-use ruint::aliases::B160;
-use ruint::aliases::U256;
 
 pub const L2_TO_L1_LOG_SERIALIZE_SIZE: usize = 88;
 

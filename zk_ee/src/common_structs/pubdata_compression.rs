@@ -1,11 +1,10 @@
 //!
 //! This module contains utils for pubdata compression that can be reused by different systems/storage models.
 //!
-use crate::system::IOResultKeeper;
-use crate::types_config::SystemIOTypesConfig;
-use crate::utils::*;
 use crypto::MiniDigest;
 use ruint::aliases::U256;
+
+use crate::{system::IOResultKeeper, types_config::SystemIOTypesConfig, utils::*};
 
 ///
 /// value diff "Era VM" compression, can be used for contracts storage values and account data fields(nonce and balance).
@@ -188,11 +187,10 @@ impl ValueDiffCompressionStrategy {
 
 #[cfg(test)]
 mod tests {
-    use super::ValueDiffCompressionStrategy;
-    use crate::system::IOResultKeeper;
-    use crate::types_config::EthereumIOTypesConfig;
-    use crate::utils::*;
     use crypto::MiniDigest;
+
+    use super::ValueDiffCompressionStrategy;
+    use crate::{system::IOResultKeeper, types_config::EthereumIOTypesConfig, utils::*};
 
     struct TestResultKeeper {
         pub pubdata: Vec<u8>,

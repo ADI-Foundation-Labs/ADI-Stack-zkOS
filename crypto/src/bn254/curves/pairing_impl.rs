@@ -1,16 +1,14 @@
+use ark_ec::{
+    bn::g2::EllCoeff,
+    pairing::{Pairing, PairingOutput},
+    short_weierstrass::SWCurveConfig,
+    AdditiveGroup, AffineRepr, CurveGroup,
+};
+use ark_ff::{CyclotomicMultSubgroup, Field, One};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+
 use super::*;
 use crate::bn254::Fq12;
-use ark_ec::bn::g2::EllCoeff;
-use ark_ec::pairing::Pairing;
-use ark_ec::pairing::PairingOutput;
-use ark_ec::short_weierstrass::SWCurveConfig;
-use ark_ec::AdditiveGroup;
-use ark_ec::AffineRepr;
-use ark_ec::CurveGroup;
-use ark_ff::One;
-use ark_ff::{CyclotomicMultSubgroup, Field};
-use ark_serialize::CanonicalDeserialize;
-use ark_serialize::CanonicalSerialize;
 
 impl Bn254 {
     /// Evaluates the line function at point p.

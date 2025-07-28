@@ -1,7 +1,8 @@
 use core::ops::{AddAssign, MulAssign};
 
-use crate::k256::FieldBytes;
 use cfg_if::cfg_if;
+
+use crate::k256::FieldBytes;
 
 mod invert;
 
@@ -198,8 +199,9 @@ impl core::ops::Sub for Scalar {
 
 #[cfg(test)]
 mod tests {
-    use super::Scalar;
     use proptest::{prop_assert, prop_assert_eq, proptest};
+
+    use super::Scalar;
 
     fn init() {
         #[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]

@@ -10,11 +10,14 @@ pub fn init() {
 }
 
 pub type Fq = Fp256<MontBackend<FqConfig, 4>>;
-use crate::ark_ff_delegation::{BigInt, BigIntMacro, Fp, Fp256, MontBackend, MontConfig};
-use crate::bigint_delegation::{u256, DelegatedModParams, DelegatedMontParams};
-use ark_ff::ark_ff_macros::unroll_for_loops;
-use ark_ff::{AdditiveGroup, Zero};
 use core::mem::MaybeUninit;
+
+use ark_ff::{ark_ff_macros::unroll_for_loops, AdditiveGroup, Zero};
+
+use crate::{
+    ark_ff_delegation::{BigInt, BigIntMacro, Fp, Fp256, MontBackend, MontConfig},
+    bigint_delegation::{u256, DelegatedModParams, DelegatedMontParams},
+};
 
 type B = BigInt<4>;
 type F = Fp<MontBackend<FqConfig, 4usize>, 4usize>;
@@ -167,8 +170,7 @@ fn __gcd_inverse(a: &F) -> Option<F> {
     // Cryptography
     // Algorithm 16 (BEA for Inversion in Fp)
 
-    use ark_ff::BigInteger;
-    use ark_ff::PrimeField;
+    use ark_ff::{BigInteger, PrimeField};
 
     let mut u = a.0;
     let mut v = F::MODULUS;
@@ -224,8 +226,9 @@ fn __gcd_inverse(a: &F) -> Option<F> {
 
 #[cfg(test)]
 mod test {
-    use super::Fq;
     use ark_ff::{Field, One, UniformRand, Zero};
+
+    use super::Fq;
 
     fn init() {
         super::init();
@@ -325,10 +328,11 @@ mod test {
     // very small
 
     pub const ITERATIONS: usize = 100;
-    use crate::bn254::curves::Bn254;
     use ark_ec::{pairing::*, CurveGroup, PrimeGroup};
     use ark_ff::{CyclotomicMultSubgroup, PrimeField};
     use ark_std::test_rng;
+
+    use crate::bn254::curves::Bn254;
 
     #[ignore = "requires single threaded runner"]
     #[test]

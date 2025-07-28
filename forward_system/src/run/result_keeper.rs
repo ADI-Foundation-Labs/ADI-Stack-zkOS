@@ -1,16 +1,22 @@
-use crate::run::TxResultCallback;
-use basic_bootloader::bootloader::block_header::BlockHeader;
-use basic_bootloader::bootloader::result_keeper::{ResultKeeperExt, TxProcessingOutput};
-use ruint::aliases::B160;
 use std::alloc::Global;
-use zk_ee::common_structs::{
-    GenericEventContent, GenericEventContentWithTxRef, GenericLogContent,
-    GenericLogContentWithTxRef, PreimageType,
+
+use basic_bootloader::bootloader::{
+    block_header::BlockHeader,
+    result_keeper::{ResultKeeperExt, TxProcessingOutput},
 };
-use zk_ee::kv_markers::MAX_EVENT_TOPICS;
-use zk_ee::system::IOResultKeeper;
-use zk_ee::types_config::EthereumIOTypesConfig;
-use zk_ee::utils::{Bytes32, UsizeAlignedByteBox};
+use ruint::aliases::B160;
+use zk_ee::{
+    common_structs::{
+        GenericEventContent, GenericEventContentWithTxRef, GenericLogContent,
+        GenericLogContentWithTxRef, PreimageType,
+    },
+    kv_markers::MAX_EVENT_TOPICS,
+    system::IOResultKeeper,
+    types_config::EthereumIOTypesConfig,
+    utils::{Bytes32, UsizeAlignedByteBox},
+};
+
+use crate::run::TxResultCallback;
 
 #[derive(Debug, Clone)]
 pub struct TxProcessingOutputOwned {

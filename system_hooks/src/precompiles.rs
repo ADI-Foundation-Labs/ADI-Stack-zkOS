@@ -12,13 +12,15 @@
 //! - ecmul
 //! - ecpairing
 //!
-use super::*;
 use core::fmt::Write;
+
 use evm_interpreter::ERGS_PER_GAS;
 use zk_ee::system::{
     errors::{SystemError, SystemFunctionError},
     CallModifier, Resources, System,
 };
+
+use super::*;
 
 struct QuasiVec<'a, S: SystemTypes> {
     buffer: OSResizableSlice<S>,

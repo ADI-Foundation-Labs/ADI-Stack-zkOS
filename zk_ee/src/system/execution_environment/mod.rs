@@ -10,20 +10,16 @@ pub mod interaction_params;
 use alloc::boxed::Box;
 use core::any::Any;
 
-pub use self::call_params::*;
-pub use self::environment_state::*;
-pub use self::interaction_params::*;
-
-use super::errors::FatalError;
-use super::errors::InternalError;
-use super::system::System;
-use super::system::SystemTypes;
-use super::IOSubsystemExt;
-use super::MemorySubsystem;
-use crate::system::CallModifier;
-use crate::system::Ergs;
-use crate::system::OSManagedRegion;
-use crate::types_config::*;
+pub use self::{call_params::*, environment_state::*, interaction_params::*};
+use super::{
+    errors::{FatalError, InternalError},
+    system::{System, SystemTypes},
+    IOSubsystemExt, MemorySubsystem,
+};
+use crate::{
+    system::{CallModifier, Ergs, OSManagedRegion},
+    types_config::*,
+};
 
 #[allow(type_alias_bounds)]
 pub type OSResizableSlice<S: SystemTypes> = <S::Memory as MemorySubsystem>::ManagedRegion;

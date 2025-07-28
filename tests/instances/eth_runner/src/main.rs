@@ -1,11 +1,14 @@
 #![feature(slice_as_array)]
 
+use std::{
+    fs::{self, File},
+    io::BufReader,
+};
+
 use clap::Parser;
 use post_check::post_check;
 use prestate::{populate_prestate, DiffTrace, PrestateTrace};
 use rig::*;
-use std::fs::{self, File};
-use std::io::BufReader;
 
 mod block;
 mod post_check;

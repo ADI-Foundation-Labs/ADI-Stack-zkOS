@@ -1,9 +1,10 @@
 #![cfg(test)]
+use std::path::PathBuf;
+
 use rig::{
     ethers::{abi::Address, signers::Signer, types::TransactionRequest},
     ruint::aliases::{B160, U256},
 };
-use std::path::PathBuf;
 
 // WASM disabled for now
 // #[test]

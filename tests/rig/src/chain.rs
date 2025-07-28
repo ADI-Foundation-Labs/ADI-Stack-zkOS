@@ -1,34 +1,35 @@
-use crate::utils::evm_bytecode_into_account_properties;
-use crate::{colors, init_logger};
+use std::{collections::HashMap, fs::File, io::Write, path::PathBuf};
+
 use alloy::signers::local::PrivateKeySigner;
-use basic_bootloader::bootloader::config::BasicBootloaderForwardSimulationConfig;
-use basic_bootloader::bootloader::constants::MAX_BLOCK_GAS_LIMIT;
-use basic_system::system_implementation::flat_storage_model::FlatStorageCommitment;
+use basic_bootloader::bootloader::{
+    config::BasicBootloaderForwardSimulationConfig, constants::MAX_BLOCK_GAS_LIMIT,
+};
 use basic_system::system_implementation::flat_storage_model::{
-    address_into_special_storage_key, AccountProperties, ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
-    TREE_HEIGHT,
+    address_into_special_storage_key, AccountProperties, FlatStorageCommitment,
+    ACCOUNT_PROPERTIES_STORAGE_ADDRESS, TREE_HEIGHT,
 };
 use ethers::signers::LocalWallet;
-use forward_system::run::result_keeper::ForwardRunningResultKeeper;
-use forward_system::run::test_impl::{
-    InMemoryPreimageSource, InMemoryTree, NoopTxCallback, TxListSource,
+use forward_system::{
+    run::{
+        io_implementer_init_data,
+        result_keeper::ForwardRunningResultKeeper,
+        test_impl::{InMemoryPreimageSource, InMemoryTree, NoopTxCallback, TxListSource},
+        BatchOutput, ForwardRunningOracle, ForwardRunningOracleAux,
+    },
+    system::bootloader::run_forward,
 };
-use forward_system::run::{
-    io_implementer_init_data, BatchOutput, ForwardRunningOracle, ForwardRunningOracleAux,
-};
-use forward_system::system::bootloader::run_forward;
 use log::info;
 use oracle_provider::{BasicZkEEOracleWrapper, ReadWitnessSource, ZkEENonDeterminismSource};
 use risc_v_simulator::sim::{DiagnosticsConfig, ProfilerConfig};
 use ruint::aliases::{B160, B256, U256};
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::Write;
-use std::path::PathBuf;
-use zk_ee::common_structs::derive_flat_storage_key;
-use zk_ee::system::metadata::{BlockHashes, BlockMetadataFromOracle, InteropRoots};
-use zk_ee::types_config::EthereumIOTypesConfig;
-use zk_ee::utils::Bytes32;
+use zk_ee::{
+    common_structs::derive_flat_storage_key,
+    system::metadata::{BlockHashes, BlockMetadataFromOracle, InteropRoots},
+    types_config::EthereumIOTypesConfig,
+    utils::Bytes32,
+};
+
+use crate::{colors, init_logger, utils::evm_bytecode_into_account_properties};
 
 ///
 /// In memory chain state, mainly to be used in tests.
@@ -434,9 +435,9 @@ pub fn is_account_properties_address(address: &B160) -> bool {
 
 #[cfg(feature = "e2e_proving")]
 fn run_prover(csr_reads: &[u32]) {
+    use std::{alloc::Global, io::Read};
+
     use risc_v_simulator::abstractions::non_determinism::QuasiUARTSource;
-    use std::alloc::Global;
-    use std::io::Read;
 
     let mut file = File::open(get_zksync_os_img_path()).expect("must open provided file");
     let mut buffer = vec![];
@@ -446,8 +447,7 @@ fn run_prover(csr_reads: &[u32]) {
         binary.push(u32::from_le_bytes(*el));
     }
 
-    use prover_examples::prover::worker::Worker;
-    use prover_examples::setups;
+    use prover_examples::{prover::worker::Worker, setups};
 
     setups::pad_bytecode_for_proving(&mut binary);
 

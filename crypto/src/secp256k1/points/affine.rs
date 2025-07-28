@@ -1,8 +1,8 @@
-use crate::k256::{elliptic_curve::subtle::Choice, CompressedPoint, EncodedPoint, FieldBytes};
-
-use crate::secp256k1::field::{FieldElement, FieldElementConst};
-
 use super::{jacobian::JacobianConst, AffineStorage, Jacobian};
+use crate::{
+    k256::{elliptic_curve::subtle::Choice, CompressedPoint, EncodedPoint, FieldBytes},
+    secp256k1::field::{FieldElement, FieldElementConst},
+};
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct AffineConst {
@@ -263,9 +263,9 @@ impl proptest::arbitrary::Arbitrary for Affine {
 
 #[cfg(test)]
 mod tests {
-    use super::Affine;
-
     use proptest::{prop_assert_eq, proptest};
+
+    use super::Affine;
 
     #[test]
     fn test_set_xo() {

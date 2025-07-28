@@ -9,9 +9,11 @@ pub mod dyn_usize_iterator;
 ///
 use core::num::NonZeroU32;
 
-use super::kv_markers::{ExactSizeChain, StorageAddress, UsizeDeserializable, UsizeSerializable};
-use super::system::errors::InternalError;
-use super::types_config::SystemIOTypesConfig;
+use super::{
+    kv_markers::{ExactSizeChain, StorageAddress, UsizeDeserializable, UsizeSerializable},
+    system::errors::InternalError,
+    types_config::SystemIOTypesConfig,
+};
 use crate::utils::Bytes32;
 
 ///

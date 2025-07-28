@@ -1,8 +1,9 @@
-use crate::run::{LeafProof, ReadStorage, ReadStorageTree};
+use std::{alloc::Global, collections::HashMap};
+
 use basic_system::system_implementation::flat_storage_model::TestingTree;
-use std::alloc::Global;
-use std::collections::HashMap;
 use zk_ee::utils::Bytes32;
+
+use crate::run::{LeafProof, ReadStorage, ReadStorageTree};
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
 pub struct InMemoryTree<const RANDOMIZED_TREE: bool = false> {

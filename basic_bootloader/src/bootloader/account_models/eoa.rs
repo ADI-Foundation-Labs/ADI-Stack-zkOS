@@ -1,32 +1,37 @@
-use crate::bootloader::account_models::{AccountModel, ExecutionOutput, ExecutionResult};
-use crate::bootloader::constants::ERC20_APPROVE_SELECTOR;
-use crate::bootloader::constants::PAYMASTER_APPROVAL_BASED_SELECTOR;
-use crate::bootloader::constants::PAYMASTER_GENERAL_SELECTOR;
-use crate::bootloader::constants::{DEPLOYMENT_TX_EXTRA_INTRINSIC_GAS, ERC20_ALLOWANCE_SELECTOR};
-use crate::bootloader::constants::{SPECIAL_ADDRESS_TO_WASM_DEPLOY, TX_OFFSET};
-use crate::bootloader::errors::InvalidTransaction::AAValidationError;
-use crate::bootloader::errors::InvalidTransaction::CreateInitCodeSizeLimit;
-use crate::bootloader::errors::{AAMethod, InvalidAA};
-use crate::bootloader::errors::{InvalidTransaction, TxError};
-use crate::bootloader::runner::run_till_completion;
-use crate::bootloader::supported_ees::{SupportedEEVMState, SystemBoundEVMInterpreter};
-use crate::bootloader::transaction::ZkSyncTransaction;
-use crate::bootloader::{BasicBootloader, Bytes32};
 use core::fmt::Write;
+
 use errors::FatalError;
 use evm_interpreter::{ERGS_PER_GAS, MAX_INITCODE_SIZE};
 use ruint::aliases::{B160, U256};
-use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
-use system_hooks::HooksStorage;
-use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::memory::slice_vec::SliceVec;
-use zk_ee::memory::ArrayBuilder;
-use zk_ee::system::{
-    errors::{InternalError, SystemError, UpdateQueryError},
-    logger::Logger,
-    EthereumLikeTypes, System, SystemTypes, *,
+use system_hooks::{addresses_constants::BOOTLOADER_FORMAL_ADDRESS, HooksStorage};
+use zk_ee::{
+    execution_environment_type::ExecutionEnvironmentType,
+    memory::{slice_vec::SliceVec, ArrayBuilder},
+    system::{
+        errors::{InternalError, SystemError, UpdateQueryError},
+        logger::Logger,
+        EthereumLikeTypes, System, SystemTypes, *,
+    },
+    utils::{b160_to_u256, u256_to_b160_checked},
 };
-use zk_ee::utils::{b160_to_u256, u256_to_b160_checked};
+
+use crate::bootloader::{
+    account_models::{AccountModel, ExecutionOutput, ExecutionResult},
+    constants::{
+        DEPLOYMENT_TX_EXTRA_INTRINSIC_GAS, ERC20_ALLOWANCE_SELECTOR, ERC20_APPROVE_SELECTOR,
+        PAYMASTER_APPROVAL_BASED_SELECTOR, PAYMASTER_GENERAL_SELECTOR,
+        SPECIAL_ADDRESS_TO_WASM_DEPLOY, TX_OFFSET,
+    },
+    errors::{
+        AAMethod, InvalidAA, InvalidTransaction,
+        InvalidTransaction::{AAValidationError, CreateInitCodeSizeLimit},
+        TxError,
+    },
+    runner::run_till_completion,
+    supported_ees::{SupportedEEVMState, SystemBoundEVMInterpreter},
+    transaction::ZkSyncTransaction,
+    BasicBootloader, Bytes32,
+};
 
 macro_rules! require_or_revert {
     ($b:expr, $m:expr, $s:expr, $system:expr) => {

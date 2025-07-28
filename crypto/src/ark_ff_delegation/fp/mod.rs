@@ -1,4 +1,5 @@
-use crate::ark_ff_delegation::BigInt;
+use core::iter;
+
 use ark_ff::{
     AdditiveGroup, FftField, Field, LegendreSymbol, One, PrimeField, SqrtPrecomputation, Zero,
 };
@@ -15,9 +16,10 @@ use ark_std::{
     str::FromStr,
     string::*,
 };
-use core::iter;
 use educe::Educe;
 use itertools::Itertools;
+
+use crate::ark_ff_delegation::BigInt;
 
 #[macro_use]
 mod montgomery_backend;

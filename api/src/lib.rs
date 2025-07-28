@@ -1,14 +1,13 @@
 use std::{path::PathBuf, str::FromStr};
 
+/// Runs the batch, and returns the output (that contains gas usage, transaction status etc.).
+pub use forward_system::run::run_batch;
 use forward_system::run::{
     io_implementer_init_data,
     test_impl::{InMemoryPreimageSource, InMemoryTree, TxListSource},
     BatchContext, EthereumIOTypesConfig, ForwardRunningOracle, StorageCommitment,
 };
 use oracle_provider::{BasicZkEEOracleWrapper, ReadWitnessSource, ZkEENonDeterminismSource};
-
-/// Runs the batch, and returns the output (that contains gas usage, transaction status etc.).
-pub use forward_system::run::run_batch;
 
 /// Runs a batch in riscV - using zksync_os binary - and returns the
 /// witness that can be passed to the prover subsystem.

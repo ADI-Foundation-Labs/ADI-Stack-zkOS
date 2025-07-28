@@ -1,29 +1,36 @@
 //! Storage cache, backed by a history map.
-use crate::system_implementation::flat_storage_model::address_into_special_storage_key;
-use crate::system_implementation::system::ExtraCheck;
-use alloc::collections::BTreeMap;
-use alloc::collections::BTreeSet;
-use alloc::fmt::Debug;
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Debug,
+};
 use core::alloc::Allocator;
+
 use ruint::aliases::B160;
-use storage_models::common_structs::snapshottable_io::SnapshottableIo;
-use storage_models::common_structs::{AccountAggregateDataHash, StorageCacheModel};
-use zk_ee::common_structs::cache_record::{Appearance, CacheRecord};
-use zk_ee::common_traits::key_like_with_bounds::{KeyLikeWithBounds, TyEq};
-use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::system::errors::InternalError;
+use storage_models::common_structs::{
+    snapshottable_io::SnapshottableIo, AccountAggregateDataHash, StorageCacheModel,
+};
 use zk_ee::{
-    common_structs::{WarmStorageKey, WarmStorageValue},
+    common_structs::{
+        cache_record::{Appearance, CacheRecord},
+        history_map::*,
+        ValueDiffCompressionStrategy, WarmStorageKey, WarmStorageValue,
+    },
+    common_traits::key_like_with_bounds::{KeyLikeWithBounds, TyEq},
+    execution_environment_type::ExecutionEnvironmentType,
     kv_markers::{StorageAddress, UsizeDeserializable},
     memory::stack_trait::{StackCtor, StackCtorConst},
-    system::{errors::SystemError, Resources},
+    system::{
+        errors::{InternalError, SystemError},
+        Resources,
+    },
     system_io_oracle::{IOOracle, InitialStorageSlotData, InitialStorageSlotDataIterator},
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::Bytes32,
 };
 
-use zk_ee::common_structs::history_map::*;
-use zk_ee::common_structs::ValueDiffCompressionStrategy;
+use crate::system_implementation::{
+    flat_storage_model::address_into_special_storage_key, system::ExtraCheck,
+};
 
 type AddressItem<'a, K, V, A> =
     HistoryMapItemRefMut<'a, K, CacheRecord<V, StorageElementMetadata>, A>;

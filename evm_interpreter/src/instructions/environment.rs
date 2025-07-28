@@ -1,5 +1,6 @@
-use super::*;
 use native_resource_constants::*;
+
+use super::*;
 
 impl<S: EthereumLikeTypes> Interpreter<'_, S> {
     pub fn chainid(&mut self, system: &mut System<S>) -> InstructionResult {

@@ -1,7 +1,8 @@
 //! Wraps values with additional metadata used by IO caches
 
-use crate::system::errors::{InternalError, SystemError};
 use core::fmt::Debug;
+
+use crate::system::errors::{InternalError, SystemError};
 
 #[derive(Default, Copy, Clone, Eq, PartialEq, Debug)]
 /// Encodes state of cache element

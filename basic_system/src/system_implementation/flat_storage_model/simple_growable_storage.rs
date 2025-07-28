@@ -16,17 +16,15 @@
 // For a case if we need to prove reading a "fresh" key, but do not need to write, we just need to read 2 array elements, but are not
 // mandated to write anything.
 
-use alloc::alloc::Global;
-use alloc::boxed::Box;
-use alloc::collections::BTreeMap;
-use alloc::vec::Vec;
+use alloc::{alloc::Global, boxed::Box, collections::BTreeMap, vec::Vec};
 use core::alloc::Allocator;
+
 use crypto::MiniDigest;
 use either::Either;
-use zk_ee::common_structs::derive_flat_storage_key;
-use zk_ee::common_structs::state_root_view::StateRootView;
-use zk_ee::common_structs::{WarmStorageKey, WarmStorageValue};
 use zk_ee::{
+    common_structs::{
+        derive_flat_storage_key, state_root_view::StateRootView, WarmStorageKey, WarmStorageValue,
+    },
     kv_markers::{ExactSizeChain, ExactSizeChainN, UsizeDeserializable, UsizeSerializable},
     memory::stack_trait::Stack,
     system::{errors::InternalError, logger::Logger},
@@ -1670,11 +1668,13 @@ pub type TestingTree<const RANDOMIZED: bool> =
 #[cfg(test)]
 mod test {
 
-    use super::*;
+    use std::{any, collections::HashMap, ops};
+
     use proptest::{prelude::*, sample::Index};
     use ruint::aliases::{B160, U256};
-    use std::{any, collections::HashMap, ops};
     use zk_ee::{system::NullLogger, system_io_oracle::dyn_usize_iterator::DynUsizeIterator};
+
+    use super::*;
 
     fn hex_bytes(s: &str) -> Bytes32 {
         let s = s.strip_prefix("0x").unwrap_or(s);

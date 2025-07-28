@@ -1,9 +1,8 @@
 #![allow(dead_code)]
 // most of the code in this file comes from https://github.com/RustCrypto/elliptic-curves/blob/master/k256/src/arithmetic/field/field_10x26.rs
 
-use crate::k256::FieldBytes;
-
 use super::mod_inv32::{ModInfo, Signed30};
+use crate::k256::FieldBytes;
 
 const MOD_INFO: ModInfo = ModInfo::new([-0x3D1, -4, 0, 0, 0, 0, 0, 0, 65536], 0x2DDACACF);
 

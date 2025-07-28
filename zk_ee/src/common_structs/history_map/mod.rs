@@ -3,13 +3,16 @@
 mod element_pool;
 pub mod element_with_history;
 
-use crate::common_structs::history_map::element_with_history::HistoryRecord;
-use crate::{system::errors::InternalError, utils::stack_linked_list::StackLinkedList};
-use alloc::collections::btree_map::Entry;
-use alloc::collections::BTreeMap;
+use alloc::collections::{btree_map::Entry, BTreeMap};
 use core::{alloc::Allocator, fmt::Debug, ops::Bound};
+
 use element_pool::ElementPool;
 use element_with_history::ElementWithHistory;
+
+use crate::{
+    common_structs::history_map::element_with_history::HistoryRecord,
+    system::errors::InternalError, utils::stack_linked_list::StackLinkedList,
+};
 
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]

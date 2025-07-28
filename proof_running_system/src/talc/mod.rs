@@ -1,11 +1,10 @@
-use core::alloc::AllocError;
-use core::alloc::GlobalAlloc;
-use core::alloc::Layout;
-use core::cell::UnsafeCell;
-use core::cmp::Ordering;
-use core::ptr::addr_of_mut;
-use core::ptr::null_mut;
-use core::ptr::NonNull;
+use core::{
+    alloc::{AllocError, GlobalAlloc, Layout},
+    cell::UnsafeCell,
+    cmp::Ordering,
+    ptr::{addr_of_mut, null_mut, NonNull},
+};
+
 use talc::*;
 
 pub fn is_aligned_to(ptr: *mut u8, align: usize) -> bool {

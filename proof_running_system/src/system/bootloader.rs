@@ -1,12 +1,15 @@
+use alloc::alloc::{GlobalAlloc, Layout};
+use core::{alloc::Allocator, mem::MaybeUninit};
+
+use basic_bootloader::bootloader::config::BasicBootloaderProvingExecutionConfig;
+use zk_ee::{
+    memory::ZSTAllocator,
+    system::{logger::Logger, NopResultKeeper},
+    system_io_oracle::{DisconnectOracleFormalIterator, IOOracle},
+};
+
 use super::*;
 use crate::io_oracle::NonDeterminismCSRSourceImplementation;
-use alloc::alloc::{GlobalAlloc, Layout};
-use basic_bootloader::bootloader::config::BasicBootloaderProvingExecutionConfig;
-use core::alloc::Allocator;
-use core::mem::MaybeUninit;
-use zk_ee::memory::ZSTAllocator;
-use zk_ee::system::{logger::Logger, NopResultKeeper};
-use zk_ee::system_io_oracle::{DisconnectOracleFormalIterator, IOOracle};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ProxyAllocator;

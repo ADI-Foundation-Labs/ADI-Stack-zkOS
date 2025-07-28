@@ -1,12 +1,14 @@
-use crate::bootloader::runner::run_till_completion;
-use crate::bootloader::supported_ees::SupportedEEVMState;
 use system_hooks::HooksStorage;
-use zk_ee::memory::slice_vec::SliceVec;
-use zk_ee::system::errors::{FatalError, InternalError, SystemError, UpdateQueryError};
-use zk_ee::system::CallModifier;
-use zk_ee::system::{EthereumLikeTypes, System};
+use zk_ee::{
+    memory::slice_vec::SliceVec,
+    system::{
+        errors::{FatalError, InternalError, SystemError, UpdateQueryError},
+        CallModifier, EthereumLikeTypes, System,
+    },
+};
 
 use super::*;
+use crate::bootloader::{runner::run_till_completion, supported_ees::SupportedEEVMState};
 
 impl<S: EthereumLikeTypes> BasicBootloader<S> {
     ///

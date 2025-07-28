@@ -3,9 +3,12 @@ compile_error!("feature `bigint_ops` must be activated for RISC-V target");
 
 use core::mem::MaybeUninit;
 
-use crate::ark_ff_delegation::{BigInt, BigIntMacro, Fp, Fp256, MontBackend, MontConfig};
-use crate::bigint_delegation::{u256, DelegatedModParams, DelegatedMontParams};
 use ark_ff::{AdditiveGroup, Zero};
+
+use crate::{
+    ark_ff_delegation::{BigInt, BigIntMacro, Fp, Fp256, MontBackend, MontConfig},
+    bigint_delegation::{u256, DelegatedModParams, DelegatedMontParams},
+};
 
 #[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
 pub fn init() {
@@ -150,8 +153,7 @@ fn __gcd_inverse(a: &Fr) -> Option<Fr> {
     // Cryptography
     // Algorithm 16 (BEA for Inversion in Fp)
 
-    use ark_ff::BigInteger;
-    use ark_ff::PrimeField;
+    use ark_ff::{BigInteger, PrimeField};
 
     let mut u = a.0;
     let mut v = Fr::MODULUS;
@@ -220,9 +222,10 @@ impl proptest::arbitrary::Arbitrary for Fr {
 
 #[cfg(test)]
 mod tests {
-    use super::Fr;
     use ark_ff::{AdditiveGroup, Field, Zero};
     use proptest::{prop_assert_eq, proptest};
+
+    use super::Fr;
     fn init() {
         super::init();
         crate::bigint_delegation::init();

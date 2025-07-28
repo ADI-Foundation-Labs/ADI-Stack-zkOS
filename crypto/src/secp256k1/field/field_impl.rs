@@ -1,6 +1,7 @@
 // most of the code in this file comes from https://github.com/RustCrypto/elliptic-curves/blob/master/k256/src/arithmetic/field/field_impl.rs
-use crate::k256::FieldBytes;
 use cfg_if::cfg_if;
+
+use crate::k256::FieldBytes;
 
 cfg_if! {
     if #[cfg(target_arch = "riscv32")] {

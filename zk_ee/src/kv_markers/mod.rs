@@ -1,12 +1,12 @@
 //! Serialization and deserialization helpers for keys and values for storage.
 pub mod kv_impls;
 
-use arrayvec::ArrayVec;
 use core::mem::MaybeUninit;
+
+use arrayvec::ArrayVec;
 use ruint::aliases::U256;
 
-use super::system::errors::InternalError;
-use super::types_config::SystemIOTypesConfig;
+use super::{system::errors::InternalError, types_config::SystemIOTypesConfig};
 
 bitflags::bitflags! {
     /// Represents a set of flags.

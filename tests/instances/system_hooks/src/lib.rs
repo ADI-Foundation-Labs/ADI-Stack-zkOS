@@ -4,12 +4,14 @@
 #![cfg(test)]
 
 use alloy::primitives::TxKind;
-use rig::alloy::primitives::address;
-use rig::alloy::rpc::types::TransactionRequest;
-use rig::forward_system::run::ExecutionResult;
-use rig::ruint::aliases::B160;
-use rig::utils::{address_into_special_storage_key, ACCOUNT_PROPERTIES_STORAGE_ADDRESS};
-use rig::{alloy, Chain};
+use rig::{
+    alloy,
+    alloy::{primitives::address, rpc::types::TransactionRequest},
+    forward_system::run::ExecutionResult,
+    ruint::aliases::B160,
+    utils::{address_into_special_storage_key, ACCOUNT_PROPERTIES_STORAGE_ADDRESS},
+    Chain,
+};
 
 #[test]
 fn test_set_deployed_bytecode_evm() {

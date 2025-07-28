@@ -5,14 +5,13 @@
 
 #[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
 pub mod fq;
-#[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
-pub use self::fq::Fq;
-
 #[cfg(not(any(all(target_arch = "riscv32", feature = "bigint_ops"), test)))]
 pub use ark_bls12_381::Fq;
-
 #[cfg(not(any(all(target_arch = "riscv32", feature = "bigint_ops"), test)))]
 pub use ark_bls12_381::Fr;
+
+#[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
+pub use self::fq::Fq;
 
 #[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
 pub mod fr;

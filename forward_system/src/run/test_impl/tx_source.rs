@@ -1,5 +1,6 @@
-use crate::run::{NextTxResponse, TxSource};
 use std::collections::VecDeque;
+
+use crate::run::{NextTxResponse, TxSource};
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct TxListSource {

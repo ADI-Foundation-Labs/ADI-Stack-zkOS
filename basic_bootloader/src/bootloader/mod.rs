@@ -1,15 +1,16 @@
-use alloc::boxed::Box;
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
+
 use constants::{MAX_TX_LEN_WORDS, TX_OFFSET_WORDS};
 use result_keeper::ResultKeeperExt;
 use ruint::aliases::*;
 use system_hooks::addresses_constants::{
     BOOTLOADER_FORMAL_ADDRESS, L2_INTEROP_ROOT_STORAGE_ADDRESS,
 };
-use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::memory::slice_vec::SliceVec;
-use zk_ee::system::errors::InternalError;
-use zk_ee::system::{EthereumLikeTypes, System, SystemTypes};
+use zk_ee::{
+    execution_environment_type::ExecutionEnvironmentType,
+    memory::slice_vec::SliceVec,
+    system::{errors::InternalError, EthereumLikeTypes, System, SystemTypes},
+};
 
 pub mod run_single_interaction;
 mod runner;
@@ -28,22 +29,20 @@ pub mod errors;
 pub mod result_keeper;
 mod rlp;
 
-use core::alloc::Allocator;
-use core::fmt::Write;
-use core::mem::MaybeUninit;
-use crypto::sha3::Keccak256;
-use crypto::MiniDigest;
-use zk_ee::oracle::*;
+use core::{alloc::Allocator, fmt::Write, mem::MaybeUninit};
 
-use crate::bootloader::account_models::{ExecutionOutput, ExecutionResult, TxProcessingResult};
-use crate::bootloader::block_header::BlockHeader;
-use crate::bootloader::config::BasicBootloaderExecutionConfig;
-use crate::bootloader::constants::{MAX_CALLSTACK_DEPTH, TX_OFFSET};
-use crate::bootloader::errors::TxError;
-use crate::bootloader::result_keeper::*;
+use crypto::{sha3::Keccak256, MiniDigest};
 use system_hooks::HooksStorage;
-use zk_ee::system::*;
-use zk_ee::utils::*;
+use zk_ee::{oracle::*, system::*, utils::*};
+
+use crate::bootloader::{
+    account_models::{ExecutionOutput, ExecutionResult, TxProcessingResult},
+    block_header::BlockHeader,
+    config::BasicBootloaderExecutionConfig,
+    constants::{MAX_CALLSTACK_DEPTH, TX_OFFSET},
+    errors::TxError,
+    result_keeper::*,
+};
 
 pub(crate) const EVM_EE_BYTE: u8 = ExecutionEnvironmentType::EVM_EE_BYTE;
 #[allow(dead_code)]

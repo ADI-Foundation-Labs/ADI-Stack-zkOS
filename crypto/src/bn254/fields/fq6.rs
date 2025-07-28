@@ -1,9 +1,10 @@
-use super::{Fq, Fq2, Fq2Config};
-#[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
-use crate::ark_ff_delegation::MontFp;
 #[cfg(not(any(all(target_arch = "riscv32", feature = "bigint_ops"), test)))]
 use ark_ff::MontFp;
 use ark_ff::{AdditiveGroup, Field, Fp2Config, Fp6, Fp6Config};
+
+use super::{Fq, Fq2, Fq2Config};
+#[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
+use crate::ark_ff_delegation::MontFp;
 
 pub type Fq6 = Fp6<Fq6Config>;
 

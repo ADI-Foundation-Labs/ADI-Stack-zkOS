@@ -1,6 +1,7 @@
-use super::*;
 use native_resource_constants::*;
 use zk_ee::system::System;
+
+use super::*;
 
 impl<S: EthereumLikeTypes> Interpreter<'_, S> {
     pub fn mload(&mut self, system: &mut System<S>) -> InstructionResult {

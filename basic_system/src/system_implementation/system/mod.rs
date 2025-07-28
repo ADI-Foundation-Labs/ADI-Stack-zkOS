@@ -1,37 +1,36 @@
 //! Implementation of the system interface.
-use crate::system_implementation::flat_storage_model::FlatTreeWithAccountsUnderHashesStorageModel;
-use crate::system_implementation::flat_storage_model::*;
-use crate::system_implementation::system::public_input::{
-    BlocksOutput, BlocksPublicInput, ChainStateCommitment,
-};
 use core::alloc::Allocator;
+
 use errors::SystemError;
-use evm_interpreter::gas_constants::COLD_SLOAD_COST;
-use evm_interpreter::gas_constants::SSTORE_RESET_EXTRA;
-use evm_interpreter::gas_constants::SSTORE_SET_EXTRA;
-use evm_interpreter::gas_constants::WARM_STORAGE_READ_COST;
-use evm_interpreter::ERGS_PER_GAS;
+use evm_interpreter::{
+    gas_constants::{
+        COLD_SLOAD_COST, SSTORE_RESET_EXTRA, SSTORE_SET_EXTRA, WARM_STORAGE_READ_COST,
+    },
+    ERGS_PER_GAS,
+};
 use ruint::aliases::U256;
-use zk_ee::common_structs::history_map::CacheSnapshotId;
-use zk_ee::common_structs::EventContent;
-use zk_ee::common_structs::LogContent;
-use zk_ee::common_structs::WarmStorageKey;
-use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::utils::Bytes32;
-use zk_ee::utils::NopHasher;
 use zk_ee::{
+    common_structs::{history_map::CacheSnapshotId, EventContent, LogContent, WarmStorageKey},
+    execution_environment_type::ExecutionEnvironmentType,
     kv_markers::MAX_EVENT_TOPICS,
     memory::stack_trait::{StackCtor, StackCtorConst},
     system::{errors::InternalError, logger::Logger, Resources, *},
     system_io_oracle::IOOracle,
+    utils::{Bytes32, NopHasher},
+};
+
+use crate::system_implementation::{
+    flat_storage_model::{FlatTreeWithAccountsUnderHashesStorageModel, *},
+    system::public_input::{BlocksOutput, BlocksPublicInput, ChainStateCommitment},
 };
 
 mod io_subsystem;
 mod public_input;
 
-pub use self::io_subsystem::*;
-pub use self::public_input::BatchOutput;
-pub use self::public_input::BatchPublicInput;
+pub use self::{
+    io_subsystem::*,
+    public_input::{BatchOutput, BatchPublicInput},
+};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EthereumLikeStorageAccessCostModel;

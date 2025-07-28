@@ -1,5 +1,6 @@
-use super::{copy_bytes_iter_to_usize_slice, USIZE_SIZE};
 use core::alloc::Allocator;
+
+use super::{copy_bytes_iter_to_usize_slice, USIZE_SIZE};
 
 pub const fn num_usize_words_for_u8_capacity(u8_capacity: usize) -> usize {
     u8_capacity.next_multiple_of(USIZE_SIZE) / USIZE_SIZE

@@ -1,9 +1,9 @@
-use crate::bootloader::rlp;
 use arrayvec::ArrayVec;
-use crypto::sha3::Keccak256;
-use crypto::MiniDigest;
+use crypto::{sha3::Keccak256, MiniDigest};
 use ruint::aliases::{B160, U256};
 use zk_ee::utils::Bytes32;
+
+use crate::bootloader::rlp;
 
 // Keccak256(RLP([])) = 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
 pub const EMPTY_OMMER_ROOT_HASH: [u8; 32] = [

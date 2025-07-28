@@ -1,14 +1,17 @@
-use super::*;
 use core::fmt::Write;
+
 use native_resource_constants::STEP_NATIVE_COST;
-use zk_ee::system::{
-    logger::Logger, CallModifier, CompletedDeployment, CompletedExecution,
-    DeploymentPreparationParameters, DeploymentResult, EthereumLikeTypes,
-    ExecutionEnvironmentPreemptionPoint, ExternalCallRequest, OSImmutableSlice, OSManagedRegion,
-    ReturnValues,
+use zk_ee::{
+    system::{
+        logger::Logger, CallModifier, CompletedDeployment, CompletedExecution,
+        DeploymentPreparationParameters, DeploymentResult, Ergs, EthereumLikeTypes,
+        ExecutionEnvironmentPreemptionPoint, ExecutionEnvironmentSpawnRequest, ExternalCallRequest,
+        OSImmutableSlice, OSManagedRegion, Resources, ReturnValues, TransactionEndPoint,
+    },
+    types_config::SystemIOTypesConfig,
 };
-use zk_ee::system::{Ergs, ExecutionEnvironmentSpawnRequest, Resources, TransactionEndPoint};
-use zk_ee::types_config::SystemIOTypesConfig;
+
+use super::*;
 
 impl<'calldata, S: EthereumLikeTypes> Interpreter<'calldata, S> {
     /// Keeps executing instructions (steps) from the system, until it hits a yield point -

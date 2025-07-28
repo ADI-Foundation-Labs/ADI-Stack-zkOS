@@ -1,7 +1,7 @@
-use crate::{system::errors::InternalError, utils::*};
 use ruint::aliases::B160;
 
 use super::*;
+use crate::{system::errors::InternalError, utils::*};
 
 impl UsizeSerializable for () {
     const USIZE_LEN: usize = 0;

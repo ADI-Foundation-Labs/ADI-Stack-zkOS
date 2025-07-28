@@ -1,10 +1,13 @@
 // Taken from https://github.com/aurora-is-near/aurora-engine, with changes
 // to explicitly pass around allocator.
 
-use crate::mpnat::{DoubleWord, MPNat, Word, BASE, WORD_BITS};
-use crate::vec_in;
 use alloc::vec::Vec;
 use core::alloc::Allocator;
+
+use crate::{
+    mpnat::{DoubleWord, MPNat, Word, BASE, WORD_BITS},
+    vec_in,
+};
 
 // Computes the "Montgomery Product" of two numbers.
 // See Coarsely Integrated Operand Scanning (CIOS) Method in
@@ -426,8 +429,9 @@ pub fn mp_nat_to_u128(x: &MPNat<std::alloc::Global>) -> u128 {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use std::alloc::Global;
+
+    use super::*;
     extern crate std;
     use std::vec;
 

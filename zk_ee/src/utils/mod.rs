@@ -8,12 +8,10 @@ pub mod type_assert;
 
 use crypto::MiniDigest;
 
-pub use self::aligned_buffer::*;
-pub use self::aligned_vector::*;
-pub use self::bytes32::*;
-pub use self::convenience::*;
-pub use self::integer_utils::*;
-pub use self::type_assert::*;
+pub use self::{
+    aligned_buffer::*, aligned_vector::*, bytes32::*, convenience::*, integer_utils::*,
+    type_assert::*,
+};
 
 pub struct NopHasher;
 

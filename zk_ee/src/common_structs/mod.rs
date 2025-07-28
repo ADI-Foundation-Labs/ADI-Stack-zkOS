@@ -11,11 +11,8 @@ pub mod state_root_view;
 pub mod warm_storage_key;
 pub mod warm_storage_value;
 
-pub use self::callee_parameters::*;
-pub use self::events_storage::*;
-pub use self::generic_ethereum_like_fsm_state::*;
-pub use self::logs_storage::*;
-pub use self::new_preimages_publication_storage::*;
-pub use self::pubdata_compression::*;
-pub use self::warm_storage_key::*;
-pub use self::warm_storage_value::*;
+pub use self::{
+    callee_parameters::*, events_storage::*, generic_ethereum_like_fsm_state::*, logs_storage::*,
+    new_preimages_publication_storage::*, pubdata_compression::*, warm_storage_key::*,
+    warm_storage_value::*,
+};

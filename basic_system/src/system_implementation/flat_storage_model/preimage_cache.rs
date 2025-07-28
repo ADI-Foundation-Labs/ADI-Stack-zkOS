@@ -1,5 +1,6 @@
 use alloc::{alloc::Global, collections::BTreeMap};
 use core::{alloc::Allocator, marker::PhantomData};
+
 use storage_models::common_structs::{snapshottable_io::SnapshottableIo, PreimageCacheModel};
 use zk_ee::{
     common_structs::{history_map::CacheSnapshotId, NewPreimagesPublicationStorage, PreimageType},
@@ -13,11 +14,10 @@ use zk_ee::{
     utils::{Bytes32, UsizeAlignedByteBox},
 };
 
+use super::cost_constants::PREIMAGE_CACHE_GET_NATIVE_COST;
 use crate::system_implementation::flat_storage_model::cost_constants::{
     BLAKE2S_BASE_NATIVE_COST, BLAKE2S_CHUNK_SIZE, BLAKE2S_ROUND_NATIVE_COST,
 };
-
-use super::cost_constants::PREIMAGE_CACHE_GET_NATIVE_COST;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "testing", derive(serde::Serialize, serde::Deserialize))]
@@ -106,8 +106,7 @@ impl<R: Resources, A: Allocator + Clone> BytecodeAndAccountDataPreimagesStorage<
             if PROOF_ENV {
                 match preimage_type {
                     PreimageType::AccountData => {
-                        use crypto::blake2s::Blake2s256;
-                        use crypto::MiniDigest;
+                        use crypto::{blake2s::Blake2s256, MiniDigest};
                         let digest = Blake2s256::digest(buffered.as_slice());
                         let mut result = Bytes32::uninit();
                         let recomputed_hash = unsafe {
@@ -123,8 +122,7 @@ impl<R: Resources, A: Allocator + Clone> BytecodeAndAccountDataPreimagesStorage<
                         }
                     }
                     PreimageType::Bytecode => {
-                        use crypto::blake2s::Blake2s256;
-                        use crypto::MiniDigest;
+                        use crypto::{blake2s::Blake2s256, MiniDigest};
                         let digest = Blake2s256::digest(buffered.as_slice());
                         let mut result = Bytes32::uninit();
                         let recomputed_hash = unsafe {
@@ -144,8 +142,7 @@ impl<R: Resources, A: Allocator + Clone> BytecodeAndAccountDataPreimagesStorage<
                 debug_assert!({
                     match preimage_type {
                         PreimageType::AccountData => {
-                            use crypto::blake2s::Blake2s256;
-                            use crypto::MiniDigest;
+                            use crypto::{blake2s::Blake2s256, MiniDigest};
                             let digest = Blake2s256::digest(buffered.as_slice());
                             let mut result = Bytes32::uninit();
                             let recomputed_hash = unsafe {
@@ -159,8 +156,7 @@ impl<R: Resources, A: Allocator + Clone> BytecodeAndAccountDataPreimagesStorage<
                             recomputed_hash == *hash
                         }
                         PreimageType::Bytecode => {
-                            use crypto::blake2s::Blake2s256;
-                            use crypto::MiniDigest;
+                            use crypto::{blake2s::Blake2s256, MiniDigest};
                             let digest = Blake2s256::digest(buffered.as_slice());
                             let mut result = Bytes32::uninit();
                             let recomputed_hash = unsafe {
@@ -245,8 +241,9 @@ impl<R: Resources, A: Allocator + Clone> PreimageCacheModel
         resources: &mut Self::Resources,
         preimage: &[u8],
     ) -> Result<&'static [u8], SystemError> {
-        use crate::system_implementation::flat_storage_model::cost_constants::PREIMAGE_CACHE_SET_NATIVE_COST;
         use zk_ee::system::Computational;
+
+        use crate::system_implementation::flat_storage_model::cost_constants::PREIMAGE_CACHE_SET_NATIVE_COST;
         // we will NOT charge ergs for preimages in here, but instead higher-level model should do it
         resources.charge(&R::from_native(R::Native::from_computational(
             PREIMAGE_CACHE_SET_NATIVE_COST,

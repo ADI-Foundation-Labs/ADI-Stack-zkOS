@@ -98,8 +98,9 @@ impl Scalar {
 
 #[cfg(test)]
 mod tests {
-    use super::Scalar;
     use proptest::{prop_assert_eq, proptest};
+
+    use super::Scalar;
     #[test]
     fn test_invert() {
         #[cfg(feature = "bigint_ops")]

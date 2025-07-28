@@ -1,9 +1,10 @@
-use crate::bootloader::EVM_EE_BYTE;
 use errors::FatalError;
 use zk_ee::{
     execution_environment_type::ExecutionEnvironmentType,
     system::{errors::InternalError, *},
 };
+
+use crate::bootloader::EVM_EE_BYTE;
 
 #[allow(type_alias_bounds)]
 pub type SystemBoundEVMInterpreter<'a, S: EthereumLikeTypes> = evm_interpreter::Interpreter<'a, S>;

@@ -1,17 +1,19 @@
-use super::*;
-use crate::interpreter::CreateScheme;
-use crate::utils::apply_63_64_rule;
 use alloc::boxed::Box;
-use core::any::Any;
-use core::fmt::Write;
+use core::{any::Any, fmt::Write};
+
 use errors::SystemFunctionError;
 use ruint::aliases::B160;
-use zk_ee::memory::ArrayBuilder;
-use zk_ee::system::{
-    errors::{InternalError, SystemError, UpdateQueryError},
-    *,
+use zk_ee::{
+    memory::ArrayBuilder,
+    system::{
+        errors::{InternalError, SystemError, UpdateQueryError},
+        *,
+    },
+    types_config::SystemIOTypesConfig,
 };
-use zk_ee::types_config::SystemIOTypesConfig;
+
+use super::*;
+use crate::{interpreter::CreateScheme, utils::apply_63_64_rule};
 
 impl<S: SystemTypes> EEDeploymentExtraParameters<S> for CreateScheme {}
 

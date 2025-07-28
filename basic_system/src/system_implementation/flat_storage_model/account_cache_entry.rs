@@ -1,17 +1,23 @@
-use crate::system_implementation::flat_storage_model::{
-    BytecodeAndAccountDataPreimagesStorage, PreimageRequest,
-};
 use alloc::alloc::Allocator;
+
 use crypto::MiniDigest;
 use ruint::aliases::U256;
 use storage_models::common_structs::PreimageCacheModel;
-use zk_ee::common_structs::{PreimageType, ValueDiffCompressionStrategy};
-use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::system::errors::{InternalError, SystemError};
-use zk_ee::system::{IOResultKeeper, Resources};
-use zk_ee::system_io_oracle::IOOracle;
-use zk_ee::types_config::EthereumIOTypesConfig;
-use zk_ee::utils::Bytes32;
+use zk_ee::{
+    common_structs::{PreimageType, ValueDiffCompressionStrategy},
+    execution_environment_type::ExecutionEnvironmentType,
+    system::{
+        errors::{InternalError, SystemError},
+        IOResultKeeper, Resources,
+    },
+    system_io_oracle::IOOracle,
+    types_config::EthereumIOTypesConfig,
+    utils::Bytes32,
+};
+
+use crate::system_implementation::flat_storage_model::{
+    BytecodeAndAccountDataPreimagesStorage, PreimageRequest,
+};
 
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, Eq, Default, PartialOrd, Ord, Hash)]
@@ -186,8 +192,7 @@ impl AccountProperties {
     }
 
     pub fn compute_hash(&self) -> Bytes32 {
-        use crypto::blake2s::Blake2s256;
-        use crypto::MiniDigest;
+        use crypto::{blake2s::Blake2s256, MiniDigest};
         // efficient hashing without copying
         let mut hasher = Blake2s256::new();
         hasher.update(self.versioning_data.into_u64().to_be_bytes());
@@ -408,25 +413,25 @@ impl AccountProperties {
 
 #[cfg(test)]
 mod tests {
+    use std::alloc::Global;
+
+    use crypto::{blake2s::Blake2s256, sha3::Keccak256, MiniDigest};
+    use ruint::aliases::U256;
+    use storage_models::common_structs::PreimageCacheModel;
+    use zk_ee::{
+        common_structs::PreimageType,
+        execution_environment_type::ExecutionEnvironmentType,
+        reference_implementations::{BaseResources, DecreasingNative},
+        system::{errors::InternalError, IOResultKeeper, Resource},
+        system_io_oracle::{IOOracle, OracleIteratorTypeMarker},
+        types_config::EthereumIOTypesConfig,
+        utils::*,
+    };
+
     use super::AccountProperties;
     use crate::system_implementation::flat_storage_model::{
         BytecodeAndAccountDataPreimagesStorage, PreimageRequest, VersioningData,
     };
-    use crypto::blake2s::Blake2s256;
-    use crypto::sha3::Keccak256;
-    use crypto::MiniDigest;
-    use ruint::aliases::U256;
-    use std::alloc::Global;
-    use storage_models::common_structs::PreimageCacheModel;
-    use zk_ee::common_structs::PreimageType;
-    use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-    use zk_ee::reference_implementations::{BaseResources, DecreasingNative};
-    use zk_ee::system::errors::InternalError;
-    use zk_ee::system::IOResultKeeper;
-    use zk_ee::system::Resource;
-    use zk_ee::system_io_oracle::{IOOracle, OracleIteratorTypeMarker};
-    use zk_ee::types_config::EthereumIOTypesConfig;
-    use zk_ee::utils::*;
 
     struct TestResultKeeper {
         pub pubdata: Vec<u8>,

@@ -1,7 +1,5 @@
-use super::*;
-
-use crate::cost_constants::{MODEXP_MINIMAL_COST_ERGS, MODEXP_WORST_CASE_NATIVE_PER_GAS};
 use alloc::vec::Vec;
+
 use crypto::modexp::modexp;
 use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::U256;
@@ -9,6 +7,9 @@ use zk_ee::system::{
     errors::{InternalError, SystemError, SystemFunctionError},
     Computational, Ergs, SystemFunction,
 };
+
+use super::*;
+use crate::cost_constants::{MODEXP_MINIMAL_COST_ERGS, MODEXP_WORST_CASE_NATIVE_PER_GAS};
 
 ///
 /// modexp system function implementation.

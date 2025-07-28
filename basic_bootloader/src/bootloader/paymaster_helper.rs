@@ -1,13 +1,15 @@
-use super::transaction::ZkSyncTransaction;
-use super::*;
-use crate::bootloader::errors::InvalidTransaction::AAValidationError;
-use crate::bootloader::errors::{InvalidAA, TxError};
-use crate::bootloader::supported_ees::SupportedEEVMState;
 use constants::{PAYMASTER_VALIDATE_AND_PAY_SELECTOR, TX_CALLDATA_OFFSET};
-use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
-use system_hooks::HooksStorage;
-use zk_ee::system::errors::{FatalError, InternalError};
-use zk_ee::system::{EthereumLikeTypes, System};
+use system_hooks::{addresses_constants::BOOTLOADER_FORMAL_ADDRESS, HooksStorage};
+use zk_ee::system::{
+    errors::{FatalError, InternalError},
+    EthereumLikeTypes, System,
+};
+
+use super::{transaction::ZkSyncTransaction, *};
+use crate::bootloader::{
+    errors::{InvalidAA, InvalidTransaction::AAValidationError, TxError},
+    supported_ees::SupportedEEVMState,
+};
 
 // Helpers for paymaster flow.
 

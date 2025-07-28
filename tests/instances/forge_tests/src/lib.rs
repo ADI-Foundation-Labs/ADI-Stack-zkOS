@@ -1,14 +1,13 @@
 #![cfg(test)]
-use alloy::consensus::{TxEip1559, TxEip2930};
-use alloy::primitives::{address, TxKind, U256};
-use alloy::signers::local::PrivateKeySigner;
-use rig::forward_system::run::BatchOutput;
-use rig::ruint::aliases::B160;
-use rig::{alloy, ruint};
-use std::collections::HashSet;
-use std::str::FromStr;
-use zk_ee::common_structs::derive_flat_storage_key;
-use zk_ee::utils::Bytes32;
+use std::{collections::HashSet, str::FromStr};
+
+use alloy::{
+    consensus::{TxEip1559, TxEip2930},
+    primitives::{address, TxKind, U256},
+    signers::local::PrivateKeySigner,
+};
+use rig::{alloy, forward_system::run::BatchOutput, ruint, ruint::aliases::B160};
+use zk_ee::{common_structs::derive_flat_storage_key, utils::Bytes32};
 
 ///
 /// Mints base tokens to `eoa_address` and runs `encoded_txs`

@@ -1,5 +1,6 @@
-use super::*;
 use ruint::algorithms::add_nx1;
+
+use super::*;
 
 pub fn verify_hash_to_prime(entropy: &[u8; 64], certificate: &HashToPrimeData) -> bool {
     let mut entropy_it = entropy.iter().copied();

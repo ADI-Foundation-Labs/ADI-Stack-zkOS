@@ -1,3 +1,9 @@
+use ruint::aliases::B160;
+use zk_ee::{
+    system::{IOResultKeeper, NopResultKeeper},
+    types_config::EthereumIOTypesConfig,
+};
+
 use crate::bootloader::block_header::BlockHeader;
 ///
 /// This module contains definition of the result keeper trait.
@@ -8,9 +14,6 @@ use crate::bootloader::block_header::BlockHeader;
 /// Since we will not use it during the proving, it will operate with rust types.
 ///
 use crate::bootloader::errors::InvalidTransaction;
-use ruint::aliases::B160;
-use zk_ee::system::{IOResultKeeper, NopResultKeeper};
-use zk_ee::types_config::EthereumIOTypesConfig;
 
 pub struct TxProcessingOutput<'a> {
     pub status: bool,

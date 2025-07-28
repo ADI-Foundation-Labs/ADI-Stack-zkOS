@@ -1,9 +1,10 @@
+use alloc::boxed::Box;
+use core::{alloc::Allocator, ptr::NonNull};
+
 use super::{
     element_with_history::{HistoryRecord, HistoryRecordLink},
     CacheSnapshotId,
 };
-use alloc::boxed::Box;
-use core::{alloc::Allocator, ptr::NonNull};
 
 /// Manages memory allocations for history records, reuses old allocations for optimization
 pub struct ElementPool<V, A: Allocator + Clone> {
@@ -106,10 +107,10 @@ impl<V, A: Allocator + Clone> ElementPool<V, A> {
 
 #[cfg(test)]
 mod tests {
-    use crate::common_structs::history_map::CacheSnapshotId;
     use std::alloc::Global;
 
     use super::ElementPool;
+    use crate::common_structs::history_map::CacheSnapshotId;
 
     #[test]
     fn creates_new_element() {

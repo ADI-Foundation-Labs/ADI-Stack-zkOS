@@ -1,13 +1,12 @@
 use core::fmt::Debug;
 
-use crate::{
-    system::{system::SystemTypes, CallModifier, Ergs, MAX_SCRATCH_SPACE_USIZE_WORDS},
-    types_config::SystemIOTypesConfig,
-};
-
 use super::{
     DeploymentPreparationParameters, DeploymentResult, EnvironmentParameters, OSAllocator,
     ReturnValues,
+};
+use crate::{
+    system::{system::SystemTypes, CallModifier, Ergs, MAX_SCRATCH_SPACE_USIZE_WORDS},
+    types_config::SystemIOTypesConfig,
 };
 
 /// Everything an execution environment needs to know to start execution

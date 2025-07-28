@@ -1,15 +1,15 @@
 //! Implementation of the memory subsystem.
 use alloc::vec::Vec;
-use core::alloc::Allocator;
-use core::alloc::Layout;
-use core::ops::Deref;
-use core::ops::DerefMut;
-use core::ptr::NonNull;
-use zk_ee::system::errors::InternalError;
-use zk_ee::system::*;
-use zk_ee::utils::allocate_vec_usize_aligned;
-use zk_ee::utils::USIZE_ALIGNMENT;
-use zk_ee::utils::USIZE_SIZE;
+use core::{
+    alloc::{Allocator, Layout},
+    ops::{Deref, DerefMut},
+    ptr::NonNull,
+};
+
+use zk_ee::{
+    system::{errors::InternalError, *},
+    utils::{allocate_vec_usize_aligned, USIZE_ALIGNMENT, USIZE_SIZE},
+};
 
 pub const MAX_HEAP_BUFFER_SIZE: usize = 1 << 27; // 128 MB
 pub const MAX_RETURNDATA_BUFFER_SIZE: usize = 1 << 27; // 128 MB

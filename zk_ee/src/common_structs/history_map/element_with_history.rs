@@ -1,6 +1,7 @@
-use super::{element_pool::ElementPool, CacheSnapshotId};
 use alloc::boxed::Box;
 use core::{alloc::Allocator, ptr::NonNull};
+
+use super::{element_pool::ElementPool, CacheSnapshotId};
 
 pub type HistoryRecordLink<V> = NonNull<HistoryRecord<V>>;
 
@@ -148,11 +149,10 @@ impl<V, A: Allocator + Clone> ElementWithHistory<V, A> {
 
 #[cfg(test)]
 mod tests {
-    use crate::common_structs::history_map::CacheSnapshotId;
     use std::alloc::Global;
 
-    use super::ElementPool;
-    use super::ElementWithHistory;
+    use super::{ElementPool, ElementWithHistory};
+    use crate::common_structs::history_map::CacheSnapshotId;
 
     fn check_that_head_is_initial_element(
         expected_value: usize,

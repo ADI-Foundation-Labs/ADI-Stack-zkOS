@@ -1,6 +1,7 @@
-use crate::kv_markers::UsizeSerializable;
 use alloc::boxed::Box;
 use core::pin::Pin;
+
+use crate::kv_markers::UsizeSerializable;
 
 // This is self-ref
 // TODO: more comments

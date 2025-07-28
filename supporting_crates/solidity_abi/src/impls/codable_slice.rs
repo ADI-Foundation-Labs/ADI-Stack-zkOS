@@ -1,7 +1,9 @@
+use alloc::vec::Vec;
+
+use ruint::aliases::U256;
+
 use super::*;
 use crate::impls::u256_to_usize_checked;
-use alloc::vec::Vec;
-use ruint::aliases::U256;
 
 #[derive(Clone, Copy)]
 pub struct Slice<'a, T: 'a> {

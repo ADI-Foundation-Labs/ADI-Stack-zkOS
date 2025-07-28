@@ -1,12 +1,11 @@
-use crate::interpreter::*;
 use core::hint::unreachable_unchecked;
-use gas_constants::{CALL_STIPEND, INITCODE_WORD_COST, SHA3WORD};
 
+use gas_constants::{CALL_STIPEND, INITCODE_WORD_COST, SHA3WORD};
 use native_resource_constants::*;
-use zk_ee::kv_markers::MAX_EVENT_TOPICS;
-use zk_ee::system::*;
+use zk_ee::{kv_markers::MAX_EVENT_TOPICS, system::*};
 
 use super::*;
+use crate::interpreter::*;
 
 impl<'calldata, S: EthereumLikeTypes> Interpreter<'calldata, S> {
     pub fn balance(&mut self, system: &mut System<S>) -> InstructionResult {

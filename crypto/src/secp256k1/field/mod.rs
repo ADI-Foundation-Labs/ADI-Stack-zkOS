@@ -1,6 +1,8 @@
-use crate::k256::FieldBytes;
-use cfg_if::cfg_if;
 use core::ops::{AddAssign, MulAssign, SubAssign};
+
+use cfg_if::cfg_if;
+
+use crate::k256::FieldBytes;
 
 #[cfg(any(target_arch = "riscv32", test))]
 mod field_10x26;
@@ -346,8 +348,9 @@ impl PartialEq for FieldElement {
 
 #[cfg(test)]
 mod tests {
-    use super::{FieldElement, FieldElementConst};
     use proptest::{prop_assert, prop_assert_eq, proptest};
+
+    use super::{FieldElement, FieldElementConst};
 
     #[test]
     fn storage_round_trip() {

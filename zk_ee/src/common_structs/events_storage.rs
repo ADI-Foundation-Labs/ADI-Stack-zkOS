@@ -1,15 +1,16 @@
+use alloc::alloc::Global;
+use core::alloc::Allocator;
+
+use arrayvec::ArrayVec;
+use ruint::aliases::*;
+
+use super::history_list::HistoryList;
 use crate::{
     memory::stack_trait::{StackCtor, StackCtorConst},
     system::errors::SystemError,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::{Bytes32, UsizeAlignedByteBox},
 };
-use alloc::alloc::Global;
-use arrayvec::ArrayVec;
-use core::alloc::Allocator;
-use ruint::aliases::*;
-
-use super::history_list::HistoryList;
 
 ///
 /// Generic event content to be saved in the storage

@@ -1,9 +1,11 @@
-use crate::ark_ff_delegation::{BigInt, BigIntMacro, BigInteger};
-use crate::bigint_delegation::{u256, DelegatedBarretParams, DelegatedModParams};
-use crate::k256::FieldBytes;
 use core::mem::MaybeUninit;
 
 use super::field_10x26::FieldStorage10x26;
+use crate::{
+    ark_ff_delegation::{BigInt, BigIntMacro, BigInteger},
+    bigint_delegation::{u256, DelegatedBarretParams, DelegatedModParams},
+    k256::FieldBytes,
+};
 
 #[derive(Clone, Copy, Debug)]
 pub(super) struct FieldElement8x32(pub(super) BigInt<4>);
@@ -238,8 +240,9 @@ impl proptest::arbitrary::Arbitrary for FieldElement8x32 {
 
 #[cfg(test)]
 mod tests {
-    use super::FieldElement8x32;
     use proptest::{prop_assert_eq, proptest};
+
+    use super::FieldElement8x32;
 
     fn init() {
         crate::secp256k1::init();

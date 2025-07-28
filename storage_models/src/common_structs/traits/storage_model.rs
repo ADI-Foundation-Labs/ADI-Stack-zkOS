@@ -1,11 +1,11 @@
-use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::system_io_oracle::IOOracle;
 use zk_ee::{
+    execution_environment_type::ExecutionEnvironmentType,
     system::{
         errors::{InternalError, SystemError, UpdateQueryError},
         logger::Logger,
         AccountData, AccountDataRequest, IOResultKeeper, Maybe, Resources,
     },
+    system_io_oracle::IOOracle,
     types_config::SystemIOTypesConfig,
 };
 

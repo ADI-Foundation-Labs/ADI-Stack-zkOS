@@ -11,36 +11,28 @@ pub mod metadata;
 pub mod resources;
 mod result_keeper;
 
-pub use self::base_system_functions::*;
-pub use self::call_modifiers::*;
-pub use self::constants::*;
-pub use self::execution_environment::*;
-pub use self::io::*;
-pub use self::logger::NullLogger;
-pub use self::memory::*;
-
-pub use self::resources::*;
-pub use self::result_keeper::*;
+pub use self::{
+    base_system_functions::*, call_modifiers::*, constants::*, execution_environment::*, io::*,
+    logger::NullLogger, memory::*, resources::*, result_keeper::*,
+};
 
 pub const MAX_GLOBAL_CALLS_STACK_DEPTH: usize = 1024; // even though we do not have to formally limit it,
                                                       // for all practical purposes (63/64) ^ 1024 is 10^-7, and it's unlikely that one can create any new frame
                                                       // with such remaining resources
 
-use core::alloc::Allocator;
-use core::fmt::Write;
+use core::{alloc::Allocator, fmt::Write};
 
 use self::{
     errors::{InternalError, SystemError},
     logger::Logger,
     metadata::{BlockMetadataFromOracle, Metadata},
 };
-use crate::system::metadata::InteropRoot;
-use crate::utils::Bytes32;
 use crate::{
     execution_environment_type::ExecutionEnvironmentType,
+    system::metadata::InteropRoot,
     system_io_oracle::{IOOracle, NewTxContentIterator},
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
-    utils::USIZE_SIZE,
+    utils::{Bytes32, USIZE_SIZE},
 };
 
 pub trait SystemTypes {

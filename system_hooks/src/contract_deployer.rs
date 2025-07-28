@@ -3,12 +3,13 @@
 //! It implements a `setDeployedCodeEVM` method, similar to Era.
 //! It's needed for protocol upgrades.
 //!
-use super::*;
 use core::fmt::Write;
+
 use evm_interpreter::MAX_CODE_SIZE;
 use ruint::aliases::{B160, U256};
-use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::system::errors::SystemError;
+use zk_ee::{execution_environment_type::ExecutionEnvironmentType, system::errors::SystemError};
+
+use super::*;
 
 pub fn contract_deployer_hook<S: EthereumLikeTypes>(
     request: ExternalCallRequest<S>,

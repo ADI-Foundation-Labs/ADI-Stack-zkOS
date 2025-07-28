@@ -1,22 +1,28 @@
-use crate::bootloader::account_models::{AccountModel, ExecutionOutput, ExecutionResult};
-use crate::bootloader::constants::PREPARE_FOR_PAYMASTER_SELECTOR;
-use crate::bootloader::constants::{
-    EXECUTE_SELECTOR, PAY_FOR_TRANSACTION_SELECTOR, VALIDATE_SELECTOR,
-};
-use crate::bootloader::errors::{
-    AAMethod, InvalidAA, InvalidTransaction::AAValidationError, TxError,
-};
-use crate::bootloader::supported_ees::SupportedEEVMState;
-use crate::bootloader::transaction::ZkSyncTransaction;
-use crate::bootloader::{BasicBootloader, Bytes32};
-use crate::require;
 use core::fmt::Write;
+
 use errors::FatalError;
 use ruint::aliases::B160;
 use system_hooks::HooksStorage;
-use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::memory::slice_vec::SliceVec;
-use zk_ee::system::{logger::Logger, *};
+use zk_ee::{
+    execution_environment_type::ExecutionEnvironmentType,
+    memory::slice_vec::SliceVec,
+    system::{logger::Logger, *},
+};
+
+use crate::{
+    bootloader::{
+        account_models::{AccountModel, ExecutionOutput, ExecutionResult},
+        constants::{
+            EXECUTE_SELECTOR, PAY_FOR_TRANSACTION_SELECTOR, PREPARE_FOR_PAYMASTER_SELECTOR,
+            VALIDATE_SELECTOR,
+        },
+        errors::{AAMethod, InvalidAA, InvalidTransaction::AAValidationError, TxError},
+        supported_ees::SupportedEEVMState,
+        transaction::ZkSyncTransaction,
+        BasicBootloader, Bytes32,
+    },
+    require,
+};
 
 pub struct Contract;
 

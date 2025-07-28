@@ -1,9 +1,7 @@
-use crate::kv_markers::*;
-use crate::system::errors::InternalError;
-use crate::types_config::EthereumIOTypesConfig;
-use crate::utils::*;
-
 use super::state_root_view::StateRootView;
+use crate::{
+    kv_markers::*, system::errors::InternalError, types_config::EthereumIOTypesConfig, utils::*,
+};
 
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "testing", derive(serde::Serialize, serde::Deserialize))]

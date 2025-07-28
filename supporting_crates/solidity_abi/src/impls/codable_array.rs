@@ -1,6 +1,7 @@
+use ruint::aliases::U256;
+
 use super::*;
 use crate::impls::u256_to_usize_checked;
-use ruint::aliases::U256;
 
 #[derive(Clone, Copy)]
 pub struct Array<'a, T: 'a, const N: usize> {

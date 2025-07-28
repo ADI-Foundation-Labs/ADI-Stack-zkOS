@@ -1,5 +1,6 @@
-use super::*;
 use core::{cell::Cell, ptr::NonNull};
+
+use super::*;
 
 #[inline(always)]
 pub(crate) fn tag_pointer<T>(ptr: NonNull<T>, tag: usize) -> NonNull<()> {

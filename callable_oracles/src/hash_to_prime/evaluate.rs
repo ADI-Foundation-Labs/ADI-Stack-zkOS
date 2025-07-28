@@ -1,11 +1,10 @@
-use super::*;
-
-use crate::utils::evaluate::read_memory_as_u8;
-use crate::MemoryRegionDescriptionParams;
 use evaluate::compute::compute_from_entropy;
 use oracle_provider::OracleQueryProcessor;
 use risc_v_simulator::abstractions::memory::MemorySource;
 use zk_ee::kv_markers::UsizeDeserializable;
+
+use super::*;
+use crate::{utils::evaluate::read_memory_as_u8, MemoryRegionDescriptionParams};
 
 pub struct HashToPrimeSource<M: MemorySource> {
     marker: std::marker::PhantomData<M>,
@@ -32,8 +31,7 @@ impl<M: MemorySource> OracleQueryProcessor<M> for HashToPrimeSource<M> {
             memory_region_for_request.len,
         )
         .expect("must read memory");
-        use crypto::blake2s::Blake2s256;
-        use crypto::MiniDigest;
+        use crypto::{blake2s::Blake2s256, MiniDigest};
         assert!(MAX_ENTROPY_BYTES <= 64);
         let mut entropy = [0u8; 64];
         for (idx, dst) in entropy.array_chunks_mut::<32>().enumerate() {

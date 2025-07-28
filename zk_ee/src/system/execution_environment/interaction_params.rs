@@ -1,9 +1,8 @@
+use super::{OSImmutableSlice, ReturnValues};
 use crate::{
     system::{system::SystemTypes, MemorySubsystem, MAX_SCRATCH_SPACE_USIZE_WORDS},
     types_config::SystemIOTypesConfig,
 };
-
-use super::{OSImmutableSlice, ReturnValues};
 
 pub struct EnvironmentParameters<'a> {
     pub decommitted_bytecode: &'a [u8],

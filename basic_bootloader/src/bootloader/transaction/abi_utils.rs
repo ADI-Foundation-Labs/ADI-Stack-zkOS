@@ -2,9 +2,10 @@
 //! Bunch of methods needed to decode a transaction.
 //!
 
-use super::u256be_ptr::U256BEPtr;
 use ruint::aliases::U256;
 use zk_ee::utils::u256_try_to_usize;
+
+use super::u256be_ptr::U256BEPtr;
 
 #[allow(dead_code)]
 ///

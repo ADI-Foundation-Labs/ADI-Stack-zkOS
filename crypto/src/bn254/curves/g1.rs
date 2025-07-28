@@ -1,5 +1,3 @@
-#[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
-use crate::ark_ff_delegation::MontFp;
 use ark_ec::{
     bn,
     models::{short_weierstrass::SWCurveConfig, CurveConfig},
@@ -10,6 +8,8 @@ use ark_ec::{
 use ark_ff::MontFp;
 use ark_ff::{AdditiveGroup, BigInt, Field, PrimeField, Zero};
 
+#[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
+use crate::ark_ff_delegation::MontFp;
 use crate::bn254::fields::{Fq, Fr};
 
 #[derive(Clone, Default, PartialEq, Eq)]

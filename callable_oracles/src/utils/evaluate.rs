@@ -1,5 +1,7 @@
-use risc_v_simulator::abstractions::memory::{AccessType, MemorySource};
-use risc_v_simulator::cycle::status_registers::TrapReason;
+use risc_v_simulator::{
+    abstractions::memory::{AccessType, MemorySource},
+    cycle::status_registers::TrapReason,
+};
 
 pub fn read_memory_as_u8<M: MemorySource>(
     memory: &M,

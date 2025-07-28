@@ -12,11 +12,10 @@ pub mod uint_x;
 
 mod test_impls;
 
-pub use self::byte_ref::Bytes;
-pub use self::codable_array::Array;
-pub use self::codable_slice::Slice;
-pub use self::string_ref::SolidityString;
-pub use self::uint_x::*;
+pub use self::{
+    byte_ref::Bytes, codable_array::Array, codable_slice::Slice, string_ref::SolidityString,
+    uint_x::*,
+};
 
 pub fn u256_to_usize_checked(src: &U256) -> Result<usize, ()> {
     if src.as_limbs()[1] != 0 || src.as_limbs()[2] != 0 || src.as_limbs()[3] != 0 {

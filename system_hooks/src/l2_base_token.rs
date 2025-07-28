@@ -3,13 +3,16 @@
 //! It implements methods for `withdraw` and `withdrawWithMessage`,
 //! which work in the same way as in Era.
 //!
-use super::*;
 use core::fmt::Write;
+
 use errors::UpdateQueryError;
 use ruint::aliases::{B160, U256};
-use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::system::errors::SystemError;
-use zk_ee::system::logger::Logger;
+use zk_ee::{
+    execution_environment_type::ExecutionEnvironmentType,
+    system::{errors::SystemError, logger::Logger},
+};
+
+use super::*;
 
 pub fn l2_base_token_hook<S: EthereumLikeTypes>(
     request: ExternalCallRequest<S>,

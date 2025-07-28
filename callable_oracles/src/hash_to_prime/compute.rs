@@ -1,5 +1,6 @@
-use super::*;
 use ruint::algorithms::add_nx1;
+
+use super::*;
 
 // NOTE: we know that all moduluses that we will generate have top bit unset when represented as u64 words,
 // so we choose non-redundant representation

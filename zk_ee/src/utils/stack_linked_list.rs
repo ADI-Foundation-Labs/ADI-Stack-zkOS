@@ -1,5 +1,4 @@
-use alloc::alloc::Allocator;
-use alloc::boxed::Box;
+use alloc::{alloc::Allocator, boxed::Box};
 
 pub struct StackLinkedList<T, A: Allocator + Clone> {
     head: Option<Box<Node<T, A>, A>>,

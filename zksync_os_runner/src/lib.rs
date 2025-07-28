@@ -2,13 +2,14 @@
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 
+use std::{alloc::Global, io::Read, path::PathBuf, str::FromStr};
+
 use prover_examples::prover::VectorMemoryImplWithRom;
 use risc_v_simulator::{
     abstractions::{memory::VectorMemoryImpl, non_determinism::NonDeterminismCSRSource},
     cycle::IMStandardIsaConfig,
     sim::{DiagnosticsConfig, ProfilerConfig, SimulatorConfig},
 };
-use std::{alloc::Global, io::Read, path::PathBuf, str::FromStr};
 
 /// Runs the zksync_os binary on a simulator with a given non_determinism source for that many cycles.
 /// If you enable diagnostics, it will print the flamegraph - but the run will be a lot slower.
@@ -146,8 +147,9 @@ pub fn simulate_witness_tracing(
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use risc_v_simulator::abstractions::non_determinism::QuasiUARTSource;
+
+    use super::*;
 
     #[test]
     /// Quick test that uses the .bin file that computes the n-th fibonacci number.

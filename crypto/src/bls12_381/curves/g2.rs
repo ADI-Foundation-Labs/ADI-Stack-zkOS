@@ -10,17 +10,16 @@ use ark_ec::{
     AffineRepr, CurveGroup, PrimeGroup,
 };
 use ark_ff::{AdditiveGroup, Field, PrimeField, Zero};
-use ark_serialize::{Compress, SerializationError};
-
-#[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
-use crate::ark_ff_delegation::{BigIntMacro as BigInt, MontFp};
 #[cfg(not(any(all(target_arch = "riscv32", feature = "bigint_ops"), test)))]
 use ark_ff::{BigInt, MontFp};
+use ark_serialize::{Compress, SerializationError};
 
 use super::{
     g2_swu_iso,
     util::{serialize_fq, EncodingFlags, G2_SERIALIZED_SIZE},
 };
+#[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
+use crate::ark_ff_delegation::{BigIntMacro as BigInt, MontFp};
 use crate::bls12_381::{
     util::{read_g2_compressed, read_g2_uncompressed},
     *,

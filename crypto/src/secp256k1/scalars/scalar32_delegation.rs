@@ -1,6 +1,9 @@
-use crate::ark_ff_delegation::BigInt;
-use crate::bigint_delegation::{u256, DelegatedModParams, DelegatedMontParams};
 use core::mem::MaybeUninit;
+
+use crate::{
+    ark_ff_delegation::BigInt,
+    bigint_delegation::{u256, DelegatedModParams, DelegatedMontParams},
+};
 
 const _: () = const {
     assert!(core::mem::size_of::<crate::k256::Scalar>() == core::mem::size_of::<ScalarInner>());
@@ -331,8 +334,9 @@ impl PartialOrd for ScalarInner {
 
 #[cfg(test)]
 mod tests {
-    use super::ScalarInner;
     use proptest::{prop_assert_eq, proptest};
+
+    use super::ScalarInner;
 
     fn init() {
         crate::secp256k1::init();

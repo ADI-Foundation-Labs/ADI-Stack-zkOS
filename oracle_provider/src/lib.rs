@@ -4,15 +4,12 @@
 
 // Hook zk_ee IOOracle to be NonDeterminismCSRSource
 
-use std::cell::RefCell;
-use std::collections::BTreeMap;
-use std::rc::Rc;
-use zk_ee::kv_markers::UsizeDeserializable;
-use zk_ee::system_io_oracle::*;
-use zk_ee::types_config::*;
+use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 
-use risc_v_simulator::abstractions::memory::MemorySource;
-use risc_v_simulator::abstractions::non_determinism::NonDeterminismCSRSource;
+use risc_v_simulator::abstractions::{
+    memory::MemorySource, non_determinism::NonDeterminismCSRSource,
+};
+use zk_ee::{kv_markers::UsizeDeserializable, system_io_oracle::*, types_config::*};
 
 pub struct ZkEENonDeterminismSource<M: MemorySource> {
     query_buffer: Option<QueryBuffer>,

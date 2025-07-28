@@ -1,8 +1,8 @@
-use evm_interpreter::gas_constants::SELFBALANCE;
-use evm_interpreter::gas_constants::{ADDRESS_ACCESS_COST_COLD, ADDRESS_ACCESS_COST_WARM};
-use evm_interpreter::ERGS_PER_GAS;
-use zk_ee::native_with_delegations;
-use zk_ee::system::Ergs;
+use evm_interpreter::{
+    gas_constants::{ADDRESS_ACCESS_COST_COLD, ADDRESS_ACCESS_COST_WARM, SELFBALANCE},
+    ERGS_PER_GAS,
+};
+use zk_ee::{native_with_delegations, system::Ergs};
 
 /// Native cost for querying the preimage cache
 pub const PREIMAGE_CACHE_GET_NATIVE_COST: u64 = 500;

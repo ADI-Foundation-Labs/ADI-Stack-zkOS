@@ -1,9 +1,10 @@
-use crate::prestate::*;
-use crate::receipts::TransactionReceipt;
+use std::collections::HashMap;
+
 use alloy::hex;
 use rig::forward_system::run::BatchOutput;
 use ruint::aliases::{B160, B256, U256};
-use std::collections::HashMap;
+
+use crate::{prestate::*, receipts::TransactionReceipt};
 
 impl DiffTrace {
     fn collect_diffs(self, prestate_cache: Cache, miner: B160) -> HashMap<B160, AccountState> {

@@ -1,14 +1,12 @@
-use crypto::secp256k1::recover;
 use crypto::{
-    k256::elliptic_curve::{ops::Reduce, rand_core::OsRng},
     k256::{
         ecdsa::{hazmat::bits2field, SigningKey},
-        elliptic_curve::group::GroupEncoding,
+        elliptic_curve::{group::GroupEncoding, ops::Reduce, rand_core::OsRng},
         Scalar,
     },
+    secp256k1::recover,
     sha3::{Digest, Keccak256},
 };
-
 use proptest::{
     arbitrary::Mapped,
     prelude::{any, Arbitrary, BoxedStrategy, Just, Strategy},

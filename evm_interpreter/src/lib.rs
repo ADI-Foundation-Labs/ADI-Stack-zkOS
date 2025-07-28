@@ -17,19 +17,20 @@ extern crate alloc;
 // not just some database access for storage/accounts, but also all the memory and stack.
 // Eventually we plan to try to include this abstraction back into Reth itself
 
+use alloc::vec::Vec;
 use core::ops::Range;
 
 use ruint::aliases::U256;
-use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::system::errors::{FatalError, InternalError, SystemError};
-use zk_ee::system::{
-    EthereumLikeTypes, MemorySubsystem, OSImmutableSlice, OSResizableSlice, Resource, System,
-    SystemTypes,
+use zk_ee::{
+    execution_environment_type::ExecutionEnvironmentType,
+    system::{
+        errors::{FatalError, InternalError, SystemError},
+        EthereumLikeTypes, MemorySubsystem, OSImmutableSlice, OSResizableSlice, Resource, System,
+        SystemTypes,
+    },
+    types_config::*,
+    utils::*,
 };
-
-use alloc::vec::Vec;
-use zk_ee::types_config::*;
-use zk_ee::utils::*;
 
 mod ee_trait_impl;
 pub mod gas_constants;
@@ -117,8 +118,9 @@ impl<S: SystemTypes> BytecodePreprocessingData<S> {
         system: &mut System<S>,
         resources: &mut S::Resources,
     ) -> Result<Self, FatalError> {
-        use crate::native_resource_constants::BYTECODE_PREPROCESSING_BYTE_NATIVE_COST;
         use zk_ee::system::{Computational, Resources};
+
+        use crate::native_resource_constants::BYTECODE_PREPROCESSING_BYTE_NATIVE_COST;
         let native_cost = <S::Resources as Resources>::Native::from_computational(
             BYTECODE_PREPROCESSING_BYTE_NATIVE_COST.saturating_mul(padded_bytecode.len() as u64),
         );

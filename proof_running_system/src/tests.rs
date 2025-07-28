@@ -1,14 +1,12 @@
-use crate::talc::TalcWrapper;
 use alloc::vec;
-use core::alloc::GlobalAlloc;
-use core::alloc::Layout;
-use ruint::aliases::B160;
+use core::alloc::{GlobalAlloc, Layout};
 use std::time::Instant;
-use talc::ClaimOnOom;
-use talc::ErrOnOom;
-use talc::Span;
-use talc::Talc;
+
+use ruint::aliases::B160;
+use talc::{ClaimOnOom, ErrOnOom, Span, Talc};
 use zk_ee::utils::Bytes32;
+
+use crate::talc::TalcWrapper;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub struct WarmStorageKey {

@@ -1,24 +1,26 @@
-use crate::bootloader::constants::SPECIAL_ADDRESS_SPACE_BOUND;
-use crate::bootloader::supported_ees::SupportedEEVMState;
-use crate::bootloader::DEBUG_OUTPUT;
 use alloc::boxed::Box;
 use core::fmt::Write;
+
 use errors::FatalError;
-use evm_interpreter::gas_constants::CALLVALUE;
-use evm_interpreter::gas_constants::CALL_STIPEND;
-use evm_interpreter::gas_constants::NEWACCOUNT;
-use evm_interpreter::ERGS_PER_GAS;
-use ruint::aliases::B160;
-use ruint::aliases::U256;
+use evm_interpreter::{
+    gas_constants::{CALLVALUE, CALL_STIPEND, NEWACCOUNT},
+    ERGS_PER_GAS,
+};
+use ruint::aliases::{B160, U256};
 use system_hooks::*;
-use zk_ee::common_structs::CalleeParameters;
-use zk_ee::common_structs::TransferInfo;
-use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::memory::slice_vec::SliceVec;
-use zk_ee::system::{
-    errors::{InternalError, SystemError, UpdateQueryError},
-    logger::Logger,
-    *,
+use zk_ee::{
+    common_structs::{CalleeParameters, TransferInfo},
+    execution_environment_type::ExecutionEnvironmentType,
+    memory::slice_vec::SliceVec,
+    system::{
+        errors::{InternalError, SystemError, UpdateQueryError},
+        logger::Logger,
+        *,
+    },
+};
+
+use crate::bootloader::{
+    constants::SPECIAL_ADDRESS_SPACE_BOUND, supported_ees::SupportedEEVMState, DEBUG_OUTPUT,
 };
 
 /// Main execution loop.

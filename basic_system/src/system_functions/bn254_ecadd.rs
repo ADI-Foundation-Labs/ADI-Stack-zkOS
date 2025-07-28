@@ -1,11 +1,15 @@
+use crypto::{
+    ark_ec::CurveGroup,
+    ark_ff::PrimeField,
+    ark_serialize::{CanonicalSerialize, Valid},
+};
+use zk_ee::system::{errors::SystemFunctionError, SystemFunction};
+
 use super::*;
-use crate::cost_constants::{BN254_ECADD_COST_ERGS, BN254_ECADD_NATIVE_COST};
-use crate::system_functions::bytereverse;
-use crypto::ark_ec::CurveGroup;
-use crypto::ark_ff::PrimeField;
-use crypto::ark_serialize::{CanonicalSerialize, Valid};
-use zk_ee::system::errors::SystemFunctionError;
-use zk_ee::system::SystemFunction;
+use crate::{
+    cost_constants::{BN254_ECADD_COST_ERGS, BN254_ECADD_NATIVE_COST},
+    system_functions::bytereverse,
+};
 
 ///
 /// bn254 ecadd system function implementation.
@@ -73,10 +77,9 @@ pub fn bn254_ecadd_inner(
     x1: &[u8; 32],
     y1: &[u8; 32],
 ) -> Result<[u8; 64], ()> {
-    use crypto::ark_ec::AffineRepr;
-    use crypto::ark_ff::PrimeField;
-    use crypto::ark_serialize::CanonicalDeserialize;
-    use crypto::bn254::*;
+    use crypto::{
+        ark_ec::AffineRepr, ark_ff::PrimeField, ark_serialize::CanonicalDeserialize, bn254::*,
+    };
 
     let mut points = [G1Affine::identity(); 2];
     for (dst, [x, y]) in points.iter_mut().zip([[x0, y0], [x1, y1]].into_iter()) {
@@ -108,8 +111,7 @@ pub fn bn254_ecadd_inner(
 }
 
 pub(crate) fn serialize_projective(point: crypto::bn254::G1Projective) -> [u8; 64] {
-    use crypto::ark_ec::AffineRepr;
-    use crypto::ark_ff::Zero;
+    use crypto::{ark_ec::AffineRepr, ark_ff::Zero};
     if point.is_zero() {
         // canonical for zero point
         [0u8; 64]

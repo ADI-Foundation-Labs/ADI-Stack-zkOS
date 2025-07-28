@@ -1,5 +1,6 @@
-use crate::{common_traits::key_like_with_bounds::KeyLikeWithBounds, utils::Bytes32};
 use ruint::aliases::B160;
+
+use crate::{common_traits::key_like_with_bounds::KeyLikeWithBounds, utils::Bytes32};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub struct WarmStorageKey {
@@ -47,8 +48,7 @@ pub struct StorageDiff {
 }
 
 pub fn derive_flat_storage_key(address: &B160, key: &Bytes32) -> Bytes32 {
-    use crypto::blake2s::Blake2s256;
-    use crypto::MiniDigest;
+    use crypto::{blake2s::Blake2s256, MiniDigest};
     let mut hasher = Blake2s256::new();
     let mut extended_address = Bytes32::ZERO;
     extended_address.as_u8_array_mut()[12..]

@@ -1,17 +1,14 @@
+use ark_ec::{
+    bls12::g2::EllCoeff,
+    pairing::{Pairing, PairingOutput},
+    short_weierstrass::SWCurveConfig,
+    AdditiveGroup, AffineRepr, CurveGroup,
+};
+use ark_ff::{BitIteratorBE, CyclotomicMultSubgroup, Field, One, Zero};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+
 use super::*;
 use crate::bls12_381::{Fq12, Fq2};
-use ark_ec::bls12::g2::EllCoeff;
-use ark_ec::pairing::Pairing;
-use ark_ec::pairing::PairingOutput;
-use ark_ec::short_weierstrass::SWCurveConfig;
-use ark_ec::AdditiveGroup;
-use ark_ec::AffineRepr;
-use ark_ec::CurveGroup;
-use ark_ff::BitIteratorBE;
-use ark_ff::One;
-use ark_ff::{CyclotomicMultSubgroup, Field, Zero};
-use ark_serialize::CanonicalDeserialize;
-use ark_serialize::CanonicalSerialize;
 
 impl Bls12_381 {
     /// Evaluates the line function at point p.

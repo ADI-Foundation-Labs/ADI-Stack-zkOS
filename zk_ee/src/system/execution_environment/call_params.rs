@@ -1,8 +1,7 @@
-use super::System;
-use super::*;
+use core::ops::{Deref, Range};
+
+use super::{System, *};
 use crate::system::MAX_SCRATCH_SPACE_USIZE_WORDS;
-use core::ops::Deref;
-use core::ops::Range;
 
 /// range for `T` with offset at.
 pub fn range_for_at<T>(offset: usize) -> Result<Range<usize>, ()> {

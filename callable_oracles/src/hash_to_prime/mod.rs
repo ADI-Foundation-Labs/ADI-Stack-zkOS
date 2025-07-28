@@ -6,9 +6,9 @@ pub mod evaluate;
 pub mod common;
 pub mod verify;
 
-pub use self::common::*;
-
 use ruint::Uint;
+
+pub use self::common::*;
 
 pub type S1BigInt = Uint<64, 1>;
 pub type S2BigInt = Uint<128, 2>;

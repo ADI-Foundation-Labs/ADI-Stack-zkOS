@@ -1,19 +1,20 @@
 // Includes code adapted from https://github.com/bluealloy/revm/blob/fb80087996dfbd6c74eaf308538cfa707ecb763c/crates/context/interface/src/result.rs
 
-use crate::run::result_keeper::ForwardRunningResultKeeper;
-use crate::run::TxResultCallback;
 use arrayvec::ArrayVec;
 pub use basic_bootloader::bootloader::block_header::BlockHeader;
 use basic_bootloader::bootloader::errors::InvalidTransaction;
 use ruint::aliases::B160;
-use zk_ee::common_structs::GenericLogContent;
-use zk_ee::common_structs::{
-    derive_flat_storage_key, GenericEventContent, L2ToL1Log, PreimageType,
+use zk_ee::{
+    common_structs::{
+        derive_flat_storage_key, GenericEventContent, GenericLogContent, L2ToL1Log, PreimageType,
+    },
+    kv_markers::MAX_EVENT_TOPICS,
+    system::errors::InternalError,
+    types_config::EthereumIOTypesConfig,
+    utils::Bytes32,
 };
-use zk_ee::kv_markers::MAX_EVENT_TOPICS;
-use zk_ee::system::errors::InternalError;
-use zk_ee::types_config::EthereumIOTypesConfig;
-use zk_ee::utils::Bytes32;
+
+use crate::run::{result_keeper::ForwardRunningResultKeeper, TxResultCallback};
 
 #[derive(Debug, Clone)]
 // Output not observed for now, we allow dead code temporarily
@@ -68,8 +69,7 @@ pub struct L2ToL1LogWithPreimage {
 
 impl From<&GenericLogContent<EthereumIOTypesConfig>> for L2ToL1LogWithPreimage {
     fn from(value: &GenericLogContent<EthereumIOTypesConfig>) -> Self {
-        use zk_ee::common_structs::GenericLogContentData;
-        use zk_ee::common_structs::UserMsgData;
+        use zk_ee::common_structs::{GenericLogContentData, UserMsgData};
         let preimage = match &value.data {
             GenericLogContentData::UserMsg(UserMsgData { data, .. }) => {
                 Some(data.as_slice().to_vec())

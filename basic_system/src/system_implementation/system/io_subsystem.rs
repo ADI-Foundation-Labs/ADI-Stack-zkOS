@@ -1,32 +1,24 @@
 //! Implementation of the IO subsystem.
-use super::*;
-use crate::system_functions::keccak256::keccak256_native_cost;
-use crate::system_functions::keccak256::Keccak256Impl;
-use cost_constants::EVENT_DATA_PER_BYTE_COST;
-use cost_constants::EVENT_STORAGE_BASE_NATIVE_COST;
-use cost_constants::EVENT_TOPIC_NATIVE_COST;
-use cost_constants::WARM_TSTORAGE_READ_NATIVE_COST;
-use cost_constants::WARM_TSTORAGE_WRITE_NATIVE_COST;
-use crypto::blake2s::Blake2s256;
-use crypto::MiniDigest;
+use cost_constants::{
+    EVENT_DATA_PER_BYTE_COST, EVENT_STORAGE_BASE_NATIVE_COST, EVENT_TOPIC_NATIVE_COST,
+    WARM_TSTORAGE_READ_NATIVE_COST, WARM_TSTORAGE_WRITE_NATIVE_COST,
+};
+use crypto::{blake2s::Blake2s256, MiniDigest};
 use errors::SystemFunctionError;
-use evm_interpreter::gas_constants::LOG;
-use evm_interpreter::gas_constants::LOGDATA;
-use evm_interpreter::gas_constants::LOGTOPIC;
-use evm_interpreter::gas_constants::TLOAD;
-use evm_interpreter::gas_constants::TSTORE;
-use storage_models::common_structs::generic_transient_storage::GenericTransientStorage;
-use storage_models::common_structs::snapshottable_io::SnapshottableIo;
-use storage_models::common_structs::StorageModel;
-use zk_ee::common_structs::BasicIOImplementerFSM;
-use zk_ee::common_structs::L2_TO_L1_LOG_SERIALIZE_SIZE;
-use zk_ee::system::metadata::BlockMetadataFromOracle;
+use evm_interpreter::gas_constants::{LOG, LOGDATA, LOGTOPIC, TLOAD, TSTORE};
+use storage_models::common_structs::{
+    generic_transient_storage::GenericTransientStorage, snapshottable_io::SnapshottableIo,
+    StorageModel,
+};
 use zk_ee::{
-    common_structs::{EventsStorage, LogsStorage},
+    common_structs::{
+        BasicIOImplementerFSM, EventsStorage, LogsStorage, L2_TO_L1_LOG_SERIALIZE_SIZE,
+    },
     kv_markers::UsizeDeserializable,
     memory::ArrayBuilder,
     system::{
         errors::{SystemError, UpdateQueryError},
+        metadata::BlockMetadataFromOracle,
         AccountData, AccountDataRequest, EthereumLikeIOSubsystem, IOResultKeeper, IOSubsystem,
         IOSubsystemExt, Maybe,
     },
@@ -34,6 +26,9 @@ use zk_ee::{
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::UsizeAlignedByteBox,
 };
+
+use super::*;
+use crate::system_functions::keccak256::{keccak256_native_cost, Keccak256Impl};
 
 pub struct FullIO<
     A: Allocator + Clone + Default,
@@ -157,6 +152,7 @@ where
     ) -> Result<(), SystemError> {
         // Charge resources
         let ergs = match ee_type {
+            ExecutionEnvironmentType::NoEE => Ergs::empty(),
             ExecutionEnvironmentType::EVM => {
                 let static_cost = LOG;
                 let topic_cost = LOGTOPIC * (topics.len() as u64);
@@ -662,7 +658,7 @@ where
             priority_operations_hash: l1_txs_commitment.1,
             l2_logs_tree_root: full_l2_to_l1_logs_root.into(),
             upgrade_tx_hash,
-            dependency_roots_rolling_hash:interop_root_rolling_hash,
+            dependency_roots_rolling_hash: interop_root_rolling_hash,
         };
         let _ = logger.write_fmt(format_args!(
             "PI calculation: batch output {:?}\n",

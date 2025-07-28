@@ -1,7 +1,9 @@
-use core::hint::assert_unchecked;
-use core::iter::Extend;
-use core::mem::MaybeUninit;
-use core::ops::{Deref, DerefMut};
+use core::{
+    hint::assert_unchecked,
+    iter::Extend,
+    mem::MaybeUninit,
+    ops::{Deref, DerefMut},
+};
 
 pub struct SliceVec<'a, T> {
     memory: &'a mut [MaybeUninit<T>],

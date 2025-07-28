@@ -37,10 +37,14 @@ const NUM_LIMBS: usize = 8usize;
 
 pub type Fq = Fp512<MontBackend<FqConfig, NUM_LIMBS>>;
 
-use crate::ark_ff_delegation::{BigInt, BigIntMacro, Fp, Fp512, MontBackend, MontConfig};
-use crate::bigint_delegation::{u512, DelegatedModParams, DelegatedMontParams};
-use ark_ff::{AdditiveGroup, Field, Zero};
 use core::mem::MaybeUninit;
+
+use ark_ff::{AdditiveGroup, Field, Zero};
+
+use crate::{
+    ark_ff_delegation::{BigInt, BigIntMacro, Fp, Fp512, MontBackend, MontConfig},
+    bigint_delegation::{u512, DelegatedModParams, DelegatedMontParams},
+};
 
 type B = BigInt<NUM_LIMBS>;
 type F = Fp<MontBackend<FqConfig, NUM_LIMBS>, NUM_LIMBS>;
@@ -190,8 +194,9 @@ impl MontConfig<NUM_LIMBS> for FqConfig {
 
 #[cfg(test)]
 mod test {
-    use super::{BigInt, Fq, FqConfig, MontConfig, B};
     use ark_ff::{Field, One, UniformRand, Zero};
+
+    use super::{BigInt, Fq, FqConfig, MontConfig, B};
 
     fn init() {
         crate::bls12_381::fields::init();
@@ -321,14 +326,12 @@ mod test {
     // very small
 
     pub const ITERATIONS: usize = 100;
-    use crate::bls12_381::curves::Bls12_381;
-    use ark_bls12_381::Bls12_381 as Bls12_381_Ref;
-    use ark_bls12_381::Fq as FqRef;
-    use ark_bls12_381::Fq2 as Fq2Ref;
-    use ark_bls12_381::Fq6 as Fq6Ref;
+    use ark_bls12_381::{Bls12_381 as Bls12_381_Ref, Fq as FqRef, Fq2 as Fq2Ref, Fq6 as Fq6Ref};
     use ark_ec::{pairing::*, CurveGroup, PrimeGroup};
     use ark_ff::{CyclotomicMultSubgroup, PrimeField};
     use ark_std::test_rng;
+
+    use crate::bls12_381::curves::Bls12_381;
 
     fn convert_fq(src: FqRef) -> Fq {
         let mut t = B::zero();

@@ -1,3 +1,5 @@
+use core::ops::Neg;
+
 use ark_ec::{
     bls12,
     bls12::Bls12Config,
@@ -8,15 +10,13 @@ use ark_ec::{
     AffineRepr, PrimeGroup,
 };
 use ark_ff::{AdditiveGroup, One, PrimeField, Zero};
-
-#[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
-use crate::ark_ff_delegation::{BigIntMacro as BigInt, MontFp};
 #[cfg(not(any(all(target_arch = "riscv32", feature = "bigint_ops"), test)))]
 use ark_ff::{BigInt, MontFp};
 use ark_serialize::{Compress, SerializationError};
-use core::ops::Neg;
 
 use super::g1_swu_iso;
+#[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
+use crate::ark_ff_delegation::{BigIntMacro as BigInt, MontFp};
 use crate::bls12_381::{
     util::{
         read_g1_compressed, read_g1_uncompressed, serialize_fq, EncodingFlags, G1_SERIALIZED_SIZE,

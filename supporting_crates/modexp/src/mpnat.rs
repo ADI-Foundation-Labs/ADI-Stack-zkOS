@@ -7,9 +7,10 @@ use crate::arith::{
 };
 
 extern crate alloc;
-use crate::vec_in;
 use alloc::vec::Vec;
 use core::alloc::Allocator;
+
+use crate::vec_in;
 
 #[cfg(target_pointer_width = "32")]
 pub type Word = u32;
@@ -630,9 +631,7 @@ impl<A: Allocator + Clone> MPNat<A> {
 mod test {
     use crate::mpnat::MPNat;
     extern crate std;
-    use std::alloc::Global;
-    use std::vec;
-    use std::vec::Vec;
+    use std::{alloc::Global, vec, vec::Vec};
 
     #[test]
     fn test_modpow_even() {

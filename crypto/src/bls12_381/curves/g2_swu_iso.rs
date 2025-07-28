@@ -1,8 +1,3 @@
-use super::super::*;
-use super::*;
-
-#[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
-use crate::ark_ff_delegation::MontFp;
 use ark_ec::{
     hashing::curve_maps::{swu::SWUConfig, wb::IsogenyMap},
     models::{
@@ -12,6 +7,10 @@ use ark_ec::{
 };
 #[cfg(not(any(all(target_arch = "riscv32", feature = "bigint_ops"), test)))]
 use ark_ff::MontFp;
+
+use super::{super::*, *};
+#[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
+use crate::ark_ff_delegation::MontFp;
 
 type G2Affine = Affine<SwuIsoConfig>;
 

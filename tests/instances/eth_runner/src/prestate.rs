@@ -1,10 +1,11 @@
+use std::collections::{BTreeMap, HashMap};
+
 use rig::Chain;
 use ruint::{
     aliases::{B160, B256, U256},
     Bits,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
 
 #[repr(transparent)]
 #[derive(PartialEq, Eq, Clone, Copy, Debug, Deserialize, Serialize)]

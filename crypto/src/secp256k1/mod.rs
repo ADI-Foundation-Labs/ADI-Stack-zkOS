@@ -10,14 +10,12 @@ mod scalars;
 #[cfg(test)]
 mod test_vectors;
 
-use core::fmt::Debug;
-use core::fmt::Display;
+use core::fmt::{Debug, Display};
 
 pub use context::ECMultContext;
-pub use recover::recover_with_context;
-
 #[cfg(feature = "secp256k1-static-context")]
 pub use recover::recover;
+pub use recover::recover_with_context;
 
 #[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
 pub fn init() {
@@ -50,12 +48,14 @@ pub fn ecrecover_test() {
     #[cfg(feature = "bigint_ops")]
     init();
 
-    use crate::k256::{
-        ecdsa::{hazmat::bits2field, SigningKey},
-        elliptic_curve::{group::GroupEncoding, ops::Reduce},
-        Scalar,
+    use crate::{
+        k256::{
+            ecdsa::{hazmat::bits2field, SigningKey},
+            elliptic_curve::{group::GroupEncoding, ops::Reduce},
+            Scalar,
+        },
+        sha3::{Digest, Keccak256},
     };
-    use crate::sha3::{Digest, Keccak256};
     let message = "In the beginning the Universe was created.
     This had made many people very angry and has been widely regarded as a bad move";
     let private_key = SigningKey::from_bytes(

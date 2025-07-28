@@ -1,6 +1,7 @@
+use native_resource_constants::*;
+
 use super::*;
 use crate::u256::*;
-use native_resource_constants::*;
 
 impl<S: EthereumLikeTypes> Interpreter<'_, S> {
     pub fn wrapped_add(&mut self) -> InstructionResult {

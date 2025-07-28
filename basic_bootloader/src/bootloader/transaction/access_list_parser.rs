@@ -3,9 +3,9 @@
 //! See [ZkSyncTransaction] for more details on encoding format.
 //!
 
-use crate::bootloader::Bytes32;
-use crate::bootloader::TX_OFFSET;
 use ruint::aliases::{B160, U256};
+
+use crate::bootloader::{Bytes32, TX_OFFSET};
 
 pub struct AccessListParser {
     pub offset: usize,

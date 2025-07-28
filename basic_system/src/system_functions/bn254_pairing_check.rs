@@ -1,15 +1,20 @@
-use super::*;
-use crate::cost_constants::{
-    BN254_PAIRING_BASE_NATIVE_COST, BN254_PAIRING_COST_PER_PAIR_ERGS,
-    BN254_PAIRING_PER_PAIR_NATIVE_COST, BN254_PAIRING_STATIC_COST_ERGS,
-};
-use crate::system_functions::bytereverse;
 use alloc::vec::Vec;
-use crypto::ark_ec::AffineRepr;
-use crypto::ark_ff::Zero;
-use crypto::ark_serialize::{CanonicalDeserialize, Valid};
-use zk_ee::system::errors::SystemFunctionError;
-use zk_ee::system::SystemFunction;
+
+use crypto::{
+    ark_ec::AffineRepr,
+    ark_ff::Zero,
+    ark_serialize::{CanonicalDeserialize, Valid},
+};
+use zk_ee::system::{errors::SystemFunctionError, SystemFunction};
+
+use super::*;
+use crate::{
+    cost_constants::{
+        BN254_PAIRING_BASE_NATIVE_COST, BN254_PAIRING_COST_PER_PAIR_ERGS,
+        BN254_PAIRING_PER_PAIR_NATIVE_COST, BN254_PAIRING_STATIC_COST_ERGS,
+    },
+    system_functions::bytereverse,
+};
 
 ///
 /// bn254 pairing check system function implementation.
@@ -61,10 +66,14 @@ fn bn254_pairing_check_inner<A: Allocator>(
     src: &[u8],
     allocator: A,
 ) -> Result<bool, ()> {
-    use crypto::ark_ec::pairing::Pairing;
-    use crypto::ark_ff::{One, PrimeField};
-    use crypto::bn254::curves::{Bn254, G1Affine, G2Affine};
-    use crypto::bn254::fields::{Fq, Fq2};
+    use crypto::{
+        ark_ec::pairing::Pairing,
+        ark_ff::{One, PrimeField},
+        bn254::{
+            curves::{Bn254, G1Affine, G2Affine},
+            fields::{Fq, Fq2},
+        },
+    };
 
     if num_pairs == 0 {
         return Ok(true);
@@ -151,10 +160,12 @@ fn bn254_pairing_check_inner<A: Allocator>(
 
 #[cfg(test)]
 mod test {
+    use zk_ee::{
+        reference_implementations::{BaseResources, DecreasingNative},
+        system::Resource,
+    };
+
     use super::*;
-    use zk_ee::reference_implementations::BaseResources;
-    use zk_ee::reference_implementations::DecreasingNative;
-    use zk_ee::system::Resource;
 
     #[ignore = "requires single threaded runner"]
     #[test]

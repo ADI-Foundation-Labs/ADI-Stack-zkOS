@@ -11,8 +11,9 @@
 
 extern crate alloc;
 
-use crate::codable_trait::SolidityCodableReflectionRef;
 use codable_trait::SolidityDecodable;
+
+use crate::codable_trait::SolidityCodableReflectionRef;
 
 pub mod codable_trait;
 pub mod impls;

@@ -5,17 +5,22 @@
 
 use core::marker::PhantomData;
 
-use super::errors::{InternalError, SystemError, UpdateQueryError};
-use super::logger::Logger;
-use super::{IOResultKeeper, Resources};
-use crate::execution_environment_type::ExecutionEnvironmentType;
-use crate::kv_markers::MAX_EVENT_TOPICS;
-use crate::system::metadata::BlockMetadataFromOracle;
-use crate::system_io_oracle::IOOracle;
-use crate::types_config::{EthereumIOTypesConfig, SystemIOTypesConfig};
-use crate::utils::Bytes32;
 use arrayvec::ArrayVec;
 use ruint::aliases::U256;
+
+use super::{
+    errors::{InternalError, SystemError, UpdateQueryError},
+    logger::Logger,
+    IOResultKeeper, Resources,
+};
+use crate::{
+    execution_environment_type::ExecutionEnvironmentType,
+    kv_markers::MAX_EVENT_TOPICS,
+    system::metadata::BlockMetadataFromOracle,
+    system_io_oracle::IOOracle,
+    types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
+    utils::Bytes32,
+};
 
 ///
 /// User facing IO trait.

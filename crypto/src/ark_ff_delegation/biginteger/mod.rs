@@ -1,4 +1,3 @@
-use crate::ark_ff_delegation::const_helpers;
 use ark_ff::const_for;
 pub use ark_ff::BigInteger;
 use ark_serialize::{
@@ -23,6 +22,8 @@ use ark_std::{
 };
 use num_bigint::BigUint;
 use zeroize::Zeroize;
+
+use crate::ark_ff_delegation::const_helpers;
 
 #[macro_use]
 pub mod arithmetic;

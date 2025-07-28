@@ -1,12 +1,11 @@
-use super::*;
-use crate::cost_constants::BN254_ECMUL_NATIVE_COST;
-use crate::system_functions::bytereverse;
-use crate::{
-    cost_constants::BN254_ECMUL_COST_ERGS, system_functions::bn254_ecadd::serialize_projective,
-};
 use crypto::ark_serialize::Valid;
-use zk_ee::system::errors::SystemFunctionError;
-use zk_ee::system::SystemFunction;
+use zk_ee::system::{errors::SystemFunctionError, SystemFunction};
+
+use super::*;
+use crate::{
+    cost_constants::{BN254_ECMUL_COST_ERGS, BN254_ECMUL_NATIVE_COST},
+    system_functions::{bn254_ecadd::serialize_projective, bytereverse},
+};
 
 ///
 /// bn254 ecmul system function implementation.
@@ -65,10 +64,9 @@ fn bn254_ecmul_as_system_function_inner<
 }
 
 pub fn bn254_ecmul_inner(x: &[u8; 32], y: &[u8; 32], scalar: &[u8; 32]) -> Result<[u8; 64], ()> {
-    use crypto::ark_ec::AffineRepr;
-    use crypto::ark_ff::PrimeField;
-    use crypto::ark_serialize::CanonicalDeserialize;
-    use crypto::bn254::*;
+    use crypto::{
+        ark_ec::AffineRepr, ark_ff::PrimeField, ark_serialize::CanonicalDeserialize, bn254::*,
+    };
 
     let is_zero = x.iter().all(|el| *el == 0) && y.iter().all(|el| *el == 0);
     if is_zero {

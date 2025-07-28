@@ -1,44 +1,42 @@
 //! Account cache, backed by a history map.
 //! This caches the actual account data, which will
 //! then be published into the preimage storage.
-use super::AccountPropertiesMetadata;
-use super::BytecodeAndAccountDataPreimagesStorage;
-use super::NewStorageWithAccountPropertiesUnderHash;
-use crate::system_implementation::flat_storage_model::account_cache_entry::AccountProperties;
-use crate::system_implementation::flat_storage_model::cost_constants::*;
-use crate::system_implementation::flat_storage_model::PreimageRequest;
-use crate::system_implementation::flat_storage_model::StorageAccessPolicy;
-use crate::system_implementation::flat_storage_model::DEFAULT_CODE_VERSION_BYTE;
-use crate::system_implementation::system::ExtraCheck;
 use alloc::collections::BTreeSet;
-use core::alloc::Allocator;
-use core::marker::PhantomData;
+use core::{alloc::Allocator, marker::PhantomData};
+
 use evm_interpreter::ERGS_PER_GAS;
-use ruint::aliases::B160;
-use ruint::aliases::U256;
-use storage_models::common_structs::AccountAggregateDataHash;
-use storage_models::common_structs::PreimageCacheModel;
-use storage_models::common_structs::StorageCacheModel;
-use zk_ee::common_structs::cache_record::Appearance;
-use zk_ee::common_structs::cache_record::CacheRecord;
-use zk_ee::common_structs::history_map::CacheSnapshotId;
-use zk_ee::common_structs::history_map::HistoryMap;
-use zk_ee::common_structs::history_map::HistoryMapItemRefMut;
-use zk_ee::common_structs::PreimageType;
-use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::memory::stack_trait::StackCtor;
-use zk_ee::system::Computational;
-use zk_ee::system::Resource;
-use zk_ee::utils::BitsOrd;
-use zk_ee::utils::Bytes32;
+use ruint::aliases::{B160, U256};
+use storage_models::common_structs::{
+    AccountAggregateDataHash, PreimageCacheModel, StorageCacheModel,
+};
 use zk_ee::{
-    memory::stack_trait::StackCtorConst,
+    common_structs::{
+        cache_record::{Appearance, CacheRecord},
+        history_map::{CacheSnapshotId, HistoryMap, HistoryMapItemRefMut},
+        PreimageType,
+    },
+    execution_environment_type::ExecutionEnvironmentType,
+    memory::stack_trait::{StackCtor, StackCtorConst},
     system::{
         errors::{InternalError, SystemError, UpdateQueryError},
-        AccountData, AccountDataRequest, Ergs, IOResultKeeper, Maybe, Resources,
+        AccountData, AccountDataRequest, Computational, Ergs, IOResultKeeper, Maybe, Resource,
+        Resources,
     },
     system_io_oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
+    utils::{BitsOrd, Bytes32},
+};
+
+use super::{
+    AccountPropertiesMetadata, BytecodeAndAccountDataPreimagesStorage,
+    NewStorageWithAccountPropertiesUnderHash,
+};
+use crate::system_implementation::{
+    flat_storage_model::{
+        account_cache_entry::AccountProperties, cost_constants::*, PreimageRequest,
+        StorageAccessPolicy, DEFAULT_CODE_VERSION_BYTE,
+    },
+    system::ExtraCheck,
 };
 
 pub type BitsOrd160 = BitsOrd<{ B160::BITS }, { B160::LIMBS }>;
@@ -678,8 +676,7 @@ where
         let observable_bytecode_hash = match from_ee {
             ExecutionEnvironmentType::EVM => {
                 assert_eq!(artifacts_len, 0);
-                use crypto::sha3::Keccak256;
-                use crypto::MiniDigest;
+                use crypto::{sha3::Keccak256, MiniDigest};
                 let digest = Keccak256::digest(bytecode);
                 Bytes32::from_array(digest)
             }
@@ -691,8 +688,7 @@ where
         let bytecode_hash = match from_ee {
             ExecutionEnvironmentType::EVM => {
                 assert_eq!(artifacts_len, 0);
-                use crypto::blake2s::Blake2s256;
-                use crypto::MiniDigest;
+                use crypto::{blake2s::Blake2s256, MiniDigest};
                 let digest = Blake2s256::digest(bytecode);
                 Bytes32::from_array(digest)
             }

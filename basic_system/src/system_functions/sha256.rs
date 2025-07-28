@@ -1,9 +1,9 @@
+use zk_ee::system::{errors::SystemFunctionError, Computational, Resources, SystemFunction};
+
 use crate::cost_constants::{
     SHA256_BASE_NATIVE_COST, SHA256_CHUNK_SIZE, SHA256_PER_WORD_COST_ERGS,
     SHA256_ROUND_NATIVE_COST, SHA256_STATIC_COST_ERGS,
 };
-use zk_ee::system::errors::SystemFunctionError;
-use zk_ee::system::{Computational, Resources, SystemFunction};
 
 ///
 /// SHA-256 system function implementation.
@@ -62,9 +62,10 @@ fn sha256_as_system_function_inner<D: ?Sized + Extend<u8>, R: Resources>(
 #[cfg(test)]
 mod test {
 
-    use zk_ee::reference_implementations::BaseResources;
-    use zk_ee::reference_implementations::DecreasingNative;
-    use zk_ee::system::Resource;
+    use zk_ee::{
+        reference_implementations::{BaseResources, DecreasingNative},
+        system::Resource,
+    };
 
     use super::*;
 

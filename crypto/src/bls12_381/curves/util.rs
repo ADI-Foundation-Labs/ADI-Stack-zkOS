@@ -1,12 +1,11 @@
 use ark_ec::{short_weierstrass::Affine, AffineRepr};
+#[cfg(not(any(all(target_arch = "riscv32", feature = "bigint_ops"), test)))]
+use ark_ff::BigInt;
 use ark_ff::PrimeField;
 use ark_serialize::SerializationError;
 
 #[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
 use crate::ark_ff_delegation::BigInt;
-#[cfg(not(any(all(target_arch = "riscv32", feature = "bigint_ops"), test)))]
-use ark_ff::BigInt;
-
 use crate::bls12_381::{
     g1::Config as G1Config, g2::Config as G2Config, Fq, Fq2, G1Affine, G2Affine,
 };

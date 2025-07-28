@@ -8,20 +8,20 @@ mod eoa;
 
 use core::ops::Deref;
 
-use crate::bootloader::errors::TxError;
-use crate::bootloader::supported_ees::SupportedEEVMState;
-use crate::bootloader::transaction::ZkSyncTransaction;
 pub use abstract_account::AA;
 use errors::FatalError;
 use ruint::aliases::B160;
 use system_hooks::HooksStorage;
-use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::memory::slice_vec::SliceVec;
-use zk_ee::system::EthereumLikeTypes;
-use zk_ee::system::System;
-use zk_ee::system::*;
+use zk_ee::{
+    execution_environment_type::ExecutionEnvironmentType,
+    memory::slice_vec::SliceVec,
+    system::{EthereumLikeTypes, System, *},
+    utils::Bytes32,
+};
 
-use zk_ee::utils::Bytes32;
+use crate::bootloader::{
+    errors::TxError, supported_ees::SupportedEEVMState, transaction::ZkSyncTransaction,
+};
 
 ///
 /// The execution step output

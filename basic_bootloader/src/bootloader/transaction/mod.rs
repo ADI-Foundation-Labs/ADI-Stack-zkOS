@@ -3,14 +3,15 @@
 //! a bunch of methods needed for the validation.
 //!
 
-use self::u256be_ptr::U256BEPtr;
-use crate::bootloader::rlp;
 use core::ops::Range;
-use crypto::sha3::Keccak256;
-use crypto::MiniDigest;
+
+use crypto::{sha3::Keccak256, MiniDigest};
 use errors::InvalidTransaction;
 use ruint::aliases::U256;
 use zk_ee::system::errors::{FatalError, InternalError, SystemError};
+
+use self::u256be_ptr::U256BEPtr;
+use crate::bootloader::rlp;
 
 mod abi_utils;
 pub mod access_list_parser;

@@ -1,10 +1,12 @@
 // Adapted from https://github.com/bluealloy/revm/blob/main/crates/interpreter/src/instructions/system.rs
 
-use super::*;
 use native_resource_constants::*;
-use zk_ee::memory::U256Builder;
-use zk_ee::system::errors::SystemFunctionError;
-use zk_ee::system::{EthereumLikeTypes, SystemFunctions};
+use zk_ee::{
+    memory::U256Builder,
+    system::{errors::SystemFunctionError, EthereumLikeTypes, SystemFunctions},
+};
+
+use super::*;
 
 impl<S: EthereumLikeTypes> Interpreter<'_, S> {
     const EMPTY_SLICE_SHA3: U256 = U256::from_limbs([
@@ -45,6 +47,7 @@ impl<S: EthereumLikeTypes> Interpreter<'_, S> {
 
             if Self::PRINT_OPCODES {
                 use core::fmt::Write;
+
                 use zk_ee::system::logger::Logger;
                 let mut logger = system.get_logger();
                 let input = &self.heap()[memory_offset..(memory_offset + len)];

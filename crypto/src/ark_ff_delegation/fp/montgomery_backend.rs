@@ -1,7 +1,8 @@
-use super::{Fp, FpConfig};
-use crate::ark_ff_delegation::BigInt;
 use ark_ff::{PrimeField, SqrtPrecomputation, Zero};
 use ark_std::marker::PhantomData;
+
+use super::{Fp, FpConfig};
+use crate::ark_ff_delegation::BigInt;
 
 /// A trait that specifies the constants and arithmetic procedures
 /// for Montgomery arithmetic over the prime field defined by `MODULUS`.

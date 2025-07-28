@@ -1,8 +1,7 @@
+use zk_ee::system::{errors::SystemFunctionError, Computational, SystemFunction};
+
 use super::*;
 use crate::cost_constants::{ECRECOVER_COST_ERGS, ECRECOVER_NATIVE_COST};
-use zk_ee::system::errors::SystemFunctionError;
-use zk_ee::system::Computational;
-use zk_ee::system::SystemFunction;
 
 ///
 /// ecrecover system function implementation.
@@ -111,11 +110,13 @@ pub fn ecrecover_inner(
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use hex;
-    use zk_ee::reference_implementations::BaseResources;
-    use zk_ee::reference_implementations::DecreasingNative;
-    use zk_ee::system::Resource;
+    use zk_ee::{
+        reference_implementations::{BaseResources, DecreasingNative},
+        system::Resource,
+    };
+
+    use super::*;
 
     #[test]
     fn test_geth_ecrecover() {

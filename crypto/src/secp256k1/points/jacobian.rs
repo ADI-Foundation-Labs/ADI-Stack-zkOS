@@ -1,6 +1,5 @@
-use crate::secp256k1::field::{FieldElement, FieldElementConst};
-
 use super::{affine::AffineConst, Affine, AffineStorage};
+use crate::secp256k1::field::{FieldElement, FieldElementConst};
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct JacobianConst {
@@ -478,13 +477,12 @@ impl proptest::arbitrary::Arbitrary for Jacobian {
 mod tests {
     use proptest::{prop_assert_eq, proptest};
 
+    use super::JacobianConst;
     use crate::secp256k1::{
         field::{FieldElement, FieldElementConst},
         points::{affine::AffineConst, Affine, Jacobian},
         test_vectors::ADD_TEST_VECTORS,
     };
-
-    use super::JacobianConst;
 
     #[test]
     fn test_add_basic() {

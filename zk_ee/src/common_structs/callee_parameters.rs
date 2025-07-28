@@ -1,5 +1,6 @@
-use crate::system::Ergs;
 use ruint::aliases::{B160, U256};
+
+use crate::system::Ergs;
 
 pub struct TransferInfo {
     pub value: U256,
