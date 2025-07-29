@@ -18,5 +18,5 @@ cfg-if = "1.0.1"
 
 [features]
 cycle_marker = ["rig/cycle_marker"]
-default = ["rig/resources_for_tester"]
+default = []
 flamegraph = []

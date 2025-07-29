@@ -30,7 +30,7 @@ use zk_ee::internal_error;
 use zk_ee::{
     kv_markers::{ExactSizeChain, ExactSizeChainN, UsizeDeserializable, UsizeSerializable},
     memory::stack_trait::Stack,
-    system::{errors::InternalError, logger::Logger},
+    system::{errors::internal::InternalError, logger::Logger},
     system_io_oracle::*,
     types_config::EthereumIOTypesConfig,
     utils::Bytes32,
@@ -52,7 +52,7 @@ pub struct FlatStorageLeaf<const N: usize> {
 
 impl<const N: usize> UsizeSerializable for FlatStorageLeaf<N> {
     const USIZE_LEN: usize =
-        <Bytes32 as UsizeSerializable>::USIZE_LEN * 2 + <u64 as UsizeSerializable>::USIZE_LEN * 2;
+        <Bytes32 as UsizeSerializable>::USIZE_LEN * 2 + <u64 as UsizeSerializable>::USIZE_LEN;
 
     fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
         ExactSizeChain::new(
@@ -917,6 +917,17 @@ pub struct LeafProof<const N: usize, H: FlatStorageHasher, A: Allocator = Global
     _marker: core::marker::PhantomData<H>,
 }
 
+impl<const N: usize, H: FlatStorageHasher, A: Allocator> LeafProof<N, H, A> {
+    pub fn new(index: u64, leaf: FlatStorageLeaf<N>, path: Box<[Bytes32; N], A>) -> Self {
+        Self {
+            index,
+            leaf,
+            path,
+            _marker: core::marker::PhantomData,
+        }
+    }
+}
+
 impl<const N: usize, H: FlatStorageHasher, A: Allocator> core::fmt::Debug for LeafProof<N, H, A> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct(core::any::type_name::<Self>())
@@ -1480,7 +1491,7 @@ impl<const N: usize, H: FlatStorageHasher, A: Allocator + Clone, const RANDOMIZE
 
     pub fn get_index_for_existing(&self, key: &Bytes32) -> u64 {
         let Some(existing) = self.key_lookup.get(key).copied() else {
-            panic!("expected existing leaf for key {:?}", key);
+            panic!("expected existing leaf for key {key:?}");
         };
 
         existing

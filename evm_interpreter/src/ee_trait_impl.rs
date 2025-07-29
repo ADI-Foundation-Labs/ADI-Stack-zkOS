@@ -1,24 +1,33 @@
 use super::*;
+use crate::errors::{EvmErrors, EvmInterfaceError, EvmSubsystemError};
 use crate::gas::gas_utils;
+use crate::gas_constants::{CALLVALUE, CALL_STIPEND, NEWACCOUNT};
 use crate::interpreter::CreateScheme;
 use alloc::boxed::Box;
 use core::any::Any;
 use core::fmt::Write;
-use errors::SystemFunctionError;
 use ruint::aliases::B160;
+use zk_ee::common_structs::CalleeAccountProperties;
 use zk_ee::memory::ArrayBuilder;
-use zk_ee::system::{
-    errors::{InternalError, SystemError, UpdateQueryError},
-    *,
-};
+use zk_ee::system::errors::interface::InterfaceError;
+use zk_ee::system::errors::root_cause::{GetRootCause, RootCause};
+use zk_ee::system::errors::runtime::RuntimeError;
+use zk_ee::system::errors::subsystem::SubsystemError;
+use zk_ee::system::*;
 use zk_ee::types_config::SystemIOTypesConfig;
+use zk_ee::utils::cheap_clone::CheapCloneRiscV;
+use zk_ee::utils::{b160_to_u256, Bytes32};
+use zk_ee::{interface_error, internal_error, wrap_error};
 
 impl<S: SystemTypes> EEDeploymentExtraParameters<S> for CreateScheme {}
 
-impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee, S> {
+impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Interpreter<'ee, S> {
     const NEEDS_SCRATCH_SPACE: bool = false;
 
     const EE_VERSION_BYTE: u8 = ExecutionEnvironmentType::EVM_EE_BYTE;
+
+    type UsageError = <EvmErrors as zk_ee::system::errors::subsystem::Subsystem>::Interface;
+    type SubsystemError = EvmSubsystemError;
 
     fn is_modifier_supported(modifier: &CallModifier) -> bool {
         matches!(
@@ -45,11 +54,11 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         self.is_static
     }
 
-    fn new(system: &mut System<S>) -> Result<Self, InternalError> {
+    fn new(system: &mut System<S>) -> Result<Self, Self::SubsystemError> {
         let gas = Gas::new();
         let stack_space = EvmStack::new_in(system.get_allocator());
         let empty_address = <S::IOTypes as SystemIOTypesConfig>::Address::default();
-        let empty_preprocessing = BytecodePreprocessingData::<S>::empty(system);
+        let empty_preprocessing = BytecodePreprocessingData::empty();
 
         Ok(Self {
             instruction_pointer: 0,
@@ -74,7 +83,7 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         system: &mut System<S>,
         frame_state: ExecutionEnvironmentLaunchParams<'i, S>,
         heap: SliceVec<'h, u8>,
-    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, FatalError> {
+    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, EvmSubsystemError> {
         let ExecutionEnvironmentLaunchParams {
             external_call:
                 ExternalCallRequest {
@@ -93,13 +102,9 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         assert!(call_scratch_space.is_none());
 
         let EnvironmentParameters {
-            decommitted_bytecode,
-            bytecode_len,
-            scratch_space_len,
+            bytecode,
+            scratch_space_len: _,
         } = environment_parameters;
-        if scratch_space_len != 0 || decommitted_bytecode.len() != bytecode_len as usize {
-            panic!("invalid bytecode supplied, expected padding");
-        }
 
         let mut is_static = false;
         let mut is_constructor = false;
@@ -139,7 +144,9 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
                 is_static = true;
             }
             a => {
-                panic!("modifier {:?} is not expected", a);
+                return Err(interface_error!(EvmInterfaceError::UnexpectedModifier {
+                    modifier: a
+                }))
             }
         }
 
@@ -150,17 +157,47 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
 
         // we need to set bytecode, address of self and caller, static state
         // and calldata
-        let original_bytecode_len = bytecode_len;
-        let bytecode_preprocessing = BytecodePreprocessingData::<S>::from_raw_bytecode(
-            decommitted_bytecode,
-            original_bytecode_len,
-            system,
-            &mut available_resources,
-        )?;
+
+        match bytecode {
+            Bytecode::Constructor(constructor_code) => {
+                let bytecode_preprocessing = BytecodePreprocessingData::create_artifacts(
+                    system.get_allocator(),
+                    constructor_code,
+                    &mut available_resources,
+                )?;
+                self.bytecode = constructor_code;
+                self.bytecode_preprocessing = bytecode_preprocessing;
+            }
+            Bytecode::Decommitted {
+                bytecode,
+                artifacts_len,
+                unpadded_code_len,
+                code_version,
+            } => match code_version {
+                DEFAULT_CODE_VERSION_BYTE => {
+                    assert_eq!(artifacts_len, 0);
+                    let bytecode_preprocessing = BytecodePreprocessingData::create_artifacts(
+                        system.get_allocator(),
+                        bytecode,
+                        &mut available_resources,
+                    )?;
+                    self.bytecode = bytecode;
+                    self.bytecode_preprocessing = bytecode_preprocessing;
+                }
+                ARTIFACTS_CACHING_CODE_VERSION_BYTE => {
+                    let (code, bytecode_preprocessing) = BytecodePreprocessingData::parse_bytecode(
+                        bytecode,
+                        unpadded_code_len as usize,
+                        artifacts_len as usize,
+                    )?;
+                    self.bytecode = code;
+                    self.bytecode_preprocessing = bytecode_preprocessing;
+                }
+                _ => return Err(internal_error!("Unknown code version").into()),
+            },
+        }
 
         *self.gas.resources_mut() = available_resources;
-        self.bytecode = decommitted_bytecode;
-        self.bytecode_preprocessing = bytecode_preprocessing;
         self.address = this_address;
         self.caller = caller_address;
         self.is_static = is_static;
@@ -177,7 +214,7 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         system: &mut System<S>,
         returned_resources: S::Resources,
         call_result: CallResult<'res, S>,
-    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, FatalError> {
+    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, EvmSubsystemError> {
         assert!(!call_result.has_scratch_space());
         assert!(self.gas.native() == 0);
         self.gas.reclaim_resources(returned_resources);
@@ -211,7 +248,7 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         system: &mut System<S>,
         returned_resources: S::Resources,
         deployment_result: DeploymentResult<'res, S>,
-    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, FatalError> {
+    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, EvmSubsystemError> {
         assert!(!deployment_result.has_scratch_space());
         assert!(self.gas.native() == 0);
         self.gas.reclaim_resources(returned_resources);
@@ -257,15 +294,42 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         Some(scheme)
     }
 
-    fn clarify_and_take_passed_resources(
+    fn calculate_resources_passed_in_external_call(
         resources_available_in_caller_frame: &mut S::Resources,
-        desired_ergs_to_pass: Ergs,
-    ) -> Result<S::Resources, FatalError> {
+        call_request: &ExternalCallRequest<S>,
+        callee_parameters: &CalleeAccountProperties,
+    ) -> Result<S::Resources, Self::SubsystemError> {
+        // Gas stipend calculation
+        let is_delegate = call_request.is_delegate();
+        let is_callcode = call_request.is_callcode();
+        let is_callcode_or_delegate = is_callcode || is_delegate;
+
+        // Positive value cost and stipend
+        let stipend = if !is_delegate && !call_request.nominal_token_value.is_zero() {
+            let positive_value_cost = S::Resources::from_ergs(Ergs(CALLVALUE * ERGS_PER_GAS));
+            resources_available_in_caller_frame.charge(&positive_value_cost)?;
+            Some(Ergs(CALL_STIPEND * ERGS_PER_GAS))
+        } else {
+            None
+        };
+
+        // Account creation cost
+        let callee_is_empty = callee_parameters.nonce == 0
+            && callee_parameters.unpadded_code_len == 0
+            && callee_parameters.nominal_token_balance.is_zero();
+        if !is_callcode_or_delegate
+            && !call_request.nominal_token_value.is_zero()
+            && callee_is_empty
+        {
+            let callee_creation_cost = S::Resources::from_ergs(Ergs(NEWACCOUNT * ERGS_PER_GAS));
+            resources_available_in_caller_frame.charge(&callee_creation_cost)?
+        }
+
         // we just need to apply 63/64 rule, as System/IO is responsible for the rest
 
         let max_passable_ergs =
             gas_utils::apply_63_64_rule(resources_available_in_caller_frame.ergs());
-        let ergs_to_pass = core::cmp::min(desired_ergs_to_pass, max_passable_ergs);
+        let ergs_to_pass = core::cmp::min(call_request.ergs_to_pass, max_passable_ergs);
 
         // Charge caller frame
         let mut resources_to_pass = S::Resources::from_ergs(ergs_to_pass);
@@ -274,8 +338,11 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         resources_available_in_caller_frame
             .charge(&resources_to_pass)
             .unwrap();
-        // Give native resource to the passed.
-        resources_available_in_caller_frame.give_native_to(&mut resources_to_pass);
+
+        // Add stipend
+        if let Some(stipend) = stipend {
+            resources_to_pass.add_ergs(stipend);
+        }
 
         Ok(resources_to_pass)
     }
@@ -289,7 +356,7 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
             S::Resources,
             Option<ExecutionEnvironmentLaunchParams<'a, S>>,
         ),
-        FatalError,
+        Self::SubsystemError,
     >
     where
         S::IO: IOSubsystemExt,
@@ -309,16 +376,12 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         assert!(call_scratch_space.is_none());
         let Some(ee_specific_deployment_processing_data) = ee_specific_deployment_processing_data
         else {
-            return Err(FatalError::Internal(internal_error!(
-                "We need deployment scheme!"
-            )));
+            return Err(interface_error!(EvmInterfaceError::NoDeploymentScheme));
         };
         let Ok(scheme) = <CreateScheme as EEDeploymentExtraParameters<S>>::from_box_dyn(
             ee_specific_deployment_processing_data,
         ) else {
-            return Err(FatalError::Internal(internal_error!(
-                "Unknown EE specific deployment data"
-            )));
+            return Err(interface_error!(EvmInterfaceError::UnknownDeploymentData));
         };
 
         // Constructor gets 63/64 of available resources
@@ -340,8 +403,7 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
                     &address_of_deployer,
                     AccountDataRequest::empty().with_nominal_token_balance(),
                 )
-            })
-            .map_err(SystemError::into_fatal)?
+            })?
             .nominal_token_balance
             .0;
 
@@ -355,7 +417,7 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
 
         // Nonce overflow check
         let old_deployer_nonce = match deployer_nonce {
-            Some(old_nonce) => Ok::<u64, FatalError>(old_nonce),
+            Some(old_nonce) => Ok::<u64, Self::SubsystemError>(old_nonce),
             None => {
                 match deployer_full_resources.with_infinite_ergs(|inf_resources| {
                     system.io.increment_nonce(
@@ -366,10 +428,11 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
                     )
                 }) {
                     Ok(nonce) => Ok(nonce),
-                    Err(UpdateQueryError::System(e)) => return Err(e.into_fatal()),
-                    Err(UpdateQueryError::NumericBoundsError) => {
-                        return Ok((deployer_full_resources, None))
-                    }
+                    Err(SubsystemError::LeafUsage(InterfaceError(
+                        NonceError::NonceOverflow,
+                        _,
+                    ))) => return Ok((deployer_full_resources, None)),
+                    Err(e) => return Err(wrap_error!(e)),
                 }
             }
         }?;
@@ -401,11 +464,13 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
                             allocator,
                         )
                     })
-                    .map_err(|e| match e {
-                        SystemFunctionError::System(SystemError::OutOfNativeResources(loc)) => {
-                            FatalError::OutOfNativeResources(loc)
+                    .map_err(|e| -> EvmSubsystemError {
+                        match e.root_cause() {
+                            RootCause::Runtime(e @ RuntimeError::OutOfNativeResources(_)) => {
+                                e.clone_or_copy().into()
+                            }
+                            _ => internal_error!("Keccak in create2 cannot fail").into(),
                         }
-                        _ => internal_error!("Keccak in create2 cannot fail").into(),
                     })?;
                 let initcode_hash = Bytes32::from_array(initcode_hash.build());
 
@@ -433,18 +498,18 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
 
         let AccountData {
             nonce: Just(deployee_nonce),
-            bytecode_len: Just(deployee_code_len),
+            unpadded_code_len: Just(deployee_code_len),
             ..
-        } = deployer_remaining_resources
-            .with_infinite_ergs(|inf_resources| {
-                system.io.read_account_properties(
-                    THIS_EE_TYPE,
-                    inf_resources,
-                    &deployed_address,
-                    AccountDataRequest::empty().with_nonce().with_bytecode_len(),
-                )
-            })
-            .map_err(SystemError::into_fatal)?;
+        } = deployer_remaining_resources.with_infinite_ergs(|inf_resources| {
+            system.io.read_account_properties(
+                THIS_EE_TYPE,
+                inf_resources,
+                &deployed_address,
+                AccountDataRequest::empty()
+                    .with_nonce()
+                    .with_unpadded_code_len(),
+            )
+        })?;
 
         // Check there's no contract already deployed at this address.
         // NB: EVM also specifies that the address should have empty storage,
@@ -462,10 +527,8 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S> for Interpreter<'ee
         // resources from deployer.
         deployer_remaining_resources.give_native_to(&mut resources_for_constructor);
 
-        let deployment_code_len = deployment_code.len();
         let environment_parameters = EnvironmentParameters {
-            decommitted_bytecode: deployment_code,
-            bytecode_len: deployment_code_len as u32,
+            bytecode: Bytecode::Constructor(deployment_code),
             scratch_space_len: 0u32,
         };
 

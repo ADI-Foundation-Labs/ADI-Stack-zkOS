@@ -14,15 +14,16 @@ pub use self::call_params::*;
 pub use self::environment_state::*;
 pub use self::interaction_params::*;
 
-use super::errors::FatalError;
-use super::errors::InternalError;
+use super::errors::internal::InternalError;
+use super::errors::subsystem::Subsystem;
+use super::errors::subsystem::SubsystemError;
 use super::system::System;
 use super::system::SystemTypes;
 use super::IOSubsystemExt;
+use crate::common_structs::CalleeAccountProperties;
 use crate::internal_error;
 use crate::memory::slice_vec::SliceVec;
 use crate::system::CallModifier;
-use crate::system::Ergs;
 use crate::types_config::*;
 
 // we should consider some bound of amount of data that is deployment-specific,
@@ -39,15 +40,18 @@ pub trait EEDeploymentExtraParameters<S: SystemTypes>: 'static + Sized + core::a
 ///
 /// Execution environment interface.
 ///
-pub trait ExecutionEnvironment<'ee, S: SystemTypes>: Sized {
+pub trait ExecutionEnvironment<'ee, S: SystemTypes, Es: Subsystem>: Sized {
     const NEEDS_SCRATCH_SPACE: bool;
 
     const EE_VERSION_BYTE: u8;
 
+    type UsageError = <Es as Subsystem>::Interface;
+    type SubsystemError = SubsystemError<Es>;
+
     ///
     /// Initialize a new (empty) EE state.
     ///
-    fn new(system: &mut System<S>) -> Result<Self, InternalError>;
+    fn new(system: &mut System<S>) -> Result<Self, Self::SubsystemError>;
 
     ///
     /// The contract address where the EE is being executed.
@@ -79,7 +83,17 @@ pub trait ExecutionEnvironment<'ee, S: SystemTypes>: Sized {
         system: &mut System<S>,
         frame_state: ExecutionEnvironmentLaunchParams<'i, S>,
         heap: SliceVec<'h, u8>,
-    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, FatalError>;
+    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, Self::SubsystemError>;
+
+    ///
+    /// EE can decide how to provide resources to the callee frame on external call.
+    /// Returns resources for the callee frame. Native resource handled by OS itself.
+    ///
+    fn calculate_resources_passed_in_external_call(
+        resources_in_caller_frame: &mut S::Resources,
+        call_request: &ExternalCallRequest<S>,
+        callee_account_properties: &CalleeAccountProperties,
+    ) -> Result<S::Resources, Self::SubsystemError>;
 
     /// Continues after the bootloader handled a completed external call.
     fn continue_after_external_call<'a, 'res: 'ee>(
@@ -87,7 +101,7 @@ pub trait ExecutionEnvironment<'ee, S: SystemTypes>: Sized {
         system: &mut System<S>,
         returned_resources: S::Resources,
         call_result: CallResult<'res, S>,
-    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, FatalError>;
+    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, Self::SubsystemError>;
 
     /// Continues after the bootloader handled a completed deployment.
     fn continue_after_deployment<'a, 'res: 'ee>(
@@ -95,23 +109,13 @@ pub trait ExecutionEnvironment<'ee, S: SystemTypes>: Sized {
         system: &mut System<S>,
         returned_resources: S::Resources,
         deployment_result: DeploymentResult<'res, S>,
-    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, FatalError>;
+    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, Self::SubsystemError>;
 
     type DeploymentExtraParameters: EEDeploymentExtraParameters<S>;
 
     fn default_ee_deployment_options(
         system: &mut System<S>,
     ) -> Option<Box<dyn Any, <S as SystemTypes>::Allocator>>;
-
-    ///
-    /// Adjust resources passed from the caller to the callee.
-    /// Some EE might have some additional rules in this situation,
-    /// such as the 63/64 rule for EVM.
-    ///
-    fn clarify_and_take_passed_resources(
-        resources_available_in_deployer_frame: &mut S::Resources,
-        ergs_desired_to_pass: Ergs,
-    ) -> Result<S::Resources, FatalError>;
 
     /// Runs some pre-deployment preparation and checks.
     /// The result can be None to represent unsuccessful preparation for deployment.
@@ -126,7 +130,7 @@ pub trait ExecutionEnvironment<'ee, S: SystemTypes>: Sized {
             S::Resources,
             Option<ExecutionEnvironmentLaunchParams<'a, S>>,
         ),
-        FatalError,
+        Self::SubsystemError,
     >
     where
         S::IO: IOSubsystemExt;

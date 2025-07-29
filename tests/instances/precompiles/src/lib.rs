@@ -3,9 +3,10 @@
 
 use bytes::Bytes;
 use cfg_if::cfg_if;
-use rig::forward_system::run::BatchOutput;
+use rig::forward_system::run::BlockOutput;
 use rig::forward_system::run::ExecutionResult::Revert;
 use rig::ProfilerConfig;
+use rig::BlockContext;
 use rig::{
     ethers::{abi::Address, signers::Signer, types::TransactionRequest},
     ruint::aliases::{B160, U256},
@@ -20,7 +21,7 @@ fn run_precompile(
     gas: Option<impl Into<rig::ethers::prelude::U256>>,
     input: &[u8],
     path: Option<PathBuf>,
-) -> BatchOutput {
+) -> BlockOutput {
     let gas = match gas {
         Some(x) => x.into(),
         None => rig::ethers::prelude::U256::from(1 << 27),
@@ -39,17 +40,22 @@ fn run_precompile(
         TransactionRequest::new()
             .to(addr)
             .gas(gas)
-            .gas_price(1000)
+            .gas_price(25_000)
             .data(input.to_vec())
             .nonce(0),
         &wallet,
     );
 
+    // We use a very high native per gas ratio
+    let block_context = BlockContext {
+        native_price: U256::ONE,
+        eip1559_basefee: U256::from(25_000),
+        ..Default::default()
+    };
+
     let profiler_config = path.map(ProfilerConfig::new);
 
-    let batch_output = chain.run_block(vec![tx], None, profiler_config);
-
-    batch_output
+    chain.run_block(vec![tx], Some(block_context), profiler_config)
 }
 
 struct Test {
@@ -829,7 +835,7 @@ fn test_precompile_parses_input_correctly() {
                 &wallet,
             );
 
-            let _batch_output = chain.run_block(vec![tx], None, None);
+            let _block_output = chain.run_block(vec![tx], None, None);
         }
     }
 }

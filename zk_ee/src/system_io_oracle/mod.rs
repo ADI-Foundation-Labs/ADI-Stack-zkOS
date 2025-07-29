@@ -11,7 +11,7 @@ use core::num::NonZeroU32;
 
 use super::kv_markers::{ExactSizeChain, StorageAddress, UsizeDeserializable, UsizeSerializable};
 use super::types_config::SystemIOTypesConfig;
-use crate::system::errors::InternalError;
+use crate::system::errors::internal::InternalError;
 use crate::utils::Bytes32;
 
 ///
@@ -43,10 +43,10 @@ impl OracleIteratorTypeMarker for NewTxContentIterator {
 }
 
 ///
-/// IO Implementer initial data query type.
+/// Proof data query type.
 ///
-pub struct InitializeIOImplementerIterator;
-impl OracleIteratorTypeMarker for InitializeIOImplementerIterator {
+pub struct ProofDataIterator;
+impl OracleIteratorTypeMarker for ProofDataIterator {
     const ID: u32 = 2;
     type Params = ();
 }
