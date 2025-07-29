@@ -616,7 +616,7 @@ fn create_flamegraph_dir(_path: &str) -> Option<PathBuf> {
         if #[cfg(feature = "flamegraph")] {
             let dir = PathBuf::from(_path);
             if dir.exists() {
-                fs::remove_dir(&dir).unwrap();
+                fs::remove_dir_all(&dir).unwrap();
             }
             fs::create_dir(&dir).unwrap();
             Some(dir)
