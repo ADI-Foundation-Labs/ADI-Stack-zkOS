@@ -307,7 +307,6 @@ pub fn run_batch_from_oracle_dump<
 ///
 /// Needed for `eth_call` and `eth_estimateGas`.
 ///
-// TODO: we need to have simplified version of oracle and config to disable tree validation, so we can use `ReadStorage` here
 pub fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
     transaction: Vec<u8>,
     batch_context: BatchContext,

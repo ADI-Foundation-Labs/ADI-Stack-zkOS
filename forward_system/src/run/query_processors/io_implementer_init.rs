@@ -43,32 +43,3 @@ impl<M: MemorySource> OracleQueryProcessor<M> for IOImplementerInitResponder {
         DynUsizeIterator::from_constructor(data, UsizeSerializable::iter)
     }
 }
-
-// impl IOResponder for IOImplementerInitResponder {
-//     fn supports_query_id(&self, query_type: u32) -> bool {
-//         Self::SUPPORTED_QUERY_IDS.contains(&query_type)
-//     }
-
-//     fn all_supported_query_ids<'a>(&'a self) -> impl ExactSizeIterator<Item = u32> + 'a {
-//         Self::SUPPORTED_QUERY_IDS.iter().copied()
-//     }
-
-//     fn query_serializable_static<I: UsizeSerializable + UsizeDeserializable, O: 'static + UsizeDeserializable>(
-//         &mut self,
-//         query_type: u32,
-//         _input: &I,
-//     ) -> Result<O, InternalError> {
-//         assert!(Self::SUPPORTED_QUERY_IDS.contains(&query_type));
-
-//         let data = self
-//             .io_implementer_init_data
-//             .take()
-//             .expect("io implementer data is none (second read or not set initially)");
-//         let data = unsafe {
-//             <InitializeIOImplementerQuery::<EthereumIOTypesConfig, FlatStorageCommitment<TREE_HEIGHT>> as SimpleOracleQuery>::transmute_output(data)
-//         };
-
-//         Ok(data)
-
-//     }
-// }

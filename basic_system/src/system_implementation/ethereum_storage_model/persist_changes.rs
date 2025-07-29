@@ -152,6 +152,10 @@ impl EthereumStoragePersister {
     ) -> Result<Bytes32, InternalError> {
         // and can actually apply those
 
+        let _ = logger
+            .write_fmt(format_args!("Beginning MTP updates"))
+            .expect("must log");
+
         let mut it_fill_initial = storage_cache.iter_as_storage_types();
         let mut it_set_final = it_fill_initial.clone();
 
@@ -174,12 +178,12 @@ impl EthereumStoragePersister {
         let mut active_address;
 
         if let Some((addr, value)) = it_fill_initial.next() {
-            let _ = logger
-                .write_fmt(format_args!(
-                    "Processing initial value for slot {:?}\n",
-                    &addr
-                ))
-                .expect("must log");
+            // let _ = logger
+            //     .write_fmt(format_args!(
+            //         "Processing initial value for slot {:?}\n",
+            //         &addr
+            //     ))
+            //     .expect("must log");
 
             let entry = account_cache
                 .cache
@@ -193,13 +197,6 @@ impl EthereumStoragePersister {
             let initial_expected_value = mpt
                 .get(path, &mut preimage_oracle, &mut interner, &mut hasher)
                 .map_err(|_| internal_error!("failed to get initial value in MPT"))?;
-
-            // let _ = logger
-            //     .write_fmt(format_args!(
-            //         "comparing expected value {:?} vs RLP encoded {:?}\n",
-            //         &value.initial_value, &initial_expected_value
-            //     ))
-            //     .expect("must log");
 
             assert!(
                 compare_bytes32_and_mpt_integer(&value.initial_value, initial_expected_value),
@@ -221,12 +218,12 @@ impl EthereumStoragePersister {
         loop {
             match it_fill_initial.next() {
                 Some((addr, value)) => {
-                    let _ = logger
-                        .write_fmt(format_args!(
-                            "Processing initial value for slot {:?}\n",
-                            &addr
-                        ))
-                        .expect("must log");
+                    // let _ = logger
+                    //     .write_fmt(format_args!(
+                    //         "Processing initial value for slot {:?}\n",
+                    //         &addr
+                    //     ))
+                    //     .expect("must log");
 
                     if active_address == addr.address {
                         let digits = Self::cache_slot_value_as_digits(
@@ -238,13 +235,6 @@ impl EthereumStoragePersister {
                         let initial_expected_value = mpt
                             .get(path, &mut preimage_oracle, &mut interner, &mut hasher)
                             .map_err(|_| internal_error!("failed to get initial value in MPT"))?;
-
-                        // let _ = logger
-                        //     .write_fmt(format_args!(
-                        //         "comparing expected value {:?} vs RLP encoded {:?}\n",
-                        //         &value.initial_value, &initial_expected_value
-                        //     ))
-                        //     .expect("must log");
 
                         assert!(
                             compare_bytes32_and_mpt_integer(
@@ -270,23 +260,23 @@ impl EthereumStoragePersister {
             if should_update {
                 should_update = false;
 
-                let _ = logger
-                    .write_fmt(format_args!(
-                        "Should process {} potential updates for address {:?}\n",
-                        counter, &active_address
-                    ))
-                    .expect("must log");
+                // let _ = logger
+                //     .write_fmt(format_args!(
+                //         "Should process {} potential updates for address {:?}\n",
+                //         counter, &active_address
+                //     ))
+                //     .expect("must log");
 
                 let mut any_mutation = false;
                 for _ in 0..counter {
                     let (addr, v) = unsafe { it_set_final.next().unwrap_unchecked() };
 
-                    let _ = logger
-                        .write_fmt(format_args!(
-                            "Processing potential updates for slot {:?}\n",
-                            &addr
-                        ))
-                        .expect("must log");
+                    // let _ = logger
+                    //     .write_fmt(format_args!(
+                    //         "Processing potential updates for slot {:?}\n",
+                    //         &addr
+                    //     ))
+                    //     .expect("must log");
 
                     debug_assert_eq!(addr.address, active_address);
                     if v.initial_value != v.current_value {
@@ -302,12 +292,12 @@ impl EthereumStoragePersister {
 
                         if v.initial_value.is_zero() {
                             // insert
-                            let _ = logger
-                                .write_fmt(format_args!(
-                                    "Will insert value {:?} at slot {:?}\n",
-                                    &v.current_value, &addr.key
-                                ))
-                                .expect("must log");
+                            // let _ = logger
+                            //     .write_fmt(format_args!(
+                            //         "Will insert value {:?} at slot {:?}\n",
+                            //         &v.current_value, &addr.key
+                            //     ))
+                            //     .expect("must log");
 
                             // encode value
                             let pre_encoded_value = Self::encode_slot_value(
@@ -324,12 +314,12 @@ impl EthereumStoragePersister {
                             .map_err(|_| internal_error!("failed to get insert value into MPT"))?;
                         } else if v.current_value.is_zero() {
                             // delete
-                            let _ = logger
-                                .write_fmt(format_args!(
-                                    "Will delete value {:?} at slot {:?}\n",
-                                    &v.initial_value, &addr.key
-                                ))
-                                .expect("must log");
+                            // let _ = logger
+                            //     .write_fmt(format_args!(
+                            //         "Will delete value {:?} at slot {:?}\n",
+                            //         &v.initial_value, &addr.key
+                            //     ))
+                            //     .expect("must log");
 
                             mpt.delete(path, &mut preimage_oracle, &mut interner, &mut hasher)
                                 .map_err(|_| {
@@ -337,12 +327,12 @@ impl EthereumStoragePersister {
                                 })?;
                         } else {
                             // update
-                            let _ = logger
-                                .write_fmt(format_args!(
-                                    "Will update slot {:?} as {:?} -> {:?}\n",
-                                    &addr.key, &v.initial_value, &v.current_value
-                                ))
-                                .expect("must log");
+                            // let _ = logger
+                            //     .write_fmt(format_args!(
+                            //         "Will update slot {:?} as {:?} -> {:?}\n",
+                            //         &addr.key, &v.initial_value, &v.current_value
+                            //     ))
+                            //     .expect("must log");
 
                             // encode value
                             let pre_encoded_value = Self::encode_slot_value(
@@ -358,12 +348,12 @@ impl EthereumStoragePersister {
                 }
                 // recompute new root
                 {
-                    let _ = logger
-                        .write_fmt(format_args!(
-                            "Will update storage root for {:?}\n",
-                            &active_address
-                        ))
-                        .expect("must log");
+                    // let _ = logger
+                    //     .write_fmt(format_args!(
+                    //         "Will update storage root for {:?}\n",
+                    //         &active_address
+                    //     ))
+                    //     .expect("must log");
 
                     // NOTE: this is fast NOP if no mutations happened
                     mpt.recompute(&mut interner, &mut hasher)
@@ -389,12 +379,12 @@ impl EthereumStoragePersister {
                 }
 
                 if let Some((addr, value)) = next_pair_to_read_check.take() {
-                    let _ = logger
-                        .write_fmt(format_args!(
-                            "Setting {:?} as new active address\n",
-                            &addr.address
-                        ))
-                        .expect("must log");
+                    // let _ = logger
+                    //     .write_fmt(format_args!(
+                    //         "Setting {:?} as new active address\n",
+                    //         &addr.address
+                    //     ))
+                    //     .expect("must log");
 
                     // Now we should update MTP for next account, and reset counter
                     // reuse for the next account
@@ -412,13 +402,6 @@ impl EthereumStoragePersister {
                     let initial_expected_value = mpt
                         .get(path, &mut preimage_oracle, &mut interner, &mut hasher)
                         .map_err(|_| internal_error!("failed to get initial value in MPT"))?;
-
-                    // let _ = logger
-                    //     .write_fmt(format_args!(
-                    //         "comparing expected value {:?} vs RLP encoded {:?}\n",
-                    //         &value.initial_value, &initial_expected_value
-                    //     ))
-                    //     .expect("must log");
 
                     assert!(
                         compare_bytes32_and_mpt_integer(
@@ -440,9 +423,9 @@ impl EthereumStoragePersister {
             }
         }
 
-        let _ = logger
-            .write_fmt(format_args!("Will update accounts MTP now\n",))
-            .expect("must log");
+        // let _ = logger
+        //     .write_fmt(format_args!("Will update accounts MTP now\n",))
+        //     .expect("must log");
 
         // now reuse for accounts
         mpt.purge_for_reuse(initial_state_root.as_u8_array(), &mut interner)
@@ -452,9 +435,10 @@ impl EthereumStoragePersister {
 
         for record in account_cache.cache.iter() {
             let addr = record.key();
-            let _ = logger
-                .write_fmt(format_args!("Updating the state of address {:?}\n", addr))
-                .expect("must log");
+
+            // let _ = logger
+            //     .write_fmt(format_args!("Updating the state of address {:?}\n", addr))
+            //     .expect("must log");
 
             let initial = record.initial();
             let current = record.current();
