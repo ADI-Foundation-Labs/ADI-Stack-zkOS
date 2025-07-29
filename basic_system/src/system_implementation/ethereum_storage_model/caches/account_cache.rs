@@ -393,6 +393,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         NominalTokenBalance: Maybe<<EthereumIOTypesConfig as SystemIOTypesConfig>::NominalTokenValue>,
         Bytecode: Maybe<&'static [u8]>,
         CodeVersion: Maybe<u8>,
+        IsDelegated: Maybe<bool>,
     >(
         &mut self,
         ee_type: ExecutionEnvironmentType,
@@ -410,6 +411,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                 NominalTokenBalance,
                 Bytecode,
                 CodeVersion,
+                IsDelegated,
             >,
         >,
         preimages_cache: &mut BytecodeKeccakPreimagesStorage<R, A>,
@@ -426,6 +428,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             NominalTokenBalance,
             Bytecode,
             CodeVersion,
+            IsDelegated,
         >,
         SystemError,
     > {
@@ -462,6 +465,12 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
 
         let code_length = bytecode.len() as u32;
 
+        let is_delegated = if code_length == 3 + 20 {
+            &bytecode[..3] == &zk_ee::system::EIP7702_DELEGATION_MARKER
+        } else {
+            false
+        };
+
         Ok(AccountData {
             ee_version: Maybe::construct(|| ExecutionEnvironmentType::EVM as u8),
             observable_bytecode_hash: Maybe::construct(|| full_data.bytecode_hash),
@@ -473,6 +482,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             nominal_token_balance: Maybe::construct(|| full_data.balance),
             bytecode: Maybe::construct(|| bytecode),
             code_version: Maybe::construct(|| 0),
+            is_delegated: Maybe::construct(|| is_delegated),
         })
     }
 
@@ -719,6 +729,67 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                 }
             }
         }
+
+        Ok(())
+    }
+
+    pub fn set_delegation<const PROOF_ENV: bool>(
+        &mut self,
+        resources: &mut R,
+        at_address: &B160,
+        delegate: &B160,
+        preimages_cache: &mut BytecodeKeccakPreimagesStorage<R, A>,
+        oracle: &mut impl IOOracle,
+    ) -> Result<(), SystemError> {
+        let mut account_data = resources.with_infinite_ergs(|inf_resources| {
+            self.materialize_element::<PROOF_ENV>(
+                ExecutionEnvironmentType::EVM,
+                inf_resources,
+                at_address,
+                oracle,
+                false,
+                false,
+            )
+        })?;
+
+        let (bytecode_hash, bytecode_len, delegated) = if delegate == &B160::ZERO {
+            (EMPTY_STRING_KECCAK_HASH, 0, false)
+        } else {
+            use zk_ee::system::EIP7702_DELEGATION_MARKER;
+
+            // Bytecode is: 0xef0100 || address
+            let mut code = [0u8; 23];
+            code[0..3].copy_from_slice(&EIP7702_DELEGATION_MARKER);
+            code[3..].copy_from_slice(&delegate.to_be_bytes::<{ B160::BYTES }>());
+
+            // We compute bytecode hash including padding, for compatibility
+            // We set EE type to EVM, just to use Blake in the helper function
+            let bytecode_hash =
+                Self::compute_bytecode_hash(ExecutionEnvironmentType::EVM, &code, resources)?;
+            // save bytecode
+            preimages_cache.record_preimage::<PROOF_ENV>(
+                ExecutionEnvironmentType::NoEE,
+                &(PreimageRequestForUnknownLength {
+                    hash: bytecode_hash,
+                    preimage_type: PreimageType::Bytecode,
+                }),
+                resources,
+                &[&code],
+            )?;
+            (bytecode_hash, 23, true)
+        };
+
+        resources.charge(&R::from_native(R::Native::from_computational(
+            WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
+        )))?;
+
+        account_data.update(|cache_record| {
+            cache_record.update(|v, m| {
+                v.bytecode_hash = bytecode_hash;
+
+                Ok(())
+            })
+        })?;
 
         Ok(())
     }

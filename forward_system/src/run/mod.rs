@@ -11,8 +11,7 @@ pub mod test_impl;
 
 use crate::run::result_keeper::ForwardRunningResultKeeper;
 use crate::system::bootloader::run_forward;
-use crate::system::system::CallSimulationBootloader;
-use crate::system::system::CallSimulationSystem;
+use crate::system::system::ForwardBootloader;
 use crate::system::system::ForwardRunningSystem;
 use basic_bootloader::bootloader::config::{
     BasicBootloaderCallSimulationConfig, BasicBootloaderExecutionConfig,
@@ -20,7 +19,8 @@ use basic_bootloader::bootloader::config::{
 };
 use errors::ForwardSubsystemError;
 use oracle_provider::MemorySource;
-use zk_ee::common_structs::BasicIOImplementerFSM;
+use zk_ee::common_structs::ProofData;
+use zk_ee::system::tracer::Tracer;
 use zk_ee::utils::Bytes32;
 
 pub use tree::LeafProof;
@@ -55,12 +55,13 @@ pub use self::query_processors::*;
 pub type StorageCommitment = FlatStorageCommitment<{ TREE_HEIGHT }>;
 
 pub fn run_batch<T: ReadStorageTree, PS: PreimageSource, TS: TxSource, TR: TxResultCallback>(
-    block_context: BlockContext,
+    batch_context: BatchContext,
     tree: T,
     preimage_source: PS,
     tx_source: TS,
     tx_result_callback: TR,
-) -> Result<BatchOutput, ForwardSubsystemError> {
+    tracer: &mut impl Tracer<ForwardRunningSystem>,
+) -> Result<BlockOutput, ForwardSubsystemError> {
     let block_metadata_reponsder = BlockMetadataResponder {
         block_metadata: batch_context,
     };
@@ -79,14 +80,14 @@ pub fn run_batch<T: ReadStorageTree, PS: PreimageSource, TS: TxSource, TR: TxRes
 
     let mut result_keeper = ForwardRunningResultKeeper::new(tx_result_callback);
 
-    run_forward::<BasicBootloaderForwardSimulationConfig>(oracle, &mut result_keeper);
+    run_forward::<BasicBootloaderForwardSimulationConfig>(oracle, &mut result_keeper, tracer);
     Ok(result_keeper.into())
 }
 
 // TODO: we should run it on native arch and it should return pubdata and other outputs via result keeper
 pub fn generate_proof_input<T: ReadStorageTree, PS: PreimageSource, TS: TxSource>(
     zk_os_program_path: PathBuf,
-    block_context: BlockContext,
+    batch_context: BatchContext,
     proof_data: ProofData<StorageCommitment>,
     tree: T,
     preimage_source: PS,
@@ -99,8 +100,8 @@ pub fn generate_proof_input<T: ReadStorageTree, PS: PreimageSource, TS: TxSource
         tx_source,
         next_tx: None,
     };
-    let io_implementer_init_responder = IOImplementerInitResponder {
-        io_implementer_init_data: Some(io_implementer_init_data(Some(storage_commitment))),
+    let zk_proof_data_responder = ZKProofDataResponder {
+        data: Some(proof_data),
     };
     let preimage_responder = GenericPreimageResponder { preimage_source };
     let tree_responder = ReadTreeResponder { tree };
@@ -108,7 +109,7 @@ pub fn generate_proof_input<T: ReadStorageTree, PS: PreimageSource, TS: TxSource
     let mut oracle = ZkEENonDeterminismSource::default();
     oracle.add_external_processor(block_metadata_reponsder);
     oracle.add_external_processor(tx_data_reponder);
-    oracle.add_external_processor(io_implementer_init_responder);
+    oracle.add_external_processor(zk_proof_data_responder);
     oracle.add_external_processor(preimage_responder);
     oracle.add_external_processor(tree_responder);
 
@@ -131,7 +132,7 @@ pub fn make_oracle_for_proofs_and_dumps<
     tree: T,
     preimage_source: PS,
     tx_source: TS,
-    storage_commitment: Option<StorageCommitment>,
+    proof_data: Option<ProofData<StorageCommitment>>,
     add_uart: bool,
 ) -> ZkEENonDeterminismSource<M> {
     make_oracle_for_proofs_and_dumps_for_init_data(
@@ -139,7 +140,7 @@ pub fn make_oracle_for_proofs_and_dumps<
         tree,
         preimage_source,
         tx_source,
-        Some(io_implementer_init_data(storage_commitment)),
+        proof_data,
         add_uart,
     )
 }
@@ -154,7 +155,7 @@ pub fn make_oracle_for_proofs_and_dumps_for_init_data<
     tree: T,
     preimage_source: PS,
     tx_source: TS,
-    io_implementer_init_data: Option<BasicIOImplementerFSM<FlatStorageCommitment<TREE_HEIGHT>>>,
+    proof_data: Option<ProofData<StorageCommitment>>,
     add_uart: bool,
 ) -> ZkEENonDeterminismSource<M> {
     let block_metadata_reponsder = BlockMetadataResponder {
@@ -166,16 +167,14 @@ pub fn make_oracle_for_proofs_and_dumps_for_init_data<
     };
     let preimage_responder = GenericPreimageResponder { preimage_source };
     let tree_responder = ReadTreeResponder { tree };
-    let io_implementer_init_responder = IOImplementerInitResponder {
-        io_implementer_init_data,
-    };
+    let zk_proof_data_responder = ZKProofDataResponder { data: proof_data };
 
     let mut oracle = ZkEENonDeterminismSource::default();
     oracle.add_external_processor(block_metadata_reponsder);
     oracle.add_external_processor(tx_data_responder);
     oracle.add_external_processor(preimage_responder);
     oracle.add_external_processor(tree_responder);
-    oracle.add_external_processor(io_implementer_init_responder);
+    oracle.add_external_processor(zk_proof_data_responder);
 
     if add_uart {
         let uart_responder = UARTPrintReponsder::default();
@@ -191,19 +190,22 @@ pub fn run_batch_with_oracle_dump<
     TS: TxSource + Clone + serde::Serialize,
     TR: TxResultCallback,
 >(
-    block_context: BlockContext,
+    batch_context: BatchContext,
     tree: T,
     preimage_source: PS,
     tx_source: TS,
     tx_result_callback: TR,
-) -> Result<BatchOutput, ForwardSubsystemError> {
+    proof_data: Option<ProofData<StorageCommitment>>,
+    tracer: &mut impl Tracer<ForwardRunningSystem>,
+) -> Result<BlockOutput, ForwardSubsystemError> {
     run_batch_with_oracle_dump_ext::<T, PS, TS, TR, BasicBootloaderForwardSimulationConfig>(
         batch_context,
         tree,
         preimage_source,
         tx_source,
         tx_result_callback,
-        None,
+        proof_data,
+        tracer,
     )
 }
 
@@ -219,8 +221,9 @@ pub fn run_batch_with_oracle_dump_ext<
     preimage_source: PS,
     tx_source: TS,
     tx_result_callback: TR,
-    storage_commitment: Option<StorageCommitment>,
-) -> Result<BatchOutput, ForwardSubsystemError> {
+    proof_data: Option<ProofData<StorageCommitment>>,
+    tracer: &mut impl Tracer<ForwardRunningSystem>,
+) -> Result<BlockOutput, ForwardSubsystemError> {
     let block_metadata_reponsder = BlockMetadataResponder {
         block_metadata: batch_context,
     };
@@ -230,13 +233,11 @@ pub fn run_batch_with_oracle_dump_ext<
     };
     let preimage_responder = GenericPreimageResponder { preimage_source };
     let tree_responder = ReadTreeResponder { tree };
-    let io_implementer_init_responder = IOImplementerInitResponder {
-        io_implementer_init_data: Some(io_implementer_init_data(storage_commitment)),
-    };
+    let zk_proof_data_responder = ZKProofDataResponder { data: proof_data };
 
     if let Ok(path) = std::env::var("ORACLE_DUMP_FILE") {
         let dump = ForwardRunningOracleDump {
-            io_implementer_init_responder: io_implementer_init_responder.clone(),
+            zk_proof_data_responder: zk_proof_data_responder.clone(),
             block_metadata_reponsder,
             tree_responder: tree_responder.clone(),
             tx_data_responder: tx_data_responder.clone(),
@@ -251,17 +252,15 @@ pub fn run_batch_with_oracle_dump_ext<
     oracle.add_external_processor(tx_data_responder);
     oracle.add_external_processor(preimage_responder);
     oracle.add_external_processor(tree_responder);
-    oracle.add_external_processor(io_implementer_init_responder);
-    oracle.add_external_processor(
-        callable_oracles::arithmetic::ArithmeticQuery {
-            marker: std::marker::PhantomData,
-        },
-    );
+    oracle.add_external_processor(zk_proof_data_responder);
+    oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery {
+        marker: std::marker::PhantomData,
+    });
     oracle.add_external_processor(UARTPrintReponsder);
 
     let mut result_keeper = ForwardRunningResultKeeper::new(tx_result_callback);
 
-    run_forward::<Config>(oracle, &mut result_keeper);
+    run_forward::<Config>(oracle, &mut result_keeper, tracer);
     Ok(result_keeper.into())
 }
 
@@ -271,7 +270,7 @@ pub fn run_batch_from_oracle_dump<
     TS: TxSource + Clone + serde::de::DeserializeOwned,
 >(
     path: Option<String>,
-    tracer: &mut impl Tracer<ForwardRunningSystem<T, PS, TS>>,
+    tracer: &mut impl Tracer<ForwardRunningSystem>,
 ) -> Result<BlockOutput, ForwardSubsystemError> {
     let path = path.unwrap_or_else(|| std::env::var("ORACLE_DUMP_FILE").unwrap());
     let file = File::open(path).expect("should open file");
@@ -279,7 +278,7 @@ pub fn run_batch_from_oracle_dump<
         bincode::deserialize_from(file).expect("should deserialize");
 
     let ForwardRunningOracleDump {
-        io_implementer_init_responder,
+        zk_proof_data_responder,
         block_metadata_reponsder,
         tree_responder,
         tx_data_responder,
@@ -291,19 +290,11 @@ pub fn run_batch_from_oracle_dump<
     oracle.add_external_processor(tx_data_responder);
     oracle.add_external_processor(preimage_responder);
     oracle.add_external_processor(tree_responder);
-
-    let io_implementer_init_responder = IOImplementerInitResponder {
-        io_implementer_init_data: Some(io_implementer_init_data(
-            io_implementer_init_responder
-                .io_implementer_init_data
-                .map(|el| el.state_root_view),
-        )),
-    };
-    oracle.add_external_processor(io_implementer_init_responder);
+    oracle.add_external_processor(zk_proof_data_responder);
 
     let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
 
-    run_forward::<BasicBootloaderForwardSimulationConfig>(oracle, &mut result_keeper);
+    run_forward::<BasicBootloaderForwardSimulationConfig>(oracle, &mut result_keeper, tracer);
     Ok(result_keeper.into())
 }
 
@@ -317,17 +308,17 @@ pub fn run_batch_from_oracle_dump<
 ///
 pub fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
     transaction: Vec<u8>,
-    block_context: BlockContext,
+    block_context: BatchContext,
     storage: S,
     preimage_source: PS,
-    tracer: &mut impl Tracer<CallSimulationSystem<S, PS, TxListSource>>,
+    tracer: &mut impl Tracer<ForwardRunningSystem>,
 ) -> Result<TxResult, ForwardSubsystemError> {
     let tx_source = TxListSource {
         transactions: vec![transaction].into(),
     };
 
     let block_metadata_reponsder = BlockMetadataResponder {
-        block_metadata: batch_context,
+        block_metadata: block_context,
     };
     let tx_data_reponder = TxDataResponder {
         tx_source,
@@ -344,7 +335,7 @@ pub fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
 
     let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
 
-    CallSimulationBootloader::run_prepared::<BasicBootloaderCallSimulationConfig, false>(
+    ForwardBootloader::run_prepared::<BasicBootloaderCallSimulationConfig, false>(
         oracle,
         &mut result_keeper,
         tracer,

@@ -32,7 +32,7 @@ impl<M: MemorySource> OracleQueryProcessor<M> for ArithmeticQuery<M> {
         query_id: u32,
         query: Vec<usize>,
         memory: &M,
-    ) -> Option<Box<dyn ExactSizeIterator<Item = usize> + 'static>> {
+    ) -> Box<dyn ExactSizeIterator<Item = usize> + 'static> {
         debug_assert!(self.supports_query_id(query_id));
 
         let mut it = query.into_iter();
@@ -92,6 +92,6 @@ impl<M: MemorySource> OracleQueryProcessor<M> for ArithmeticQuery<M> {
 
         let n = UsizeSliceIteratorOwned::new(r);
 
-        Some(Box::new(n))
+        Box::new(n)
     }
 }

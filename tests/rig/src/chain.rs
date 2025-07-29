@@ -28,6 +28,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use zk_ee::common_structs::{derive_flat_storage_key, ProofData};
 use zk_ee::system::metadata::{BlockHashes, BlockMetadataFromOracle};
+use zk_ee::system::tracer::NopTracer;
 use zk_ee::utils::Bytes32;
 
 ///
@@ -154,9 +155,9 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
     pub fn simulate_block(
         &mut self,
         transactions: Vec<Vec<u8>>,
-        block_context: Option<BlockContext>,
+        batch_context: Option<BatchContext>,
     ) -> BlockOutput {
-        let block_context = block_context.unwrap_or_default();
+        let block_context = batch_context.unwrap_or_default();
         let block_metadata = BlockMetadataFromOracle {
             chain_id: self.chain_id,
             block_number: self.block_number + 1,
@@ -173,7 +174,9 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             transactions: transactions.into(),
         };
 
-        let block_output: BatchOutput = forward_system::run::run_batch_with_oracle_dump_ext::<
+        let mut nop_tracer = NopTracer::default();
+
+        let block_output: BlockOutput = forward_system::run::run_batch_with_oracle_dump_ext::<
             _,
             _,
             _,
@@ -185,7 +188,8 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             self.preimage_source.clone(),
             tx_source.clone(),
             NoopTxCallback,
-            Some(state_commitment),
+            None,
+            &mut nop_tracer,
         )
         .unwrap();
 
@@ -252,7 +256,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             self.state_tree.clone(),
             self.preimage_source.clone(),
             tx_source.clone(),
-            Some(state_commitment),
+            Some(proof_data),
             true,
         );
 
@@ -263,12 +267,14 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
                 self.state_tree.clone(),
                 self.preimage_source.clone(),
                 tx_source.clone(),
-                Some(state_commitment),
+                Some(proof_data),
                 false,
             )
         };
 
-        let block_output: BatchOutput = forward_system::run::run_batch_with_oracle_dump_ext::<
+        let mut nop_tracer = NopTracer::default();
+
+        let block_output: BlockOutput = forward_system::run::run_batch_with_oracle_dump_ext::<
             _,
             _,
             _,
@@ -280,7 +286,8 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             self.preimage_source.clone(),
             tx_source.clone(),
             NoopTxCallback,
-            Some(state_commitment),
+            Some(proof_data),
+            &mut nop_tracer,
         )
         .unwrap();
         trace!(
@@ -410,7 +417,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         transactions: Vec<Vec<u8>>,
         witness: alloy_rpc_types_debug::ExecutionWitness,
         block_context: Option<BlockContext>,
-    ) -> BatchOutput {
+    ) -> BlockOutput {
         use crypto::MiniDigest;
         use std::collections::BTreeMap;
 
@@ -513,7 +520,8 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         use oracle_provider::DummyMemorySource;
 
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
-        BasicBootloader::<EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>>::run_for_state_root_only::<BasicBootloaderForwardSimulationConfig, false>(oracle, &mut result_keeper).expect("must succeed");
+        let mut nop_tracer = NopTracer::default();
+        BasicBootloader::<EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>>::run_for_state_root_only::<BasicBootloaderForwardSimulationConfig, false>(oracle, &mut result_keeper, &mut nop_tracer).expect("must succeed");
 
         result_keeper.into()
     }

@@ -3,6 +3,7 @@ use basic_bootloader::bootloader::config::BasicBootloaderExecutionConfig;
 use basic_bootloader::bootloader::result_keeper::ResultKeeperExt;
 use oracle_provider::DummyMemorySource;
 use oracle_provider::ZkEENonDeterminismSource;
+use zk_ee::system::tracer::Tracer;
 
 ///
 /// Run bootloader with forward system with a given `oracle`.
@@ -11,9 +12,11 @@ use oracle_provider::ZkEENonDeterminismSource;
 pub fn run_forward<Config: BasicBootloaderExecutionConfig>(
     oracle: ZkEENonDeterminismSource<DummyMemorySource>,
     result_keeper: &mut impl ResultKeeperExt,
-    tracer: &mut impl Tracer<ForwardRunningSystem<T, PS, TS>>,
+    tracer: &mut impl Tracer<ForwardRunningSystem>,
 ) {
-    if let Err(err) = ForwardBootloader::run_prepared::<Config, false>(oracle, result_keeper) {
+    if let Err(err) =
+        ForwardBootloader::run_prepared::<Config, false>(oracle, result_keeper, tracer)
+    {
         panic!("Forward run failed with: {err}")
     };
 }

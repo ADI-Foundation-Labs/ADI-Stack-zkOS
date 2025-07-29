@@ -930,7 +930,7 @@ impl<
         resources: &mut R,
         at_address: &B160,
         delegate: &B160,
-        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
+        storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
     ) -> Result<(), SystemError> {

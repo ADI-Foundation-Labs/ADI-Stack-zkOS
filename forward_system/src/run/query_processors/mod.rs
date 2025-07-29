@@ -10,22 +10,22 @@ mod ethereum_initial_account_state;
 mod ethereum_initial_storage_slot_value;
 mod ethereum_storage;
 mod generic_preimage;
-mod io_implementer_init;
 mod read_storage;
 mod read_tree;
 mod tx_data;
 mod uart_print;
+mod zk_proof_data;
 
 pub use self::block_metadata::BlockMetadataResponder;
 pub use self::ethereum_header::EthereumHeaderLikeResponder;
 pub use self::ethereum_initial_account_state::InMemoryEthereumInitialAccountStateResponder;
 pub use self::ethereum_initial_storage_slot_value::InMemoryEthereumInitialStorageSlotValueResponder;
 pub use self::generic_preimage::GenericPreimageResponder;
-pub use self::io_implementer_init::IOImplementerInitResponder;
 pub use self::read_storage::ReadStorageResponder;
 pub use self::read_tree::ReadTreeResponder;
 pub use self::tx_data::TxDataResponder;
 pub use self::uart_print::UARTPrintReponsder;
+pub use self::zk_proof_data::ZKProofDataResponder;
 
 use crate::run::*;
 
@@ -35,7 +35,7 @@ pub struct ForwardRunningOracleDump<
     PS: PreimageSource + Clone,
     TS: TxSource + Clone,
 > {
-    pub io_implementer_init_responder: IOImplementerInitResponder,
+    pub zk_proof_data_responder: ZKProofDataResponder,
     pub block_metadata_reponsder: BlockMetadataResponder,
     pub tree_responder: ReadTreeResponder<T>,
     pub tx_data_responder: TxDataResponder<TS>,

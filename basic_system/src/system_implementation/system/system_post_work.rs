@@ -73,30 +73,19 @@ where
         use crypto::blake2s::Blake2s256;
         use crypto::MiniDigest;
 
-        // let initial_state_commitment = {
-        //     use zk_ee::system_io_oracle::INITIAL_STATE_COMMITTMENT_QUERY_ID;
-
-        //     system.io.oracle()
-        //         .query_with_empty_input::<<S::IO as TypedFinishIO>::IOStateCommittment>(INITIAL_STATE_COMMITTMENT_QUERY_ID)
-        //         .unwrap()
-        // };
-        // let mut state_commitment = initial_state_commitment.clone();
-
         let System {
             mut io, metadata, ..
         } = system;
 
-        let mut state_commitment = {
-            // TODO (EVM-989): read only state commitment
-            use zk_ee::common_structs::BasicIOImplementerFSM;
-            use zk_ee::system_io_oracle::INITIALIZE_IO_IMPLEMENTER_QUERY_ID;
+        let (mut state_commitment, last_block_timestamp) = {
+            use zk_ee::basic_queries::ZKProofDataQuery;
+            use zk_ee::common_structs::ProofData;
+            use zk_ee::system_io_oracle::SimpleOracleQuery;
 
-            let fsm_state: BasicIOImplementerFSM<FlatStorageCommitment<TREE_HEIGHT>> = io
-                .oracle()
-                .query_with_empty_input(INITIALIZE_IO_IMPLEMENTER_QUERY_ID)
-                .unwrap();
+            let proof_data: ProofData<FlatStorageCommitment<TREE_HEIGHT>> =
+                ZKProofDataQuery::get(io.oracle(), &()).unwrap();
 
-            fsm_state.state_root_view
+            (proof_data.state_root_view, proof_data.last_block_timestamp)
         };
 
         result_keeper.pubdata(self.current_block_hash.as_u8_ref());
@@ -112,8 +101,7 @@ where
             next_free_slot: state_commitment.next_free_slot,
             block_number: metadata.block_level_metadata.block_number - 1,
             last_256_block_hashes_blake: blocks_hasher.finalize().into(),
-            // TODO(EVM-1080): we should set and validate that current block timestamp >= previous
-            last_block_timestamp: 0,
+            last_block_timestamp,
         };
 
         let mut pubdata_hasher = Blake2s256::new();
@@ -139,14 +127,16 @@ where
         }
         blocks_hasher.update(self.current_block_hash.as_u8_ref());
 
+        // validate that timestamp didn't decrease
+        assert!(metadata.block_level_metadata.timestamp >= last_block_timestamp);
+
         // chain state after
         let chain_state_commitment_after = ChainStateCommitment {
             state_root: state_commitment.root,
             next_free_slot: state_commitment.next_free_slot,
             block_number: metadata.block_level_metadata.block_number,
             last_256_block_hashes_blake: blocks_hasher.finalize().into(),
-            // TODO(EVM-1080): we should set and validate that current block timestamp >= previous
-            last_block_timestamp: 0,
+            last_block_timestamp: metadata.block_level_metadata.timestamp,
         };
 
         use crate::system_implementation::system::BlocksOutput;
@@ -172,102 +162,6 @@ where
 
         (io_final_data, public_input.hash().into())
     }
-
-    // fn finish(
-    //     mut self,
-    //     block_metadata: BlockMetadataFromOracle,
-    //     current_block_hash: Bytes32,
-    //     l1_to_l2_txs_hash: Bytes32,
-    //     upgrade_tx_hash: Bytes32,
-    //     result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
-    //     mut logger: impl Logger,
-    // ) -> Self::FinalData {
-    //     let mut state_commitment = {
-    //         use zk_ee::system_io_oracle::INITIALIZE_IO_IMPLEMENTER_QUERY_ID;
-
-    //         // TODO (EVM-989): read only state commitment
-    //         let fsm_state: BasicIOImplementerFSM<FlatStorageCommitment<TREE_HEIGHT>> = self
-    //             .oracle
-    //             .query_with_empty_input(INITIALIZE_IO_IMPLEMENTER_QUERY_ID)
-    //             .unwrap();
-
-    //         fsm_state.state_root_view
-    //     };
-
-    //     let mut blocks_hasher = Blake2s256::new();
-    //     for block_hash in block_metadata.block_hashes.0.iter() {
-    //         blocks_hasher.update(&block_hash.to_be_bytes::<32>());
-    //     }
-
-    //     // chain state before
-    //     let chain_state_commitment_before = ChainStateCommitment {
-    //         state_root: state_commitment.root,
-    //         next_free_slot: state_commitment.next_free_slot,
-    //         block_number: block_metadata.block_number - 1,
-    //         last_256_block_hashes_blake: blocks_hasher.finalize().into(),
-    //         // TODO(EVM-1080): we should set and validate that current block timestamp >= previous
-    //         last_block_timestamp: 0,
-    //     };
-
-    //     // finishing IO, applying changes
-    //     let mut pubdata_hasher = Blake2s256::new();
-    //     pubdata_hasher.update(current_block_hash.as_u8_ref());
-    //     let mut l2_to_l1_logs_hasher = Blake2s256::new();
-
-    //     self.storage
-    //         .finish(
-    //             &mut self.oracle,
-    //             Some(&mut state_commitment),
-    //             &mut pubdata_hasher,
-    //             result_keeper,
-    //             &mut logger,
-    //         )
-    //         .expect("Failed to finish storage");
-    //     self.logs_storage
-    //         .apply_l2_to_l1_logs_hashes_to_hasher(&mut l2_to_l1_logs_hasher);
-    //     self.logs_storage
-    //         .apply_pubdata(&mut pubdata_hasher, result_keeper);
-    //     result_keeper.logs(self.logs_storage.messages_ref_iter());
-    //     result_keeper.events(self.events_storage.events_ref_iter());
-
-    //     let pubdata_hash = pubdata_hasher.finalize();
-    //     let l2_to_l1_logs_hashes_hash = l2_to_l1_logs_hasher.finalize();
-
-    //     blocks_hasher = Blake2s256::new();
-    //     for block_hash in block_metadata.block_hashes.0.iter().skip(1) {
-    //         blocks_hasher.update(&block_hash.to_be_bytes::<32>());
-    //     }
-    //     blocks_hasher.update(current_block_hash.as_u8_ref());
-
-    //     // chain state after
-    //     let chain_state_commitment_after = ChainStateCommitment {
-    //         state_root: state_commitment.root,
-    //         next_free_slot: state_commitment.next_free_slot,
-    //         block_number: block_metadata.block_number,
-    //         last_256_block_hashes_blake: blocks_hasher.finalize().into(),
-    //         // TODO(EVM-1080): we should set and validate that current block timestamp >= previous
-    //         last_block_timestamp: 0,
-    //     };
-
-    //     // other outputs to be opened on the settlement layer/aggregation program
-    //     let block_output = BlocksOutput {
-    //         chain_id: U256::try_from(block_metadata.chain_id).unwrap(),
-    //         first_block_timestamp: block_metadata.timestamp,
-    //         last_block_timestamp: block_metadata.timestamp,
-    //         pubdata_hash: pubdata_hash.into(),
-    //         priority_ops_hashes_hash: l1_to_l2_txs_hash,
-    //         l2_to_l1_logs_hashes_hash: l2_to_l1_logs_hashes_hash.into(),
-    //         upgrade_tx_hash,
-    //     };
-
-    //     let public_input = BlocksPublicInput {
-    //         state_before: chain_state_commitment_before.hash().into(),
-    //         state_after: chain_state_commitment_after.hash().into(),
-    //         blocks_output: block_output.hash().into(),
-    //     };
-
-    //     (self.oracle, public_input.hash().into())
-    // }
 }
 
 // #[cfg(feature = "wrap-in-batch")]

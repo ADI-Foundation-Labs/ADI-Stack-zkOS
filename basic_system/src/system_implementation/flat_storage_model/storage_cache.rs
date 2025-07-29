@@ -254,7 +254,7 @@ impl<
         P: StorageAccessPolicy<R, Bytes32>,
     > SnapshottableIo for NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>
 {
-    type StateSnapshot = StorageSnapshotId;
+    type StateSnapshot = CacheSnapshotId;
 
     fn begin_new_tx(&mut self) {
         self.0.begin_new_tx();

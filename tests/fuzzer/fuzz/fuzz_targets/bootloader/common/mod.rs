@@ -179,12 +179,15 @@ pub fn mock_oracle() -> ZkEENonDeterminismSource<DummyMemorySource> {
         storage_tree: TestingTree::new_in(Global),
         cold_storage: HashMap::new(),
     };
-    let init_data = Some(io_implementer_init_data(Some(FlatStorageCommitment::<
-        { TESTING_TREE_HEIGHT },
-    > {
-        root: *tree.storage_tree.root(),
-        next_free_slot: tree.storage_tree.next_free_slot,
-    })));
+    let init_data = Some(ProofData {
+        state_root_view: FlatStorageCommitment::<
+            { TESTING_TREE_HEIGHT },
+        > {
+            root: *tree.storage_tree.root(),
+            next_free_slot: tree.storage_tree.next_free_slot,
+        },
+        last_block_timestamp: 0,
+    });
     forward_system::run::make_oracle_for_proofs_and_dumps_for_init_data(
         BlockMetadataFromOracle::new_for_test(),
         tree,
@@ -225,12 +228,15 @@ pub fn mock_oracle_balance(
         .inner
         .insert(properties_hash, encoding.to_vec());
 
-    let init_data = Some(io_implementer_init_data(Some(FlatStorageCommitment::<
-        { TESTING_TREE_HEIGHT },
-    > {
-        root: *tree.storage_tree.root(),
-        next_free_slot: tree.storage_tree.next_free_slot,
-    })));
+    let init_data = Some(ProofData {
+        state_root_view: FlatStorageCommitment::<
+            { TESTING_TREE_HEIGHT },
+        > {
+            root: *tree.storage_tree.root(),
+            next_free_slot: tree.storage_tree.next_free_slot,
+        },
+        last_block_timestamp: 0,
+    });
     forward_system::run::make_oracle_for_proofs_and_dumps_for_init_data(
         BlockMetadataFromOracle::new_for_test(),
         tree,

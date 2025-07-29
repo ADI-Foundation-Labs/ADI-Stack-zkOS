@@ -14,20 +14,12 @@ impl HistoryCounterSnapshotId {
     }
 }
 
-pub struct HistoryCounter<
-    V,
-    SC: StackCtor<N>,
-    const N: usize,
-    A: Allocator + Clone = Global
->
-{
+pub struct HistoryCounter<V, SC: StackCtor<N>, const N: usize, A: Allocator + Clone = Global> {
     history: HistoryList<V, (), SC, N, A>,
     last_snapshot_id: HistoryCounterSnapshotId,
 }
 
-impl<V, SC: StackCtor<N>, const N: usize, A: Allocator + Clone>
-    HistoryCounter<V, SC, N, A>
-    {
+impl<V, SC: StackCtor<N>, const N: usize, A: Allocator + Clone> HistoryCounter<V, SC, N, A> {
     pub fn new(alloc: A) -> Self {
         Self {
             history: HistoryList::new(alloc),

@@ -75,6 +75,7 @@ impl<O: IOOracle> SystemTypes for EthereumStorageSystemTypes<O> {
         false,
     >;
     type SystemFunctions = NoStdSystemFunctions;
+    type SystemFunctionsExt = NoStdSystemFunctions;
     type Allocator = Global;
     type Logger = Logger;
 }
@@ -82,9 +83,4 @@ impl<O: IOOracle> SystemTypes for EthereumStorageSystemTypes<O> {
 impl<O: IOOracle> EthereumLikeTypes for EthereumStorageSystemTypes<O> {}
 
 pub type ForwardRunningSystem = ForwardSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>;
-
-pub type CallSimulationSystem = ForwardSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>;
-
 pub type ForwardBootloader = BasicBootloader<ForwardRunningSystem>;
-
-pub type CallSimulationBootloader = BasicBootloader<ForwardRunningSystem>;

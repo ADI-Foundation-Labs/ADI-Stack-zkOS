@@ -262,9 +262,9 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                 resources_in_caller_frame = resources_in_caller_frame_returned;
             }
 
-            Ok(CallPreparationResult::Failure { resources_returned }) => {
-                return Ok((resources_returned, CallResult::CallFailedToExecute));
-            }
+            Ok(CallPreparationResult::Failure {
+                resources_in_caller_frame,
+            }) => return Ok((resources_in_caller_frame, CallResult::CallFailedToExecute)),
             Err(e) => return Err(e),
         };
 
@@ -448,11 +448,16 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                     drop(preemption);
                     preemption = handle_spawn!(self, new_vm, new_ee_type, request, heap, tracer)?;
                 }
-                Ok(CallPreparationResult::Failure { resources_returned }) => {
-                    return Ok((resources_returned, CallResult::CallFailedToExecute));
-                }
-                Err(e) => return Err(e),
-            };
+                ExecutionEnvironmentPreemptionPoint::End(
+                    TransactionEndPoint::CompletedExecution(CompletedExecution {
+                        resources_returned,
+                        return_values,
+                        reverted,
+                    }),
+                ) => {
+                    self.system
+                        .finish_global_frame(reverted.then_some(&rollback_handle))
+                        .map_err(|_| internal_error!("must finish execution frame"))?;
 
                     let returndata_iter = return_values.returndata.iter().copied();
                     let _ = self
@@ -763,10 +768,10 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                             return Err(internal_error!(
                                 "returned from deployment as if it was an external call",
                             )
-                            .into());
+                            .into())
                         }
                         TransactionEndPoint::CompletedDeployment(result) => result,
-                    };
+                    }
                 }
             }
         };
@@ -805,7 +810,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                         (false, deployment_result)
                     }
                     Err(SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(loc))) => {
-                        return Err(RuntimeError::OutOfNativeResources(loc).into());
+                        return Err(RuntimeError::OutOfNativeResources(loc).into())
                     }
                     Err(SystemError::LeafDefect(e)) => return Err(e.into()),
                 }
@@ -872,128 +877,12 @@ where
             });
         }
         Err(SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(loc))) => {
-            return Err(RuntimeError::OutOfNativeResources(loc).into());
+            return Err(RuntimeError::OutOfNativeResources(loc).into())
         }
         Err(SystemError::LeafDefect(e)) => return Err(e.into()),
     };
 
-    // If we're in the entry frame, i.e. not the execution of a CALL opcode,
-    // we don't apply the CALL-specific gas charging, but instead set
-    // actual_resources_to_pass equal to the available resources
-    let mut actual_resources_to_pass = if !is_entry_frame {
-        // now we should ask current EE for observable resource behavior if needed
-        {
-            SupportedEEVMState::<S>::clarify_and_take_passed_resources(
-                ee_version,
-                &mut resources_available,
-                call_request.ergs_to_pass,
-            )
-            .map_err(wrap_error!())?
-        }
-    } else {
-        resources_available.take()
-    };
-
-    // Add stipend
-    if let Some(stipend) = stipend {
-        actual_resources_to_pass.add_ergs(stipend)
-    }
-    Ok(CallPreparationResult::Success {
-        next_ee_version,
-        bytecode,
-        code_version,
-        unpadded_code_len,
-        artifacts_len,
-        actual_resources_to_pass,
-        transfer_to_perform,
-        resources_returned: resources_available,
-    })
-}
-
-// It should be split into EVM and generic part.
-/// Run call preparation, which includes reading the callee parameters
-/// and charging for resources.
-fn prepare_for_call<'a, S: EthereumLikeTypes>(
-    system: &mut System<S>,
-    ee_version: ExecutionEnvironmentType,
-    resources: &mut S::Resources,
-    call_request: &ExternalCallRequest<S>,
-    is_entry_frame: bool,
-) -> Result<CalleeParameters<'a>, SystemError>
-where
-    S::IO: IOSubsystemExt,
-{
-    // IO will follow the rules of the CALLER (`initial_ee_version`) here to charge for execution
-    let account_properties = match system.io.read_account_properties(
-        ee_version,
-        resources,
-        &call_request.callee,
-        AccountDataRequest::empty()
-            .with_ee_version()
-            .with_unpadded_code_len()
-            .with_artifacts_len()
-            .with_bytecode()
-            .with_nonce()
-            .with_nominal_token_balance()
-            .with_code_version(),
-    ) {
-        Ok(account_properties) => account_properties,
-        Err(SystemError::LeafRuntime(RuntimeError::OutOfErgs(_))) => {
-            let _ = system.get_logger().write_fmt(format_args!(
-                "Call failed: insufficient resources to read callee account data\n",
-            ));
-            return Err(out_of_ergs_error!());
-        }
-        Err(SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(loc))) => {
-            return Err(SystemError::LeafRuntime(
-                RuntimeError::OutOfNativeResources(loc),
-            ));
-        }
-        Err(SystemError::LeafDefect(e)) => return Err(e.into()),
-    };
-
-    // Now we charge for the rest of the CALL related costs
-    let stipend = if !is_entry_frame {
-        match ee_version {
-            ExecutionEnvironmentType::NoEE => {
-                return Err(internal_error!("Cannot be NoEE deep in the callstack").into());
-            }
-            ExecutionEnvironmentType::EVM => {
-                let is_delegate = call_request.is_delegate();
-                let is_callcode = call_request.is_callcode();
-                let is_callcode_or_delegate = is_callcode || is_delegate;
-
-                // Positive value cost and stipend
-                let stipend = if !is_delegate && !call_request.nominal_token_value.is_zero() {
-                    let positive_value_cost =
-                        S::Resources::from_ergs(Ergs(CALLVALUE * ERGS_PER_GAS));
-                    resources.charge(&positive_value_cost)?;
-                    Some(Ergs(CALL_STIPEND * ERGS_PER_GAS))
-                } else {
-                    None
-                };
-
-                // Account creation cost
-                let callee_is_empty = account_properties.nonce.0 == 0
-                    && account_properties.unpadded_code_len.0 == 0
-                    && account_properties.nominal_token_balance.0.is_zero();
-                if !is_callcode_or_delegate
-                    && !call_request.nominal_token_value.is_zero()
-                    && callee_is_empty
-                {
-                    let callee_creation_cost =
-                        S::Resources::from_ergs(Ergs(NEWACCOUNT * ERGS_PER_GAS));
-                    resources.charge(&callee_creation_cost)?
-                }
-
-                stipend
-            }
-        }
-    } else {
-        None
-    };
-
-    // Check transfer is allowed an determine transfer target
+    // Check transfer is allowed and determine transfer target
     let transfer_to_perform =
         if call_request.nominal_token_value != U256::ZERO && !call_request.is_delegate() {
             if !call_request.is_transfer_allowed() {

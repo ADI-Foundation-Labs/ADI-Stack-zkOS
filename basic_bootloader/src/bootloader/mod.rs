@@ -269,6 +269,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         upgrade_tx_collector: &mut impl UpgradeTxCollector,
         enforced_tx_collector: &mut impl EnforcedTxCollector,
         gas_counter: &mut impl BlockGasCounter,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<System<S>, BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt,
@@ -461,6 +462,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
     pub fn run_prepared<Config: BasicBootloaderExecutionConfig, const PROOF_ENV: bool>(
         oracle: <S::IO as IOSubsystemExt>::IOOracle,
         result_keeper: &mut impl ResultKeeperExt,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<
         <DefaultHeaderStructurePostWork<PROOF_ENV> as SystemPostWork<S>>::FinalData,
         BootloaderSubsystemError,
@@ -499,6 +501,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             &mut upgrade_tx_monitor,
             &mut l1_to_l2_tx_hasher,
             &mut block_gas_used,
+            tracer,
         )?;
 
         let tx_rolling_hash = tx_hashes_collector.finish();
@@ -561,6 +564,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
     pub fn run_for_state_root_only<Config: BasicBootloaderExecutionConfig, const PROOF_ENV: bool>(
         oracle: <S::IO as IOSubsystemExt>::IOOracle,
         result_keeper: &mut impl ResultKeeperExt,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<<S::IO as TypedFinishIO>::IOStateCommittment, BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt + TypedFinishIO,
@@ -586,6 +590,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             &mut upgrade_tx_monitor,
             &mut l1_to_l2_tx_hasher,
             &mut block_gas_used,
+            tracer,
         )?;
 
         let _ = TxHashesCollector::finish(tx_hashes_collector);

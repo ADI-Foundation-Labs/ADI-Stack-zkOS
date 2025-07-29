@@ -1,24 +1,22 @@
 use super::*;
 use basic_system::system_implementation::flat_storage_model::FlatStorageCommitment;
 use basic_system::system_implementation::flat_storage_model::TREE_HEIGHT;
-use zk_ee::basic_queries::InitializeIOImplementerQuery;
-use zk_ee::common_structs::BasicIOImplementerFSM;
+use zk_ee::basic_queries::ZKProofDataQuery;
+use zk_ee::common_structs::ProofData;
 use zk_ee::system_io_oracle::SimpleOracleQuery;
 use zk_ee::types_config::EthereumIOTypesConfig;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct IOImplementerInitResponder {
-    pub io_implementer_init_data: Option<BasicIOImplementerFSM<FlatStorageCommitment<TREE_HEIGHT>>>,
+pub struct ZKProofDataResponder {
+    pub data: Option<ProofData<FlatStorageCommitment<TREE_HEIGHT>>>,
 }
 
-impl IOImplementerInitResponder {
-    const SUPPORTED_QUERY_IDS: &[u32] = &[InitializeIOImplementerQuery::<
-        EthereumIOTypesConfig,
-        FlatStorageCommitment<TREE_HEIGHT>,
-    >::QUERY_ID];
+impl ZKProofDataResponder {
+    const SUPPORTED_QUERY_IDS: &[u32] =
+        &[ZKProofDataQuery::<EthereumIOTypesConfig, FlatStorageCommitment<TREE_HEIGHT>>::QUERY_ID];
 }
 
-impl<M: MemorySource> OracleQueryProcessor<M> for IOImplementerInitResponder {
+impl<M: MemorySource> OracleQueryProcessor<M> for ZKProofDataResponder {
     fn supported_query_ids(&self) -> Vec<u32> {
         Self::SUPPORTED_QUERY_IDS.to_vec()
     }
@@ -36,7 +34,7 @@ impl<M: MemorySource> OracleQueryProcessor<M> for IOImplementerInitResponder {
         assert!(Self::SUPPORTED_QUERY_IDS.contains(&query_id));
 
         let data = self
-            .io_implementer_init_data
+            .data
             .take()
             .expect("io implementer data is none (second read or not set initially)");
 

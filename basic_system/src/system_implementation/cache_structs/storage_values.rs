@@ -5,6 +5,7 @@ use core::alloc::Allocator;
 use ruint::aliases::B160;
 use zk_ee::basic_queries::InitialStorageSlotQuery;
 use zk_ee::common_structs::cache_record::{Appearance, CacheRecord};
+use zk_ee::common_structs::history_counter::HistoryCounter;
 use zk_ee::common_structs::history_map::*;
 use zk_ee::common_traits::key_like_with_bounds::{KeyLikeWithBounds, TyEq};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
@@ -90,6 +91,8 @@ pub struct GenericPubdataAwareStorageValuesCache<
     pub(crate) resources_policy: P,
     pub(crate) current_tx_number: TransactionId,
     pub(crate) initial_values: BTreeMap<K, (V, TransactionId), A>, // Used to cache initial values at the beginning of the tx (For EVM gas model)
+    #[cfg(feature = "evm_refunds")]
+    pub(crate) evm_refunds_counter: HistoryCounter<u32, SC, N, A>, // Used to keep track of EVM gas refunds
     pub(crate) alloc: A,
     pub(crate) _marker: core::marker::PhantomData<(R, SC)>,
 }
@@ -114,6 +117,8 @@ impl<
             current_tx_number: TransactionId(0),
             resources_policy,
             initial_values: BTreeMap::new_in(allocator.clone()),
+            #[cfg(feature = "evm_refunds")]
+            evm_refunds_counter: HistoryCounter::new(allocator.clone()),
             alloc: allocator.clone(),
             _marker: core::marker::PhantomData,
         }
@@ -239,7 +244,8 @@ impl<
         new_value: &V,
         oracle: &mut impl IOOracle,
         resources: &mut R,
-    ) -> Result<V, SystemError> {
+    ) -> Result<(V, &V), SystemError>
+where {
         let (mut addr_data, is_warm_read) = Self::materialize_element(
             &mut self.cache,
             &mut self.resources_policy,
@@ -289,7 +295,7 @@ impl<
             })
         })?;
 
-        Ok(old_value)
+        Ok((old_value, val_at_tx_start))
     }
 
     /// Cleae state at specified address

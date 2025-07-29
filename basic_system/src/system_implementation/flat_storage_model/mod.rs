@@ -81,7 +81,7 @@ pub struct FlatTreeWithAccountsUnderHashesStorageModel<
 }
 
 pub struct FlatTreeWithAccountsUnderHashesStorageModelStateSnapshot {
-    storage: StorageSnapshotId,
+    storage: CacheSnapshotId,
     account_data: CacheSnapshotId,
     preimages: CacheSnapshotId,
 }
@@ -402,8 +402,8 @@ impl<
     fn set_delegation(
         &mut self,
         resources: &mut R,
-        at_address: &B160,
-        delegate: &B160,
+        at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
+        delegate: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         oracle: &mut impl IOOracle,
     ) -> Result<(), SystemError> {
         self.account_data_cache.set_delegation::<PROOF_ENV>(

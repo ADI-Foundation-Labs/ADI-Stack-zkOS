@@ -194,6 +194,7 @@ impl<
         NominalTokenBalance: Maybe<<Self::IOTypes as SystemIOTypesConfig>::NominalTokenValue>,
         Bytecode: Maybe<&'static [u8]>,
         CodeVersion: Maybe<u8>,
+        IsDelegated: Maybe<bool>,
     >(
         &mut self,
         ee_type: ExecutionEnvironmentType,
@@ -211,6 +212,7 @@ impl<
                 NominalTokenBalance,
                 Bytecode,
                 CodeVersion,
+                IsDelegated,
             >,
         >,
         oracle: &mut impl IOOracle,
@@ -226,11 +228,12 @@ impl<
             NominalTokenBalance,
             Bytecode,
             CodeVersion,
+            IsDelegated,
         >,
         SystemError,
     > {
         self.account_cache
-            .read_account_properties::<PROOF_ENV, _, _, _, _, _, _, _, _, _, _>(
+            .read_account_properties::<PROOF_ENV, _, _, _, _, _, _, _, _, _, _, _>(
                 ee_type,
                 resources,
                 address,
@@ -300,6 +303,22 @@ impl<
         unimplemented!("not valid for this storage model");
     }
 
+    fn set_delegation(
+        &mut self,
+        resources: &mut R,
+        at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
+        delegate: &<Self::IOTypes as SystemIOTypesConfig>::Address,
+        oracle: &mut impl IOOracle,
+    ) -> Result<(), SystemError> {
+        self.account_cache.set_delegation::<PROOF_ENV>(
+            resources,
+            at_address,
+            delegate,
+            &mut self.preimages_cache,
+            oracle,
+        )
+    }
+
     fn mark_for_deconstruction(
         &mut self,
         from_ee: ExecutionEnvironmentType,
@@ -365,6 +384,34 @@ impl<
     {
         self.account_cache
             .update_nominal_token_value::<PROOF_ENV>(from_ee, resources, address, update_fn, oracle)
+    }
+
+    #[cfg(feature = "evm_refunds")]
+    fn get_refund_counter(&self) -> u32 {
+        *self
+            .storage_cache
+            .slot_values
+            .evm_refunds_counter
+            .value()
+            .unwrap_or(&0)
+    }
+
+    // Add EVM refund to counter
+    #[cfg(feature = "evm_refunds")]
+    fn add_evm_refund(&mut self, refund: u32) -> Result<(), SystemError> {
+        let mut gas_refunds = self
+            .storage_cache
+            .slot_values
+            .evm_refunds_counter
+            .value()
+            .copied()
+            .unwrap_or_default();
+        gas_refunds += refund;
+        self.storage_cache
+            .slot_values
+            .evm_refunds_counter
+            .update(gas_refunds);
+        Ok(())
     }
 }
 
