@@ -120,7 +120,29 @@ pub fn sign_and_encode_alloy_tx(
                 })
                 .collect()
         });
-    let reserved_dynamic = access_list.map(encode_access_list);
+
+    let authorization_list = tx.authorization_list().map(|authorization_list| {
+        authorization_list
+            .iter()
+            .map(|authorization| {
+                let auth = authorization.inner();
+                let y_parity = authorization.y_parity();
+                let r = authorization.r();
+                let s = authorization.s();
+                (
+                    U256::from_big_endian(&auth.chain_id.to_be_bytes::<32>()),
+                    auth.address.into_array(),
+                    auth.nonce,
+                    y_parity,
+                    U256::from_big_endian(&r.to_be_bytes::<32>()),
+                    U256::from_big_endian(&s.to_be_bytes::<32>()),
+                )
+            })
+            .collect()
+    });
+    let reserved_dynamic = access_list.map(|access_list| {
+        encode_reserved_dynamic(access_list, authorization_list.unwrap_or_default())
+    });
 
     encode_tx(
         tx_type,
@@ -177,7 +199,34 @@ pub fn encode_alloy_rpc_tx(tx: alloy::rpc::types::Transaction) -> Vec<u8> {
                     })
                     .collect()
             });
-    let reserved_dynamic = access_list.map(encode_access_list);
+
+    #[cfg(feature = "pectra")]
+    let authorization_list = tx
+        .authorization_list()
+        .map(|authorization_list| {
+            authorization_list
+                .iter()
+                .map(|authorization| {
+                    let auth = authorization.inner();
+                    let y_parity = authorization.y_parity();
+                    let r = authorization.r();
+                    let s = authorization.s();
+                    (
+                        U256::from_big_endian(&auth.chain_id.to_be_bytes::<32>()),
+                        auth.address.into_array(),
+                        auth.nonce,
+                        y_parity,
+                        U256::from_big_endian(&r.to_be_bytes::<32>()),
+                        U256::from_big_endian(&s.to_be_bytes::<32>()),
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    #[cfg(not(feature = "pectra"))]
+    let authorization_list = vec![];
+    let reserved_dynamic =
+        access_list.map(|access_list| encode_reserved_dynamic(access_list, authorization_list));
 
     encode_tx(
         tx_type,
@@ -335,8 +384,11 @@ pub fn encode_l1_tx(tx: TransactionRequest) -> Vec<u8> {
     )
 }
 
-fn encode_access_list(list: Vec<([u8; 20], Vec<[u8; 32]>)>) -> Vec<u8> {
-    let inner: Vec<Token> = list
+fn encode_reserved_dynamic(
+    access_list: Vec<([u8; 20], Vec<[u8; 32]>)>,
+    authorization_list: Vec<(U256, [u8; 20], u64, u8, U256, U256)>,
+) -> Vec<u8> {
+    let access_list: Vec<Token> = access_list
         .into_iter()
         .map(|(addr, keys)| {
             let address_token = Token::Address(addr.into());
@@ -349,8 +401,24 @@ fn encode_access_list(list: Vec<([u8; 20], Vec<[u8; 32]>)>) -> Vec<u8> {
         })
         .collect();
 
-    // Single element list to be able to extend reserved_dynamic
-    let outer = Token::Array(vec![Token::Array(inner)]);
+    let authorization_list: Vec<Token> = authorization_list
+        .into_iter()
+        .map(|(chain_id, address, nonce, y_parity, r, s)| {
+            let chain_id = Token::Uint(chain_id);
+            let address = Token::Address(address.into());
+            let nonce = Token::Uint(U256::from(nonce));
+            let y_parity = Token::Uint(U256::from(y_parity));
+            let r = Token::Uint(r);
+            let s = Token::Uint(s);
+            Token::Tuple(vec![chain_id, address, nonce, y_parity, r, s])
+        })
+        .collect();
+
+    // 2-element list to be able to extend reserved_dynamic
+    let outer = Token::Array(vec![
+        Token::Array(access_list),
+        Token::Array(authorization_list),
+    ]);
     ethers::abi::encode(&[outer])
 }
 
@@ -425,13 +493,13 @@ fn encode_tx(
 #[cfg(test)]
 mod tests {
 
-    use super::encode_access_list;
-    use basic_bootloader::bootloader::constants::TX_OFFSET;
+    use super::encode_reserved_dynamic;
+    use super::U256;
     use ruint::aliases::B160;
     use zk_ee::utils::Bytes32;
     #[test]
-    fn test_encode_access_list() {
-        use basic_bootloader::bootloader::transaction::access_list_parser::AccessListParser;
+    fn test_encode_reserved_dynamic() {
+        use basic_bootloader::bootloader::transaction::reserved_dynamic_parser::ReservedDynamicParser;
         use ethers::abi::Token;
         let address0 = [0x11u8; 20];
         let address1 = [0x10u8; 20];
@@ -444,14 +512,31 @@ mod tests {
             (address1, storage_keys1.clone()),
         ];
 
-        let encoded_list = encode_access_list(access_list);
+        let authorization_list = vec![
+            (
+                U256::from(3),
+                address0,
+                4,
+                1,
+                U256::from(42),
+                U256::from(43),
+            ),
+            (
+                U256::from(3),
+                address1,
+                5,
+                0,
+                U256::from(52),
+                U256::from(53),
+            ),
+        ];
+
+        let encoded_list = encode_reserved_dynamic(access_list, authorization_list);
         let encoded = ethers::abi::encode(&[Token::Bytes(encoded_list)]);
-        // Prepend TX_OFFSET bytes, as those are then ignored by the parser.
-        let mut full_buffer = vec![0u8; TX_OFFSET];
-        full_buffer.extend(encoded);
+
         // Offset is 32 to skip the initial offset for the bytes encoding
-        let parser = AccessListParser { offset: 32 };
-        let mut iter = parser.into_iter(&full_buffer).expect("Must create iter");
+        let parser = ReservedDynamicParser::new(&encoded, 32).expect("Must create parser");
+        let mut iter = parser.access_list_iter(&encoded).expect("Must create iter");
         let (address, mut keys_iter) = iter
             .next()
             .expect("Must have first")
@@ -487,5 +572,19 @@ mod tests {
         assert!(keys_iter.next().is_none());
 
         assert!(iter.next().is_none());
+
+        #[cfg(feature = "pectra")]
+        {
+            let mut iter = parser
+                .authorization_list_iter(&encoded)
+                .expect("Must create iter");
+            let first = iter.next().expect("Must have first").expect("Must decode");
+            assert_eq!(first.nonce, 4);
+            assert_eq!(first.y_parity, 1);
+            let second = iter.next().expect("Must have second").expect("Must decode");
+            assert_eq!(second.nonce, 5);
+            assert_eq!(second.y_parity, 0);
+            assert!(iter.next().is_none())
+        }
     }
 }
