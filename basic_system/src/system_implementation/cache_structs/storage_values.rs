@@ -6,6 +6,8 @@ use ruint::aliases::B160;
 use zk_ee::basic_queries::InitialStorageSlotQuery;
 use zk_ee::common_structs::cache_record::{Appearance, CacheRecord};
 use zk_ee::common_structs::history_counter::HistoryCounter;
+#[cfg(feature = "evm_refunds")]
+use zk_ee::common_structs::history_counter::HistoryCounterSnapshotId;
 use zk_ee::common_structs::history_map::*;
 use zk_ee::common_traits::key_like_with_bounds::{KeyLikeWithBounds, TyEq};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
@@ -78,6 +80,12 @@ impl StorageElementMetadata {
     }
 }
 
+pub struct StorageSnapshotId {
+    pub cache: CacheSnapshotId,
+    #[cfg(feature = "evm_refunds")]
+    pub evm_refunds_counter: HistoryCounterSnapshotId,
+}
+
 pub struct GenericPubdataAwareStorageValuesCache<
     K: KeyLikeWithBounds,
     V,
@@ -126,23 +134,33 @@ impl<
 
     pub fn begin_new_tx(&mut self) {
         self.cache.commit();
+        #[cfg(feature = "evm_refunds")]
+        {
+            self.evm_refunds_counter = HistoryCounter::new(self.alloc.clone());
+        }
 
         self.current_tx_number.0 += 1;
     }
 
     #[track_caller]
-    pub fn start_frame(&mut self) -> CacheSnapshotId {
-        self.cache.snapshot()
+    pub fn start_frame(&mut self) -> StorageSnapshotId {
+        StorageSnapshotId {
+            cache: self.cache.snapshot(),
+            #[cfg(feature = "evm_refunds")]
+            evm_refunds_counter: self.evm_refunds_counter.snapshot(),
+        }
     }
 
     #[track_caller]
     #[must_use]
     pub fn finish_frame_impl(
         &mut self,
-        rollback_handle: Option<&CacheSnapshotId>,
+        rollback_handle: Option<&StorageSnapshotId>,
     ) -> Result<(), InternalError> {
         if let Some(x) = rollback_handle {
-            self.cache.rollback(*x)
+            #[cfg(feature = "evm_refunds")]
+            self.evm_refunds_counter.rollback(x.evm_refunds_counter);
+            self.cache.rollback(x.cache)
         } else {
             Ok(())
         }

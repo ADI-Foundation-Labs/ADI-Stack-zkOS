@@ -16,7 +16,6 @@ use zk_ee::{
 };
 
 use crate::system_implementation::cache_structs::storage_values::*;
-use zk_ee::common_structs::history_map::*;
 
 pub struct EthereumStorageCache<
     A: Allocator + Clone,
@@ -144,7 +143,7 @@ impl<
         P: StorageAccessPolicy<R, Bytes32>,
     > SnapshottableIo for EthereumStorageCache<A, SC, N, R, P>
 {
-    type StateSnapshot = CacheSnapshotId;
+    type StateSnapshot = StorageSnapshotId;
 
     fn begin_new_tx(&mut self) {
         self.slot_values.begin_new_tx();

@@ -717,7 +717,8 @@ where
         at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         delegate: &<Self::IOTypes as SystemIOTypesConfig>::Address,
     ) -> Result<(), SystemError> {
-        self.storage.set_delegation(resources, at_address, delegate, &mut self.oracle)
+        self.storage
+            .set_delegation(resources, at_address, delegate, &mut self.oracle)
     }
 
     fn emit_l1_l2_tx_log(

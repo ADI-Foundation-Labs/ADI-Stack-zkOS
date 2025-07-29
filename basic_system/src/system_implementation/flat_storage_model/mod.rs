@@ -18,6 +18,7 @@ pub use self::simple_growable_storage::*;
 pub use self::storage_cache::*;
 use crate::system_implementation::cache_structs::storage_values::GenericPubdataAwareStorageValuesCache;
 use crate::system_implementation::cache_structs::storage_values::StorageAccessPolicy;
+use crate::system_implementation::cache_structs::storage_values::StorageSnapshotId;
 use core::alloc::Allocator;
 use crypto::MiniDigest;
 use ruint::aliases::B160;
@@ -81,7 +82,7 @@ pub struct FlatTreeWithAccountsUnderHashesStorageModel<
 }
 
 pub struct FlatTreeWithAccountsUnderHashesStorageModelStateSnapshot {
-    storage: CacheSnapshotId,
+    storage: StorageSnapshotId,
     account_data: CacheSnapshotId,
     preimages: CacheSnapshotId,
 }

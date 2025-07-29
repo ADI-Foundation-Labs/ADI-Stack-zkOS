@@ -4,6 +4,7 @@
 
 use crate::system_implementation::cache_structs::storage_values::GenericPubdataAwareStorageValuesCache;
 use crate::system_implementation::cache_structs::storage_values::StorageAccessPolicy;
+use crate::system_implementation::cache_structs::storage_values::StorageSnapshotId;
 use crate::system_implementation::ethereum_storage_model::caches::account_cache::EthereumAccountCache;
 use crate::system_implementation::ethereum_storage_model::caches::full_storage_cache::EthereumStorageCache;
 use crate::system_implementation::ethereum_storage_model::caches::preimage::BytecodeKeccakPreimagesStorage;
@@ -47,7 +48,7 @@ pub struct EthereumStorageModel<
 }
 
 pub struct EthereumStorageModelStateSnapshot {
-    storage: CacheSnapshotId,
+    storage: StorageSnapshotId,
     account_data: CacheSnapshotId,
     preimages: NopSnapshotId,
 }
