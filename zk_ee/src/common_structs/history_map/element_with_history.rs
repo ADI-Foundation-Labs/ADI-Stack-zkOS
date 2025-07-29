@@ -49,10 +49,6 @@ impl<V, A: Allocator + Clone> ElementWithHistory<V, A> {
 
     pub fn add_new_record(&mut self, new_element: HistoryRecordLink<V>) {
         self.head = new_element;
-        if self.initial == self.first {
-            // When don't have any updates before
-            self.first = new_element;
-        }
     }
 
     /// Rollback element's state to snapshot_id
@@ -191,7 +187,7 @@ mod tests {
         element_with_history.add_new_record(first_element);
 
         assert_eq!(element_with_history.head, first_element);
-        assert_eq!(element_with_history.first, first_element);
+        assert_eq!(unsafe { element_with_history.first.as_ref().value }, 1);
 
         let mut last_added_element = first_element;
 
@@ -204,7 +200,7 @@ mod tests {
 
         element_with_history.rollback(&mut element_pool, CacheSnapshotId(2));
 
-        assert_eq!(element_with_history.first, first_element);
+        assert_eq!(unsafe { element_with_history.first.as_ref().value }, 1);
 
         assert_eq!(unsafe { element_with_history.head.as_ref().value }, 3);
     }
@@ -256,6 +252,8 @@ mod tests {
 
         element_with_history.add_new_record(new_element);
 
+        assert_eq!(unsafe { element_with_history.first.as_ref().value }, 1);
+
         element_with_history.commit(&mut element_pool);
         assert_eq!(element_with_history.head, new_element);
         assert_eq!(element_with_history.first, new_element);
@@ -273,6 +271,8 @@ mod tests {
 
         let new_element_2 = element_pool.create_element(3, Some(new_element), CacheSnapshotId(2));
         element_with_history.add_new_record(new_element_2);
+
+        assert_eq!(unsafe { element_with_history.first.as_ref().value }, 1);
 
         element_with_history.commit(&mut element_pool);
 

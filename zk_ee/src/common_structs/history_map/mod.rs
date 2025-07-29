@@ -302,6 +302,10 @@ where
         unsafe { &self.history.head.as_ref().value }
     }
 
+    pub fn first(&self) -> &V {
+        unsafe { &self.history.first.as_ref().value }
+    }
+
     pub fn initial(&self) -> &V {
         unsafe { &self.history.initial.as_ref().value }
     }

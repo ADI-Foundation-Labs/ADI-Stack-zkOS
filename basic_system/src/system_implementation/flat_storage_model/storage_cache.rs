@@ -105,7 +105,6 @@ pub struct GenericPubdataAwarePlainStorage<
     pub(crate) cache: HistoryMap<K, CacheRecord<V, StorageElementMetadata>, A>,
     pub(crate) resources_policy: P,
     pub(crate) current_tx_number: TransactionId,
-    pub(crate) initial_values: BTreeMap<K, (V, TransactionId), A>, // Used to cache initial values at the beginning of the tx (For EVM gas model)
     #[cfg(feature = "evm_refunds")]
     pub(crate) evm_refunds_counter: HistoryCounter<u32, SC, SCC, A>, // Used to keep track of EVM gas refunds
     alloc: A,
@@ -135,7 +134,6 @@ where
             cache: HistoryMap::new(allocator.clone()),
             current_tx_number: TransactionId(0),
             resources_policy,
-            initial_values: BTreeMap::new_in(allocator.clone()),
             #[cfg(feature = "evm_refunds")]
             evm_refunds_counter: HistoryCounter::new(allocator.clone()),
             alloc: allocator.clone(),
@@ -279,7 +277,7 @@ where {
         new_value: &V,
         oracle: &mut impl IOOracle,
         resources: &mut R,
-    ) -> Result<(V, &V), SystemError>
+    ) -> Result<(V, V), SystemError>
 where {
         let (mut addr_data, is_warm_read) = Self::materialize_element(
             &mut self.cache,
@@ -294,23 +292,7 @@ where {
         )?;
 
         let val_current = addr_data.current().value();
-
-        // Try to get initial value at the beginning of the tx.
-        let val_at_tx_start = match self.initial_values.entry(*key) {
-            alloc::collections::btree_map::Entry::Vacant(vacant_entry) => {
-                &vacant_entry
-                    .insert((val_current.clone(), self.current_tx_number))
-                    .0
-            }
-            alloc::collections::btree_map::Entry::Occupied(occupied_entry) => {
-                let (value, tx_number) = occupied_entry.into_mut();
-                if *tx_number != self.current_tx_number {
-                    *value = val_current.clone();
-                    *tx_number = self.current_tx_number;
-                }
-                value
-            }
-        };
+        let val_at_tx_start = addr_data.first().value();
 
         self.resources_policy.charge_storage_write_extra(
             ee_type,
@@ -323,6 +305,7 @@ where {
         )?;
 
         let old_value = addr_data.current().value().clone();
+        let val_at_tx_start = val_at_tx_start.clone();
         addr_data.update(|cache_record| {
             cache_record.update(|x, _| {
                 *x = new_value.clone();
@@ -464,8 +447,6 @@ where
             // EVM specific refunds calculation
             #[cfg(feature = "evm_refunds")]
             if old_value != *new_value {
-                let val_at_tx_start = *val_at_tx_start;
-
                 let mut gas_refunds = self
                     .0
                     .evm_refunds_counter
