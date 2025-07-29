@@ -6,7 +6,7 @@
 use self::u256be_ptr::U256BEPtr;
 use crate::bootloader::rlp;
 #[cfg(feature = "pectra")]
-use authorization_list_parser::AuthorizationListItem;
+use authorization_list::AuthorizationListItem;
 use core::ops::Range;
 use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
@@ -19,7 +19,7 @@ use zk_ee::system::errors::{internal::InternalError, runtime::RuntimeError, syst
 mod abi_utils;
 pub mod access_list_parser;
 #[cfg(feature = "pectra")]
-pub mod authorization_list_parser;
+pub mod authorization_list;
 pub mod reserved_dynamic_parser;
 use self::access_list_parser::*;
 
@@ -1263,6 +1263,46 @@ impl<'a> ZkSyncTransaction<'a> {
                 .ok_or(internal_error!("fa+v"))
         }
     }
+
+    ///
+    /// Parse length of authorization list.
+    ///
+    #[cfg(feature = "pectra")]
+    pub fn parse_authorization_list_length(&self) -> Result<u64, TxError> {
+        let iter = self
+            .reserved_dynamic
+            .authorization_list_iter(&self.underlying_buffer)
+            .map_err(|()| InvalidTransaction::InvalidStructure)?;
+        Ok(iter.count as u64)
+    }
+
+    ///
+    /// Parse and validate authorization list, while applying delegations.
+    ///
+    #[cfg(feature = "pectra")]
+    pub fn parse_authorization_list_and_apply_delegations<S: EthereumLikeTypes>(
+        &self,
+        system: &mut System<S>,
+        resources: &mut S::Resources,
+    ) -> Result<(), TxError>
+    where
+        S::IO: IOSubsystemExt,
+    {
+        let iter = self
+            .reserved_dynamic
+            .authorization_list_iter(&self.underlying_buffer)
+            .map_err(|()| InvalidTransaction::InvalidStructure)?;
+        for res in iter {
+            let authorization = res.map_err(|()| InvalidTransaction::InvalidStructure)?;
+            let success = authorization.validate_and_apply_delegation(system, resources)?;
+            let _ = system
+                .get_logger()
+                .write_fmt(format_args!("Delegation success: {success}\n"));
+
+            if !success {}
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -1475,4 +1515,20 @@ fn estimate_authorization_list_item_length(item: &AuthorizationListItem) -> usiz
         + rlp::estimate_number_encoding_len(&y_parity.to_be_bytes())
         + rlp::estimate_number_encoding_len(&r.to_be_bytes::<32>())
         + rlp::estimate_number_encoding_len(&s.to_be_bytes::<32>())
+}
+
+///
+/// Parse a delegation of the format: 0xef0100 || address
+///
+pub fn parse_delegation(delegation: &[u8]) -> Result<B160, InternalError> {
+    if delegation.len() != EIP7702_DELEGATION_MARKER.len() + B160::BYTES {
+        return Err(internal_error!("7702 delegation of incorrect length"));
+    }
+    if delegation[0..3] != EIP7702_DELEGATION_MARKER {
+        return Err(internal_error!("7702 delegation has invalid prefix"));
+    }
+    let Some(address) = B160::try_from_be_slice(&delegation[3..]) else {
+        return Err(internal_error!("7702 delegation has invalid address"));
+    };
+    Ok(address)
 }

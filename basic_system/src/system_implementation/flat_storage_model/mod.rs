@@ -267,6 +267,7 @@ where
         NominalTokenBalance: Maybe<<Self::IOTypes as SystemIOTypesConfig>::NominalTokenValue>,
         Bytecode: Maybe<&'static [u8]>,
         CodeVersion: Maybe<u8>,
+        IsDelegated: Maybe<bool>,
     >(
         &mut self,
         ee_type: ExecutionEnvironmentType,
@@ -284,6 +285,7 @@ where
                 NominalTokenBalance,
                 Bytecode,
                 CodeVersion,
+                IsDelegated,
             >,
         >,
         oracle: &mut impl IOOracle,
@@ -299,11 +301,12 @@ where
             NominalTokenBalance,
             Bytecode,
             CodeVersion,
+            IsDelegated,
         >,
         SystemError,
     > {
         self.account_data_cache
-            .read_account_properties::<PROOF_ENV, _, _, _, _, _, _, _, _, _, _>(
+            .read_account_properties::<PROOF_ENV, _, _, _, _, _, _, _, _, _, _, _>(
                 ee_type,
                 resources,
                 address,
@@ -383,6 +386,23 @@ where
             artifacts_len,
             observable_bytecode_hash,
             observable_bytecode_len,
+            &mut self.storage_cache,
+            &mut self.preimages_cache,
+            oracle,
+        )
+    }
+
+    fn set_delegation(
+        &mut self,
+        resources: &mut R,
+        at_address: &B160,
+        delegate: &B160,
+        oracle: &mut impl IOOracle,
+    ) -> Result<(), SystemError> {
+        self.account_data_cache.set_delegation::<PROOF_ENV>(
+            resources,
+            at_address,
+            delegate,
             &mut self.storage_cache,
             &mut self.preimages_cache,
             oracle,
@@ -486,6 +506,21 @@ where
             .evm_refunds_counter
             .value()
             .unwrap_or(&0)
+    }
+
+    // Add EVM refund to counter
+    #[cfg(feature = "evm_refunds")]
+    fn add_evm_refund(&mut self, refund: u32) -> Result<(), SystemError> {
+        let mut gas_refunds = self
+            .storage_cache
+            .0
+            .evm_refunds_counter
+            .value()
+            .copied()
+            .unwrap_or_default();
+        gas_refunds += refund;
+        self.storage_cache.0.evm_refunds_counter.update(gas_refunds);
+        Ok(())
     }
 }
 
