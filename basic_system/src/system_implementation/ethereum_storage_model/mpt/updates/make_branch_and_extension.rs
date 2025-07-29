@@ -1,16 +1,17 @@
 use super::*;
 
 impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
-    pub(crate) fn termorary_split_existing_as_extension_and_branch(
+    pub(crate) fn temporary_split_existing_as_extension_and_branch(
         &mut self,
         grand_parent: NodeType,
         grand_parent_branch_index: usize,
         alternative_node: NodeType,
         extension: &[u8],
         interner: &mut (impl Interner<'a> + 'a),
+        hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
     ) -> Result<(), ()> {
         if alternative_node.is_leaf() {
-            self.termorary_split_leaf_into_extension_branch_leaf(
+            self.temporary_split_leaf_into_extension_branch_leaf(
                 grand_parent,
                 grand_parent_branch_index,
                 alternative_node,
@@ -18,28 +19,30 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 interner,
             )
         } else if alternative_node.is_extension() {
-            self.termorary_split_existing_extension_as_extension_and_branch(
+            self.temporary_split_existing_extension_as_extension_and_branch(
                 grand_parent,
                 grand_parent_branch_index,
                 alternative_node,
                 extension,
                 interner,
+                hasher,
             )
         } else {
             Err(())
         }
     }
 
-    pub(crate) fn termorary_split_existing_extension_as_extension_and_branch(
+    pub(crate) fn temporary_split_existing_extension_as_extension_and_branch(
         &mut self,
         grand_parent: NodeType,
         grand_parent_branch_index: usize,
         extension_to_split: NodeType,
         extension: &[u8],
         interner: &mut (impl Interner<'a> + 'a),
+        hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
     ) -> Result<(), ()> {
-        self.keys_cache.remove(&grand_parent);
-        self.keys_cache.remove(&extension_to_split);
+        self.remove_from_cache(&grand_parent);
+        self.remove_from_cache(&extension_to_split);
 
         // very incomplete yet
         let new_branch = BranchNode {
@@ -67,9 +70,10 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                         new_branch_node;
                     (existing_extension.child_node, branch_index)
                 } else if existing_extension.child_node.is_unlinked() {
-                    // should transform into unreferenced branch value
+                    // should transform into unreferenced branch value as we have no idea what is in "key" there
+
                     // it'll go into newly created branch as opaque
-                    let new_unreferenced_value_value = OpaqueValue {
+                    let new_unreferenced_value = OpaqueValue {
                         parent_node: new_branch_node,
                         branch_index,
                         encoding: existing_extension.next_node_key,
@@ -77,8 +81,13 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                     let new_unreferenced_value_node = NodeType::unreferenced_value_in_branch(
                         self.branch_unreferenced_values.len(),
                     );
-                    self.branch_unreferenced_values
-                        .push(new_unreferenced_value_value);
+                    self.branch_unreferenced_values.push(new_unreferenced_value);
+                    // put it into cache - it's single exceptional case. It is also not different from just terminal value
+                    let key = interner.make_terminal_branch_value_key(
+                        existing_extension.next_node_key.full_encoding(),
+                        hasher,
+                    )?;
+                    self.keys_cache.insert(new_unreferenced_value_node, key);
 
                     (new_unreferenced_value_node, branch_index)
                 } else {
@@ -149,7 +158,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         Ok(())
     }
 
-    pub(crate) fn termorary_split_leaf_into_extension_branch_leaf(
+    pub(crate) fn temporary_split_leaf_into_extension_branch_leaf(
         &mut self,
         grand_parent: NodeType,
         grand_parent_branch_index: usize,
@@ -157,8 +166,8 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         extension: &[u8],
         interner: &mut (impl Interner<'a> + 'a),
     ) -> Result<(), ()> {
-        self.keys_cache.remove(&grand_parent);
-        self.keys_cache.remove(&leaf_to_split);
+        self.remove_from_cache(&grand_parent);
+        self.remove_from_cache(&leaf_to_split);
 
         // very incomplete yet
         let new_branch = BranchNode {

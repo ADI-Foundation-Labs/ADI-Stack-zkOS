@@ -22,7 +22,7 @@ use zk_ee::{
 pub trait StorageModel: Sized + SnapshottableIo {
     type IOTypes: SystemIOTypesConfig;
     type Resources: Resources;
-    type StorageCommitment: Clone + UsizeSerializable + UsizeDeserializable; // easier to have it here than propagate
+    type StorageCommitment: Clone + UsizeSerializable + UsizeDeserializable + core::fmt::Debug; // easier to have it here than propagate
 
     fn finish_tx(&mut self) -> Result<(), InternalError>;
 

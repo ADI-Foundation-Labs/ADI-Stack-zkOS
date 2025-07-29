@@ -8,11 +8,10 @@ use zk_ee::common_structs::cache_record::{Appearance, CacheRecord};
 use zk_ee::common_structs::history_map::*;
 use zk_ee::common_traits::key_like_with_bounds::{KeyLikeWithBounds, TyEq};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::kv_markers::InitialStorageSlotData;
 use zk_ee::system::errors::internal::InternalError;
-use zk_ee::system_io_oracle::{SimpleOracleQuery, INITIAL_STORAGE_SLOT_VALUE_QUERY_ID};
+use zk_ee::system_io_oracle::SimpleOracleQuery;
 use zk_ee::{
-    kv_markers::{StorageAddress, UsizeDeserializable},
+    kv_markers::StorageAddress,
     memory::stack_trait::StackCtor,
     system::{errors::system::SystemError, Resources},
     system_io_oracle::IOOracle,

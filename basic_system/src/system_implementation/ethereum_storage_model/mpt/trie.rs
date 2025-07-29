@@ -690,7 +690,6 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         NodeType::branch(index)
     }
 
-    #[cfg(test)]
     pub(crate) fn ensure_linked(&self) {
         if self.root.is_empty() || self.root.is_opaque_nontrivial_root() {
             return;
@@ -698,7 +697,6 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         self.ensure_linked_pair(NodeType::empty(), self.root);
     }
 
-    #[cfg(test)]
     fn ensure_linked_pair(&self, parent: NodeType, child_node: NodeType) {
         if child_node.is_empty() {
             // nothing

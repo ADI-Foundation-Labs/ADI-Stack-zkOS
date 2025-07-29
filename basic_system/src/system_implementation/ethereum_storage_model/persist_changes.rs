@@ -37,11 +37,15 @@ impl<'o, O: IOOracle> PreimagesOracle for OracleProxy<'o, O> {
         // first length
         let expected_bytes: u32 = self
             .0
-            .query_with_empty_input(ETHEREUM_MPT_PREIMAGE_BYTE_LEN_QUERY_ID)
+            .query_serializable(
+                ETHEREUM_MPT_PREIMAGE_BYTE_LEN_QUERY_ID,
+                &Bytes32::from_array(*key),
+            )
             .map_err(|_| ())?;
         let words_buffer_size = (expected_bytes as usize).next_multiple_of(USIZE_SIZE) / USIZE_SIZE;
         assert!(I::SUPPORTS_WORD_LEVEL_INTERNING);
-        let mut buffer = interner.get_word_buffer(words_buffer_size)?;
+        // NOTE: we leave some slack for 64/32 bit arch mismatches
+        let mut buffer = interner.get_word_buffer(words_buffer_size.next_multiple_of(2))?;
         let key = Bytes32::from_array(*key);
         let capacity = buffer.spare_capacity_mut();
         let num_written = self
@@ -96,7 +100,6 @@ impl EthereumStoragePersister {
         match cache.entry(*slot) {
             Entry::Occupied(e) => e.into_mut(),
             Entry::Vacant(e) => {
-                hasher.update([0u8; 12]);
                 hasher.update(slot.0.to_be_bytes::<20>());
                 let key = hasher.finalize_reset();
                 let digits = digits_from_key(&key);
@@ -106,16 +109,12 @@ impl EthereumStoragePersister {
     }
 
     fn encode_slot_value<'a>(value: &Bytes32, buffer: &'a mut [MaybeUninit<u8>; 33]) -> &'a [u8] {
-        let mut byte_len = 32;
-        for word in value.as_array_ref() {
-            if *word == 0 {
-                byte_len -= 8;
-            } else {
-                byte_len -= word.leading_zeros() / 8;
-            }
-        }
+        let byte_len = value.num_trailing_nonzero_bytes();
         let offset;
-        if byte_len == 1 {
+        if byte_len == 0 {
+            buffer[0].write(0x80);
+            offset = 1;
+        } else if byte_len == 1 {
             let b = value.as_u8_array_ref()[31];
             if b < 0x80 {
                 buffer[0].write(b);
@@ -172,8 +171,16 @@ impl EthereumStoragePersister {
         let mut slot_value_encoding_buffer = [MaybeUninit::uninit(); 33];
 
         let mut counter;
-        let mut previous_address;
+        let mut active_address;
+
         if let Some((addr, value)) = it_fill_initial.next() {
+            let _ = logger
+                .write_fmt(format_args!(
+                    "Processing initial value for slot {:?}\n",
+                    &addr
+                ))
+                .expect("must log");
+
             let entry = account_cache
                 .cache
                 .get((&addr.address).into())
@@ -186,26 +193,42 @@ impl EthereumStoragePersister {
             let initial_expected_value = mpt
                 .get(path, &mut preimage_oracle, &mut interner, &mut hasher)
                 .map_err(|_| internal_error!("failed to get initial value in MPT"))?;
-            assert!(compare_bytes32_and_mpt_integer(
+
+            // let _ = logger
+            //     .write_fmt(format_args!(
+            //         "comparing expected value {:?} vs RLP encoded {:?}\n",
+            //         &value.initial_value, &initial_expected_value
+            //     ))
+            //     .expect("must log");
+
+            assert!(
+                compare_bytes32_and_mpt_integer(&value.initial_value, initial_expected_value),
+                "failed to compare expected value {:?} vs RLP encoded {:?}\n",
                 &value.initial_value,
-                initial_expected_value
-            ));
+                &initial_expected_value
+            );
 
             counter = 1;
-            previous_address = addr.address;
+            active_address = addr.address;
         } else {
             // Nothing to do
             return Ok(*initial_state_root);
         }
 
-        let mut address_to_use = previous_address;
         let mut should_update = false;
-        let mut should_break = false;
+        let mut next_pair_to_read_check = None;
 
         loop {
             match it_fill_initial.next() {
                 Some((addr, value)) => {
-                    if previous_address == addr.address {
+                    let _ = logger
+                        .write_fmt(format_args!(
+                            "Processing initial value for slot {:?}\n",
+                            &addr
+                        ))
+                        .expect("must log");
+
+                    if active_address == addr.address {
                         let digits = Self::cache_slot_value_as_digits(
                             &addr.key,
                             &mut key_cache,
@@ -215,29 +238,57 @@ impl EthereumStoragePersister {
                         let initial_expected_value = mpt
                             .get(path, &mut preimage_oracle, &mut interner, &mut hasher)
                             .map_err(|_| internal_error!("failed to get initial value in MPT"))?;
-                        assert!(compare_bytes32_and_mpt_integer(
+
+                        // let _ = logger
+                        //     .write_fmt(format_args!(
+                        //         "comparing expected value {:?} vs RLP encoded {:?}\n",
+                        //         &value.initial_value, &initial_expected_value
+                        //     ))
+                        //     .expect("must log");
+
+                        assert!(
+                            compare_bytes32_and_mpt_integer(
+                                &value.initial_value,
+                                initial_expected_value
+                            ),
+                            "failed to compare expected value {:?} vs RLP encoded {:?}\n",
                             &value.initial_value,
-                            initial_expected_value
-                        ));
+                            &initial_expected_value
+                        );
 
                         counter += 1;
                     } else {
-                        previous_address = addr.address;
-                        counter = 1;
+                        next_pair_to_read_check = Some((addr, value));
                         should_update = true;
                     }
                 }
                 None => {
                     should_update = true;
-                    should_break = true;
                 }
             }
 
             if should_update {
+                should_update = false;
+
+                let _ = logger
+                    .write_fmt(format_args!(
+                        "Should process {} potential updates for address {:?}\n",
+                        counter, &active_address
+                    ))
+                    .expect("must log");
+
                 let mut any_mutation = false;
                 for _ in 0..counter {
                     let (addr, v) = unsafe { it_set_final.next().unwrap_unchecked() };
-                    debug_assert_eq!(addr.address, address_to_use);
+
+                    let _ = logger
+                        .write_fmt(format_args!(
+                            "Processing potential updates for slot {:?}\n",
+                            &addr
+                        ))
+                        .expect("must log");
+
+                    debug_assert_eq!(addr.address, active_address);
                     if v.initial_value != v.current_value {
                         any_mutation |= true;
 
@@ -251,6 +302,13 @@ impl EthereumStoragePersister {
 
                         if v.initial_value.is_zero() {
                             // insert
+                            let _ = logger
+                                .write_fmt(format_args!(
+                                    "Will insert value {:?} at slot {:?}\n",
+                                    &v.current_value, &addr.key
+                                ))
+                                .expect("must log");
+
                             // encode value
                             let pre_encoded_value = Self::encode_slot_value(
                                 &v.current_value,
@@ -266,12 +324,26 @@ impl EthereumStoragePersister {
                             .map_err(|_| internal_error!("failed to get insert value into MPT"))?;
                         } else if v.current_value.is_zero() {
                             // delete
+                            let _ = logger
+                                .write_fmt(format_args!(
+                                    "Will delete value {:?} at slot {:?}\n",
+                                    &v.initial_value, &addr.key
+                                ))
+                                .expect("must log");
+
                             mpt.delete(path, &mut preimage_oracle, &mut interner, &mut hasher)
                                 .map_err(|_| {
                                     internal_error!("failed to get delete value from MPT")
                                 })?;
                         } else {
                             // update
+                            let _ = logger
+                                .write_fmt(format_args!(
+                                    "Will update slot {:?} as {:?} -> {:?}\n",
+                                    &addr.key, &v.initial_value, &v.current_value
+                                ))
+                                .expect("must log");
+
                             // encode value
                             let pre_encoded_value = Self::encode_slot_value(
                                 &v.current_value,
@@ -284,56 +356,126 @@ impl EthereumStoragePersister {
                         }
                     }
                 }
-                mpt.recompute(&mut interner, &mut hasher)
-                    .map_err(|_| internal_error!("failed to compute new root for MPT"))?;
-                let mut e = account_cache
-                    .cache
-                    .get_mut((&address_to_use).into())
-                    .expect("account with storage address must be cached");
-                let new_root = Bytes32::from_array(mpt.root(&mut hasher));
-                if any_mutation {
-                    assert_ne!(new_root, e.current().value().storage_root);
+                // recompute new root
+                {
+                    let _ = logger
+                        .write_fmt(format_args!(
+                            "Will update storage root for {:?}\n",
+                            &active_address
+                        ))
+                        .expect("must log");
+
+                    // NOTE: this is fast NOP if no mutations happened
+                    mpt.recompute(&mut interner, &mut hasher)
+                        .map_err(|_| internal_error!("failed to compute new root for MPT"))?;
+
+                    let mut e = account_cache
+                        .cache
+                        .get_mut((&active_address).into())
+                        .expect("account with storage address must be cached");
+                    let new_root = Bytes32::from_array(mpt.root(&mut hasher));
+
+                    if any_mutation {
+                        assert_ne!(new_root, e.current().value().storage_root);
+                    }
+                    let _ = e.update(|v| {
+                        v.update(|v, _m| {
+                            v.storage_root = new_root;
+                            // and we do not change appearance
+
+                            Ok(())
+                        })
+                    });
                 }
-                let _ = e.update(|v| {
-                    v.update(|v, _m| {
-                        v.storage_root = new_root;
-                        // and we do not change appearance
 
-                        Ok(())
-                    })
-                });
+                if let Some((addr, value)) = next_pair_to_read_check.take() {
+                    let _ = logger
+                        .write_fmt(format_args!(
+                            "Setting {:?} as new active address\n",
+                            &addr.address
+                        ))
+                        .expect("must log");
 
-                // reuse for the next account
-                let entry = account_cache
-                    .cache
-                    .get((&previous_address).into())
-                    .expect("account with storage address must be cached");
-                let initial_root = entry.current().value().storage_root;
-                mpt.purge_for_reuse(initial_root.as_u8_array(), &mut interner)
-                    .map_err(|_| internal_error!("failed to allocate MTP data"))?;
+                    // Now we should update MTP for next account, and reset counter
+                    // reuse for the next account
+                    let entry = account_cache
+                        .cache
+                        .get((&addr.address).into())
+                        .expect("account with storage address must be cached");
+                    let initial_root = entry.current().value().storage_root;
+                    mpt.purge_for_reuse(initial_root.as_u8_array(), &mut interner)
+                        .map_err(|_| internal_error!("failed to purge MTP for reuse"))?;
 
-                address_to_use = previous_address;
-            }
-            if should_break {
-                break;
+                    let digits =
+                        Self::cache_slot_value_as_digits(&addr.key, &mut key_cache, &mut hasher);
+                    let path = Path::new(digits);
+                    let initial_expected_value = mpt
+                        .get(path, &mut preimage_oracle, &mut interner, &mut hasher)
+                        .map_err(|_| internal_error!("failed to get initial value in MPT"))?;
+
+                    // let _ = logger
+                    //     .write_fmt(format_args!(
+                    //         "comparing expected value {:?} vs RLP encoded {:?}\n",
+                    //         &value.initial_value, &initial_expected_value
+                    //     ))
+                    //     .expect("must log");
+
+                    assert!(
+                        compare_bytes32_and_mpt_integer(
+                            &value.initial_value,
+                            initial_expected_value
+                        ),
+                        "failed to compare expected value {:?} vs RLP encoded {:?}\n",
+                        &value.initial_value,
+                        &initial_expected_value
+                    );
+
+                    active_address = addr.address;
+                    counter = 1;
+                } else {
+                    // break out of the loop
+                    assert!(it_set_final.next().is_none());
+                    break;
+                }
             }
         }
 
+        let _ = logger
+            .write_fmt(format_args!("Will update accounts MTP now\n",))
+            .expect("must log");
+
         // now reuse for accounts
         mpt.purge_for_reuse(initial_state_root.as_u8_array(), &mut interner)
-            .map_err(|_| internal_error!("failed to allocate MTP data"))?;
+            .map_err(|_| internal_error!("failed to purge MTP for reuse as accounts trie"))?;
 
         let mut key_cache = BTreeMap::<BitsOrd160, [u8; 64], A>::new_in(allocator.clone());
 
         for record in account_cache.cache.iter() {
             let addr = record.key();
+            let _ = logger
+                .write_fmt(format_args!("Updating the state of address {:?}\n", addr))
+                .expect("must log");
+
             let initial = record.initial();
             let current = record.current();
+
+            if addr.0 == system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS {
+                // skip it
+                assert_eq!(initial.appearance(), Appearance::Unset);
+                assert_eq!(current.value().storage_root, EMPTY_ROOT_HASH);
+                assert_eq!(current.value().nonce, 0);
+                assert!(current.value().balance.is_zero());
+                continue;
+            }
+
             let digits = Self::cache_address_as_digits(addr, &mut key_cache, &mut hasher);
             let path = Path::new(digits);
             let initial_expected_value = mpt
                 .get(path, &mut preimage_oracle, &mut interner, &mut hasher)
                 .map_err(|_| internal_error!("failed to get initial account value in MPT"))?;
+
+            debug_assert_ne!(initial.appearance(), Appearance::Deconstructed);
+
             if initial.appearance() == Appearance::Unset {
                 // check that it's empty
                 assert!(initial_expected_value.is_empty());
@@ -348,28 +490,60 @@ impl EthereumStoragePersister {
                 assert_eq!(initial.value().bytecode_hash, parsed.bytecode_hash);
                 assert_eq!(initial.value().storage_root, parsed.storage_root);
             }
-            match current.appearance() {
-                Appearance::Unset => {
-                    panic!("Invalid final state");
-                }
-                Appearance::Deconstructed => {
-                    assert!(initial.appearance() == Appearance::Unset);
-                }
-                _ => {}
-            }
-            if initial.value().storage_root != current.value().storage_root {
-                // we checked initial, and rolled-over any possible updates on it,
-                // so this step is safe to skip if it's unchanged
 
-                // encode
-                let pre_encoded_value = current.value().encode(&mut account_data_encoding_buffer);
-                mpt.update(path, pre_encoded_value, &mut interner, &mut hasher)
-                    .map_err(|_| internal_error!("failed to get update account value in MPT"))?;
+            match current.appearance() {
+                Appearance::Unset | Appearance::Deconstructed => {
+                    assert_eq!(initial.appearance(), Appearance::Unset);
+                    assert_eq!(initial.value().storage_root, current.value().storage_root);
+                    assert_eq!(initial.value().storage_root, EMPTY_ROOT_HASH);
+                    assert!(initial.value().is_empty());
+                    assert!(initial.value().is_empty());
+                }
+                Appearance::Retrieved | Appearance::Updated => {
+                    if initial.appearance() == Appearance::Unset {
+                        // we will need to insert
+                        if initial.appearance() != Appearance::Deconstructed {
+                            // encode - we need slice, that is over list internally
+                            let pre_encoded_value = current
+                                .value()
+                                .rlp_encode_for_leaf(&mut account_data_encoding_buffer);
+
+                            mpt.insert(
+                                path,
+                                pre_encoded_value,
+                                &mut preimage_oracle,
+                                &mut interner,
+                                &mut hasher,
+                            )
+                            .map_err(|_| {
+                                internal_error!("failed to get update account value in MPT")
+                            })?;
+                        }
+                    } else {
+                        if initial.value().storage_root != current.value().storage_root {
+                            // we checked initial, and rolled-over any possible updates on it,
+                            // so this step is safe to skip if it's unchanged
+
+                            // encode - we need slice, that is over list internally
+                            let pre_encoded_value = current
+                                .value()
+                                .rlp_encode_for_leaf(&mut account_data_encoding_buffer);
+                            mpt.update(path, pre_encoded_value, &mut interner, &mut hasher)
+                                .map_err(|_| {
+                                    internal_error!("failed to get update account value in MPT")
+                                })?;
+                        }
+                    }
+                }
             }
         }
 
         mpt.recompute(&mut interner, &mut hasher)
             .map_err(|_| internal_error!("failed to compute new state root for MPT"))?;
+
+        let _ = logger
+            .write_fmt(format_args!("State MTP was updated\n",))
+            .expect("must log");
 
         Ok(Bytes32::from_array(mpt.root(&mut hasher)))
     }

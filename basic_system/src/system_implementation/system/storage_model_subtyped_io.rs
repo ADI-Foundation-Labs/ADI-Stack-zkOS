@@ -380,7 +380,7 @@ impl<
 }
 
 pub trait TypedFinishIO {
-    type IOStateCommittment: Clone + UsizeDeserializable + UsizeDeserializable;
+    type IOStateCommittment: Clone + UsizeDeserializable + UsizeDeserializable + core::fmt::Debug;
     type FinalData;
 
     fn finish(

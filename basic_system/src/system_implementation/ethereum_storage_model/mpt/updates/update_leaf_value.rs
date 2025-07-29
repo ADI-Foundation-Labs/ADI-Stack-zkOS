@@ -8,7 +8,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         interner: &mut (impl Interner<'a> + 'a),
     ) -> Result<&'a [u8], ()> {
         // this node no longer has know key
-        self.keys_cache.remove(&node);
+        self.remove_from_cache(&node);
 
         // we only re-allocate a node, and will cascade updates later on
         let existing_leaf = &mut self.leaf_nodes[node.index()];

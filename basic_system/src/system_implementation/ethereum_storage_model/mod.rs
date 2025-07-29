@@ -9,6 +9,8 @@ mod mpt;
 mod persist_changes;
 mod storage_model;
 
+use crate::system_implementation::ethereum_storage_model::mpt::EMPTY_SLICE_ENCODING;
+
 pub use self::persist_changes::digits_from_key;
 pub use self::storage_model::EthereumStorageModel;
 
@@ -27,18 +29,30 @@ pub use self::persist_changes::{
 };
 
 pub(crate) fn compare_bytes32_and_mpt_integer(a: &Bytes32, b: &[u8]) -> bool {
-    debug_assert!(b.len() <= 32);
-    let mut expected_b_len_from_a = 32;
-    for word in a.as_array_ref() {
-        if *word == 0 {
-            expected_b_len_from_a -= 8;
-        } else {
-            expected_b_len_from_a -= word.leading_zeros() / 8;
-        }
-    }
+    // NOTE: `b` is RLP encoding of slice itself, so we will strip some prefix potentially
+    debug_assert!(b.len() <= 33);
+    let expected_b_len_from_a = a.num_trailing_nonzero_bytes();
     if expected_b_len_from_a == 0 {
-        b.is_empty()
+        b.is_empty() || b == EMPTY_SLICE_ENCODING
     } else {
-        &a.as_u8_array_ref()[(32 - (expected_b_len_from_a as usize))..] == b
+        if expected_b_len_from_a == 1 {
+            if b.is_empty() {
+                return false;
+            }
+            let b0 = b[0];
+            if b[0] < 0x80 {
+                a.as_u8_array_ref()[31] == b0
+            } else {
+                if b.len() < 2 {
+                    return false;
+                }
+                a.as_u8_array_ref()[31] == b[1]
+            }
+        } else {
+            if b.len() < expected_b_len_from_a + 1 {
+                return false;
+            }
+            &a.as_u8_array_ref()[(32 - expected_b_len_from_a)..] == &b[1..]
+        }
     }
 }

@@ -9,7 +9,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         pre_encoded_value: &[u8],
         interner: &mut (impl Interner<'a> + 'a),
     ) -> Result<(), ()> {
-        self.keys_cache.remove(&branch_node);
+        self.remove_from_cache(&branch_node);
 
         let path_segment = interner.intern_slice(partial_path.remaining_path())?;
         let mut value = interner.intern_slice(pre_encoded_value)?;

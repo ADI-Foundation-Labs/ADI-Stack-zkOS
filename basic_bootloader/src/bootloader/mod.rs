@@ -311,7 +311,8 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                 .try_begin_next_tx(&mut writable)
                 .expect("TX start call must always succeed")
         } {
-            if first_tx {
+            // warm up the coinbase formally
+            {
                 let mut inf_resources = S::Resources::FORMAL_INFINITE;
                 system
                     .io
@@ -584,6 +585,37 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         let _ = upgrade_tx_monitor.finish();
 
         let mut logger = system.get_logger();
+        let _ = logger.write_fmt(format_args!(
+            "Bootloader completed, will proceed with state update\n"
+        ));
+
+        {
+            let block_number = system.get_block_number();
+            let previous_block_hash = system.get_blockhash(block_number);
+            let beneficiary = system.get_coinbase();
+            // TODO: Gas limit should be constant
+            let gas_limit = system.get_gas_limit();
+            // TODO: gas used shouldn't be zero
+            let timestamp = system.get_timestamp();
+            let consensus_random = Bytes32::from_u256_be(&system.get_mix_hash());
+            let base_fee_per_gas = system.get_eip1559_basefee();
+            // TODO: add gas_per_pubdata and native price
+            let base_fee_per_gas = base_fee_per_gas
+                .try_into()
+                .map_err(|_| internal_error!("base_fee_per_gas exceeds max u64"))?;
+            let block_header = BlockHeader::new(
+                Bytes32::from(previous_block_hash.to_be_bytes::<32>()),
+                beneficiary,
+                Bytes32::ZERO,
+                block_number,
+                gas_limit,
+                block_gas_used,
+                timestamp,
+                consensus_random,
+                base_fee_per_gas,
+            );
+            result_keeper.block_sealed(block_header);
+        }
 
         let System { mut io, .. } = system;
 
@@ -597,9 +629,12 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                 )
                 .unwrap()
         };
+        let _ = logger.write_fmt(format_args!(
+            "Initial state commitment is {:?}\n",
+            &initial_state_commitment
+        ));
 
         let mut state_commitment = initial_state_commitment.clone();
-
         let _ = io.finish(
             Some(&mut state_commitment),
             &mut NopHasher,
@@ -607,6 +642,8 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             result_keeper,
             &mut logger,
         );
+
+        let _ = logger.write_fmt(format_args!("State update from IO completed\n"));
 
         cycle_marker::end!("run_for_state_root_only");
 

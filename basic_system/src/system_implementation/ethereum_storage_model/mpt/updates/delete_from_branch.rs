@@ -9,7 +9,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         interner: &mut (impl Interner<'a> + 'a),
         hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
     ) -> Result<(), ()> {
-        self.keys_cache.remove(&branch_node);
+        self.remove_from_cache(&branch_node);
 
         // here it's a little convoluted, as we may trigger cascading changed
         let branch_index = path.ascend_branch()?;
@@ -185,8 +185,8 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         debug_assert_ne!(removed_branch_node, existing_leaf_node);
         debug_assert_ne!(upper_branch_node, existing_leaf_node);
 
-        self.keys_cache.remove(&existing_leaf_node);
-        self.keys_cache.remove(&upper_branch_node);
+        self.remove_from_cache(&existing_leaf_node);
+        self.remove_from_cache(&upper_branch_node);
 
         let existing_leaf = self.leaf_nodes[existing_leaf_node.index()];
         let mut new_path_buffer = interner.get_buffer(existing_leaf.path_segment.len() + 1)?;
@@ -221,8 +221,8 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         mut path: Path<'_>,
         interner: &mut (impl Interner<'a> + 'a),
     ) -> Result<(), ()> {
-        self.keys_cache.remove(&existing_leaf_node);
-        self.keys_cache.remove(&upper_extension_node);
+        self.remove_from_cache(&existing_leaf_node);
+        self.remove_from_cache(&upper_extension_node);
 
         // glue paths together
         let existing_leaf = self.leaf_nodes[existing_leaf_node.index()];
@@ -238,7 +238,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         let path_segment = new_path_buffer.flush();
 
         let grand_parent = parent_extension.parent_node;
-        self.keys_cache.remove(&grand_parent);
+        self.remove_from_cache(&grand_parent);
 
         path.ascend(parent_extension.path_segment);
 
@@ -281,8 +281,8 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
     ) -> Result<(), ()> {
         debug_assert_ne!(existing_branch, grand_parent);
 
-        self.keys_cache.remove(&existing_branch);
-        self.keys_cache.remove(&grand_parent);
+        self.remove_from_cache(&existing_branch);
+        self.remove_from_cache(&grand_parent);
 
         // first create an extension
         let mut buffer = interner.get_buffer(1 + extension.len())?;
@@ -325,8 +325,8 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
     ) -> Result<(), ()> {
         debug_assert_ne!(existing_extension_node, grand_parent);
 
-        self.keys_cache.remove(&existing_extension_node);
-        self.keys_cache.remove(&grand_parent);
+        self.remove_from_cache(&existing_extension_node);
+        self.remove_from_cache(&grand_parent);
 
         // we extend existing extension's path segment "up"
 

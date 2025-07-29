@@ -363,11 +363,11 @@ pub trait ETHMPTInternerExt<'a>: Interner<'a> {
         let nibbles_encoding_len = num_bytes_to_encode_nibbles + rlp_prefix_len;
         let mut total_list_concatenated_len = nibbles_encoding_len;
         total_list_concatenated_len += pre_encoded_value.len();
-        // total_list_concatenated_len += slice_encoding_prefix_len(pre_encoded_value);
         let total_len =
             total_list_concatenated_len + list_encoding_prefix_len(total_list_concatenated_len);
 
         if total_len < 32 {
+            // we need RLP of RLP
             let mut buffer = self.get_buffer(1 + total_len)?;
             let writer = &mut buffer;
             // we need to RLP it on top - it is short

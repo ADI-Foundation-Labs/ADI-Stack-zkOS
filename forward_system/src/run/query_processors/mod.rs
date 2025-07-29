@@ -17,6 +17,7 @@ mod tx_data;
 mod uart_print;
 
 pub use self::block_metadata::BlockMetadataResponder;
+pub use self::ethereum_header::EthereumHeaderLikeResponder;
 pub use self::ethereum_initial_account_state::InMemoryEthereumInitialAccountStateResponder;
 pub use self::ethereum_initial_storage_slot_value::InMemoryEthereumInitialStorageSlotValueResponder;
 pub use self::generic_preimage::GenericPreimageResponder;

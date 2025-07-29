@@ -492,6 +492,9 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             source: account_properties,
             preimages_oracle: oracle,
         };
+        let initial_root_reponder = EthereumHeaderLikeResponder {
+            initial_state_root: Bytes32::from_array(initial_root),
+        };
 
         let mut oracle = ZkEENonDeterminismSource::default();
         oracle.add_external_processor(block_metadata_reponsder);
@@ -499,6 +502,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         oracle.add_external_processor(preimage_responder);
         oracle.add_external_processor(initial_account_state_responder);
         oracle.add_external_processor(initial_values_responder);
+        oracle.add_external_processor(initial_root_reponder);
         oracle.add_external_processor(UARTPrintReponsder);
 
         use forward_system::run::result_keeper::ForwardRunningResultKeeper;
