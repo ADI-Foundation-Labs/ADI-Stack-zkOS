@@ -2,7 +2,7 @@ use alloy::primitives::U256;
 use anyhow::{anyhow, Context, Ok, Result};
 use db::{BlockStatus, BlockTraces, Database};
 mod db;
-mod rpc;
+pub(crate) mod rpc;
 use rig::log::{debug, error, info};
 use rig::Chain;
 

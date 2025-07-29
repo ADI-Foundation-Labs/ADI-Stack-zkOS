@@ -101,7 +101,7 @@ impl<
         self,
         oracle: &mut impl IOOracle,
         state_commitment: Option<&mut Self::StorageCommitment>,
-        pubdata_hasher: &mut impl MiniDigest,
+        _pubdata_hasher: &mut impl MiniDigest,
         result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
         logger: &mut impl Logger,
     ) -> Result<(), InternalError> {
@@ -287,15 +287,15 @@ impl<
 
     fn set_bytecode_details(
         &mut self,
-        resources: &mut R,
-        at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
-        ee: ExecutionEnvironmentType,
-        bytecode_hash: Bytes32,
-        bytecode_len: u32,
-        artifacts_len: u32,
-        observable_bytecode_hash: Bytes32,
-        observable_bytecode_len: u32,
-        oracle: &mut impl IOOracle,
+        _resources: &mut R,
+        _at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
+        _ee: ExecutionEnvironmentType,
+        _bytecode_hash: Bytes32,
+        _bytecode_len: u32,
+        _artifacts_len: u32,
+        _observable_bytecode_hash: Bytes32,
+        _observable_bytecode_len: u32,
+        _oracle: &mut impl IOOracle,
     ) -> Result<(), SystemError> {
         unimplemented!("not valid for this storage model");
     }

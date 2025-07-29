@@ -4,6 +4,8 @@ use basic_bootloader::bootloader::config::BasicBootloaderCallSimulationConfig;
 use basic_bootloader::bootloader::config::BasicBootloaderForwardSimulationConfig;
 use basic_bootloader::bootloader::constants::MAX_BLOCK_GAS_LIMIT;
 use basic_bootloader::bootloader::BasicBootloader;
+use basic_system::system_implementation::ethereum_storage_model::caches::account_properties::EthereumAccountProperties;
+use basic_system::system_implementation::ethereum_storage_model::EthereumMPT;
 use basic_system::system_implementation::flat_storage_model::FlatStorageCommitment;
 use basic_system::system_implementation::flat_storage_model::{
     address_into_special_storage_key, AccountProperties, ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
@@ -19,6 +21,7 @@ use oracle_provider::{ReadWitnessSource, ZkEENonDeterminismSource};
 use risc_v_simulator::abstractions::memory::VectorMemoryImpl;
 use risc_v_simulator::sim::{DiagnosticsConfig, ProfilerConfig};
 use ruint::aliases::{B160, B256, U256};
+use std::alloc::Global;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
@@ -406,18 +409,22 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         block_context: Option<BlockContext>,
     ) -> BatchOutput {
         use crypto::MiniDigest;
+        use std::collections::BTreeMap;
 
         let mut headers = alloy::rlp::Rlp::new(&witness.headers[0]).unwrap();
         let _ = headers.get_next::<[u8; 32]>().unwrap();
         let _ = headers.get_next::<[u8; 32]>().unwrap();
         let coinbase = headers.get_next::<[u8; 20]>().unwrap().unwrap();
+        dbg!(hex::encode(&coinbase));
         let initial_root = headers.get_next::<[u8; 32]>().unwrap().unwrap();
 
         let mut preimage_source = InMemoryPreimageSource::default();
+        let mut oracle = BTreeMap::new();
 
         // make an oracle
         for el in witness.state.iter() {
             let hash = crypto::sha3::Keccak256::digest(el);
+            oracle.insert(Bytes32::from_array(hash), el.to_vec());
             preimage_source
                 .inner
                 .insert(Bytes32::from_array(hash), el.to_vec());
@@ -425,12 +432,36 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         for el in witness.codes.iter() {
             let hash = crypto::sha3::Keccak256::digest(el);
+            oracle.insert(Bytes32::from_array(hash), el.to_vec());
             preimage_source
                 .inner
                 .insert(Bytes32::from_array(hash), el.to_vec());
         }
 
+        // we will do some really bad heuristics here
+        use basic_system::system_implementation::ethereum_storage_model::BoxInterner;
+        use basic_system::system_implementation::ethereum_storage_model::digits_from_key;
+        use basic_system::system_implementation::ethereum_storage_model::Path;
+
+        let mut interner = BoxInterner::with_capacity_in(1 << 26, Global);
+        let mut hasher = crypto::sha3::Keccak256::new();
+        let mut accounts_mpt = EthereumMPT::new_in(initial_root, &mut interner, Global).unwrap();
+        let mut account_properties = HashMap::<B160, EthereumAccountProperties>::new();
+        for el in witness.keys.iter() {
+            if el.len() == 20 {
+                // dbg!(hex::encode(el));
+                let hash = crypto::sha3::Keccak256::digest(el);
+                let digits = digits_from_key(&hash);
+                let path = Path::new(&digits);
+                let props = accounts_mpt.get(path, &mut oracle, &mut interner, &mut hasher).unwrap();
+                let props = EthereumAccountProperties::parse_from_rlp_bytes(props).expect("must parse account data");
+                let key = B160::from_be_bytes::<20>(el[..].try_into().unwrap());
+                account_properties.insert(key, props);
+            }
+        }
+
         let block_context = block_context.unwrap_or_default();
+        dbg!(hex::encode(&block_context.coinbase.to_be_bytes::<20>()));
         let block_metadata = BlockMetadataFromOracle {
             chain_id: self.chain_id,
             block_number: self.block_number + 1,
@@ -453,12 +484,15 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             next_tx: None,
         };
         let preimage_responder = GenericPreimageResponder { preimage_source };
+        let initial_account_state_responder = InMemoryEthereumInitialAccountStateResponder {
+            source: account_properties,
+        };
 
         let mut oracle = ZkEENonDeterminismSource::default();
         oracle.add_external_processor(block_metadata_reponsder);
         oracle.add_external_processor(tx_data_responder);
         oracle.add_external_processor(preimage_responder);
-        // oracle.add_external_processor(io_implementer_init_responder);
+        oracle.add_external_processor(initial_account_state_responder);
         oracle.add_external_processor(UARTPrintReponsder);
 
         use forward_system::run::result_keeper::ForwardRunningResultKeeper;

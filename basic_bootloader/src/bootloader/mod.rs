@@ -311,16 +311,18 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                 .try_begin_next_tx(&mut writable)
                 .expect("TX start call must always succeed")
         } {
-            let mut inf_resources = S::Resources::FORMAL_INFINITE;
-            system
-                .io
-                .read_account_properties(
-                    ExecutionEnvironmentType::NoEE,
-                    &mut inf_resources,
-                    &system.get_coinbase(),
-                    AccountDataRequest::empty(),
-                )
-                .expect("must heat coinbase");
+            if first_tx {
+                let mut inf_resources = S::Resources::FORMAL_INFINITE;
+                system
+                    .io
+                    .read_account_properties(
+                        ExecutionEnvironmentType::NoEE,
+                        &mut inf_resources,
+                        &system.get_coinbase(),
+                        AccountDataRequest::empty(),
+                    )
+                    .expect("must heat coinbase");
+            }
 
             let mut logger: <S as SystemTypes>::Logger = system.get_logger();
             let _ = logger.write_fmt(format_args!("====================================\n"));

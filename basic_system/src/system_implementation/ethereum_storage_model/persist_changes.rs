@@ -59,7 +59,7 @@ impl<'o, O: IOOracle> PreimagesOracle for OracleProxy<'o, O> {
 #[derive(Default)]
 pub struct EthereumStoragePersister;
 
-fn digits_from_key(key: &[u8; 32]) -> [u8; 64] {
+pub fn digits_from_key(key: &[u8; 32]) -> [u8; 64] {
     let mut result = [0u8; 64];
     for (src, dst) in key.iter().zip(result.as_chunks_mut::<2>().0.iter_mut()) {
         let low = *src & 0x0f;

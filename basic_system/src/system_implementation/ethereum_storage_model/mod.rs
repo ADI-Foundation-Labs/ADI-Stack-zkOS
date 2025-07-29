@@ -3,13 +3,14 @@
 // - inefficient for code analysis caching, or delegation caching (no space to put such data)
 // - abusable by calls to EXTCODELENGTH as proving code length requires providing a preimage
 
-mod caches;
+pub mod caches;
 pub(crate) mod cost_constants;
 mod mpt;
 mod persist_changes;
 mod storage_model;
 
 pub use self::storage_model::EthereumStorageModel;
+pub use self::persist_changes::digits_from_key;
 
 use zk_ee::utils::Bytes32;
 
@@ -18,11 +19,12 @@ pub use self::caches::preimage::{
 };
 pub use self::mpt::{
     BoxInterner, ByteBuffer, EthereumMPT, Interner, InterningBuffer, InterningWordBuffer,
-    PreimagesOracle, EMPTY_ROOT_HASH,
+    PreimagesOracle, EMPTY_ROOT_HASH, Path,
 };
 pub use self::persist_changes::{
     ETHEREUM_MPT_PREIMAGE_BYTE_LEN_QUERY_ID, ETHEREUM_MPT_PREIMAGE_WORDS_QUERY_ID,
 };
+pub use self::caches::account_properties::ETHEREUM_ACCOUNT_INITIAL_STATE_QUERY_ID;
 
 pub(crate) fn compare_bytes32_and_mpt_integer(a: &Bytes32, b: &[u8]) -> bool {
     debug_assert!(b.len() <= 32);

@@ -16,7 +16,7 @@ pub struct GenericPreimageResponder<PS: PreimageSource> {
 impl<PS: PreimageSource> GenericPreimageResponder<PS> {
     const SUPPORTED_QUERY_IDS: &[u32] = &[
         GENERIC_PREIMAGE_QUERY_ID,
-        BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID,
+        // BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID,
         BYTECODE_PREIMAGE_QUERY_ID,
         ETHEREUM_MPT_PREIMAGE_BYTE_LEN_QUERY_ID,
         ETHEREUM_MPT_PREIMAGE_WORDS_QUERY_ID,

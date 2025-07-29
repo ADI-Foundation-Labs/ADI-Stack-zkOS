@@ -9,7 +9,7 @@ use zk_ee::{
     utils::Bytes32,
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
 pub struct EthereumAccountProperties {
     pub nonce: u64,
     pub balance: U256,
@@ -67,7 +67,6 @@ impl UsizeDeserializable for EthereumAccountProperties {
             bytecode_hash,
             storage_root,
             computed_is_unset,
-            // final_root: storage_root,
         };
         if computed_is_unset {
             assert!(new.is_empty_modulo_balance());
@@ -80,8 +79,10 @@ impl UsizeDeserializable for EthereumAccountProperties {
 
 pub struct EthereumAccountPropertiesQuery;
 
+pub const ETHEREUM_ACCOUNT_INITIAL_STATE_QUERY_ID: u32 = ACCOUNT_AND_STORAGE_SUBSPACE_MASK | 0x80;
+
 impl SimpleOracleQuery for EthereumAccountPropertiesQuery {
-    const QUERY_ID: u32 = ACCOUNT_AND_STORAGE_SUBSPACE_MASK | 0x80;
+    const QUERY_ID: u32 = ETHEREUM_ACCOUNT_INITIAL_STATE_QUERY_ID;
     type Input = B160;
     type Output = EthereumAccountProperties;
 }
@@ -93,7 +94,6 @@ impl EthereumAccountProperties {
         bytecode_hash: Bytes32::ZERO,
         storage_root: EMPTY_ROOT_HASH,
         // computed_bytecode_len: 0,
-        // final_root: EMPTY_ROOT_HASH,
         computed_is_unset: true,
     };
 

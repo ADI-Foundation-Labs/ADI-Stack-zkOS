@@ -1,3 +1,4 @@
+use crate::live_run::N_PREV_BLOCKS;
 use crate::{
     block::Block,
     calltrace::CallTrace,
@@ -5,15 +6,36 @@ use crate::{
     receipts::BlockReceipts,
 };
 use alloy::primitives::B256;
+use alloy::primitives::U256;
+use alloy_rpc_types_debug::ExecutionWitness;
 use anyhow::anyhow;
 use anyhow::Result;
 use rig::log::debug;
 use std::{io::Read, str::FromStr};
 use ureq::json;
 
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub(crate) struct JsonResponse<T> {
+    pub(crate) result: T,
+}
+
 /// Converts u64 to hex string with "0x" prefix.
 fn to_hex(n: u64) -> String {
     format!("0x{n:x}")
+}
+
+/// Fetches the full block data with transactions.
+pub fn get_witness(endpoint: &str, block_number: u64) -> Result<JsonResponse<ExecutionWitness>> {
+    debug!("RPC: get_block({block_number})");
+    let body = json!({
+        "method": "debug_executionWitness",
+        "params": [to_hex(block_number)],
+        "id": 1,
+        "jsonrpc": "2.0"
+    });
+    let res = send(endpoint, body)?;
+    let block = serde_json::from_str(&res)?;
+    Ok(block)
 }
 
 /// Fetches the full block data with transactions.
@@ -124,4 +146,22 @@ fn send(endpoint: &str, body: serde_json::Value) -> Result<String> {
     let mut out = String::new();
     response.into_reader().read_to_string(&mut out)?;
     Ok(out)
+}
+
+pub fn fetch_block_hashes_array(
+    endpoint: &str,
+    block_number: u64,
+) -> Result<[U256; N_PREV_BLOCKS]> {
+    use anyhow::Context;
+    let mut hashes = [U256::ZERO; N_PREV_BLOCKS];
+    // Add values for most recent blocks
+    for offset in 1..=N_PREV_BLOCKS {
+        let n = block_number - (offset as u64);
+        let hash =
+            get_block_hash(endpoint, n).context(format!("Failed to fetch block hash for {n}"))?;
+
+        hashes[offset - 1] = U256::from_be_bytes(hash.0);
+    }
+
+    Ok(hashes)
 }

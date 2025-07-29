@@ -5,6 +5,7 @@ use clap::{Parser, Subcommand};
 mod block;
 mod block_hashes;
 mod calltrace;
+mod dump_utils;
 mod live_run;
 mod native_model;
 mod post_check;
@@ -126,14 +127,17 @@ mod test {
             .expect("must succeed");
     }
 
+    const NODE_URL: &str = "";
+
+    #[test]
+    fn run_dump() {
+        crate::dump_utils::dump_eth_block(23021144, NODE_URL, "blocks/23021144".to_string())
+            .expect("must dump block data");
+    }
+
     #[test]
     fn invoke_single_eth_block() {
-        crate::single_run::single_eth_run(
-            "blocks/19299001".to_string(),
-            None,
-            "blocks/19299001/witness.json".to_string(),
-            Some(1),
-        )
-        .expect("must succeed");
+        crate::single_run::single_eth_run("blocks/23021144".to_string(), Some(1))
+            .expect("must succeed");
     }
 }

@@ -18,6 +18,7 @@ pub(crate) use self::trie::*;
 
 pub use self::preimages::*;
 pub use self::trie::EthereumMPT;
+pub use self::nodes::Path;
 
 pub(crate) const EMPTY_SLICE_ENCODING: &[u8] = &[0x80];
 

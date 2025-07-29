@@ -13,6 +13,7 @@ mod read_storage;
 mod read_tree;
 mod tx_data;
 mod uart_print;
+mod ethereum_initial_account_state;
 
 pub use self::block_metadata::BlockMetadataResponder;
 pub use self::generic_preimage::GenericPreimageResponder;
@@ -21,6 +22,7 @@ pub use self::read_storage::ReadStorageResponder;
 pub use self::read_tree::ReadTreeResponder;
 pub use self::tx_data::TxDataResponder;
 pub use self::uart_print::UARTPrintReponsder;
+pub use ethereum_initial_account_state::InMemoryEthereumInitialAccountStateResponder;
 
 use crate::run::*;
 
