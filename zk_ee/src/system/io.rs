@@ -449,6 +449,14 @@ pub trait IOSubsystemExt: IOSubsystem {
         observable_bytecode_len: u32,
     ) -> Result<(), SystemError>;
 
+    /// Special method used for EIP-7702
+    fn set_delegation(
+        &mut self,
+        resources: &mut Self::Resources,
+        at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
+        delegate: &<Self::IOTypes as SystemIOTypesConfig>::Address,
+    ) -> Result<(), SystemError>;
+
     /// Emit a log for a l1 -> l2 tx.
     fn emit_l1_l2_tx_log(
         &mut self,
