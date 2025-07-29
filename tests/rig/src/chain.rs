@@ -139,8 +139,15 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
     ) -> Vec<u32> {
         let oracle_wrapper =
             BasicZkEEOracleWrapper::<EthereumIOTypesConfig, _>::new(oracle.clone());
+
         let mut non_determinism_source = ZkEENonDeterminismSource::default();
+
         non_determinism_source.add_external_processor(oracle_wrapper);
+        non_determinism_source.add_external_processor(
+            callable_oracles::arithmetic::ArithmeticQuery {
+                marker: std::marker::PhantomData,
+            },
+        );
 
         // We'll wrap the source, to collect all the reads.
         let copy_source = ReadWitnessSource::new(non_determinism_source);
@@ -337,12 +344,22 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             let source_for_witness_bench = {
                 let mut non_determinism_source = ZkEENonDeterminismSource::default();
                 non_determinism_source.add_external_processor(oracle_wrapper.clone());
+                non_determinism_source.add_external_processor(
+                    callable_oracles::arithmetic::ArithmeticQuery {
+                        marker: std::marker::PhantomData,
+                    },
+                );
 
                 non_determinism_source
             };
 
             let mut non_determinism_source = ZkEENonDeterminismSource::default();
             non_determinism_source.add_external_processor(oracle_wrapper);
+            non_determinism_source.add_external_processor(
+                callable_oracles::arithmetic::ArithmeticQuery {
+                    marker: std::marker::PhantomData,
+                },
+            );
             // We'll wrap the source, to collect all the reads.
             let copy_source = ReadWitnessSource::new(non_determinism_source);
             let items = copy_source.get_read_items();
@@ -577,6 +594,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 // bunch of internal utility methods
 fn get_zksync_os_path(app_name: &Option<String>, extension: &str) -> PathBuf {
     let app = app_name.as_deref().unwrap_or("app");
+    // let app = app_name.as_deref().unwrap_or("app_debug");
     let filename = format!("{app}.{extension}");
     let zksync_os_path = std::env::var("OVERRIDE_ZKSYNC_OS_PATH")
         .map(PathBuf::from)
