@@ -15,10 +15,14 @@ pub struct HistoryRecord<V> {
 pub struct ElementWithHistory<V, A: Allocator + Clone> {
     /// Initial record (before history started)
     pub initial: HistoryRecordLink<V>,
-    /// First record in history (can be the same as initial)
+    /// First frozen record in history (can be same as initial)
     pub first: HistoryRecordLink<V>,
+
     /// Current history record
     pub head: HistoryRecordLink<V>,
+    /// First pending history record (can be rolled back)
+    pub tail: HistoryRecordLink<V>,
+
     alloc: A,
 }
 
@@ -41,15 +45,19 @@ impl<V, A: Allocator + Clone> ElementWithHistory<V, A> {
         let elem = records_memory_pool.create_element(value, None, CacheSnapshotId(0));
 
         Self {
-            head: elem,
             initial: elem,
             first: elem,
+            head: elem,
+            tail: elem,
             alloc,
         }
     }
 
     pub fn add_new_record(&mut self, new_element: HistoryRecordLink<V>) {
         self.head = new_element;
+        if self.tail == self.initial {
+            self.tail = new_element;
+        }
     }
 
     /// Rollback element's state to snapshot_id
@@ -93,8 +101,8 @@ impl<V, A: Allocator + Clone> ElementWithHistory<V, A> {
             .take()
             .unwrap();
 
-        if first_removed_record == self.first {
-            self.first = new_head;
+        if first_removed_record == self.tail {
+            self.tail = new_head;
         }
 
         self.head = new_head;
@@ -116,16 +124,21 @@ impl<V, A: Allocator + Clone> ElementWithHistory<V, A> {
     /// Frees memory taken by snapshots that can't be rollbacked to.
     pub fn commit(&mut self, records_memory_pool: &mut ElementPool<V, A>) {
         // Case with only initial value (no writes at all)
-        if self.head == self.first {
+        if self.head == self.initial {
             return;
         }
 
-        // Safety: initial and first elements are distinct.
-
-        let first_removed_record = self.first;
-
         // Previous head becomes new `first` record
         self.first = self.head;
+
+        // Case with only one value
+        if self.head == self.tail {
+            return;
+        }
+
+        // Safety: initial and tail elements are distinct.
+
+        let first_removed_record = self.tail;
 
         let head_mut = unsafe { self.head.as_mut() };
         let last_removed_record = head_mut
