@@ -15,6 +15,7 @@ pub struct HistoryRecord<V> {
 pub struct ElementWithHistory<V, A: Allocator + Clone> {
     /// Initial record (before history started)
     pub initial: HistoryRecordLink<V>,
+    /// First record in history (can be the same as initial)
     pub first: HistoryRecordLink<V>,
     /// Current history record
     pub head: HistoryRecordLink<V>,
@@ -115,16 +116,11 @@ impl<V, A: Allocator + Clone> ElementWithHistory<V, A> {
     /// Frees memory taken by snapshots that can't be rollbacked to.
     pub fn commit(&mut self, records_memory_pool: &mut ElementPool<V, A>) {
         // Case with only initial value (no writes at all)
-        if self.head == self.initial {
-            return;
-        }
-
-        // Current snapshot is the one we're committing to (only one update).
         if self.head == self.first {
             return;
         }
 
-        // Safety: initial and first elements are distinct. Cases with 0-1 updates are covered above.
+        // Safety: initial and first elements are distinct.
 
         let first_removed_record = self.first;
 

@@ -1,7 +1,6 @@
 //! Storage cache, backed by a history map.
 use crate::system_implementation::flat_storage_model::address_into_special_storage_key;
 use crate::system_implementation::system::ExtraCheck;
-use alloc::collections::BTreeMap;
 use alloc::collections::BTreeSet;
 use alloc::fmt::Debug;
 use core::alloc::Allocator;
