@@ -19,16 +19,21 @@ pub struct ElementWithHistory<V, A: Allocator + Clone> {
     pub first: HistoryRecordLink<V>,
 
     /// Current history record
-    pub head: HistoryRecordLink<V>,
+    pub head: Option<HistoryRecordLink<V>>,
     /// First pending history record (can be rolled back)
-    pub tail: HistoryRecordLink<V>,
+    pub tail: Option<HistoryRecordLink<V>>,
 
     alloc: A,
 }
 
 impl<V, A: Allocator + Clone> Drop for ElementWithHistory<V, A> {
     fn drop(&mut self) {
-        let mut elem = unsafe { Box::from_raw_in(self.head.as_ptr(), self.alloc.clone()) };
+        let head = match self.head {
+            Some(x) => x,
+            None => return, // History is empty
+        };
+
+        let mut elem = unsafe { Box::from_raw_in(head.as_ptr(), self.alloc.clone()) };
 
         while let Some(n) = elem.previous.take() {
             let n = unsafe { Box::from_raw_in(n.as_ptr(), self.alloc.clone()) };
@@ -47,16 +52,16 @@ impl<V, A: Allocator + Clone> ElementWithHistory<V, A> {
         Self {
             initial: elem,
             first: elem,
-            head: elem,
-            tail: elem,
+            head: None,
+            tail: None,
             alloc,
         }
     }
 
     pub fn add_new_record(&mut self, new_element: HistoryRecordLink<V>) {
-        self.head = new_element;
-        if self.tail == self.initial {
-            self.tail = new_element;
+        self.head = Some(new_element);
+        if self.tail == None {
+            self.tail = Some(new_element);
         }
     }
 
@@ -67,13 +72,17 @@ impl<V, A: Allocator + Clone> ElementWithHistory<V, A> {
         records_memory_pool: &mut ElementPool<V, A>,
         snapshot_id: CacheSnapshotId,
     ) {
-        // Caller should guarantee that snapshot_id is correct
+        let (head, tail) = match self.head {
+            Some(x) => (x, self.tail.expect("Should exist")),
+            None => return, // History is empty
+        };
 
-        if unsafe { self.head.as_ref() }.touch_ss_id <= snapshot_id {
+        // Caller should guarantee that snapshot_id is correct
+        if unsafe { head.as_ref() }.touch_ss_id <= snapshot_id {
             return;
         }
 
-        let mut first_removed_record = self.head;
+        let mut first_removed_record = head;
         // Find first elem such that elem.touch_ss_id > snapshot_id and set previous as first_removed_record
         loop {
             let n_lnk = unsafe {
@@ -94,18 +103,18 @@ impl<V, A: Allocator + Clone> ElementWithHistory<V, A> {
             first_removed_record = *n_lnk;
         }
 
-        let last_removed_record = self.head;
+        let last_removed_record = head;
 
-        let new_head = unsafe { first_removed_record.as_mut() }
-            .previous
-            .take()
-            .unwrap();
-
-        if first_removed_record == self.tail {
-            self.tail = new_head;
+        if first_removed_record == tail {
+            self.tail = None;
+            self.head = None;
+        } else {
+            let new_head = unsafe { first_removed_record.as_mut() }
+                .previous
+                .take()
+                .unwrap();
+            self.head = Some(new_head);
         }
-
-        self.head = new_head;
 
         // Return subchain to the pool to be reused later
         records_memory_pool.reuse_memory(last_removed_record, first_removed_record);
@@ -113,34 +122,37 @@ impl<V, A: Allocator + Clone> ElementWithHistory<V, A> {
 
     /// Returns (initial_value, current_value) if any
     pub fn get_initial_and_last_values(&self) -> Option<(&V, &V)> {
-        let entry = unsafe { self.head.as_ref() };
-        match entry.previous {
+        match self.head {
+            Some(head) => {
+                let entry = unsafe { head.as_ref() };
+                match entry.previous {
+                    None => None,
+                    Some(_) => Some((unsafe { &self.initial.as_ref().value }, &entry.value)),
+                }
+            }
             None => None,
-            Some(_) => Some((unsafe { &self.initial.as_ref().value }, &entry.value)),
         }
     }
 
     /// Commits (freezes) changes up to this point
     /// Frees memory taken by snapshots that can't be rollbacked to.
     pub fn commit(&mut self, records_memory_pool: &mut ElementPool<V, A>) {
-        // Case with only initial value (no writes at all)
-        if self.head == self.initial {
-            return;
-        }
+        let (mut head, tail) = match self.head {
+            Some(x) => (x, self.tail.expect("Should exist")),
+            None => return, // No history
+        };
 
         // Previous head becomes new `first` record
-        self.first = self.head;
+        self.first = head;
 
         // Case with only one value
-        if self.head == self.tail {
+        if head == tail {
             return;
         }
 
-        // Safety: initial and tail elements are distinct.
+        let first_removed_record = tail;
 
-        let first_removed_record = self.tail;
-
-        let head_mut = unsafe { self.head.as_mut() };
+        let head_mut = unsafe { head.as_mut() };
         let last_removed_record = head_mut
             .previous
             .replace(self.initial)
@@ -159,19 +171,19 @@ mod tests {
     use super::ElementPool;
     use super::ElementWithHistory;
 
-    fn check_that_head_is_initial_element(
-        expected_value: usize,
+    fn check_that_history_is_empty(
+        expected_initial_value: usize,
         element_with_history: &ElementWithHistory<usize, Global>,
     ) {
-        assert_eq!(element_with_history.head, element_with_history.initial);
-        assert_eq!(element_with_history.head, element_with_history.first);
+        assert_eq!(element_with_history.head, None);
+        assert_eq!(element_with_history.tail, None);
+        assert_eq!(element_with_history.initial, element_with_history.first);
         assert_eq!(
-            unsafe { element_with_history.head.as_ref().value },
-            expected_value
+            unsafe { element_with_history.initial.as_ref().value },
+            expected_initial_value
         );
-        assert_eq!(unsafe { element_with_history.head.as_ref().previous }, None);
         assert_eq!(
-            unsafe { element_with_history.head.as_ref().touch_ss_id },
+            unsafe { element_with_history.initial.as_ref().touch_ss_id },
             CacheSnapshotId(0)
         );
     }
@@ -182,7 +194,7 @@ mod tests {
         let element_with_history: ElementWithHistory<usize, Global> =
             ElementWithHistory::new(1, &mut element_pool, Global);
 
-        check_that_head_is_initial_element(1, &element_with_history);
+        check_that_history_is_empty(1, &element_with_history);
     }
 
     #[test]
@@ -192,10 +204,13 @@ mod tests {
             ElementWithHistory::new(1, &mut element_pool, Global);
 
         let first_element =
-            element_pool.create_element(2, Some(element_with_history.head), CacheSnapshotId(1));
+            element_pool.create_element(2, Some(element_with_history.initial), CacheSnapshotId(1));
         element_with_history.add_new_record(first_element);
 
-        assert_eq!(element_with_history.head, first_element);
+        assert_eq!(
+            element_with_history.head.expect("Must exist"),
+            first_element
+        );
         assert_eq!(unsafe { element_with_history.first.as_ref().value }, 1);
 
         let mut last_added_element = first_element;
@@ -211,7 +226,16 @@ mod tests {
 
         assert_eq!(unsafe { element_with_history.first.as_ref().value }, 1);
 
-        assert_eq!(unsafe { element_with_history.head.as_ref().value }, 3);
+        assert_eq!(
+            unsafe {
+                element_with_history
+                    .head
+                    .expect("Must exist")
+                    .as_ref()
+                    .value
+            },
+            3
+        );
     }
 
     #[test]
@@ -221,7 +245,7 @@ mod tests {
             ElementWithHistory::new(1, &mut element_pool, Global);
 
         element_with_history.rollback(&mut element_pool, CacheSnapshotId(0));
-        check_that_head_is_initial_element(1, &element_with_history);
+        check_that_history_is_empty(1, &element_with_history);
     }
 
     #[test]
@@ -232,12 +256,32 @@ mod tests {
 
         element_with_history.add_new_record(element_pool.create_element(
             2,
-            Some(element_with_history.head),
+            Some(element_with_history.initial),
             CacheSnapshotId(1),
         ));
 
         element_with_history.rollback(&mut element_pool, CacheSnapshotId(0));
-        check_that_head_is_initial_element(1, &element_with_history);
+        check_that_history_is_empty(1, &element_with_history);
+    }
+
+    #[test]
+    fn rollbacks_to_first_new_record() {
+        let mut element_pool = ElementPool::new(Global);
+        let mut element_with_history: ElementWithHistory<usize, Global> =
+            ElementWithHistory::new(1, &mut element_pool, Global);
+
+        let new_element =
+            element_pool.create_element(2, Some(element_with_history.initial), CacheSnapshotId(1));
+
+        element_with_history.add_new_record(new_element);
+
+        let new_element_2 = element_pool.create_element(3, Some(new_element), CacheSnapshotId(2));
+
+        element_with_history.add_new_record(new_element_2);
+
+        element_with_history.rollback(&mut element_pool, CacheSnapshotId(1));
+        assert_eq!(element_with_history.head.expect("Must exist"), new_element);
+        assert_eq!(element_with_history.first, element_with_history.initial);
     }
 
     #[test]
@@ -247,7 +291,7 @@ mod tests {
             ElementWithHistory::new(1, &mut element_pool, Global);
 
         element_with_history.commit(&mut element_pool);
-        check_that_head_is_initial_element(1, &element_with_history);
+        check_that_history_is_empty(1, &element_with_history);
     }
 
     #[test]
@@ -257,14 +301,14 @@ mod tests {
             ElementWithHistory::new(1, &mut element_pool, Global);
 
         let new_element =
-            element_pool.create_element(2, Some(element_with_history.head), CacheSnapshotId(1));
+            element_pool.create_element(2, Some(element_with_history.initial), CacheSnapshotId(1));
 
         element_with_history.add_new_record(new_element);
 
         assert_eq!(unsafe { element_with_history.first.as_ref().value }, 1);
 
         element_with_history.commit(&mut element_pool);
-        assert_eq!(element_with_history.head, new_element);
+        assert_eq!(element_with_history.head.expect("Must exist"), new_element);
         assert_eq!(element_with_history.first, new_element);
     }
 
@@ -275,7 +319,7 @@ mod tests {
             ElementWithHistory::new(1, &mut element_pool, Global);
 
         let new_element =
-            element_pool.create_element(2, Some(element_with_history.head), CacheSnapshotId(1));
+            element_pool.create_element(2, Some(element_with_history.initial), CacheSnapshotId(1));
         element_with_history.add_new_record(new_element);
 
         let new_element_2 = element_pool.create_element(3, Some(new_element), CacheSnapshotId(2));
@@ -285,7 +329,36 @@ mod tests {
 
         element_with_history.commit(&mut element_pool);
 
-        assert_eq!(element_with_history.head, new_element_2);
+        assert_eq!(
+            element_with_history.head.expect("Must exist"),
+            new_element_2
+        );
+        assert_eq!(element_with_history.first, new_element_2);
+    }
+
+    #[test]
+    fn commit_rollback() {
+        let mut element_pool = ElementPool::new(Global);
+        let mut element_with_history: ElementWithHistory<usize, Global> =
+            ElementWithHistory::new(1, &mut element_pool, Global);
+
+        let new_element =
+            element_pool.create_element(2, Some(element_with_history.initial), CacheSnapshotId(1));
+        element_with_history.add_new_record(new_element);
+
+        let new_element_2 = element_pool.create_element(3, Some(new_element), CacheSnapshotId(2));
+        element_with_history.add_new_record(new_element_2);
+
+        assert_eq!(unsafe { element_with_history.first.as_ref().value }, 1);
+
+        element_with_history.commit(&mut element_pool);
+
+        let new_element_3 = element_pool.create_element(4, Some(new_element_2), CacheSnapshotId(3));
+        element_with_history.add_new_record(new_element_3);
+
+        element_with_history.rollback(&mut element_pool, CacheSnapshotId(2));
+
+        assert_eq!(element_with_history.head, None);
         assert_eq!(element_with_history.first, new_element_2);
     }
 }

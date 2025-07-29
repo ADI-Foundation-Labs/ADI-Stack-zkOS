@@ -248,7 +248,11 @@ where
         F: FnMut(&K, &mut HistoryRecord<V>) -> Result<(), InternalError>,
     {
         for (k, _v) in self.state.pending_updated_elements.iter() {
-            do_fn(k, unsafe { self.btree.get_mut(&k).unwrap().head.as_mut() })?
+            let mut head = match self.btree.get_mut(&k).unwrap().head {
+                Some(x) => x,
+                None => continue, // No history
+            };
+            do_fn(k, unsafe { head.as_mut() })?
         }
 
         Ok(())
@@ -271,7 +275,11 @@ where
     }
 
     pub fn current(&self) -> &V {
-        unsafe { &self.history.head.as_ref().value }
+        let last_record = match self.history.head {
+            Some(head) => head,
+            None => self.history.first,
+        };
+        unsafe { &last_record.as_ref().value }
     }
 
     pub fn initial(&self) -> &V {
@@ -299,7 +307,11 @@ where
     A: Allocator + Clone,
 {
     pub fn current(&self) -> &V {
-        unsafe { &self.history.head.as_ref().value }
+        let last_record = match self.history.head {
+            Some(head) => head,
+            None => self.history.first,
+        };
+        unsafe { &last_record.as_ref().value }
     }
 
     pub fn first(&self) -> &V {
@@ -322,7 +334,12 @@ where
     where
         F: FnOnce(&mut V) -> Result<(), E>,
     {
-        let last_history_record = unsafe { self.history.head.as_mut() };
+        let mut last_record = match self.history.head {
+            Some(head) => head,
+            None => self.history.first,
+        };
+
+        let last_history_record = unsafe { last_record.as_mut() };
 
         if last_history_record.touch_ss_id == self.cache_state.next_snapshot_id {
             // We're in the context of the current snapshot: there are changes that we will simply override
@@ -332,7 +349,7 @@ where
 
             let mut new = self.records_memory_pool.create_element(
                 last_history_record.value.clone(),
-                Some(self.history.head),
+                Some(last_record),
                 self.cache_state.next_snapshot_id,
             );
 
