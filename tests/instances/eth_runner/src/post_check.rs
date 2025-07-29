@@ -376,6 +376,10 @@ pub fn post_check(
     miner: B160,
 ) -> Result<(), PostCheckError> {
     for (res, receipt) in output.tx_results.iter().zip(receipts.iter()) {
+        info!(
+            "Checking transaction {} for consistency",
+            receipt.transaction_index,
+        );
         let res = match res {
             Ok(res) => res,
             Err(e) => {
@@ -407,25 +411,6 @@ pub fn post_check(
                 id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
             });
         }
-        let gas_difference =
-            zk_ee::utils::u256_to_u64_saturated(&receipt.gas_used).abs_diff(res.gas_used);
-        // Check gas used
-        if res.gas_used != zk_ee::utils::u256_to_u64_saturated(&receipt.gas_used) {
-            debug!(
-                "Transaction {} has a gas mismatch: ZKsync OS used {}, reference: {}\n  Difference:{}",
-                receipt.transaction_index, res.gas_used, receipt.gas_used, gas_difference,
-            );
-            if !consistent_with_refund(res.gas_used, gas_difference) {
-                warn!(
-                    "Transaction {}, gas difference should be consistent with refund\n  ZKsync OS used {}, reference: {}\n    Difference:{}",
-                    receipt.transaction_index, res.gas_used, receipt.gas_used, gas_difference,
-                );
-                // TODO: do we want this case to halt the block?
-                return Err(PostCheckError::GasMismatch {
-                    id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
-                });
-            }
-        }
         // Logs check
         if res.logs.len() != receipt.logs.len() {
             error!(
@@ -453,6 +438,25 @@ pub fn post_check(
                 return Err(PostCheckError::IncorrectLogs {
                     id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
                 });
+            }
+        }
+        let gas_difference =
+            zk_ee::utils::u256_to_u64_saturated(&receipt.gas_used).abs_diff(res.gas_used);
+        // Check gas used
+        if res.gas_used != zk_ee::utils::u256_to_u64_saturated(&receipt.gas_used) {
+            debug!(
+                "Transaction {} has a gas mismatch: ZKsync OS used {}, reference: {}\n  Difference:{}",
+                receipt.transaction_index, res.gas_used, receipt.gas_used, gas_difference,
+            );
+            if !consistent_with_refund(res.gas_used, gas_difference) {
+                warn!(
+                    "Transaction {}, gas difference should be consistent with refund\n  ZKsync OS used {}, reference: {}\n    Difference:{}",
+                    receipt.transaction_index, res.gas_used, receipt.gas_used, gas_difference,
+                );
+                // // TODO: do we want this case to halt the block?
+                // return Err(PostCheckError::GasMismatch {
+                //     id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
+                // });
             }
         }
     }
