@@ -26,7 +26,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
-use zk_ee::common_structs::derive_flat_storage_key;
+use zk_ee::common_structs::{derive_flat_storage_key, ProofData};
 use zk_ee::system::metadata::{BlockHashes, BlockMetadataFromOracle};
 use zk_ee::utils::Bytes32;
 
@@ -39,6 +39,7 @@ pub struct Chain<const RANDOMIZED_TREE: bool = false> {
     chain_id: u64,
     block_number: u64,
     block_hashes: [U256; 256],
+    block_timestamp: u64,
 }
 
 /// This is a part of the state, which can be controlled by sequencer, other block context values can be determined from the chain state.
@@ -83,6 +84,7 @@ impl Chain<false> {
             chain_id: chain_id.unwrap_or(37),
             block_number: 0,
             block_hashes: [U256::ZERO; 256],
+            block_timestamp: 0,
         }
     }
 }
@@ -105,6 +107,7 @@ impl Chain<true> {
             chain_id: chain_id.unwrap_or(37),
             block_number: 0,
             block_hashes: [U256::ZERO; 256],
+            block_timestamp: 0,
         }
     }
 }
@@ -152,7 +155,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         &mut self,
         transactions: Vec<Vec<u8>>,
         block_context: Option<BlockContext>,
-    ) -> BatchOutput {
+    ) -> BlockOutput {
         let block_context = block_context.unwrap_or_default();
         let block_metadata = BlockMetadataFromOracle {
             chain_id: self.chain_id,
@@ -165,10 +168,6 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             coinbase: block_context.coinbase,
             gas_limit: block_context.gas_limit,
             mix_hash: block_context.mix_hash,
-        };
-        let state_commitment = FlatStorageCommitment::<{ TREE_HEIGHT }> {
-            root: *self.state_tree.storage_tree.root(),
-            next_free_slot: self.state_tree.storage_tree.next_free_slot,
         };
         let tx_source = TxListSource {
             transactions: transactions.into(),
@@ -210,7 +209,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         transactions: Vec<Vec<u8>>,
         block_context: Option<BlockContext>,
         profiler_config: Option<ProfilerConfig>,
-    ) -> BatchOutput {
+    ) -> BlockOutput {
         self.run_block_with_extra_stats(transactions, block_context, profiler_config, None, None)
             .0
     }
@@ -222,7 +221,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         profiler_config: Option<ProfilerConfig>,
         witness_output_file: Option<PathBuf>,
         app: Option<String>,
-    ) -> (BatchOutput, BlockExtraStats) {
+    ) -> (BlockOutput, BlockExtraStats) {
         let block_context = block_context.unwrap_or_default();
         let block_metadata = BlockMetadataFromOracle {
             chain_id: self.chain_id,
@@ -239,6 +238,10 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         let state_commitment = FlatStorageCommitment::<{ TREE_HEIGHT }> {
             root: *self.state_tree.storage_tree.root(),
             next_free_slot: self.state_tree.storage_tree.next_free_slot,
+        };
+        let proof_data = ProofData {
+            state_root_view: state_commitment,
+            last_block_timestamp: self.block_timestamp,
         };
         let tx_source = TxListSource {
             transactions: transactions.into(),
@@ -662,6 +665,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 // bunch of internal utility methods
 fn get_zksync_os_path(app_name: &Option<String>, extension: &str) -> PathBuf {
     let app = app_name.as_deref().unwrap_or("app");
+    // let app = app_name.as_deref().unwrap_or("app_debug");
     let filename = format!("{app}.{extension}");
     let zksync_os_path = std::env::var("OVERRIDE_ZKSYNC_OS_PATH")
         .map(PathBuf::from)

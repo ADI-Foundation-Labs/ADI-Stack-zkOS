@@ -11,6 +11,7 @@ use oracle_provider::ZkEENonDeterminismSource;
 pub fn run_forward<Config: BasicBootloaderExecutionConfig>(
     oracle: ZkEENonDeterminismSource<DummyMemorySource>,
     result_keeper: &mut impl ResultKeeperExt,
+    tracer: &mut impl Tracer<ForwardRunningSystem<T, PS, TS>>,
 ) {
     if let Err(err) = ForwardBootloader::run_prepared::<Config, false>(oracle, result_keeper) {
         panic!("Forward run failed with: {err}")

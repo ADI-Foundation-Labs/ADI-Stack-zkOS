@@ -195,12 +195,11 @@ name = "basic_system"
 version = "0.1.0"
 dependencies = [
  "arrayvec",
- "cfg-if",
- "const_for",
  "crypto",
  "cycle_marker",
  "either",
  "evm_interpreter",
+ "modexp",
  "paste",
  "ruint",
  "storage_models",
@@ -302,7 +301,6 @@ dependencies = [
  "educe",
  "itertools 0.14.0",
  "k256",
- "modexp",
  "num-bigint",
  "num-traits",
  "p256",

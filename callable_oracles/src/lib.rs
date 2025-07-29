@@ -14,6 +14,7 @@
 #![allow(clippy::op_ref)]
 #![allow(clippy::precedence)]
 
+pub mod arithmetic;
 pub mod utils;
 
 use zk_ee::{

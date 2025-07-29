@@ -16,6 +16,7 @@ basic_system = { path = "../../basic_system" }
 evm_interpreter = { path = "../../evm_interpreter" }
 forward_system = { path = "../../forward_system" }
 oracle_provider = { path = "../../oracle_provider" }
+callable_oracles = { path = "../../callable_oracles/" }
 zk_ee = { path = "../../zk_ee" }
 zksync_os_runner = { path = "../../zksync_os_runner"}
 system_hooks = { path = "../../system_hooks"}
@@ -53,3 +54,5 @@ resources_for_tester = ["basic_bootloader/resources_for_tester"]
 p256_precompile = ["system_hooks/p256_precompile"]
 disable_system_contracts = ["forward_system/disable_system_contracts"]
 prevrandao = ["zk_ee/prevrandao"]
+evm_refunds = ["forward_system/evm_refunds"]
+pectra = ["forward_system/pectra"]

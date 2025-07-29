@@ -13,6 +13,7 @@ use rig::forward_system::system::system::ForwardRunningSystem;
 use rig::ruint::aliases::U256;
 use system_hooks::HooksStorage;
 use zk_ee::system::System;
+use zk_ee::system::tracer::NopTracer;
 
 mod common;
 
@@ -59,6 +60,7 @@ fn fuzz(data: &[u8]) {
         &mut system_functions,
         memories,
         true,
+        &mut NopTracer::default(),
     );
 }
 

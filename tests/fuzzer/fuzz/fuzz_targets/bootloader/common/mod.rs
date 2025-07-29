@@ -22,6 +22,7 @@ use zk_ee::reference_implementations::DecreasingNative;
 use zk_ee::system::metadata::BlockMetadataFromOracle;
 use zk_ee::system::Resource;
 use zk_ee::utils::Bytes32;
+use zk_ee::common_structs::ProofData;
 
 // a test private key from anvil
 #[allow(unused)]

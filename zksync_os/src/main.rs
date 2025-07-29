@@ -102,7 +102,10 @@ mod csr {
     {
         #[inline(always)]
         fn csr_read_impl() -> usize {
-            core::hint::black_box(csr_read_word().try_into().unwrap())
+            const {
+                assert!(core::mem::size_of::<usize>() == core::mem::size_of::<u32>());
+            }
+            csr_read_word() as usize
         }
         #[inline(always)]
         fn csr_write_impl(value: usize) {

@@ -35,5 +35,5 @@ alloy-rlp = { version = "*" }
 simulate_witness_gen = ["rig/simulate_witness_gen"]
 # default = []
 default = ["evm_replay"]
-evm_replay = ["rig/prevrandao", "rig/unlimited_native"]
 risc_v_logs = []
+evm_replay = ["rig/prevrandao", "rig/unlimited_native", "rig/disable_system_contracts", "rig/evm_refunds"]

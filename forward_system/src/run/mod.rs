@@ -12,6 +12,8 @@ pub mod test_impl;
 use crate::run::result_keeper::ForwardRunningResultKeeper;
 use crate::system::bootloader::run_forward;
 use crate::system::system::CallSimulationBootloader;
+use crate::system::system::CallSimulationSystem;
+use crate::system::system::ForwardRunningSystem;
 use basic_bootloader::bootloader::config::{
     BasicBootloaderCallSimulationConfig, BasicBootloaderExecutionConfig,
     BasicBootloaderForwardSimulationConfig,
@@ -35,7 +37,7 @@ pub use tx_result_callback::TxResultCallback;
 pub use tx_source::NextTxResponse;
 pub use tx_source::TxSource;
 
-pub use self::output::BatchOutput;
+pub use self::output::BlockOutput;
 pub use self::output::ExecutionOutput;
 pub use self::output::ExecutionResult;
 pub use self::output::Log;
@@ -53,7 +55,7 @@ pub use self::query_processors::*;
 pub type StorageCommitment = FlatStorageCommitment<{ TREE_HEIGHT }>;
 
 pub fn run_batch<T: ReadStorageTree, PS: PreimageSource, TS: TxSource, TR: TxResultCallback>(
-    batch_context: BatchContext,
+    block_context: BlockContext,
     tree: T,
     preimage_source: PS,
     tx_source: TS,
@@ -84,8 +86,8 @@ pub fn run_batch<T: ReadStorageTree, PS: PreimageSource, TS: TxSource, TR: TxRes
 // TODO: we should run it on native arch and it should return pubdata and other outputs via result keeper
 pub fn generate_proof_input<T: ReadStorageTree, PS: PreimageSource, TS: TxSource>(
     zk_os_program_path: PathBuf,
-    batch_context: BatchContext,
-    storage_commitment: StorageCommitment,
+    block_context: BlockContext,
+    proof_data: ProofData<StorageCommitment>,
     tree: T,
     preimage_source: PS,
     tx_source: TS,
@@ -114,7 +116,7 @@ pub fn generate_proof_input<T: ReadStorageTree, PS: PreimageSource, TS: TxSource
     let copy_source = ReadWitnessSource::new(oracle);
     let items = copy_source.get_read_items();
 
-    let _proof_output = zksync_os_runner::run(zk_os_program_path, None, 1 << 30, copy_source);
+    let _proof_output = zksync_os_runner::run(zk_os_program_path, None, 1 << 36, copy_source);
 
     Ok(std::rc::Rc::try_unwrap(items).unwrap().into_inner())
 }
@@ -189,7 +191,7 @@ pub fn run_batch_with_oracle_dump<
     TS: TxSource + Clone + serde::Serialize,
     TR: TxResultCallback,
 >(
-    batch_context: BatchContext,
+    block_context: BlockContext,
     tree: T,
     preimage_source: PS,
     tx_source: TS,
@@ -250,6 +252,11 @@ pub fn run_batch_with_oracle_dump_ext<
     oracle.add_external_processor(preimage_responder);
     oracle.add_external_processor(tree_responder);
     oracle.add_external_processor(io_implementer_init_responder);
+    oracle.add_external_processor(
+        callable_oracles::arithmetic::ArithmeticQuery {
+            marker: std::marker::PhantomData,
+        },
+    );
     oracle.add_external_processor(UARTPrintReponsder);
 
     let mut result_keeper = ForwardRunningResultKeeper::new(tx_result_callback);
@@ -264,7 +271,8 @@ pub fn run_batch_from_oracle_dump<
     TS: TxSource + Clone + serde::de::DeserializeOwned,
 >(
     path: Option<String>,
-) -> Result<BatchOutput, ForwardSubsystemError> {
+    tracer: &mut impl Tracer<ForwardRunningSystem<T, PS, TS>>,
+) -> Result<BlockOutput, ForwardSubsystemError> {
     let path = path.unwrap_or_else(|| std::env::var("ORACLE_DUMP_FILE").unwrap());
     let file = File::open(path).expect("should open file");
     let dump: ForwardRunningOracleDump<T, PS, TS> =
@@ -309,9 +317,10 @@ pub fn run_batch_from_oracle_dump<
 ///
 pub fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
     transaction: Vec<u8>,
-    batch_context: BatchContext,
+    block_context: BlockContext,
     storage: S,
     preimage_source: PS,
+    tracer: &mut impl Tracer<CallSimulationSystem<S, PS, TxListSource>>,
 ) -> Result<TxResult, ForwardSubsystemError> {
     let tx_source = TxListSource {
         transactions: vec![transaction].into(),
@@ -338,25 +347,9 @@ pub fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
     CallSimulationBootloader::run_prepared::<BasicBootloaderCallSimulationConfig, false>(
         oracle,
         &mut result_keeper,
+        tracer,
     )
     .map_err(wrap_error!())?;
-    let mut batch_output: BatchOutput = result_keeper.into();
-    Ok(batch_output.tx_results.remove(0))
-}
-
-pub fn io_implementer_init_data(
-    storage_commitment: Option<StorageCommitment>,
-) -> BasicIOImplementerFSM<StorageCommitment> {
-    BasicIOImplementerFSM {
-        state_root_view: match storage_commitment {
-            Some(storage_commitment) => storage_commitment,
-            None => StorageCommitment {
-                root: Default::default(),
-                next_free_slot: 0,
-            },
-        },
-        pubdata_diffs_log_hash: Bytes32::ZERO,
-        num_pubdata_diffs_logs: 0,
-        block_functionality_is_completed: false,
-    }
+    let mut block_output: BlockOutput = result_keeper.into();
+    Ok(block_output.tx_results.remove(0))
 }
