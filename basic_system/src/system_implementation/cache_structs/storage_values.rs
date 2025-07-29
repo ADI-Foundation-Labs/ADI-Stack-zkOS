@@ -3,13 +3,14 @@ use alloc::collections::BTreeMap;
 use alloc::fmt::Debug;
 use core::alloc::Allocator;
 use ruint::aliases::B160;
+use zk_ee::basic_queries::InitialStorageSlotQuery;
 use zk_ee::common_structs::cache_record::{Appearance, CacheRecord};
 use zk_ee::common_structs::history_map::*;
 use zk_ee::common_traits::key_like_with_bounds::{KeyLikeWithBounds, TyEq};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::kv_markers::InitialStorageSlotData;
 use zk_ee::system::errors::internal::InternalError;
-use zk_ee::system_io_oracle::INITIAL_STORAGE_SLOT_VALUE_QUERY_ID;
+use zk_ee::system_io_oracle::{SimpleOracleQuery, INITIAL_STORAGE_SLOT_VALUE_QUERY_ID};
 use zk_ee::{
     kv_markers::{StorageAddress, UsizeDeserializable},
     memory::stack_trait::StackCtor,
@@ -164,21 +165,8 @@ impl<
                 // Element doesn't exist in cache yet, initialize it
                 initialized_element = true;
 
-                let mut dst =
-                    core::mem::MaybeUninit::<InitialStorageSlotData<EthereumIOTypesConfig>>::uninit(
-                    );
-                let mut it = oracle
-                    .raw_query(INITIAL_STORAGE_SLOT_VALUE_QUERY_ID, address)
-                    .expect("must make an iterator");
-                unsafe {
-                    UsizeDeserializable::init_from_iter(&mut dst, &mut it).expect("must initialize")
-                };
-                assert!(it.next().is_none());
-
-                // Safety: Since the `init_from_iter` has completed successfully and there's no
-                // outstanding data as per line before, we can assume that the value was read
-                // correctly.
-                let data_from_oracle = unsafe { dst.assume_init() };
+                let data_from_oracle = InitialStorageSlotQuery::get(oracle, &address)
+                    .expect("must get initial slot value from oracle");
 
                 resources_policy.charge_cold_storage_read_extra(
                     ee_type,

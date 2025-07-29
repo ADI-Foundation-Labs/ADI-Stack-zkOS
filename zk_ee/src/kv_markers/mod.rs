@@ -111,7 +111,7 @@ impl<IOTypes: SystemIOTypesConfig> Default for InitialStorageSlotData<IOTypes> {
 
 impl<IOTypes: SystemIOTypesConfig> UsizeSerializable for InitialStorageSlotData<IOTypes> {
     const USIZE_LEN: usize = <bool as UsizeSerializable>::USIZE_LEN
-        + <u8 as UsizeSerializable>::USIZE_LEN
+        + <bool as UsizeSerializable>::USIZE_LEN
         + <IOTypes::StorageValue as UsizeSerializable>::USIZE_LEN;
     fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
         ExactSizeChain::new(

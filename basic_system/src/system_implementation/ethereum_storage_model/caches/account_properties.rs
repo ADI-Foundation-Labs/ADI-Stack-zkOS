@@ -1,3 +1,4 @@
+use crate::system_implementation::ethereum_storage_model::caches::EMPTY_STRING_KECCAK_HASH;
 use crate::system_implementation::ethereum_storage_model::mpt::RLPSlice;
 use crate::system_implementation::ethereum_storage_model::EMPTY_ROOT_HASH;
 use core::mem::MaybeUninit;
@@ -9,12 +10,14 @@ use zk_ee::{
     utils::Bytes32,
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct EthereumAccountProperties {
     pub nonce: u64,
     pub balance: U256,
-    pub bytecode_hash: Bytes32,
     pub storage_root: Bytes32,
+    pub bytecode_hash: Bytes32,
     // pub final_root: Bytes32, // NOTE: this is computed and not actually persistent
     pub computed_is_unset: bool, // NOTE: this is computed and not actually persistent
 }
@@ -37,9 +40,9 @@ impl UsizeSerializable for EthereumAccountProperties {
             ExactSizeChain::new(
                 UsizeSerializable::iter(&self.balance),
                 ExactSizeChain::new(
-                    UsizeSerializable::iter(&self.bytecode_hash),
+                    UsizeSerializable::iter(&self.storage_root),
                     ExactSizeChain::new(
-                        UsizeSerializable::iter(&self.storage_root),
+                        UsizeSerializable::iter(&self.bytecode_hash),
                         UsizeSerializable::iter(&self.computed_is_unset),
                     ),
                 ),
@@ -56,8 +59,8 @@ impl UsizeDeserializable for EthereumAccountProperties {
     ) -> Result<Self, zk_ee::system::errors::internal::InternalError> {
         let nonce = UsizeDeserializable::from_iter(src)?;
         let balance = UsizeDeserializable::from_iter(src)?;
-        let bytecode_hash = UsizeDeserializable::from_iter(src)?;
         let storage_root = UsizeDeserializable::from_iter(src)?;
+        let bytecode_hash = UsizeDeserializable::from_iter(src)?;
         let computed_is_unset = UsizeDeserializable::from_iter(src)?;
 
         // NOTE: we verify basic computed property
@@ -91,7 +94,7 @@ impl EthereumAccountProperties {
     pub const TRIVIAL_VALUE: Self = Self {
         nonce: 0,
         balance: U256::ZERO,
-        bytecode_hash: Bytes32::ZERO,
+        bytecode_hash: EMPTY_STRING_KECCAK_HASH,
         storage_root: EMPTY_ROOT_HASH,
         // computed_bytecode_len: 0,
         computed_is_unset: true,
@@ -163,12 +166,12 @@ impl EthereumAccountProperties {
         }
         buffer[offset].write(0x80 + 32);
         offset += 1;
-        buffer[offset..][..32].write_copy_of_slice(self.bytecode_hash.as_u8_ref());
+        buffer[offset..][..32].write_copy_of_slice(self.storage_root.as_u8_ref());
         offset += 32;
 
         buffer[offset].write(0x80 + 32);
         offset += 1;
-        buffer[offset..][..32].write_copy_of_slice(self.storage_root.as_u8_ref());
+        buffer[offset..][..32].write_copy_of_slice(self.bytecode_hash.as_u8_ref());
         offset += 32;
 
         assert_eq!(offset, total_encoding_len);
@@ -248,10 +251,10 @@ impl EthereumAccountProperties {
         }
 
         // now we will parse into our format
-        let nonce = Self::u64_from_rlp_slice(&pieces[0])?;
-        let balance = Self::u256_from_rlp_slice(&pieces[1])?;
-        let bytecode_hash = Self::bytes32_from_rlp_slice(&pieces[2])?;
-        let storage_root = Self::bytes32_from_rlp_slice(&pieces[3])?;
+        let nonce = u64_from_rlp_slice(&pieces[0])?;
+        let balance = u256_from_rlp_slice(&pieces[1])?;
+        let storage_root = bytes32_from_rlp_slice(&pieces[2])?;
+        let bytecode_hash = bytes32_from_rlp_slice(&pieces[3])?;
 
         let new = Self {
             nonce,
@@ -263,35 +266,35 @@ impl EthereumAccountProperties {
 
         Ok(new)
     }
+}
 
-    fn u64_from_rlp_slice(src: &RLPSlice<'_>) -> Result<u64, ()> {
-        // strip
-        let data = src.data();
-        if data.len() > 8 {
-            return Err(());
-        }
-        let mut buffer = [0u8; 8];
-        buffer[(8 - data.len())..].copy_from_slice(data);
-        Ok(u64::from_be_bytes(buffer))
+pub fn u64_from_rlp_slice(src: &RLPSlice<'_>) -> Result<u64, ()> {
+    // strip
+    let data = src.data();
+    if data.len() > 8 {
+        return Err(());
     }
+    let mut buffer = [0u8; 8];
+    buffer[(8 - data.len())..].copy_from_slice(data);
+    Ok(u64::from_be_bytes(buffer))
+}
 
-    fn u256_from_rlp_slice(src: &RLPSlice<'_>) -> Result<U256, ()> {
-        // strip
-        let data = src.data();
-        if data.len() > 32 {
-            return Err(());
-        }
-        Ok(U256::from_be_slice(data))
+pub fn u256_from_rlp_slice(src: &RLPSlice<'_>) -> Result<U256, ()> {
+    // strip
+    let data = src.data();
+    if data.len() > 32 {
+        return Err(());
     }
+    Ok(U256::from_be_slice(data))
+}
 
-    fn bytes32_from_rlp_slice(src: &RLPSlice<'_>) -> Result<Bytes32, ()> {
-        // strip
-        let data = src.data();
-        if data.len() > 32 {
-            return Err(());
-        }
-        let mut result = Bytes32::zero();
-        result.as_u8_array_mut()[(32 - data.len())..].copy_from_slice(data);
-        Ok(result)
+pub fn bytes32_from_rlp_slice(src: &RLPSlice<'_>) -> Result<Bytes32, ()> {
+    // strip
+    let data = src.data();
+    if data.len() > 32 {
+        return Err(());
     }
+    let mut result = Bytes32::zero();
+    result.as_u8_array_mut()[(32 - data.len())..].copy_from_slice(data);
+    Ok(result)
 }

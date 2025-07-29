@@ -1,33 +1,38 @@
 use super::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) struct RLPSlice<'a> {
+pub struct RLPSlice<'a> {
     full_encoding: &'a [u8],
     raw_data_offset: usize,
 }
 
 impl<'a> RLPSlice<'a> {
-    pub(crate) const fn empty() -> Self {
+    pub const fn empty() -> Self {
         Self {
             full_encoding: EMPTY_SLICE_ENCODING,
             raw_data_offset: 1,
         }
     }
-    pub(crate) const fn full_encoding(&self) -> &'a [u8] {
+    pub const fn full_encoding(&self) -> &'a [u8] {
         self.full_encoding
     }
 
-    pub(crate) fn data(&self) -> &'a [u8] {
+    pub fn data(&self) -> &'a [u8] {
         // we pre-validated
         unsafe { self.full_encoding.get_unchecked(self.raw_data_offset..) }
     }
 
-    pub(crate) const fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.raw_data_offset == self.full_encoding.len()
     }
 
     #[track_caller]
-    pub(crate) fn parse(data: &mut &'a [u8]) -> Result<Self, ()> {
+    pub fn parse_from_slice(mut data: &'a [u8]) -> Result<Self, ()> {
+        Self::parse(&mut data)
+    }
+
+    #[track_caller]
+    pub fn parse(data: &mut &'a [u8]) -> Result<Self, ()> {
         let data_start = data.as_ptr();
         let b0 = consume(data, 1)?;
         let bb0 = b0[0];

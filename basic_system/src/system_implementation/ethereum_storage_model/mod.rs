@@ -9,22 +9,22 @@ mod mpt;
 mod persist_changes;
 mod storage_model;
 
-pub use self::storage_model::EthereumStorageModel;
 pub use self::persist_changes::digits_from_key;
+pub use self::storage_model::EthereumStorageModel;
 
 use zk_ee::utils::Bytes32;
 
+pub use self::caches::account_properties::ETHEREUM_ACCOUNT_INITIAL_STATE_QUERY_ID;
 pub use self::caches::preimage::{
     BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID, BYTECODE_PREIMAGE_QUERY_ID,
 };
 pub use self::mpt::{
-    BoxInterner, ByteBuffer, EthereumMPT, Interner, InterningBuffer, InterningWordBuffer,
-    PreimagesOracle, EMPTY_ROOT_HASH, Path,
+    BoxInterner, ByteBuffer, EthereumMPT, Interner, InterningBuffer, InterningWordBuffer, Path,
+    PreimagesOracle, RLPSlice, EMPTY_ROOT_HASH,
 };
 pub use self::persist_changes::{
     ETHEREUM_MPT_PREIMAGE_BYTE_LEN_QUERY_ID, ETHEREUM_MPT_PREIMAGE_WORDS_QUERY_ID,
 };
-pub use self::caches::account_properties::ETHEREUM_ACCOUNT_INITIAL_STATE_QUERY_ID;
 
 pub(crate) fn compare_bytes32_and_mpt_integer(a: &Bytes32, b: &[u8]) -> bool {
     debug_assert!(b.len() <= 32);

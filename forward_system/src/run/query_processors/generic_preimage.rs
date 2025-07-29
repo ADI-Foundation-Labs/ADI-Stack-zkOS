@@ -42,10 +42,10 @@ impl<PS: PreimageSource, M: MemorySource> OracleQueryProcessor<M> for GenericPre
 
         let hash = Bytes32::from_iter(&mut query.into_iter()).expect("must deserialize hash value");
 
-        let preimage = self
-            .preimage_source
-            .get_preimage(hash)
-            .expect("must know a preimage for hash");
+        let preimage = self.preimage_source.get_preimage(hash).expect(&format!(
+            "must know a preimage for hash {}",
+            hex::encode(hash.as_u8_array_ref())
+        ));
 
         if query_id == BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID
             || query_id == ETHEREUM_MPT_PREIMAGE_BYTE_LEN_QUERY_ID

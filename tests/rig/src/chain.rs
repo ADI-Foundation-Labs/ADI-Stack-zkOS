@@ -415,11 +415,10 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         let _ = headers.get_next::<[u8; 32]>().unwrap();
         let _ = headers.get_next::<[u8; 32]>().unwrap();
         let coinbase = headers.get_next::<[u8; 20]>().unwrap().unwrap();
-        dbg!(hex::encode(&coinbase));
         let initial_root = headers.get_next::<[u8; 32]>().unwrap().unwrap();
 
         let mut preimage_source = InMemoryPreimageSource::default();
-        let mut oracle = BTreeMap::new();
+        let mut oracle: BTreeMap<Bytes32, Vec<u8>> = BTreeMap::new();
 
         // make an oracle
         for el in witness.state.iter() {
@@ -439,8 +438,8 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         }
 
         // we will do some really bad heuristics here
-        use basic_system::system_implementation::ethereum_storage_model::BoxInterner;
         use basic_system::system_implementation::ethereum_storage_model::digits_from_key;
+        use basic_system::system_implementation::ethereum_storage_model::BoxInterner;
         use basic_system::system_implementation::ethereum_storage_model::Path;
 
         let mut interner = BoxInterner::with_capacity_in(1 << 26, Global);
@@ -453,15 +452,17 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
                 let hash = crypto::sha3::Keccak256::digest(el);
                 let digits = digits_from_key(&hash);
                 let path = Path::new(&digits);
-                let props = accounts_mpt.get(path, &mut oracle, &mut interner, &mut hasher).unwrap();
-                let props = EthereumAccountProperties::parse_from_rlp_bytes(props).expect("must parse account data");
+                let props = accounts_mpt
+                    .get(path, &mut oracle, &mut interner, &mut hasher)
+                    .unwrap();
+                let props = EthereumAccountProperties::parse_from_rlp_bytes(props)
+                    .expect("must parse account data");
                 let key = B160::from_be_bytes::<20>(el[..].try_into().unwrap());
                 account_properties.insert(key, props);
             }
         }
 
         let block_context = block_context.unwrap_or_default();
-        dbg!(hex::encode(&block_context.coinbase.to_be_bytes::<20>()));
         let block_metadata = BlockMetadataFromOracle {
             chain_id: self.chain_id,
             block_number: self.block_number + 1,
@@ -485,7 +486,11 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         };
         let preimage_responder = GenericPreimageResponder { preimage_source };
         let initial_account_state_responder = InMemoryEthereumInitialAccountStateResponder {
+            source: account_properties.clone(),
+        };
+        let initial_values_responder = InMemoryEthereumInitialStorageSlotValueResponder {
             source: account_properties,
+            preimages_oracle: oracle,
         };
 
         let mut oracle = ZkEENonDeterminismSource::default();
@@ -493,6 +498,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         oracle.add_external_processor(tx_data_responder);
         oracle.add_external_processor(preimage_responder);
         oracle.add_external_processor(initial_account_state_responder);
+        oracle.add_external_processor(initial_values_responder);
         oracle.add_external_processor(UARTPrintReponsder);
 
         use forward_system::run::result_keeper::ForwardRunningResultKeeper;
