@@ -752,7 +752,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             )
         })?;
 
-        let (bytecode_hash, bytecode_len, delegated) = if delegate == &B160::ZERO {
+        let (bytecode_hash, _bytecode_len, _delegated) = if delegate == &B160::ZERO {
             (EMPTY_STRING_KECCAK_HASH, 0, false)
         } else {
             use zk_ee::system::EIP7702_DELEGATION_MARKER;
@@ -784,7 +784,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         )))?;
 
         account_data.update(|cache_record| {
-            cache_record.update(|v, m| {
+            cache_record.update(|v, _m| {
                 v.bytecode_hash = bytecode_hash;
 
                 Ok(())

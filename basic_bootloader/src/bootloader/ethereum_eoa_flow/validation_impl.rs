@@ -22,7 +22,7 @@ use zk_ee::utils::*;
 
 fn create_resources_for_tx<S: EthereumLikeTypes>(
     gas_limit: u64,
-    native_resources_to_cover_gas_use: u64,
+    native_prepaid_from_gas: u64,
     native_per_pubdata_byte: u64,
     is_deployment: bool,
     calldata_len: u64,
@@ -39,9 +39,9 @@ fn create_resources_for_tx<S: EthereumLikeTypes>(
     // We can consider in the future to keep two limits, so that pubdata
     // is not charged from computational resource.
     let native_limit = if cfg!(feature = "unlimited_native") {
-        u64::MAX
+        u64::MAX - 1 // So any saturation below can not be subtracted from it
     } else {
-        native_resources_to_cover_gas_use
+        native_prepaid_from_gas
     };
 
     // Charge pubdata overhead
@@ -77,11 +77,7 @@ fn create_resources_for_tx<S: EthereumLikeTypes>(
     // Charge for calldata and intrinsic native
     let calldata_native = calldata_len
         .saturating_mul(evm_interpreter::native_resource_constants::COPY_BYTE_NATIVE_COST);
-    let intrinsic_computational_native_charged = calldata_native
-        .checked_add(intrinsic_native as u64)
-        .ok_or(TxError::Validation(
-            InvalidTransaction::OutOfNativeResourcesDuringValidation,
-        ))?;
+    let intrinsic_computational_native_charged = calldata_native.saturating_add(intrinsic_native);
 
     let native_limit = native_limit
         .checked_sub(intrinsic_computational_native_charged)
@@ -119,9 +115,7 @@ fn create_resources_for_tx<S: EthereumLikeTypes>(
         ))
     } else {
         let gas_limit_for_tx = gas_limit - intrinsic_overhead;
-        let ergs = gas_limit_for_tx
-            .checked_mul(ERGS_PER_GAS)
-            .ok_or(internal_error!("glft*EPF"))?;
+        let ergs = gas_limit_for_tx.saturating_mul(ERGS_PER_GAS); // we checked at the very start that gas_limit * ERGS_PER_GAS doesn't overflow
         let main_resources = S::Resources::from_ergs_and_native(Ergs(ergs), native_limit);
 
         Ok(ResourcesForTx {
@@ -156,9 +150,14 @@ where
     // safe to panic, validated by the structure
     let from = transaction.from.read();
     let tx_gas_limit = transaction.gas_limit.read();
-    let _ = tx_gas_limit
-        .checked_mul(ERGS_PER_GAS)
-        .ok_or(internal_error!("TX gas limit overflows ergs counter"))?;
+
+    // we perform single check to make sure that we can use saturating operations to accumulate some costs,
+    // and even if those would saturate, we can still catch this case
+    require!(
+        tx_gas_limit.saturating_mul(ERGS_PER_GAS) < u64::MAX,
+        internal_error!("TX gas limit overflows ergs counter"),
+        system
+    )?;
 
     let calldata = transaction.calldata();
     let originator_expected_nonce = u256_to_u64_saturated(&transaction.nonce.read());
@@ -228,19 +227,21 @@ where
         } else if Config::ONLY_SIMULATE {
             SIMULATION_NATIVE_PER_GAS
         } else {
-            u256_try_to_u64(&gas_price.div_ceil(native_price)).expect("should be low enough")
+            u256_try_to_u64(&gas_price.div_ceil(native_price)).ok_or(TxError::Validation(
+                InvalidTransaction::NativeResourcesAreTooExpensive,
+            ))?
         }
     } else {
         0u64
     };
 
     let native_per_pubdata = gas_per_pubdata.saturating_mul(native_per_gas);
-    let native_to_cover_gas_use = native_per_gas.saturating_mul(tx_gas_limit);
+    let native_prepaid_from_gas = native_per_gas.saturating_mul(tx_gas_limit);
 
     // Now we will materialize resources, from which we will try to charge intrinsic cost on top
     let mut tx_resources = create_resources_for_tx::<S>(
         tx_gas_limit,
-        native_to_cover_gas_use,
+        native_prepaid_from_gas,
         native_per_pubdata,
         transaction.is_deployment(),
         calldata.len() as u64,
@@ -429,5 +430,6 @@ where
         native_per_gas,
         tx_gas_limit,
         gas_used: 0,
+        validation_pubdata: 0,
     })
 }

@@ -76,6 +76,8 @@ pub enum InvalidTransaction {
     UpgradeTxNotFirst,
     /// EIP-7623 calldata cost is not paid
     EIP7623IntrinsicGasIsTooLow,
+    /// Native resources cost is too high
+    NativeResourcesAreTooExpensive,
 
     /// Call during AA validation reverted
     Revert {

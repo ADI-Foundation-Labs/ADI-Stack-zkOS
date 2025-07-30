@@ -544,9 +544,13 @@ where
             .get_logger()
             .write_fmt(format_args!("Fees were collected\n"));
 
-        // execute main body
-        // Just used for computing native used
+        let validation_pubdata = system.net_pubdata_used()?;
+        tx_context.validation_pubdata = validation_pubdata;
+
+        // Save resources to be able to compute native consumption after everything
         let initial_resources = tx_context.resources.main_resources.clone();
+
+        // execute main body
         system.set_tx_context(transaction.from.read(), tx_context.gas_price_for_metadata);
 
         // Take a snapshot in case we need to revert due to out of native.
@@ -612,35 +616,14 @@ where
             .main_resources
             .reclaim_withheld(tx_context.resources.withheld.clone());
 
-        // We need to compute
-
-        let (gas_used, evm_refund, pubdata_used) = if !Config::ONLY_SIMULATE {
+        let (gas_used, evm_refund, pubdata_used) =
             Self::refund_transaction_for_basic_ethereum_flow::<Config>(
                 system,
                 &transaction,
                 &mut tx_context,
                 pubdata_info,
                 tracer,
-            )?
-        } else {
-            let min_gas_used = tx_context.minimal_ergs_to_charge.0 / ERGS_PER_GAS;
-            // Compute gas used following the same logic as in normal execution
-            // TODO: remove when simulation flow runs validation
-            let (pubdata_spent, to_charge_for_pubdata) = get_resources_to_charge_for_pubdata(
-                system,
-                U256::from(tx_context.native_per_pubdata),
-                None,
             )?;
-            let (_gas_refund, evm_refund, gas_used) = Self::compute_gas_refund(
-                system,
-                to_charge_for_pubdata,
-                transaction.gas_limit.read(),
-                min_gas_used,
-                U256::from(tx_context.native_per_gas),
-                &mut tx_context.resources.main_resources,
-            )?;
-            (gas_used, evm_refund, pubdata_spent)
-        };
 
         // Add back the intrinsic native charged in get_resources_for_tx,
         // as initial_resources doesn't include them.
@@ -648,8 +631,7 @@ where
             .diff(initial_resources)
             .native()
             .as_u64()
-            + 0;
-        // + intrinsic_computational_native_charged;
+            .saturating_add(tx_context.resources.intrinsic_computational_native_charged);
 
         #[cfg(not(target_arch = "riscv32"))]
         cycle_marker::log_marker(
@@ -710,6 +692,26 @@ where
         pubdata_info: Option<(u64, S::Resources)>,
         tracer: &mut impl Tracer<S>,
     ) -> Result<(u64, u64, u64), BootloaderSubsystemError> {
+        if Config::ONLY_SIMULATE {
+            let min_gas_used = context.minimal_ergs_to_charge.0 / ERGS_PER_GAS;
+            // Compute gas used following the same logic as in normal execution
+            // TODO: remove when simulation flow runs validation
+            let (pubdata_spent, to_charge_for_pubdata) = get_resources_to_charge_for_pubdata(
+                system,
+                U256::from(context.native_per_pubdata),
+                None,
+            )?;
+            let (_gas_refund, evm_refund, gas_used) = Self::compute_gas_refund(
+                system,
+                to_charge_for_pubdata,
+                transaction.gas_limit.read(),
+                min_gas_used,
+                U256::from(context.native_per_gas),
+                &mut context.resources.main_resources,
+            )?;
+            return Ok((gas_used, evm_refund, pubdata_spent));
+        }
+
         let _ = system
             .get_logger()
             .write_fmt(format_args!("Start of refund\n"));
@@ -719,8 +721,7 @@ where
             &context.resources.main_resources, &pubdata_info
         ));
 
-        // TODO: consider operator refund
-        let validation_pubdata = 0; // TODO
+        let validation_pubdata = context.validation_pubdata;
 
         // Pubdata for validation has been charged already,
         // we charge for the rest now.
@@ -820,8 +821,7 @@ where
         };
 
         #[cfg(not(feature = "evm_refunds"))]
-        compile_error!("debug");
-        // let refund_before_native = 0;
+        let refund_before_native = 0;
 
         let _ = system.get_logger().write_fmt(format_args!(
             "Gas refund from refund counters = {refund_before_native}\n"

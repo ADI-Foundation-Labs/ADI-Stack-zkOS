@@ -10,7 +10,6 @@ use errors::BootloaderSubsystemError;
 use result_keeper::ResultKeeperExt;
 use ruint::aliases::*;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::memory::slice_vec::SliceVec;
 use zk_ee::system::tracer::Tracer;
 use zk_ee::system::{EthereumLikeTypes, System, SystemTypes};
 

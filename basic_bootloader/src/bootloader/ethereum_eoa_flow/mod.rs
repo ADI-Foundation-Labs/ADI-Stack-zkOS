@@ -3,9 +3,7 @@ use crate::bootloader::errors::InvalidTransaction;
 use crate::bootloader::{
     transaction::ZkSyncTransaction, transaction_flow::BasicTransactionFlowInBootloader,
 };
-use evm_interpreter::ERGS_PER_GAS;
 use zk_ee::out_of_native_resources;
-use zk_ee::system::errors::interface::InterfaceError;
 use zk_ee::system::errors::runtime::RuntimeError;
 use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::logger::Logger;
@@ -30,6 +28,7 @@ pub struct TxContextForPreAndPostProcessing<S: EthereumLikeTypes> {
     pub native_per_gas: u64,
     pub tx_gas_limit: u64,
     pub gas_used: u64,
+    pub validation_pubdata: u64,
 }
 
 impl<S: EthereumLikeTypes> core::fmt::Debug for TxContextForPreAndPostProcessing<S> {
@@ -49,6 +48,7 @@ impl<S: EthereumLikeTypes> core::fmt::Debug for TxContextForPreAndPostProcessing
             .field("native_per_gas", &self.native_per_gas)
             .field("tx_gas_limit", &self.tx_gas_limit)
             .field("gas_used", &self.gas_used)
+            .field("validation_pubdata", &self.validation_pubdata)
             .finish()
     }
 }
@@ -371,7 +371,7 @@ where
         system: &mut System<S>,
         transaction: &Self::Transaction<'_>,
         context: &mut Self::TransactionContext,
-        tracer: &mut impl Tracer<S>,
+        _tracer: &mut impl Tracer<S>,
     ) -> Result<(), BootloaderSubsystemError> {
         // here we refund the user, then we will transfer fee to the operator
 
