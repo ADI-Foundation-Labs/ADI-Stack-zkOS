@@ -428,7 +428,8 @@ impl<'a> ZkSyncTransaction<'a> {
     }
 
     pub fn is_deployment(&self) -> bool {
-        !self.reserved[1].read().is_zero() || self.to.read() == crate::bootloader::constants::SPECIAL_ADDRESS_TO_WASM_DEPLOY
+        !self.reserved[1].read().is_zero()
+            || self.to.read() == crate::bootloader::constants::SPECIAL_ADDRESS_TO_WASM_DEPLOY
     }
 
     pub fn paymaster_input(&self) -> &[u8] {

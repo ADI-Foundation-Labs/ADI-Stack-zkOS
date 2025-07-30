@@ -1,17 +1,21 @@
 use crate::bootloader::account_models::{AccountModel, ExecutionOutput, ExecutionResult};
+use crate::bootloader::constants::*;
 use crate::bootloader::errors::InvalidTransaction::CreateInitCodeSizeLimit;
 use crate::bootloader::errors::{AAMethod, BootloaderSubsystemError};
 use crate::bootloader::errors::{InvalidTransaction, TxError};
+use crate::bootloader::execution_steps::TxContextForPreAndPostProcessing;
+use crate::bootloader::gas_helpers::ResourcesForTx;
 use crate::bootloader::runner::{run_till_completion, RunnerMemoryBuffers};
 use crate::bootloader::supported_ees::SystemBoundEVMInterpreter;
 use crate::bootloader::transaction::ZkSyncTransaction;
+use crate::bootloader::BasicBootloaderExecutionConfig;
 use crate::bootloader::{BasicBootloader, Bytes32};
+use crate::require;
 use core::fmt::Write;
 use crypto::secp256k1::SECP256K1N_HALF;
 use evm_interpreter::{ERGS_PER_GAS, MAX_INITCODE_SIZE};
 use ruint::aliases::{B160, U256};
 use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
-use crate::bootloader::constants::*;
 use system_hooks::HooksStorage;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::memory::ArrayBuilder;
@@ -23,14 +27,9 @@ use zk_ee::system::{
     logger::Logger,
     EthereumLikeTypes, System, SystemTypes, *,
 };
+use zk_ee::utils::*;
 use zk_ee::utils::{b160_to_u256, u256_to_b160_checked};
 use zk_ee::{internal_error, out_of_native_resources, wrap_error};
-use crate::require;
-use crate::bootloader::BasicBootloaderExecutionConfig;
-use crate::bootloader::gas_helpers::ResourcesForTx;
-use zk_ee::utils::*;
-use crate::bootloader::execution_steps::TxContextForPreAndPostProcessing;
-
 
 fn create_resources_for_tx<S: EthereumLikeTypes>(
     gas_limit: u64,
@@ -89,7 +88,8 @@ fn create_resources_for_tx<S: EthereumLikeTypes>(
     };
 
     // Charge for calldata and intrinsic native
-    let calldata_native = calldata_len.saturating_mul(evm_interpreter::native_resource_constants::COPY_BYTE_NATIVE_COST);
+    let calldata_native = calldata_len
+        .saturating_mul(evm_interpreter::native_resource_constants::COPY_BYTE_NATIVE_COST);
     let intrinsic_computational_native_charged = calldata_native
         .checked_add(intrinsic_native as u64)
         .ok_or(TxError::Validation(
@@ -117,12 +117,14 @@ fn create_resources_for_tx<S: EthereumLikeTypes>(
         if calldata_len > MAX_INITCODE_SIZE as u64 {
             return Err(TxError::Validation(CreateInitCodeSizeLimit));
         }
-        intrinsic_overhead = intrinsic_overhead.saturating_add(DEPLOYMENT_TX_EXTRA_INTRINSIC_GAS as u64);
+        intrinsic_overhead =
+            intrinsic_overhead.saturating_add(DEPLOYMENT_TX_EXTRA_INTRINSIC_GAS as u64);
         let initcode_gas_cost = evm_interpreter::gas_constants::INITCODE_WORD_COST
             * (calldata_len.next_multiple_of(32) / 32);
         intrinsic_overhead = intrinsic_overhead.saturating_add(initcode_gas_cost as u64);
     }
-    intrinsic_overhead = intrinsic_overhead.saturating_add(calldata_tokens.saturating_mul(CALLDATA_TOKEN_GAS_COST));
+    intrinsic_overhead =
+        intrinsic_overhead.saturating_add(calldata_tokens.saturating_mul(CALLDATA_TOKEN_GAS_COST));
 
     if intrinsic_overhead > gas_limit {
         Err(TxError::Validation(
@@ -147,7 +149,7 @@ fn create_resources_for_tx<S: EthereumLikeTypes>(
 /// Will perform basic validation, namely - checking signature, minimal resource requirements for transaction validity,
 /// and will pre-charge sender to cover worst case cost. It may perform IO if needed to e.g. warm up some storage slots,
 /// or mark delegation
-/// 
+///
 /// NOTE: This function will open and close IO frame
 pub(crate) fn validate_and_compute_fee_for_transaction<
     S: EthereumLikeTypes,
@@ -158,8 +160,8 @@ pub(crate) fn validate_and_compute_fee_for_transaction<
     _tracer: &mut impl Tracer<S>,
 ) -> Result<TxContextForPreAndPostProcessing<S>, TxError>
 where
-    S::IO: IOSubsystemExt {
-    
+    S::IO: IOSubsystemExt,
+{
     // NOTE: this function checks the transaction validity a-la Ethereum one,
     // but also takes into account ZK/L2 specific pieces, such as pubdata in state-diffs model,
     // or heavy mismatch between Ethereum/EVM cost model and proving complexity
@@ -167,7 +169,9 @@ where
     // safe to panic, validated by the structure
     let from = transaction.from.read();
     let tx_gas_limit = transaction.gas_limit.read();
-    let _ = tx_gas_limit.checked_mul(ERGS_PER_GAS).ok_or(internal_error!("TX gas limit overflows ergs counter"))?;
+    let _ = tx_gas_limit
+        .checked_mul(ERGS_PER_GAS)
+        .ok_or(internal_error!("TX gas limit overflows ergs counter"))?;
 
     let calldata = transaction.calldata();
     let originator_expected_nonce = u256_to_u64_saturated(&transaction.nonce.read());
@@ -194,10 +198,9 @@ where
     let (calldata_tokens, min_post_tx_gas_cost) = {
         let zero_bytes = calldata.iter().filter(|byte| **byte == 0).count() as u64;
         let non_zero_bytes = (calldata.len() as u64) - zero_bytes;
-        let zero_bytes_factor = zero_bytes
-            .saturating_mul(CALLDATA_ZERO_BYTE_TOKEN_FACTOR);
-        let non_zero_bytes_factor = non_zero_bytes
-            .saturating_mul(CALLDATA_NON_ZERO_BYTE_TOKEN_FACTOR);
+        let zero_bytes_factor = zero_bytes.saturating_mul(CALLDATA_ZERO_BYTE_TOKEN_FACTOR);
+        let non_zero_bytes_factor =
+            non_zero_bytes.saturating_mul(CALLDATA_NON_ZERO_BYTE_TOKEN_FACTOR);
         let num_tokens = zero_bytes_factor.saturating_add(non_zero_bytes_factor);
 
         let floor_tokens_gas_cost = num_tokens.saturating_mul(TOTAL_COST_FLOOR_PER_TOKEN);
@@ -253,13 +256,14 @@ where
     // steps below are all not free, so the choice there is rather arbitrary. Let's first check the signature, as it's compute-only
     let tx_hash = {
         let chain_id = system.get_chain_id();
-        let tx_hash: Bytes32 = tx_resources.main_resources.with_infinite_ergs(|resources| {
-            transaction.calculate_hash(chain_id, resources)
-        })?.into();
-        let suggested_signed_hash: Bytes32 = tx_resources.main_resources.with_infinite_ergs(|resources| {
-            transaction
-                .calculate_signed_hash(chain_id, resources)
-        })?.into();
+        let tx_hash: Bytes32 = tx_resources
+            .main_resources
+            .with_infinite_ergs(|resources| transaction.calculate_hash(chain_id, resources))?
+            .into();
+        let suggested_signed_hash: Bytes32 = tx_resources
+            .main_resources
+            .with_infinite_ergs(|resources| transaction.calculate_signed_hash(chain_id, resources))?
+            .into();
 
         let signature = transaction.signature();
         let r = &signature[..32];
@@ -276,15 +280,17 @@ where
         ecrecover_input[96..128].copy_from_slice(s);
 
         let mut ecrecover_output = ArrayBuilder::default();
-        tx_resources.main_resources.with_infinite_ergs(|resources| {
-            S::SystemFunctions::secp256k1_ec_recover(
-                &ecrecover_input[..],
-                &mut ecrecover_output,
-                resources,
-                system.get_allocator(),
-            )
-            .map_err(SystemError::from)
-        })?;
+        tx_resources
+            .main_resources
+            .with_infinite_ergs(|resources| {
+                S::SystemFunctions::secp256k1_ec_recover(
+                    &ecrecover_input[..],
+                    &mut ecrecover_output,
+                    resources,
+                    system.get_allocator(),
+                )
+                .map_err(SystemError::from)
+            })?;
 
         if ecrecover_output.is_empty() {
             return Err(InvalidTransaction::IncorrectFrom {
@@ -312,21 +318,24 @@ where
 
     // now we can perfor IO related parts. Getting originator's properties is included into the
     // intrinsic cost charnged above
-    let originator_account_data = tx_resources.main_resources.with_infinite_ergs(|inf_resources| {
-        system.io.read_account_properties(
-            ExecutionEnvironmentType::NoEE,
-            inf_resources,
-            &from,
-            AccountDataRequest::empty()
-                .with_ee_version()
-                .with_nonce()
-                .with_artifacts_len()
-                .with_unpadded_code_len()
-                .with_is_delegated()
-                .with_bytecode()
-                .with_nominal_token_balance()
-        )
-    })?;
+    let originator_account_data =
+        tx_resources
+            .main_resources
+            .with_infinite_ergs(|inf_resources| {
+                system.io.read_account_properties(
+                    ExecutionEnvironmentType::NoEE,
+                    inf_resources,
+                    &from,
+                    AccountDataRequest::empty()
+                        .with_ee_version()
+                        .with_nonce()
+                        .with_artifacts_len()
+                        .with_unpadded_code_len()
+                        .with_is_delegated()
+                        .with_bytecode()
+                        .with_nominal_token_balance(),
+                )
+            })?;
 
     // EIP-3607: Reject transactions from senders with deployed code modulo delegations
     if originator_account_data.is_contract() {
@@ -334,7 +343,8 @@ where
     }
 
     // Now we can apply access list and authorization list, while simultaneously charging for them
-    let originator_ee_type = ExecutionEnvironmentType::parse_ee_version_byte(originator_account_data.ee_version.0)?;
+    let originator_ee_type =
+        ExecutionEnvironmentType::parse_ee_version_byte(originator_account_data.ee_version.0)?;
 
     // Originator's nonce is incremented before authorization list
     let old_nonce = match tx_resources.main_resources.with_infinite_ergs(|resources| {
@@ -363,10 +373,9 @@ where
 
     // Access list
     {
-        if let Err(e) = transaction.parse_and_warm_up_access_list(
-            system,
-            &mut tx_resources.main_resources,
-        ) {
+        if let Err(e) =
+            transaction.parse_and_warm_up_access_list(system, &mut tx_resources.main_resources)
+        {
             return Err(e);
         }
     }
@@ -398,17 +407,15 @@ where
         ));
     }
 
-    Ok(
-        TxContextForPreAndPostProcessing {
-            resources: tx_resources,
-            originator_ee_type,
-            fee_to_prepay: fee_amount,
-            gas_price_to_use: gas_price,
-            minimal_ergs_to_charge: Ergs(min_post_tx_gas_cost.saturating_mul(ERGS_PER_GAS)),
-            originator_nonce_to_use: old_nonce,
-            tx_hash,
-            native_per_pubdata,
-            native_per_gas,
-        }
-    )
+    Ok(TxContextForPreAndPostProcessing {
+        resources: tx_resources,
+        originator_ee_type,
+        fee_to_prepay: fee_amount,
+        gas_price_to_use: gas_price,
+        minimal_ergs_to_charge: Ergs(min_post_tx_gas_cost.saturating_mul(ERGS_PER_GAS)),
+        originator_nonce_to_use: old_nonce,
+        tx_hash,
+        native_per_pubdata,
+        native_per_gas,
+    })
 }

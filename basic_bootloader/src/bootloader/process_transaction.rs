@@ -8,6 +8,7 @@ use crate::bootloader::constants::UPGRADE_TX_NATIVE_PER_GAS;
 use crate::bootloader::errors::BootloaderInterfaceError;
 use crate::bootloader::errors::TxError::Validation;
 use crate::bootloader::errors::{InvalidTransaction, TxError};
+use crate::bootloader::execution_steps::TxContextForPreAndPostProcessing;
 use crate::bootloader::runner::RunnerMemoryBuffers;
 use crate::{require, require_internal};
 use constants::L1_TX_INTRINSIC_NATIVE_COST;
@@ -36,7 +37,6 @@ use zk_ee::system::errors::runtime::RuntimeError;
 use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::{EthereumLikeTypes, Resources};
 use zk_ee::wrap_error;
-use crate::bootloader::execution_steps::TxContextForPreAndPostProcessing;
 
 /// Return value of validation step
 #[derive(Default)]
@@ -508,15 +508,14 @@ where
             }
         };
 
-        match crate::bootloader::execution_steps::process_fee_payments::prepay_transaction_fee::<S, Config>(
-            system,
-            &transaction,
-            &mut tx_context,
-            tracer,
-        ) {
+        match crate::bootloader::execution_steps::process_fee_payments::prepay_transaction_fee::<
+            S,
+            Config,
+        >(system, &transaction, &mut tx_context, tracer)
+        {
             Ok(_) => {
                 system.finish_global_frame(None)?;
-            },
+            }
             Err(e) => {
                 system.finish_global_frame(Some(&validation_rollback_handle))?;
                 return Err(e);
@@ -576,7 +575,10 @@ where
         // After the transaction is executed, we reclaim the withheld resources.
         // This is needed to ensure correct "gas_used" calculation, also these
         // resources could be spent for pubdata.
-        tx_context.resources.main_resources.reclaim_withheld(tx_context.resources.withheld.clone());
+        tx_context
+            .resources
+            .main_resources
+            .reclaim_withheld(tx_context.resources.withheld.clone());
 
         let (gas_used, evm_refund, pubdata_used) = if !Config::ONLY_SIMULATE {
             Self::refund_transaction::<Config>(
@@ -609,7 +611,7 @@ where
             .native()
             .as_u64()
             + 0;
-            // + intrinsic_computational_native_charged;
+        // + intrinsic_computational_native_charged;
 
         #[cfg(not(target_arch = "riscv32"))]
         cycle_marker::log_marker(
@@ -752,7 +754,7 @@ where
             memories,
             transaction,
             context,
-            tracer
+            tracer,
         )?;
 
         let _ = system
@@ -941,7 +943,12 @@ where
             .get_logger()
             .write_fmt(format_args!("Start of refund\n"));
         let _success = matches!(execution_result, ExecutionResult::Success { .. });
-        let _max_refunded_gas = context.resources.main_resources.ergs().0.div_floor(ERGS_PER_GAS);
+        let _max_refunded_gas = context
+            .resources
+            .main_resources
+            .ergs()
+            .0
+            .div_floor(ERGS_PER_GAS);
 
         // TODO: consider operator refund
         let validation_pubdata = 0; // TODO
@@ -975,22 +982,28 @@ where
 
         let rollback_handle = system.start_global_frame()?;
 
-        match crate::bootloader::execution_steps::process_fee_payments::refund_transaction_fee::<S, Config>(
+        match crate::bootloader::execution_steps::process_fee_payments::refund_transaction_fee::<
+            S,
+            Config,
+        >(
             system,
             transaction,
             context,
             u256_to_u64_saturated(&total_gas_refund),
-            tracer
+            tracer,
         ) {
             Ok(_) => {
                 system.finish_global_frame(None)?;
-            },
+            }
             Err(TxError::Internal(e)) => {
                 system.finish_global_frame(Some(&rollback_handle))?;
                 return Err(e);
-            },
+            }
             Err(TxError::Validation(e)) => {
-                system.get_logger().write_fmt(format_args!("Validation error {:?} on refund", &e)).unwrap();
+                system
+                    .get_logger()
+                    .write_fmt(format_args!("Validation error {:?} on refund", &e))
+                    .unwrap();
                 unreachable!();
             }
         }
