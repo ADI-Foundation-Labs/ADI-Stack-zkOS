@@ -388,20 +388,21 @@ impl FieldElement5x52 {
 
     #[inline(always)]
     pub(super) const fn normalize_in_place(&mut self) {
+        let mut of;
         let mut x = self.0[4] >> 48;
         self.0[4] &= 0x0FFFFFFFFFFFF;
 
         /* The first pass ensures the magnitude is 1, ... */
-        self.0[0] = self.0[0].overflowing_add(x * 0x1000003D1).0;
-        self.0[1] = self.0[1].overflowing_add(self.0[0] >> 52).0;
+        (self.0[0], of) = self.0[0].overflowing_add(x * 0x1000003D1);
+        (self.0[1], of) = self.0[1].overflowing_add((self.0[0] >> 52) + of as u64);
         self.0[0] &= 0xFFFFFFFFFFFFF;
-        self.0[2] = self.0[2].overflowing_add(self.0[1] >> 52).0;
+        (self.0[2], of) = self.0[2].overflowing_add((self.0[1] >> 52) + of as u64);
         self.0[1] &= 0xFFFFFFFFFFFFF;
         let mut m = self.0[1];
-        self.0[3] = self.0[3].overflowing_add(self.0[2] >> 52).0;
+        (self.0[3], of) = self.0[3].overflowing_add((self.0[2] >> 52) + of as u64);
         self.0[2] &= 0xFFFFFFFFFFFFF;
         m &= self.0[2];
-        self.0[4] = self.0[4].overflowing_add(self.0[3] >> 52).0;
+        self.0[4] += (self.0[3] >> 52) + of as u64;
         self.0[3] &= 0xFFFFFFFFFFFFF;
         m &= self.0[3];
 
@@ -641,5 +642,17 @@ mod tests {
             let bytes = &*x.to_bytes();
             prop_assert_eq!(FieldElement5x52::from_bytes_unchecked(bytes.try_into().unwrap()), x);
         })
+    }
+
+    // the previous implementation didn't use `overflowing_add`,
+    // so the carry wasn't propagated between limbs
+    #[test]
+    fn test_normalize() {
+        // this is 2^256 + 2^64 - 1
+        let mut x = FieldElement5x52([u64::MAX, 0, 0, 0, 1 << 48]);
+        let x_ref = FieldElement5x52([4294968272, 1, 0, 0, 0]);
+        x.normalize_in_place();
+
+        assert_eq!(x.0, x_ref.0);
     }
 }

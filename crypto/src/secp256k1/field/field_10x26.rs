@@ -556,36 +556,45 @@ impl FieldElement10x26 {
 
     #[inline(always)]
     pub(super) const fn normalize_in_place(&mut self) {
+        let mut of;
         // Reduce self.0[9] at the start so there will be at most a single carry from the first pass
         let mut x = self.0[9] >> 22;
         self.0[9] &= 0x03FFFFF;
 
         // The first pass ensures the magnitude is 1, ...
-        self.0[0] = self.0[0].overflowing_add(x * 0x3D1).0;
-        self.0[1] = self.0[1].overflowing_add(x << 6).0;
-        self.0[1] = self.0[1].overflowing_add(self.0[0] >> 26).0;
+        (self.0[0], of) = self.0[0].overflowing_add(x * 0x3D1);
+        (self.0[1], of) = self.0[1].overflowing_add((x << 6) + (self.0[0] >> 26) + of as u32);
         self.0[0] &= 0x3FFFFFF;
-        self.0[2] = self.0[2].overflowing_add(self.0[1] >> 26).0;
+
+        (self.0[2], of) = self.0[2].overflowing_add((self.0[1] >> 26) + of as u32);
         self.0[1] &= 0x3FFFFFF;
-        self.0[3] = self.0[3].overflowing_add(self.0[2] >> 26).0;
+
+        (self.0[3], of) = self.0[3].overflowing_add((self.0[2] >> 26) + of as u32);
         self.0[2] &= 0x3FFFFFF;
+
         let mut m = self.0[2];
-        self.0[4] = self.0[4].overflowing_add(self.0[3] >> 26).0;
+
+        (self.0[4], of) = self.0[4].overflowing_add((self.0[3] >> 26) + of as u32);
         self.0[3] &= 0x3FFFFFF;
         m &= self.0[3];
-        self.0[5] = self.0[5].overflowing_add(self.0[4] >> 26).0;
+
+        (self.0[5], of) = self.0[5].overflowing_add((self.0[4] >> 26) + of as u32);
         self.0[4] &= 0x3FFFFFF;
         m &= self.0[4];
-        self.0[6] = self.0[6].overflowing_add(self.0[5] >> 26).0;
+
+        (self.0[6], of) = self.0[6].overflowing_add((self.0[5] >> 26) + of as u32);
         self.0[5] &= 0x3FFFFFF;
         m &= self.0[5];
-        self.0[7] = self.0[7].overflowing_add(self.0[6] >> 26).0;
+
+        (self.0[7], of) = self.0[7].overflowing_add((self.0[6] >> 26) + of as u32);
         self.0[6] &= 0x3FFFFFF;
         m &= self.0[6];
-        self.0[8] = self.0[8].overflowing_add(self.0[7] >> 26).0;
+
+        (self.0[8], of) = self.0[8].overflowing_add((self.0[7] >> 26) + of as u32);
         self.0[7] &= 0x3FFFFFF;
         m &= self.0[7];
-        self.0[9] = self.0[9].overflowing_add(self.0[8] >> 26).0;
+
+        self.0[9] += (self.0[8] >> 26) + of as u32;
         self.0[8] &= 0x3FFFFFF;
         m &= self.0[8];
 
@@ -884,5 +893,17 @@ mod tests {
             let bytes = &*x.to_bytes();
             prop_assert_eq!(FieldElement10x26::from_bytes_unchecked(bytes.try_into().unwrap()), x);
         })
+    }
+
+    // the previous implementation didn't use `overflowing_add`,
+    // so the carry wasn't propagated between limbs
+    #[test]
+    fn test_normalize() {
+        // this is 2^256 + 2^32 - 1
+        let mut x = FieldElement10x26([u32::MAX, 0, 0, 0, 0, 0, 0, 0, 0, 1 << 22]);
+        let x_ref = FieldElement10x26([976, 65, 0, 0, 0, 0, 0, 0, 0, 0]);
+        x.normalize_in_place();
+
+        assert_eq!(x.0, x_ref.0);
     }
 }
