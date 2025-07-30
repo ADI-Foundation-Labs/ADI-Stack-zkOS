@@ -1,35 +1,15 @@
-use crate::bootloader::account_models::{AccountModel, ExecutionOutput, ExecutionResult};
-use crate::bootloader::constants::*;
-use crate::bootloader::errors::InvalidTransaction::CreateInitCodeSizeLimit;
-use crate::bootloader::errors::{AAMethod, BootloaderSubsystemError};
 use crate::bootloader::errors::{InvalidTransaction, TxError};
 use crate::bootloader::execution_steps::TxContextForPreAndPostProcessing;
-use crate::bootloader::gas_helpers::ResourcesForTx;
-use crate::bootloader::runner::{run_till_completion, RunnerMemoryBuffers};
-use crate::bootloader::supported_ees::SystemBoundEVMInterpreter;
 use crate::bootloader::transaction::ZkSyncTransaction;
 use crate::bootloader::BasicBootloaderExecutionConfig;
-use crate::bootloader::{BasicBootloader, Bytes32};
-use crate::require;
 use core::fmt::Write;
-use crypto::secp256k1::SECP256K1N_HALF;
-use evm_interpreter::{ERGS_PER_GAS, MAX_INITCODE_SIZE};
+use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::{B160, U256};
-use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
-use system_hooks::HooksStorage;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::memory::ArrayBuilder;
-use zk_ee::system::errors::interface::InterfaceError;
 use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::tracer::Tracer;
-use zk_ee::system::{
-    errors::{runtime::RuntimeError, system::SystemError},
-    logger::Logger,
-    EthereumLikeTypes, System, SystemTypes, *,
-};
-use zk_ee::utils::*;
-use zk_ee::utils::{b160_to_u256, u256_to_b160_checked};
-use zk_ee::{internal_error, out_of_native_resources, wrap_error};
+use zk_ee::system::{errors::runtime::RuntimeError, EthereumLikeTypes, System, *};
+use zk_ee::{internal_error, out_of_native_resources};
 
 pub(crate) fn prepay_transaction_fee<S: EthereumLikeTypes, Config: BasicBootloaderExecutionConfig>(
     system: &mut System<S>,
@@ -40,13 +20,10 @@ pub(crate) fn prepay_transaction_fee<S: EthereumLikeTypes, Config: BasicBootload
 where
     S::IO: IOSubsystemExt,
 {
-    let from = transaction.from.read();
-    let beneficiary = system.get_coinbase();
-
     pay::<S, Config>(
         system,
-        &from,
-        &beneficiary,
+        &transaction.from.read(),
+        &system.get_coinbase(),
         &context.fee_to_prepay,
         &mut context.resources.main_resources,
         tracer,
@@ -106,11 +83,14 @@ pub(crate) fn refund_transaction_fee<S: EthereumLikeTypes, Config: BasicBootload
 where
     S::IO: IOSubsystemExt,
 {
-    let from = transaction.from.read();
-    let beneficiary = system.get_coinbase();
-
     // we should check remaining ergs (already refunded), and avoid paying if it's too low
     if context.minimal_ergs_to_charge.0 / ERGS_PER_GAS >= gas_to_refund {
+        system
+            .get_logger()
+            .write_fmt(format_args!(
+                "Minimal intrinsic cost to charge is higher than gas spent, aborting refund"
+            ))
+            .unwrap();
         return Ok(());
     }
     let refund_amount = context
@@ -120,8 +100,8 @@ where
 
     pay::<S, Config>(
         system,
-        &from,
-        &beneficiary,
+        &system.get_coinbase(),
+        &transaction.from.read(),
         &refund_amount,
         &mut context.resources.main_resources,
         tracer,

@@ -1,36 +1,20 @@
 use super::*;
-use crate::bootloader::account_models::{AccountModel, ExecutionOutput, ExecutionResult};
 use crate::bootloader::constants::*;
-use crate::bootloader::errors::InvalidTransaction::CreateInitCodeSizeLimit;
-use crate::bootloader::errors::{AAMethod, BootloaderSubsystemError};
-use crate::bootloader::errors::{InvalidTransaction, TxError};
-use crate::bootloader::execution_steps::TxContextForPreAndPostProcessing;
-use crate::bootloader::gas_helpers::ResourcesForTx;
+use crate::bootloader::errors::BootloaderSubsystemError;
 use crate::bootloader::runner::{run_till_completion, RunnerMemoryBuffers};
 use crate::bootloader::supported_ees::SystemBoundEVMInterpreter;
-use crate::bootloader::transaction::ZkSyncTransaction;
-use crate::bootloader::BasicBootloaderExecutionConfig;
-use crate::bootloader::{BasicBootloader, Bytes32};
-use crate::require;
 use core::fmt::Write;
-use crypto::secp256k1::SECP256K1N_HALF;
 use evm_interpreter::{ERGS_PER_GAS, MAX_INITCODE_SIZE};
 use ruint::aliases::{B160, U256};
-use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
 use system_hooks::HooksStorage;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::memory::ArrayBuilder;
-use zk_ee::system::errors::interface::InterfaceError;
-use zk_ee::system::errors::subsystem::SubsystemError;
+use zk_ee::internal_error;
 use zk_ee::system::tracer::Tracer;
 use zk_ee::system::{
     errors::{runtime::RuntimeError, system::SystemError},
     logger::Logger,
-    EthereumLikeTypes, System, SystemTypes, *,
+    EthereumLikeTypes, System, *,
 };
-use zk_ee::utils::*;
-use zk_ee::utils::{b160_to_u256, u256_to_b160_checked};
-use zk_ee::{internal_error, out_of_native_resources, wrap_error};
 
 /// Run the deployment part of a contract creation tx
 /// The boolean in the return

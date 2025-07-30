@@ -8,15 +8,11 @@ use ruint::aliases::B160;
 use ruint::aliases::U256;
 use zk_ee::system::ReturnValues;
 use zk_ee::system::SystemTypes;
+use zk_ee::system::{Ergs, EthereumLikeTypes};
 use zk_ee::utils::Bytes32;
-use zk_ee::{
-    execution_environment_type::ExecutionEnvironmentType,
-    system::{Ergs, EthereumLikeTypes},
-};
 
 pub(crate) struct TxContextForPreAndPostProcessing<S: EthereumLikeTypes> {
     pub(crate) resources: ResourcesForTx<S>,
-    pub(crate) originator_ee_type: ExecutionEnvironmentType,
     pub(crate) fee_to_prepay: U256,
     pub(crate) gas_price_to_use: U256,
     pub(crate) minimal_ergs_to_charge: Ergs,

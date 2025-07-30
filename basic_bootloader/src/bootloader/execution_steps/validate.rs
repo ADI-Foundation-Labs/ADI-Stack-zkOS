@@ -1,12 +1,8 @@
-use crate::bootloader::account_models::{AccountModel, ExecutionOutput, ExecutionResult};
 use crate::bootloader::constants::*;
 use crate::bootloader::errors::InvalidTransaction::CreateInitCodeSizeLimit;
-use crate::bootloader::errors::{AAMethod, BootloaderSubsystemError};
 use crate::bootloader::errors::{InvalidTransaction, TxError};
 use crate::bootloader::execution_steps::TxContextForPreAndPostProcessing;
 use crate::bootloader::gas_helpers::ResourcesForTx;
-use crate::bootloader::runner::{run_till_completion, RunnerMemoryBuffers};
-use crate::bootloader::supported_ees::SystemBoundEVMInterpreter;
 use crate::bootloader::transaction::ZkSyncTransaction;
 use crate::bootloader::BasicBootloaderExecutionConfig;
 use crate::bootloader::{BasicBootloader, Bytes32};
@@ -15,21 +11,14 @@ use core::fmt::Write;
 use crypto::secp256k1::SECP256K1N_HALF;
 use evm_interpreter::{ERGS_PER_GAS, MAX_INITCODE_SIZE};
 use ruint::aliases::{B160, U256};
-use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
-use system_hooks::HooksStorage;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
+use zk_ee::internal_error;
 use zk_ee::memory::ArrayBuilder;
 use zk_ee::system::errors::interface::InterfaceError;
 use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::tracer::Tracer;
-use zk_ee::system::{
-    errors::{runtime::RuntimeError, system::SystemError},
-    logger::Logger,
-    EthereumLikeTypes, System, SystemTypes, *,
-};
+use zk_ee::system::{errors::system::SystemError, EthereumLikeTypes, System, *};
 use zk_ee::utils::*;
-use zk_ee::utils::{b160_to_u256, u256_to_b160_checked};
-use zk_ee::{internal_error, out_of_native_resources, wrap_error};
 
 fn create_resources_for_tx<S: EthereumLikeTypes>(
     gas_limit: u64,
@@ -343,14 +332,12 @@ where
     }
 
     // Now we can apply access list and authorization list, while simultaneously charging for them
-    let originator_ee_type =
-        ExecutionEnvironmentType::parse_ee_version_byte(originator_account_data.ee_version.0)?;
 
     // Originator's nonce is incremented before authorization list
     let old_nonce = match tx_resources.main_resources.with_infinite_ergs(|resources| {
         system
             .io
-            .increment_nonce(originator_ee_type, resources, &from, 1u64)
+            .increment_nonce(ExecutionEnvironmentType::NoEE, resources, &from, 1u64)
     }) {
         Ok(x) => x,
         Err(SubsystemError::LeafUsage(InterfaceError(NonceError::NonceOverflow, _))) => {
@@ -409,7 +396,6 @@ where
 
     Ok(TxContextForPreAndPostProcessing {
         resources: tx_resources,
-        originator_ee_type,
         fee_to_prepay: fee_amount,
         gas_price_to_use: gas_price,
         minimal_ergs_to_charge: Ergs(min_post_tx_gas_cost.saturating_mul(ERGS_PER_GAS)),
