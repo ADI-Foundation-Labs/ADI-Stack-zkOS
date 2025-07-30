@@ -340,6 +340,10 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
 
             tracer.begin_tx(initial_calldata_buffer);
 
+            if tx_counter == 161 {
+                let _ = logger.write_fmt(format_args!("DEBUG\n",));
+            }
+
             // We will give the full buffer here, and internally we will use parts of it to give forward to EEs
             cycle_marker::start!("process_transaction");
 

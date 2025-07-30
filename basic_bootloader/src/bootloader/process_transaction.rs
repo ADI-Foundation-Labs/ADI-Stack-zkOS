@@ -605,7 +605,6 @@ where
                 system,
                 &transaction,
                 &mut tx_context,
-                &execution_result,
                 pubdata_info,
                 tracer,
             )?
@@ -740,20 +739,17 @@ where
         system: &mut System<S>,
         transaction: &ZkSyncTransaction<'_>,
         context: &mut TxContextForPreAndPostProcessing<S>,
-        execution_result: &ExecutionResult<'_>,
         pubdata_info: Option<(u64, S::Resources)>,
         tracer: &mut impl Tracer<S>,
     ) -> Result<(u64, u64, u64), BootloaderSubsystemError> {
         let _ = system
             .get_logger()
             .write_fmt(format_args!("Start of refund\n"));
-        let _success = matches!(execution_result, ExecutionResult::Success { .. });
-        let _max_refunded_gas = context
-            .resources
-            .main_resources
-            .ergs()
-            .0
-            .div_floor(ERGS_PER_GAS);
+
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Have {:?} resources available before refund, and need to cover {:?} pubdata\n",
+            &context.resources.main_resources, &pubdata_info
+        ));
 
         // TODO: consider operator refund
         let validation_pubdata = 0; // TODO

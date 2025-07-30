@@ -22,7 +22,7 @@ pub(crate) fn process_deployment<'a, S: EthereumLikeTypes>(
     system: &mut System<S>,
     system_functions: &mut HooksStorage<S, S::Allocator>,
     memories: RunnerMemoryBuffers<'a>,
-    resources: &mut S::Resources,
+    mut resources: S::Resources,
     to_ee_type: ExecutionEnvironmentType,
     main_calldata: &[u8],
     from: B160,

@@ -40,6 +40,7 @@ where
         None
     };
 
+    let resources = context.resources.main_resources.take();
     let TxExecutionResult {
         return_values,
         resources_returned,
@@ -50,7 +51,7 @@ where
             system,
             system_functions,
             memories,
-            &mut context.resources.main_resources,
+            resources,
             to_ee_type,
             main_calldata,
             from,
@@ -66,7 +67,7 @@ where
                 main_calldata,
                 &from,
                 &to,
-                context.resources.main_resources.take(),
+                resources,
                 &nominal_token_value,
                 true,
                 tracer,
@@ -88,8 +89,6 @@ where
         }
     };
 
-    let resources_after_main_tx = resources_returned;
-
     let returndata_region = return_values.returndata;
 
     let _ = system
@@ -101,9 +100,9 @@ where
         .write_fmt(format_args!("Main TX body successful = {}\n", !reverted));
 
     let _ = system.get_logger().write_fmt(format_args!(
-        "Resources to refund = {resources_after_main_tx:?}\n"
+        "Resources to refund = {resources_returned:?}\n"
     ));
-    context.resources.main_resources = resources_after_main_tx;
+    context.resources.main_resources.reclaim(resources_returned);
 
     let result = match reverted {
         true => ExecutionResult::Revert {

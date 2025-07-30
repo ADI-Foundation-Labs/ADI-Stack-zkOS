@@ -471,7 +471,9 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             }
         }
 
-        let block_context = block_context.unwrap_or_default();
+        let mut block_context = block_context.unwrap_or_default();
+        block_context.native_price = U256::ZERO;
+
         let block_metadata = BlockMetadataFromOracle {
             chain_id: self.chain_id,
             block_number: self.block_number + 1,
@@ -517,13 +519,14 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         oracle.add_external_processor(initial_root_reponder);
         oracle.add_external_processor(UARTPrintReponsder);
 
+        use basic_bootloader::bootloader::config::BasicBootloaderForwardETHLikeConfig;
         use forward_system::run::result_keeper::ForwardRunningResultKeeper;
         use forward_system::system::system::EthereumStorageSystemTypes;
         use oracle_provider::DummyMemorySource;
 
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
         let mut nop_tracer = NopTracer::default();
-        BasicBootloader::<EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>>::run_for_state_root_only::<BasicBootloaderForwardSimulationConfig, false>(oracle, &mut result_keeper, &mut nop_tracer).expect("must succeed");
+        BasicBootloader::<EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>>::run_for_state_root_only::<BasicBootloaderForwardETHLikeConfig, false>(oracle, &mut result_keeper, &mut nop_tracer).expect("must succeed");
 
         result_keeper.into()
     }

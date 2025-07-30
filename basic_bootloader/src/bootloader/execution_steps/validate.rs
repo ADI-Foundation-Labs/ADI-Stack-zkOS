@@ -211,16 +211,22 @@ where
         transaction.max_fee_per_gas.read(),
         transaction.max_priority_fee_per_gas.read(),
     )?;
-    if native_price.is_zero() {
-        return Err(internal_error!("Native price cannot be 0").into());
-    };
-    let native_per_gas = if cfg!(feature = "resources_for_tester") {
-        U256::from(crate::bootloader::constants::TESTER_NATIVE_PER_GAS)
-    } else if Config::ONLY_SIMULATE {
-        SIMULATION_NATIVE_PER_GAS
+    let native_per_gas = if Config::SKIP_NATIVE_RESOURCES == false {
+        if native_price.is_zero() {
+            return Err(internal_error!("Native price cannot be 0").into());
+        }
+
+        if cfg!(feature = "resources_for_tester") {
+            U256::from(crate::bootloader::constants::TESTER_NATIVE_PER_GAS)
+        } else if Config::ONLY_SIMULATE {
+            SIMULATION_NATIVE_PER_GAS
+        } else {
+            gas_price.div_ceil(native_price)
+        }
     } else {
-        gas_price.div_ceil(native_price)
+        U256::ZERO
     };
+
     let native_per_pubdata = gas_per_pubdata
         .checked_mul(native_per_gas)
         .ok_or(internal_error!("gpp*npg"))?;

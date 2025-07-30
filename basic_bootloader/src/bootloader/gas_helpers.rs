@@ -22,6 +22,7 @@ pub struct ResourcesForTx<S: EthereumLikeTypes> {
 impl<S: EthereumLikeTypes> core::fmt::Debug for ResourcesForTx<S> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("ResourcesForTx")
+            .field("gas", &(self.main_resources.ergs().0 / ERGS_PER_GAS))
             .field("main_resources", &self.main_resources)
             .field("withheld", &self.withheld)
             .field(
