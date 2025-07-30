@@ -4,7 +4,6 @@ use crate::system_implementation::system::FlatStorageCommitment;
 use crate::system_implementation::system::TypedFinishIO;
 use zk_ee::system::logger::Logger;
 use zk_ee::system::{IOResultKeeper, IOSubsystemExt, System, SystemTypes};
-use zk_ee::system_io_oracle::IOOracle;
 use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::utils::Bytes32;
 use zk_ee::utils::NopHasher;

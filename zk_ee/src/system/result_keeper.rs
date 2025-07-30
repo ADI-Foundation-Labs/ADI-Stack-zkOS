@@ -11,7 +11,6 @@ use crate::common_structs::{
 };
 use crate::kv_markers::MAX_EVENT_TOPICS;
 use crate::types_config::SystemIOTypesConfig;
-use crate::utils::Bytes32;
 
 pub trait IOResultKeeper<IOTypes: SystemIOTypesConfig> {
     fn events<'a>(

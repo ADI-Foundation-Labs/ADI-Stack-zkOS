@@ -20,7 +20,6 @@ use zk_ee::{
 };
 
 use crate::system_implementation::cache_structs::storage_values::*;
-use zk_ee::common_structs::history_map::*;
 use zk_ee::common_structs::ValueDiffCompressionStrategy;
 
 /// This storage knows concrete definitions where wer store account data hashes, etc
@@ -120,44 +119,6 @@ impl<
         let old_value = self
             .0
             .apply_write_impl(ee_type, &sa, &key, new_value, oracle, resources)?;
-
-        // if ee_type == ExecutionEnvironmentType::EVM {
-        //     // EVM specific refunds calculation
-        //     #[cfg(feature = "evm_refunds")]
-        //     if old_value != *new_value {
-        //         let val_at_tx_start = *val_at_tx_start;
-
-        //         let mut gas_refunds = self
-        //             .0
-        //             .evm_refunds_counter
-        //             .value()
-        //             .copied()
-        //             .unwrap_or_default();
-
-        //         if old_value == val_at_tx_start {
-        //             if !val_at_tx_start.is_zero() && new_value.is_zero() {
-        //                 gas_refunds += 4800
-        //             }
-        //         } else {
-        //             if !val_at_tx_start.is_zero() {
-        //                 if old_value.is_zero() {
-        //                     gas_refunds -= 4800
-        //                 } else if new_value.is_zero() {
-        //                     gas_refunds += 4800
-        //                 }
-        //             }
-        //             if *new_value == val_at_tx_start {
-        //                 if val_at_tx_start.is_zero() {
-        //                     gas_refunds += 20000 - 100
-        //                 } else {
-        //                     gas_refunds += 5000 - 2100 - 100
-        //                 }
-        //             }
-        //         }
-
-        //         self.0.evm_refunds_counter.update(gas_refunds);
-        //     }
-        // }
 
         Ok(old_value)
     }

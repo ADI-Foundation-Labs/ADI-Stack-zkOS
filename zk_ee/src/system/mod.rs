@@ -28,7 +28,6 @@ pub const MAX_GLOBAL_CALLS_STACK_DEPTH: usize = 1024; // even though we do not h
                                                       // with such remaining resources
 
 use core::alloc::Allocator;
-use core::fmt::Write;
 
 use self::{
     errors::{internal::InternalError, system::SystemError},
