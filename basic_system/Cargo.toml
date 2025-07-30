@@ -36,7 +36,7 @@ default = ["testing"]
 cycle_marker = ["cycle_marker/log_to_file"]
 wrap-in-batch = []
 proving = ["crypto/proving"]
-evm_refunds = ["zk_ee/evm_refunds", "storage_models/evm_refunds"]
+evm_refunds = []
 
 [dev-dependencies]
 hex = {version = "0.4.3"}

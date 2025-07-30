@@ -199,12 +199,11 @@ pub fn run_proving_inner<
     >(oracle, &mut NopResultKeeper, &mut NopTracer::default())
     .expect("Tried to prove a failing batch");
 
-    // disconnect oracle before returning
-    // TODO: check this is the intended behaviour (ignoring the result)
+    // disconnect oracle before returning, if some other post-logic is needed that doesn't use Oracle trait
     #[allow(unused_must_use)]
     oracle
         .raw_query_with_empty_input(DISCONNECT_ORACLE_QUERY_ID)
         .expect("must disconnect an oracle before performing arbitrary CSR access");
 
-    public_input.as_u32_array()
+    unsafe { core::mem::transmute(public_input) }
 }

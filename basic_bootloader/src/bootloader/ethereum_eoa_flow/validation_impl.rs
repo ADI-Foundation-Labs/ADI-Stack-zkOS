@@ -1,7 +1,7 @@
 use crate::bootloader::constants::*;
 use crate::bootloader::errors::InvalidTransaction::CreateInitCodeSizeLimit;
 use crate::bootloader::errors::{InvalidTransaction, TxError};
-use crate::bootloader::execution_steps::TxContextForPreAndPostProcessing;
+use crate::bootloader::ethereum_eoa_flow::TxContextForPreAndPostProcessing;
 use crate::bootloader::gas_helpers::ResourcesForTx;
 use crate::bootloader::transaction::ZkSyncTransaction;
 use crate::bootloader::BasicBootloaderExecutionConfig;
@@ -22,8 +22,8 @@ use zk_ee::utils::*;
 
 fn create_resources_for_tx<S: EthereumLikeTypes>(
     gas_limit: u64,
-    native_per_pubdata: &U256,
-    native_per_gas: &U256,
+    native_resources_to_cover_gas_use: u64,
+    native_per_pubdata_byte: u64,
     is_deployment: bool,
     calldata_len: u64,
     calldata_tokens: u64,
@@ -41,13 +41,11 @@ fn create_resources_for_tx<S: EthereumLikeTypes>(
     let native_limit = if cfg!(feature = "unlimited_native") {
         u64::MAX
     } else {
-        gas_limit.saturating_mul(u256_to_u64_saturated(&native_per_gas))
+        native_resources_to_cover_gas_use
     };
 
     // Charge pubdata overhead
-    let intrinsic_pubdata_overhead = u256_to_u64_saturated(native_per_pubdata)
-        .checked_mul(intrinsic_pubdata as u64)
-        .ok_or(internal_error!("npp*ip"))?;
+    let intrinsic_pubdata_overhead = native_per_pubdata_byte.saturating_mul(intrinsic_pubdata);
     let native_limit =
         native_limit
             .checked_sub(intrinsic_pubdata_overhead)
@@ -145,7 +143,7 @@ pub(crate) fn validate_and_compute_fee_for_transaction<
     Config: BasicBootloaderExecutionConfig,
 >(
     system: &mut System<S>,
-    transaction: &ZkSyncTransaction,
+    transaction: &ZkSyncTransaction<'_>,
     _tracer: &mut impl Tracer<S>,
 ) -> Result<TxContextForPreAndPostProcessing<S>, TxError>
 where
@@ -184,7 +182,7 @@ where
     }
 
     // EIP-7623
-    let (calldata_tokens, min_post_tx_gas_cost) = {
+    let (calldata_tokens, minimal_gas_used) = {
         let zero_bytes = calldata.iter().filter(|byte| **byte == 0).count() as u64;
         let non_zero_bytes = (calldata.len() as u64) - zero_bytes;
         let zero_bytes_factor = zero_bytes.saturating_mul(CALLDATA_ZERO_BYTE_TOKEN_FACTOR);
@@ -201,45 +199,53 @@ where
             system
         )?;
 
-        (num_tokens, floor_tokens_gas_cost)
+        (num_tokens, intrinsic_gas)
     };
 
-    let gas_per_pubdata = system.get_gas_per_pubdata();
+    let gas_per_pubdata =
+        u256_try_to_u64(&system.get_gas_per_pubdata()).expect("should be low enough");
     let native_price = system.get_native_price();
+
     let gas_price = BasicBootloader::<S>::get_gas_price(
         system,
         transaction.max_fee_per_gas.read(),
         transaction.max_priority_fee_per_gas.read(),
     )?;
+
+    let gas_price_for_fee_commitment = if cfg!(feature = "charge_priority_fee") {
+        U256::from(transaction.max_priority_fee_per_gas.read())
+    } else {
+        gas_price
+    };
+
     let native_per_gas = if Config::SKIP_NATIVE_RESOURCES == false {
         if native_price.is_zero() {
             return Err(internal_error!("Native price cannot be 0").into());
         }
 
         if cfg!(feature = "resources_for_tester") {
-            U256::from(crate::bootloader::constants::TESTER_NATIVE_PER_GAS)
+            crate::bootloader::constants::TESTER_NATIVE_PER_GAS
         } else if Config::ONLY_SIMULATE {
             SIMULATION_NATIVE_PER_GAS
         } else {
-            gas_price.div_ceil(native_price)
+            u256_try_to_u64(&gas_price.div_ceil(native_price)).expect("should be low enough")
         }
     } else {
-        U256::ZERO
+        0u64
     };
 
-    let native_per_pubdata = gas_per_pubdata
-        .checked_mul(native_per_gas)
-        .ok_or(internal_error!("gpp*npg"))?;
+    let native_per_pubdata = gas_per_pubdata.saturating_mul(native_per_gas);
+    let native_to_cover_gas_use = native_per_gas.saturating_mul(tx_gas_limit);
 
     // Now we will materialize resources, from which we will try to charge intrinsic cost on top
     let mut tx_resources = create_resources_for_tx::<S>(
         tx_gas_limit,
-        &native_per_pubdata,
-        &native_per_gas,
+        native_to_cover_gas_use,
+        native_per_pubdata,
         transaction.is_deployment(),
         calldata.len() as u64,
         calldata_tokens,
-        L2_TX_INTRINSIC_GAS as u64, // it does include signature verification that will happen below
+        L2_TX_INTRINSIC_GAS as u64, // it DOES include signature verification that will happen below, and reading originator account properties
         L2_TX_INTRINSIC_PUBDATA as u64,
         L2_TX_INTRINSIC_NATIVE_COST as u64,
     )?;
@@ -411,11 +417,14 @@ where
     Ok(TxContextForPreAndPostProcessing {
         resources: tx_resources,
         fee_to_prepay: fee_amount,
-        gas_price_to_use: gas_price,
-        minimal_ergs_to_charge: Ergs(min_post_tx_gas_cost.saturating_mul(ERGS_PER_GAS)),
+        gas_price_for_metadata: gas_price,
+        gas_price_for_fee_commitment,
+        minimal_ergs_to_charge: Ergs(minimal_gas_used.saturating_mul(ERGS_PER_GAS)),
         originator_nonce_to_use: old_nonce,
         tx_hash,
         native_per_pubdata,
         native_per_gas,
+        tx_gas_limit,
+        gas_used: 0,
     })
 }

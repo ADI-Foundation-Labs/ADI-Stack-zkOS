@@ -133,9 +133,7 @@ pub trait IOSubsystem: Sized {
         rollback_handle: Option<&<Self as IOSubsystem>::StateSnapshot>,
     ) -> Result<(), InternalError>;
 
-    #[cfg(feature = "evm_refunds")]
-    /// Get current gas refund counter
-    fn get_refund_counter(&self) -> u32;
+    fn get_refund_counter(&'_ self) -> Option<&'_ Self::Resources>;
 }
 
 pub trait Maybe<T> {
@@ -476,9 +474,8 @@ pub trait IOSubsystemExt: IOSubsystem {
         should_subtract: bool,
     ) -> Result<U256, BalanceSubsystemError>;
 
-    // Add EVM refund to counter
-    #[cfg(feature = "evm_refunds")]
-    fn add_evm_refund(&mut self, refund: u32) -> Result<(), SystemError>;
+    /// Adds some resources to refund at the end of transaction
+    fn add_to_refund_counter(&mut self, refund: Self::Resources) -> Result<(), SystemError>;
 }
 
 pub trait EthereumLikeIOSubsystem: IOSubsystem<IOTypes = EthereumIOTypesConfig> {}

@@ -1,7 +1,7 @@
 use crate::kv_markers::*;
 use crate::utils::Bytes32;
 
-pub trait SystemIOTypesConfig: Sized + 'static + Send + Sync {
+pub trait SystemIOTypesConfig: Sized + 'static + Send + Sync + core::fmt::Debug {
     // We want to define some associated types for addresses, storage keys, etc.
     // mainly for sizes. We also want to have those interpretable as byte sequences in general.
     type Address: UsizeSerializable

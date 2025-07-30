@@ -18,6 +18,8 @@ use zk_ee::common_structs::history_map::NopSnapshotId;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::system::BalanceSubsystemError;
 use zk_ee::system::DeconstructionSubsystemError;
+#[cfg(feature = "evm_refunds")]
+use zk_ee::system::Ergs;
 use zk_ee::system::NonceSubsystemError;
 use zk_ee::system::Resources;
 use zk_ee::{
@@ -393,32 +395,14 @@ impl<
             .update_nominal_token_value::<PROOF_ENV>(from_ee, resources, address, update_fn, oracle)
     }
 
-    #[cfg(feature = "evm_refunds")]
-    fn get_refund_counter(&self) -> u32 {
-        *self
-            .storage_cache
-            .slot_values
-            .evm_refunds_counter
-            .value()
-            .unwrap_or(&0)
+    fn get_refund_counter(&'_ self) -> Option<&'_ Self::Resources> {
+        self.storage_cache.slot_values.get_refund_counter_impl()
     }
 
-    // Add EVM refund to counter
-    #[cfg(feature = "evm_refunds")]
-    fn add_evm_refund(&mut self, refund: u32) -> Result<(), SystemError> {
-        let mut gas_refunds = self
-            .storage_cache
-            .slot_values
-            .evm_refunds_counter
-            .value()
-            .copied()
-            .unwrap_or_default();
-        gas_refunds += refund;
+    fn add_to_refund_counter(&mut self, refund: Self::Resources) -> Result<(), SystemError> {
         self.storage_cache
             .slot_values
-            .evm_refunds_counter
-            .update(gas_refunds);
-        Ok(())
+            .add_to_refund_counter_impl(refund)
     }
 }
 

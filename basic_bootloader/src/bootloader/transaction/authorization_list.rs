@@ -199,11 +199,13 @@ impl AuthorizationListItem {
                 && account_properties.unpadded_code_len.0 == 0
                 && account_properties.nominal_token_balance.0.is_zero();
             if !is_empty {
-                system.io.add_evm_refund(
-                    (evm_interpreter::gas_constants::NEWACCOUNT
-                        - evm_interpreter::gas_constants::PER_AUTH_BASE_COST)
-                        as u32,
-                )?
+                system
+                    .io
+                    .add_to_refund_counter(S::Resources::from_ergs(Ergs(
+                        (evm_interpreter::gas_constants::NEWACCOUNT
+                            - evm_interpreter::gas_constants::PER_AUTH_BASE_COST)
+                            * ERGS_PER_GAS,
+                    )))?;
             }
         }
 

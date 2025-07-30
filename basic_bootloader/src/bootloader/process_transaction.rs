@@ -1,12 +1,11 @@
 use super::gas_helpers::get_resources_for_tx;
 use super::transaction::ZkSyncTransaction;
 use super::*;
-use crate::bootloader::account_models::ExecutionResult;
 use crate::bootloader::config::BasicBootloaderExecutionConfig;
 use crate::bootloader::constants::UPGRADE_TX_NATIVE_PER_GAS;
 use crate::bootloader::errors::TxError::Validation;
 use crate::bootloader::errors::{InvalidTransaction, TxError};
-use crate::bootloader::execution_steps::TxContextForPreAndPostProcessing;
+use crate::bootloader::ethereum_eoa_flow::EthereumEOATransactionFlow;
 use crate::bootloader::runner::RunnerMemoryBuffers;
 use crate::{require, require_internal};
 use constants::L1_TX_INTRINSIC_NATIVE_COST;
@@ -26,11 +25,20 @@ use zk_ee::system::errors::root_cause::GetRootCause;
 use zk_ee::system::errors::root_cause::RootCause;
 use zk_ee::system::errors::runtime::RuntimeError;
 use zk_ee::system::{EthereumLikeTypes, Resources};
+use zk_ee::types_config::EthereumIOTypesConfig;
 
-/// Return value of validation step
-#[derive(Default)]
-struct ValidationResult {
-    validation_pubdata: u64,
+#[derive(Debug)]
+pub struct TxProcessingResult<'a> {
+    pub result: ExecutionResult<'a, EthereumIOTypesConfig>,
+    pub tx_hash: Bytes32,
+    pub is_l1_tx: bool,
+    pub is_upgrade_tx: bool,
+    pub gas_used: u64,
+    pub gas_refunded: u64,
+
+    pub computational_native_used: u64,
+
+    pub pubdata_used: u64,
 }
 
 impl<S: EthereumLikeTypes> BasicBootloader<S>
@@ -119,7 +127,7 @@ where
         let native_price = L1_TX_NATIVE_PRICE;
         let native_per_gas = if is_priority_op {
             if Config::ONLY_SIMULATE {
-                SIMULATION_NATIVE_PER_GAS
+                U256::from(SIMULATION_NATIVE_PER_GAS)
             } else {
                 U256::from(gas_price).div_ceil(native_price)
             }
@@ -260,11 +268,13 @@ where
         };
         // Just used for computing native used
         let resources_before_refund = resources.clone();
+        let min_gas_used = 0;
         #[allow(unused_variables)]
         let (_, gas_used, evm_refund) = Self::compute_gas_refund(
             system,
             to_charge_for_pubdata,
             gas_limit,
+            min_gas_used,
             native_per_gas,
             &mut resources,
         )?;
@@ -383,7 +393,8 @@ where
         resources: &mut S::Resources,
         withheld_resources: S::Resources,
         tracer: &mut impl Tracer<S>,
-    ) -> Result<(ExecutionResult<'a>, u64, S::Resources), BootloaderSubsystemError> {
+    ) -> Result<(ExecutionResult<'a, S::IOTypes>, u64, S::Resources), BootloaderSubsystemError>
+    {
         let _ = system
             .get_logger()
             .write_fmt(format_args!("Executing L1 transaction\n"));
@@ -480,10 +491,10 @@ where
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
         memories: RunnerMemoryBuffers<'a>,
-        transaction: ZkSyncTransaction,
+        transaction: ZkSyncTransaction<'_>,
         tracer: &mut impl Tracer<S>,
     ) -> Result<TxProcessingResult<'a>, TxError> {
-        system.get_logger().write_fmt(
+        let _ = system.get_logger().write_fmt(
             format_args!(
                 "Will process transaction from {:?} to {:?} with gas limit of {} and value of {:?} and {} bytes of calldata\n",
                 transaction.from.read(),
@@ -492,15 +503,16 @@ where
                 transaction.value.read(),
                 transaction.calldata().len(),
             )
-        ).unwrap();
+        );
+
+        // Here we will follow basic Ethereum EOA flow, but caller is responsible to manage frames
 
         let validation_rollback_handle = system.start_global_frame()?;
 
-        let mut tx_context = match crate::bootloader::execution_steps::validate::validate_and_compute_fee_for_transaction::<S, Config>(
-            system,
-            &transaction,
-            tracer,
-        ) {
+        let mut tx_context = match EthereumEOATransactionFlow::<S>::validate_and_prepare_context::<
+            Config,
+        >(system, &transaction, tracer)
+        {
             Ok(v) => v,
             Err(e) => {
                 system.finish_global_frame(Some(&validation_rollback_handle))?;
@@ -515,11 +527,12 @@ where
             ))
             .unwrap();
 
-        match crate::bootloader::execution_steps::process_fee_payments::prepay_transaction_fee::<
-            S,
-            Config,
-        >(system, &transaction, &mut tx_context, tracer)
-        {
+        match EthereumEOATransactionFlow::<S>::precharge_fee::<Config>(
+            system,
+            &transaction,
+            &mut tx_context,
+            tracer,
+        ) {
             Ok(_) => {
                 system.finish_global_frame(None)?;
             }
@@ -538,7 +551,7 @@ where
         // execute main body
         // Just used for computing native used
         let initial_resources = tx_context.resources.main_resources.clone();
-        system.set_tx_context(transaction.from.read(), tx_context.gas_price_to_use);
+        system.set_tx_context(transaction.from.read(), tx_context.gas_price_for_metadata);
 
         // Take a snapshot in case we need to revert due to out of native.
         let main_body_rollback_handle = system.start_global_frame()?;
@@ -547,47 +560,50 @@ where
         // to used in the refund step only if the execution succeeded.
         // Otherwise, this value needs to be recomputed after reverting
         // state changes.
-        let (execution_result, pubdata_info) = match Self::transaction_execution::<Config>(
-            system,
-            system_functions,
-            memories,
-            &transaction,
-            &mut tx_context,
-            tracer,
-        ) {
-            Ok((r, pubdata_used, to_charge_for_pubdata)) => {
-                let pubdata_info = match r {
-                    ExecutionResult::Success { .. } => {
-                        system.finish_global_frame(None)?;
-                        let _ = system
-                            .get_logger()
-                            .write_fmt(format_args!("Transaction main payload was processed\n"));
-                        Some((pubdata_used, to_charge_for_pubdata))
-                    }
-                    ExecutionResult::Revert { .. } => {
-                        system.finish_global_frame(Some(&main_body_rollback_handle))?;
-                        let _ = system
-                            .get_logger()
-                            .write_fmt(format_args!("Transaction main payload was reverted\n"));
-                        None
-                    }
-                };
-                (r, pubdata_info)
-            }
-            // Out of native is converted to a top-level revert and
-            // gas is exhausted.
-            Err(e) => match e.root_cause() {
-                RootCause::Runtime(e @ RuntimeError::OutOfNativeResources(_)) => {
-                    let _ = system.get_logger().write_fmt(format_args!(
-                        "Transaction ran out of native resources: {e:?}\n"
-                    ));
-                    tx_context.resources.main_resources.exhaust_ergs();
-                    system.finish_global_frame(Some(&main_body_rollback_handle))?;
-                    (ExecutionResult::Revert { output: &[] }, None)
+
+        let (execution_result, pubdata_info) =
+            match EthereumEOATransactionFlow::<S>::execute_or_deploy::<Config>(
+                system,
+                system_functions,
+                memories,
+                &transaction,
+                &mut tx_context,
+                tracer,
+            ) {
+                Ok((r, (pubdata_used, to_charge_for_pubdata))) => {
+                    let pubdata_info = match r {
+                        ExecutionResult::Success { .. } => {
+                            system.finish_global_frame(None)?;
+                            let _ = system.get_logger().write_fmt(format_args!(
+                                "Transaction main payload was processed\n"
+                            ));
+
+                            Some((pubdata_used, to_charge_for_pubdata))
+                        }
+                        ExecutionResult::Revert { .. } => {
+                            system.finish_global_frame(Some(&main_body_rollback_handle))?;
+                            let _ = system
+                                .get_logger()
+                                .write_fmt(format_args!("Transaction main payload was reverted\n"));
+                            None
+                        }
+                    };
+                    (r, pubdata_info)
                 }
-                _ => return Err(e.into()),
-            },
-        };
+                // Out of native is converted to a top-level revert and
+                // gas is exhausted.
+                Err(e) => match e.root_cause() {
+                    RootCause::Runtime(e @ RuntimeError::OutOfNativeResources(_)) => {
+                        let _ = system.get_logger().write_fmt(format_args!(
+                            "Transaction ran out of native resources: {e:?}\n"
+                        ));
+                        tx_context.resources.main_resources.exhaust_ergs();
+                        system.finish_global_frame(Some(&main_body_rollback_handle))?;
+                        (ExecutionResult::Revert { output: &[] }, None)
+                    }
+                    _ => return Err(e.into()),
+                },
+            };
         drop(main_body_rollback_handle);
 
         // Just used for computing native used
@@ -600,8 +616,10 @@ where
             .main_resources
             .reclaim_withheld(tx_context.resources.withheld.clone());
 
+        // We need to compute
+
         let (gas_used, evm_refund, pubdata_used) = if !Config::ONLY_SIMULATE {
-            Self::refund_transaction::<Config>(
+            Self::refund_transaction_for_basic_ethereum_flow::<Config>(
                 system,
                 &transaction,
                 &mut tx_context,
@@ -609,15 +627,20 @@ where
                 tracer,
             )?
         } else {
+            let min_gas_used = tx_context.minimal_ergs_to_charge.0 / ERGS_PER_GAS;
             // Compute gas used following the same logic as in normal execution
             // TODO: remove when simulation flow runs validation
-            let (pubdata_spent, to_charge_for_pubdata) =
-                get_resources_to_charge_for_pubdata(system, tx_context.native_per_pubdata, None)?;
+            let (pubdata_spent, to_charge_for_pubdata) = get_resources_to_charge_for_pubdata(
+                system,
+                U256::from(tx_context.native_per_pubdata),
+                None,
+            )?;
             let (_gas_refund, evm_refund, gas_used) = Self::compute_gas_refund(
                 system,
                 to_charge_for_pubdata,
                 transaction.gas_limit.read(),
-                tx_context.native_per_gas,
+                min_gas_used,
+                U256::from(tx_context.native_per_gas),
                 &mut tx_context.resources.main_resources,
             )?;
             (gas_used, evm_refund, pubdata_spent)
@@ -657,56 +680,6 @@ where
         })
     }
 
-    // Returns (execution_result, pubdata_used, to_charge_for_pubdata)
-    #[allow(clippy::too_many_arguments)]
-    fn transaction_execution<'a, Config: BasicBootloaderExecutionConfig>(
-        system: &mut System<S>,
-        system_functions: &mut HooksStorage<S, S::Allocator>,
-        memories: RunnerMemoryBuffers<'a>,
-        transaction: &ZkSyncTransaction,
-        context: &mut TxContextForPreAndPostProcessing<S>,
-        tracer: &mut impl Tracer<S>,
-    ) -> Result<(ExecutionResult<'a>, u64, S::Resources), BootloaderSubsystemError> {
-        let _ = system
-            .get_logger()
-            .write_fmt(format_args!("Start of execution\n"));
-
-        // TODO: factory deps? Probably fine to ignore for now
-
-        let execution_result = crate::bootloader::execution_steps::execute::execute::<S, Config>(
-            system,
-            system_functions,
-            memories,
-            transaction,
-            context,
-            tracer,
-        )?;
-
-        let _ = system
-            .get_logger()
-            .write_fmt(format_args!("Transaction execution completed\n"));
-
-        let (has_enough, to_charge_for_pubdata, pubdata_used) = check_enough_resources_for_pubdata(
-            system,
-            context.native_per_pubdata,
-            &mut context.resources.main_resources,
-            None,
-            // Some(validation_pubdata), // TODO
-        )?;
-        if !has_enough {
-            let _ = system
-                .get_logger()
-                .write_fmt(format_args!("Not enough gas for pubdata after execution\n"));
-            Ok((
-                execution_result.reverted(),
-                pubdata_used,
-                to_charge_for_pubdata,
-            ))
-        } else {
-            Ok((execution_result, pubdata_used, to_charge_for_pubdata))
-        }
-    }
-
     pub(crate) fn get_gas_price(
         system: &mut System<S>,
         max_fee_per_gas: u128,
@@ -734,11 +707,10 @@ where
     }
 
     // Returns (gas_used, evm_refund, total_pubdata_used)
-    #[allow(clippy::too_many_arguments)]
-    fn refund_transaction<Config: BasicBootloaderExecutionConfig>(
+    fn refund_transaction_for_basic_ethereum_flow<Config: BasicBootloaderExecutionConfig>(
         system: &mut System<S>,
         transaction: &ZkSyncTransaction<'_>,
-        context: &mut TxContextForPreAndPostProcessing<S>,
+        context: &mut <EthereumEOATransactionFlow<S> as BasicTransactionFlowInBootloader<S>>::TransactionContext,
         pubdata_info: Option<(u64, S::Resources)>,
         tracer: &mut impl Tracer<S>,
     ) -> Result<(u64, u64, u64), BootloaderSubsystemError> {
@@ -764,7 +736,7 @@ where
                 let (execution_pubdata_spent, to_charge_for_pubdata) =
                     get_resources_to_charge_for_pubdata(
                         system,
-                        context.native_per_pubdata,
+                        U256::from(context.native_per_pubdata),
                         Some(validation_pubdata),
                     )?;
                 (
@@ -773,35 +745,35 @@ where
                 )
             }
         };
-        let (total_gas_refund, gas_used, evm_refund) = Self::compute_gas_refund(
+        let min_gas_used = context.minimal_ergs_to_charge.0 / ERGS_PER_GAS;
+        let (_total_gas_refund, gas_used, evm_refund) = Self::compute_gas_refund(
             system,
             to_charge_for_pubdata,
             transaction.gas_limit.read(),
-            context.native_per_gas,
+            min_gas_used,
+            U256::from(context.native_per_gas),
             &mut context.resources.main_resources,
         )?;
+        debug_assert_eq!(context.gas_used, 0);
+        context.gas_used = gas_used;
 
         let refund_rollback_handle = system.start_global_frame()?;
 
-        match crate::bootloader::execution_steps::process_fee_payments::refund_transaction_fee::<
-            S,
-            Config,
-        >(system, transaction, context, total_gas_refund, tracer)
-        {
+        match EthereumEOATransactionFlow::<S>::refund_and_commit_fee::<Config>(
+            system,
+            transaction,
+            context,
+            tracer,
+        ) {
             Ok(_) => {
                 system.finish_global_frame(None)?;
             }
-            Err(TxError::Internal(e)) => {
+            Err(e) => {
+                let _ = system
+                    .get_logger()
+                    .write_fmt(format_args!("Error on refund {:?}\n", &e));
                 system.finish_global_frame(Some(&refund_rollback_handle))?;
                 return Err(e);
-            }
-            Err(TxError::Validation(e)) => {
-                system
-                    .get_logger()
-                    .write_fmt(format_args!("Validation error {:?} on refund\n", &e))
-                    .unwrap();
-                system.finish_global_frame(Some(&refund_rollback_handle))?;
-                return Err(internal_error!("WTF"))?; // TODO
             }
         }
         drop(refund_rollback_handle);
@@ -818,6 +790,7 @@ where
         system: &mut System<S>,
         to_charge_for_pubdata: S::Resources,
         gas_limit: u64,
+        minimal_gas_used: u64,
         native_per_gas: U256,
         resources: &mut S::Resources,
     ) -> Result<(u64, u64, u64), InternalError> {
@@ -827,18 +800,43 @@ where
         let mut gas_used = gas_limit - resources.ergs().0.div_floor(ERGS_PER_GAS);
         resources.exhaust_ergs();
 
+        let _ = system
+            .get_logger()
+            .write_fmt(format_args!("Gas used before refund calculations: {gas_used}\n"));
+
         // Following EIP-3529, refunds are capped to 1/5 of the gas used
         #[cfg(feature = "evm_refunds")]
-        let evm_refund = {
-            let full_refund = system.io.get_refund_counter() as u64;
-            let max_refund = gas_used / 5;
-            core::cmp::min(full_refund, max_refund)
+        let refund_before_native = {
+            let possible_refund = if let Some(refund) = system.io.get_refund_counter() {
+                let ergs = refund.ergs();
+                let as_gas = ergs.0.div_floor(ERGS_PER_GAS);
+
+                as_gas
+            } else {
+                0
+            };
+            let refund_cap = gas_used / 5;
+            let _ = system.get_logger().write_fmt(format_args!(
+                "Refund counter has {possible_refund} gas, with cap of {refund_cap}\n"
+            ));
+
+            core::cmp::min(possible_refund, refund_cap)
         };
 
         #[cfg(not(feature = "evm_refunds"))]
-        let evm_refund = 0;
+        compile_error!("debug");
+        // let refund_before_native = 0;
 
-        gas_used -= evm_refund;
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Gas refund from refund counters = {refund_before_native}\n"
+        ));
+
+        gas_used -= refund_before_native;
+
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Minimal gas used from validation = {minimal_gas_used}\n"
+        ));
+        let gas_used = core::cmp::max(gas_used, minimal_gas_used);
 
         #[cfg(not(feature = "unlimited_native"))]
         {
@@ -862,16 +860,19 @@ where
             // TODO: return delta_gas to gas_used?
         }
 
+        #[cfg(feature = "unlimited_native")]
+        let _ = native_per_gas;
+
         let total_gas_refund = gas_limit - gas_used;
         let _ = system
             .get_logger()
-            .write_fmt(format_args!("Gas refund: {total_gas_refund}\n"));
+            .write_fmt(format_args!("Refund after accounting for unused gas, refund counters and native cost: {total_gas_refund}\n"));
         require_internal!(
             total_gas_refund <= gas_limit,
             "Gas refund greater than gas limit",
             system
         )?;
 
-        Ok((total_gas_refund, gas_used, evm_refund))
+        Ok((total_gas_refund, gas_used, refund_before_native))
     }
 }

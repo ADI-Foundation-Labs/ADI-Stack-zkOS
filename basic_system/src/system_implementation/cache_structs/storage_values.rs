@@ -65,6 +65,17 @@ pub trait StorageAccessPolicy<R: Resources, V>: 'static + Sized {
         is_warm_write: bool,
         is_new_slot: bool,
     ) -> Result<(), SystemError>;
+
+    /// Refund some resources if needed
+    fn refund_for_storage_write(
+        &self,
+        ee_type: ExecutionEnvironmentType,
+        value_at_tx_start: &V,
+        current_value: &V,
+        new_value: &V,
+        resources: &mut R,
+        refund_counter: &mut R,
+    ) -> Result<(), SystemError>;
 }
 
 #[derive(Default, Clone)]
@@ -101,7 +112,7 @@ pub struct GenericPubdataAwareStorageValuesCache<
     pub(crate) current_tx_number: TransactionId,
     pub(crate) initial_values: BTreeMap<K, (V, TransactionId), A>, // Used to cache initial values at the beginning of the tx (For EVM gas model)
     #[cfg(feature = "evm_refunds")]
-    pub(crate) evm_refunds_counter: HistoryCounter<u32, SC, N, A>, // Used to keep track of EVM gas refunds
+    pub(crate) evm_refunds_counter: HistoryCounter<R, SC, N, A>, // Used to keep track of EVM gas refunds
     pub(crate) alloc: A,
     pub(crate) _marker: core::marker::PhantomData<(R, SC)>,
 }
@@ -138,6 +149,7 @@ impl<
         #[cfg(feature = "evm_refunds")]
         {
             self.evm_refunds_counter = HistoryCounter::new(self.alloc.clone());
+            self.evm_refunds_counter.update(R::empty());
         }
 
         self.current_tx_number.0 += 1;
@@ -263,8 +275,7 @@ impl<
         new_value: &V,
         oracle: &mut impl IOOracle,
         resources: &mut R,
-    ) -> Result<(V, &V), SystemError>
-where {
+    ) -> Result<V, SystemError> {
         let (mut addr_data, is_warm_read) = Self::materialize_element(
             &mut self.cache,
             &mut self.resources_policy,
@@ -314,7 +325,20 @@ where {
             })
         })?;
 
-        Ok((old_value, val_at_tx_start))
+        // we need to replace-update
+        if let Some(mut refund_counter) = self.evm_refunds_counter.value().cloned() {
+            self.resources_policy.refund_for_storage_write(
+                ee_type,
+                &val_at_tx_start,
+                &old_value,
+                new_value,
+                resources,
+                &mut refund_counter,
+            )?;
+            self.evm_refunds_counter.update(refund_counter);
+        }
+
+        Ok(old_value)
     }
 
     /// Cleae state at specified address
@@ -337,6 +361,31 @@ where {
                 })
             })?;
 
+        Ok(())
+    }
+
+    pub fn get_refund_counter_impl(&'_ self) -> Option<&'_ R> {
+        #[cfg(feature = "evm_refunds")]
+        {
+            self.evm_refunds_counter.value()
+        }
+
+        #[cfg(not(feature = "evm_refunds"))]
+        None
+    }
+
+    pub fn add_to_refund_counter_impl(&mut self, refund: R) -> Result<(), SystemError> {
+        #[cfg(feature = "evm_refunds")]
+        {
+            if let Some(mut t) = self.get_refund_counter_impl().cloned() {
+                t.add_ergs(refund.ergs());
+                self.evm_refunds_counter.update(t);
+            }
+
+            Ok(())
+        }
+
+        #[cfg(not(feature = "evm_refunds"))]
         Ok(())
     }
 }

@@ -1,3 +1,4 @@
+use crate::bootloader::transaction_flow::*;
 use alloc::vec::Vec;
 use basic_system::system_implementation::flat_storage_model::FlatStorageCommitment;
 use basic_system::system_implementation::flat_storage_model::TREE_HEIGHT;
@@ -8,7 +9,6 @@ use constants::{MAX_TX_LEN_WORDS, TX_OFFSET_WORDS};
 use errors::BootloaderSubsystemError;
 use result_keeper::ResultKeeperExt;
 use ruint::aliases::*;
-use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::memory::slice_vec::SliceVec;
 use zk_ee::system::tracer::Tracer;
@@ -18,12 +18,12 @@ pub mod run_single_interaction;
 pub mod runner;
 pub mod supported_ees;
 
-mod account_models;
-pub(crate) mod execution_steps;
+pub mod ethereum_eoa_flow;
 mod gas_helpers;
 mod paymaster_helper;
 mod process_transaction;
 pub mod transaction;
+pub mod transaction_flow;
 
 pub mod block_header;
 pub mod config;
@@ -39,7 +39,6 @@ use core::mem::MaybeUninit;
 use crypto::MiniDigest;
 use zk_ee::{internal_error, oracle::*};
 
-use crate::bootloader::account_models::{ExecutionOutput, ExecutionResult, TxProcessingResult};
 use crate::bootloader::block_header::BlockHeader;
 use crate::bootloader::config::BasicBootloaderExecutionConfig;
 use crate::bootloader::constants::TX_OFFSET;
@@ -339,10 +338,6 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                 initial_calldata_buffer.as_tx_buffer(next_tx_data_len_bytes);
 
             tracer.begin_tx(initial_calldata_buffer);
-
-            if tx_counter == 161 {
-                let _ = logger.write_fmt(format_args!("DEBUG\n",));
-            }
 
             // We will give the full buffer here, and internally we will use parts of it to give forward to EEs
             cycle_marker::start!("process_transaction");

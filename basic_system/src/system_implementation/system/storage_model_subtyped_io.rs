@@ -389,8 +389,7 @@ impl<
         Ok(())
     }
 
-    #[cfg(feature = "evm_refunds")]
-    fn get_refund_counter(&self) -> u32 {
+    fn get_refund_counter(&'_ self) -> Option<&'_ Self::Resources> {
         self.storage.get_refund_counter()
     }
 }
@@ -772,10 +771,8 @@ where
         )
     }
 
-    // Add EVM refund to counter
-    #[cfg(feature = "evm_refunds")]
-    fn add_evm_refund(&mut self, refund: u32) -> Result<(), SystemError> {
-        self.storage.add_evm_refund(refund)
+    fn add_to_refund_counter(&mut self, refund: Self::Resources) -> Result<(), SystemError> {
+        self.storage.add_to_refund_counter(refund)
     }
 }
 
