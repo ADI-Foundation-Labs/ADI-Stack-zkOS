@@ -15,11 +15,10 @@ use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::StorageCacheModel;
 use storage_models::common_structs::StorageModel;
 use zk_ee::common_structs::history_map::NopSnapshotId;
+use zk_ee::common_structs::PreimageType;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::system::BalanceSubsystemError;
 use zk_ee::system::DeconstructionSubsystemError;
-#[cfg(feature = "evm_refunds")]
-use zk_ee::system::Ergs;
 use zk_ee::system::NonceSubsystemError;
 use zk_ee::system::Resources;
 use zk_ee::{
@@ -111,7 +110,7 @@ impl<
     ) -> Result<(), InternalError> {
         let Self {
             storage_cache,
-            preimages_cache: _,
+            preimages_cache,
             mut account_cache,
             allocator,
         } = self;
@@ -129,6 +128,14 @@ impl<
             let value = v.current_value;
             (address, key, value)
         }));
+
+        // we also artificially spam preimages
+        result_keeper.new_preimages(
+            preimages_cache
+                .storage
+                .iter()
+                .map(|(k, v)| (k, v.as_slice(), PreimageType::Bytecode)),
+        );
 
         // 2. Account data diffs
 

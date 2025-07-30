@@ -199,10 +199,10 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
         // TODO: debug implementation for ruint types uses global alloc, which panics in ZKsync OS
         #[cfg(not(target_arch = "riscv32"))]
         {
-            let _ = self
-                .system
-                .get_logger()
-                .write_fmt(format_args!("External call to {:?}\n", call_request.callee));
+            let _ = self.system.get_logger().write_fmt(format_args!(
+                "External call to 0x{:040x}\n",
+                call_request.callee.as_uint()
+            ));
 
             let _ = self.system.get_logger().write_fmt(format_args!(
                 "External call with parameters:\n{:?}\n",
@@ -1009,6 +1009,8 @@ where
                 use crate::bootloader::transaction::parse_delegation;
                 // Resolve delegation following EIP-7702 (only one level
                 // of delegation is allowed).
+
+                // NOTE: we should warm it by normal rules
                 let delegation = &account_properties.bytecode.0
                     [..account_properties.unpadded_code_len.0 as usize];
                 let address = parse_delegation(delegation)?;

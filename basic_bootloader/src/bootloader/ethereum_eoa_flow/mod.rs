@@ -87,6 +87,11 @@ where
         let from = transaction.from.read();
         let value = context.fee_to_prepay;
 
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Will precharge {:?} native tokens for transaction\n",
+            &value
+        ));
+
         context
             .resources
             .main_resources
@@ -381,9 +386,14 @@ where
         );
 
         if context.tx_gas_limit > context.gas_used {
+            let _ = system.get_logger().write_fmt(format_args!(
+                "Gas price for refund is {:?}\n",
+                &context.gas_price_for_metadata
+            ));
+
             // refund
             let receiver = transaction.from.read();
-            let refund = context.gas_price_for_fee_commitment
+            let refund = context.gas_price_for_metadata
                 * U256::from(context.tx_gas_limit - context.gas_used); // can not overflow
 
             context
@@ -419,6 +429,11 @@ where
         }
 
         assert!(context.gas_used > 0);
+
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Gas price for coinbase fee is {:?}\n",
+            &context.gas_price_for_fee_commitment
+        ));
 
         let fee = context.gas_price_for_fee_commitment * U256::from(context.gas_used); // can not overflow
         let coinbase = system.get_coinbase();

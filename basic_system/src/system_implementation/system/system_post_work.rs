@@ -144,7 +144,7 @@ where
 
         // other outputs to be opened on the settlement layer/aggregation program
         let block_output = BlocksOutput {
-            chain_id: U256::try_from(metadata.block_level_metadata.chain_id).unwrap(),
+            chain_id: U256::from(metadata.block_level_metadata.chain_id),
             first_block_timestamp: metadata.block_level_metadata.timestamp,
             last_block_timestamp: metadata.block_level_metadata.timestamp,
             pubdata_hash: pubdata_hash.into(),

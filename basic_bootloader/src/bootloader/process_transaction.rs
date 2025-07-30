@@ -496,9 +496,9 @@ where
     ) -> Result<TxProcessingResult<'a>, TxError> {
         let _ = system.get_logger().write_fmt(
             format_args!(
-                "Will process transaction from {:?} to {:?} with gas limit of {} and value of {:?} and {} bytes of calldata\n",
-                transaction.from.read(),
-                transaction.to.read(),
+                "Will process transaction from 0x{:040x} to 0x{:040x} with gas limit of {} and value of {:?} and {} bytes of calldata\n",
+                transaction.from.read().as_uint(),
+                transaction.to.read().as_uint(),
                 transaction.gas_limit.read(),
                 transaction.value.read(),
                 transaction.calldata().len(),

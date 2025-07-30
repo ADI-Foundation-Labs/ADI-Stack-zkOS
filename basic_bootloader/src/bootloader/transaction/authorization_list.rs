@@ -144,7 +144,7 @@ impl AuthorizationListItem {
 
         // pre-charge
         resources.charge(&S::Resources::from_ergs_and_native(
-            Ergs(evm_interpreter::gas_constants::PER_AUTH_BASE_COST * ERGS_PER_GAS),
+            Ergs(evm_interpreter::gas_constants::NEWACCOUNT * ERGS_PER_GAS),
                 <<S::Resources as Resources>::Native as zk_ee::system::Computational>::from_computational(crate::bootloader::constants::PER_AUTH_INTRINSIC_COST)
             )
         )?;
@@ -209,13 +209,11 @@ impl AuthorizationListItem {
             }
         }
 
-        system
-            .get_logger()
-            .write_fmt(format_args!(
-                "Will delegate address {:?} -> {:?}\n",
-                &authority, &self.address
-            ))
-            .unwrap();
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Will delegate address 0x{:040x} -> 0x{:040x}\n",
+            authority.as_uint(),
+            self.address.as_uint()
+        ));
 
         // 8. Set code for authority, system function
         //    will handle the two cases (unsetting).

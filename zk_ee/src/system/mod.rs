@@ -190,8 +190,8 @@ where
     pub fn start_global_frame(&mut self) -> Result<SystemFrameSnapshot<S>, InternalError> {
         let io = self.io.start_io_frame()?;
 
-        let mut logger = self.get_logger();
-        let _ = logger.write_fmt(format_args!("Start global frame with handle {:?}\n", &io));
+        // let mut logger = self.get_logger();
+        // let _ = logger.write_fmt(format_args!("Start global frame with handle {:?}\n", &io));
 
         Ok(SystemFrameSnapshot { io })
     }
@@ -203,11 +203,11 @@ where
         &mut self,
         rollback_handle: Option<&SystemFrameSnapshot<S>>,
     ) -> Result<(), InternalError> {
-        let mut logger = self.get_logger();
-        let _ = logger.write_fmt(format_args!(
-            "Finish global frame, revert handle = {:?}\n",
-            &rollback_handle,
-        ));
+        // let mut logger = self.get_logger();
+        // let _ = logger.write_fmt(format_args!(
+        //     "Finish global frame, revert handle = {:?}\n",
+        //     &rollback_handle,
+        // ));
 
         // revert IO if needed, and copy memory
         self.io.finish_io_frame(rollback_handle.map(|x| &x.io))?;

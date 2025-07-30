@@ -177,7 +177,7 @@ impl DiffTrace {
                         Some(v) => v,
                         None => {
                             error!(
-                                "Should have value for slot {} at address {}",
+                                "Should have {:x} at address {}",
                                 key,
                                 hex::encode(address.to_be_bytes_vec())
                             );
@@ -186,11 +186,11 @@ impl DiffTrace {
                     };
                     if value != zksync_os_value {
                         error!(
-                            "Value for slot {} at address {} differed. ZKsync OS: {:?}, reference: {:?}",
+                            "Value for slot 0x{:x} at address 0x{} differed. ZKsync OS: 0x{:x}, reference: 0x{:x}",
                             key,
                             hex::encode(address.to_be_bytes_vec()),
-                            zksync_os_value,
-                            value
+                            zksync_os_value.as_uint(),
+                            value.as_uint()
                         );
                         return Err(PostCheckError::Internal);
                     }
@@ -432,9 +432,9 @@ pub fn post_check(
                     receipt.transaction_index, res.gas_used, receipt.gas_used,
                     gas_difference,
                 );
-            // return Err(PostCheckError::GasMismatch {
-            //     id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
-            // });
+            return Err(PostCheckError::GasMismatch {
+                id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
+            });
         }
     }
 

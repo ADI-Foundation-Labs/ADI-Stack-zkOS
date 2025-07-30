@@ -37,7 +37,7 @@ use super::{
 ///
 pub struct ZkSyncTransaction<'a> {
     underlying_buffer: &'a mut [u8],
-    // field below are parsed
+    // fields below are parsed
     /// The type of the transaction.
     pub tx_type: ParsedValue<u8>,
     /// The caller.
@@ -740,10 +740,10 @@ impl<'a> ZkSyncTransaction<'a> {
 
             let (address, keys) = res.map_err(|()| InvalidTransaction::InvalidStructure)?;
 
-            system
-                .get_logger()
-                .write_fmt(format_args!("Will touch address {:?} as warm\n", &address,))
-                .unwrap();
+            let _ = system.get_logger().write_fmt(format_args!(
+                "Will touch address 0x{:040x} as warm\n",
+                address.as_uint()
+            ));
 
             resources.with_infinite_ergs(|resources| {
                 system
@@ -759,13 +759,11 @@ impl<'a> ZkSyncTransaction<'a> {
                 )?;
                 let key = key.map_err(|()| InvalidTransaction::InvalidStructure)?;
 
-                system
-                    .get_logger()
-                    .write_fmt(format_args!(
-                        "Will touch address {:?}, slot {:?} as warm\n",
-                        &address, &key,
-                    ))
-                    .unwrap();
+                let _ = system.get_logger().write_fmt(format_args!(
+                    "Will touch address 0x{:040x}, slot {:?} as warm\n",
+                    address.as_uint(),
+                    &key,
+                ));
 
                 resources.with_infinite_ergs(|resources| {
                     system.io.storage_touch(

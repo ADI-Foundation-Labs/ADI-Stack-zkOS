@@ -81,7 +81,7 @@ pub fn encode_alloy_rpc_tx(tx: alloy::rpc::types::Transaction) -> Vec<u8> {
     let from = tx.as_recovered().signer().into_array();
     let to = tx.to().map(|a| a.into_array());
     let gas_limit = tx.gas_limit() as u128;
-    let (max_fee_per_gas, max_priority_fee_per_gas) = if tx_type == 2 {
+    let (max_fee_per_gas, max_priority_fee_per_gas) = if tx_type >= 2 {
         (tx.max_fee_per_gas(), tx.max_priority_fee_per_gas())
     } else {
         (tx.gas_price().unwrap(), tx.gas_price())
@@ -111,31 +111,31 @@ pub fn encode_alloy_rpc_tx(tx: alloy::rpc::types::Transaction) -> Vec<u8> {
                     .collect()
             });
 
-    #[cfg(feature = "pectra")]
-    let authorization_list = tx
-        .authorization_list()
-        .map(|authorization_list| {
-            authorization_list
-                .iter()
-                .map(|authorization| {
-                    let auth = authorization.inner();
-                    let y_parity = authorization.y_parity();
-                    let r = authorization.r();
-                    let s = authorization.s();
-                    (
-                        U256::from_big_endian(&auth.chain_id.to_be_bytes::<32>()),
-                        auth.address.into_array(),
-                        auth.nonce,
-                        y_parity,
-                        U256::from_big_endian(&r.to_be_bytes::<32>()),
-                        U256::from_big_endian(&s.to_be_bytes::<32>()),
-                    )
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    #[cfg(not(feature = "pectra"))]
-    let authorization_list = vec![];
+    let authorization_list = if tx_type >= 4 {
+        tx.authorization_list()
+            .map(|authorization_list| {
+                authorization_list
+                    .iter()
+                    .map(|authorization| {
+                        let auth = authorization.inner();
+                        let y_parity = authorization.y_parity();
+                        let r = authorization.r();
+                        let s = authorization.s();
+                        (
+                            U256::from_big_endian(&auth.chain_id.to_be_bytes::<32>()),
+                            auth.address.into_array(),
+                            auth.nonce,
+                            y_parity,
+                            U256::from_big_endian(&r.to_be_bytes::<32>()),
+                            U256::from_big_endian(&s.to_be_bytes::<32>()),
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    } else {
+        vec![]
+    };
     let reserved_dynamic =
         access_list.map(|access_list| encode_reserved_dynamic(access_list, authorization_list));
 

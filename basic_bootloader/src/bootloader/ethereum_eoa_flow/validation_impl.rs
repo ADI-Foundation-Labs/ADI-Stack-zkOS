@@ -250,12 +250,10 @@ where
         L2_TX_INTRINSIC_NATIVE_COST as u64,
     )?;
 
-    let _ = system
-        .get_logger()
-        .write_fmt(format_args!(
-            "Prepared resources for transaction: {:?}\n",
-            &tx_resources
-        ));
+    let _ = system.get_logger().write_fmt(format_args!(
+        "Prepared resources for transaction: {:?}\n",
+        &tx_resources
+    ));
 
     // NOTE: we provided a "hint" for "from", so it's sequencer's risks here:
     // - either "from" is valid at it has at least enough balance, valid signature, etc to eventually pay for all validation
@@ -369,13 +367,19 @@ where
             // return Err(TxError::Internal(e));
         }
     };
-    require!(
-        old_nonce == originator_expected_nonce,
-        TxError::Validation(
-            InvalidTransaction::NonceUsedAlready, // TODO
-        ),
-        system
-    )?;
+    let err = if old_nonce > originator_expected_nonce {
+        TxError::Validation(InvalidTransaction::NonceTooLow {
+            tx: originator_expected_nonce,
+            state: old_nonce,
+        })
+    } else {
+        TxError::Validation(InvalidTransaction::NonceTooHigh {
+            tx: originator_expected_nonce,
+            state: old_nonce,
+        })
+    };
+
+    require!(old_nonce == originator_expected_nonce, err, system)?;
 
     // Access list
     {
