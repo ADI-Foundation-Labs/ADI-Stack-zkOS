@@ -520,12 +520,9 @@ where
             }
         };
 
-        system
-            .get_logger()
-            .write_fmt(format_args!(
-                "Transaction was validated and can be processed to collect fees\n"
-            ))
-            .unwrap();
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Transaction was validated and can be processed to collect fees\n"
+        ));
 
         match EthereumEOATransactionFlow::<S>::precharge_fee::<Config>(
             system,
@@ -543,10 +540,9 @@ where
         };
         drop(validation_rollback_handle);
 
-        system
+        let _ = system
             .get_logger()
-            .write_fmt(format_args!("Fees were collected\n"))
-            .unwrap();
+            .write_fmt(format_args!("Fees were collected\n"));
 
         // execute main body
         // Just used for computing native used
@@ -800,9 +796,9 @@ where
         let mut gas_used = gas_limit - resources.ergs().0.div_floor(ERGS_PER_GAS);
         resources.exhaust_ergs();
 
-        let _ = system
-            .get_logger()
-            .write_fmt(format_args!("Gas used before refund calculations: {gas_used}\n"));
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Gas used before refund calculations: {gas_used}\n"
+        ));
 
         // Following EIP-3529, refunds are capped to 1/5 of the gas used
         #[cfg(feature = "evm_refunds")]

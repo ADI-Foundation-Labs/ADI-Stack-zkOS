@@ -1,14 +1,14 @@
 use super::*;
+use crate::bootloader::errors::InvalidTransaction;
 use crate::bootloader::{
     transaction::ZkSyncTransaction, transaction_flow::BasicTransactionFlowInBootloader,
 };
 use evm_interpreter::ERGS_PER_GAS;
-use zk_ee::system::errors::interface::InterfaceError;
-use zk_ee::system::logger::Logger;
-use crate::bootloader::errors::InvalidTransaction;
 use zk_ee::out_of_native_resources;
+use zk_ee::system::errors::interface::InterfaceError;
 use zk_ee::system::errors::runtime::RuntimeError;
 use zk_ee::system::errors::subsystem::SubsystemError;
+use zk_ee::system::logger::Logger;
 
 pub struct EthereumEOATransactionFlow<S: EthereumLikeTypes> {
     _marker: core::marker::PhantomData<S>,
@@ -47,6 +47,8 @@ impl<S: EthereumLikeTypes> core::fmt::Debug for TxContextForPreAndPostProcessing
             .field("originator_nonce_to_use", &self.originator_nonce_to_use)
             .field("native_per_pubdata", &self.native_per_pubdata)
             .field("native_per_gas", &self.native_per_gas)
+            .field("tx_gas_limit", &self.tx_gas_limit)
+            .field("gas_used", &self.gas_used)
             .finish()
     }
 }
@@ -371,26 +373,33 @@ where
         // use would be refunded based on potentially one gas price, and operator will be paid using different one. But those
         // changes are not "transfers" in nature
 
-        assert!(context.gas_used <= context.tx_gas_limit, "gas limit is {}, but {} gas is reported as used", context.tx_gas_limit, context.gas_used);
+        assert!(
+            context.gas_used <= context.tx_gas_limit,
+            "gas limit is {}, but {} gas is reported as used",
+            context.tx_gas_limit,
+            context.gas_used
+        );
 
         if context.tx_gas_limit > context.gas_used {
             // refund
             let receiver = transaction.from.read();
-            let refund = context.gas_price_for_fee_commitment * U256::from(context.tx_gas_limit - context.gas_used); // can not overflow
+            let refund = context.gas_price_for_fee_commitment
+                * U256::from(context.tx_gas_limit - context.gas_used); // can not overflow
 
             context
-            .resources
-            .main_resources
-            .with_infinite_ergs(|resources| {
-                system
-                    .io
-                    .update_account_nominal_token_balance(
-                        ExecutionEnvironmentType::NoEE, // out of scope of other interactions
-                        resources,
-                        &receiver,
-                        &refund,
-                        false,
-                    ).expect("TODO");
+                .resources
+                .main_resources
+                .with_infinite_ergs(|resources| {
+                    system
+                        .io
+                        .update_account_nominal_token_balance(
+                            ExecutionEnvironmentType::NoEE, // out of scope of other interactions
+                            resources,
+                            &receiver,
+                            &refund,
+                            false,
+                        )
+                        .expect("TODO");
                     // .map_err(|e| match e {
                     //     SubsystemError::LeafUsage(interface_error) => {
                     //         todo!();
@@ -406,7 +415,7 @@ where
                     //     },
                     //     SubsystemError::Cascaded(cascaded_error) => match cascaded_error {},
                     // })
-            });
+                });
         }
 
         assert!(context.gas_used > 0);
@@ -426,22 +435,23 @@ where
                         &coinbase,
                         &fee,
                         false,
-                    ).expect("TODO");
-                    // .map_err(|e| match e {
-                    //     SubsystemError::LeafUsage(interface_error) => {
-                    //         todo!();
-                    //     }
-                    //     SubsystemError::LeafDefect(internal_error) => internal_error.into(),
-                    //     SubsystemError::LeafRuntime(runtime_error) => match runtime_error {
-                    //         RuntimeError::OutOfNativeResources(_) => {
-                    //             TxError::oon_as_validation(out_of_native_resources!().into())
-                    //         }
-                    //         RuntimeError::OutOfErgs(_) => {
-                    //             TxError::Validation(InvalidTransaction::OutOfGasDuringValidation)
-                    //         }
-                    //     },
-                    //     SubsystemError::Cascaded(cascaded_error) => match cascaded_error {},
-                    // })
+                    )
+                    .expect("TODO");
+                // .map_err(|e| match e {
+                //     SubsystemError::LeafUsage(interface_error) => {
+                //         todo!();
+                //     }
+                //     SubsystemError::LeafDefect(internal_error) => internal_error.into(),
+                //     SubsystemError::LeafRuntime(runtime_error) => match runtime_error {
+                //         RuntimeError::OutOfNativeResources(_) => {
+                //             TxError::oon_as_validation(out_of_native_resources!().into())
+                //         }
+                //         RuntimeError::OutOfErgs(_) => {
+                //             TxError::Validation(InvalidTransaction::OutOfGasDuringValidation)
+                //         }
+                //     },
+                //     SubsystemError::Cascaded(cascaded_error) => match cascaded_error {},
+                // })
             });
 
         Ok(())
