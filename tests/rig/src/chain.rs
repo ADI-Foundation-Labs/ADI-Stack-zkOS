@@ -26,6 +26,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use zk_ee::common_structs::{derive_flat_storage_key, ProofData};
 use zk_ee::system::metadata::{BlockHashes, BlockMetadataFromOracle};
+use zk_ee::system::tracer::NopTracer;
 use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::utils::Bytes32;
 
@@ -49,6 +50,7 @@ pub struct BlockContext {
     pub native_price: U256,
     pub coinbase: B160,
     pub gas_limit: u64,
+    pub pubdata_limit: u64,
     pub mix_hash: U256,
     pub interop_roots: InteropRoots,
 }
@@ -62,6 +64,7 @@ impl Default for BlockContext {
             native_price: U256::from(10),
             coinbase: B160::default(),
             gas_limit: MAX_BLOCK_GAS_LIMIT,
+            pubdata_limit: u64::MAX,
             mix_hash: U256::ONE,
             interop_roots: InteropRoots::default(),
         }
@@ -141,8 +144,15 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
     ) -> Vec<u32> {
         let oracle_wrapper =
             BasicZkEEOracleWrapper::<EthereumIOTypesConfig, _>::new(oracle.clone());
+
         let mut non_determinism_source = ZkEENonDeterminismSource::default();
+
         non_determinism_source.add_external_processor(oracle_wrapper);
+        non_determinism_source.add_external_processor(
+            callable_oracles::arithmetic::ArithmeticQuery {
+                marker: std::marker::PhantomData,
+            },
+        );
 
         // We'll wrap the source, to collect all the reads.
         let copy_source = ReadWitnessSource::new(non_determinism_source);
@@ -177,6 +187,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             native_price: block_context.native_price,
             coinbase: block_context.coinbase,
             gas_limit: block_context.gas_limit,
+            pubdata_limit: block_context.pubdata_limit,
             mix_hash: block_context.mix_hash,
             interop_roots: block_context.interop_roots,
         };
@@ -204,10 +215,12 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         // forward run
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
+        let mut nop_tracer = NopTracer::default();
 
         run_forward::<BasicBootloaderCallSimulationConfig, _, _, _>(
             oracle.clone(),
             &mut result_keeper,
+            &mut nop_tracer,
         );
 
         let block_output: BlockOutput = result_keeper.into();
@@ -255,6 +268,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             native_price: block_context.native_price,
             coinbase: block_context.coinbase,
             gas_limit: block_context.gas_limit,
+            pubdata_limit: block_context.pubdata_limit,
             mix_hash: block_context.mix_hash,
             interop_roots: block_context.interop_roots,
         };
@@ -290,10 +304,12 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         // forward run
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
+        let mut nop_tracer = NopTracer::default();
 
         run_forward::<BasicBootloaderForwardSimulationConfig, _, _, _>(
             oracle.clone(),
             &mut result_keeper,
+            &mut nop_tracer,
         );
 
         let block_output: BlockOutput = result_keeper.into();
@@ -337,12 +353,22 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             let source_for_witness_bench = {
                 let mut non_determinism_source = ZkEENonDeterminismSource::default();
                 non_determinism_source.add_external_processor(oracle_wrapper.clone());
+                non_determinism_source.add_external_processor(
+                    callable_oracles::arithmetic::ArithmeticQuery {
+                        marker: std::marker::PhantomData,
+                    },
+                );
 
                 non_determinism_source
             };
 
             let mut non_determinism_source = ZkEENonDeterminismSource::default();
             non_determinism_source.add_external_processor(oracle_wrapper);
+            non_determinism_source.add_external_processor(
+                callable_oracles::arithmetic::ArithmeticQuery {
+                    marker: std::marker::PhantomData,
+                },
+            );
             // We'll wrap the source, to collect all the reads.
             let copy_source = ReadWitnessSource::new(non_determinism_source);
             let items = copy_source.get_read_items();
@@ -577,6 +603,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 // bunch of internal utility methods
 fn get_zksync_os_path(app_name: &Option<String>, extension: &str) -> PathBuf {
     let app = app_name.as_deref().unwrap_or("app");
+    // let app = app_name.as_deref().unwrap_or("app_debug");
     let filename = format!("{app}.{extension}");
     let zksync_os_path = std::env::var("OVERRIDE_ZKSYNC_OS_PATH")
         .map(PathBuf::from)

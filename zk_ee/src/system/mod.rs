@@ -11,6 +11,7 @@ pub mod logger;
 pub mod metadata;
 pub mod resources;
 mod result_keeper;
+pub mod tracer;
 
 pub use self::base_system_functions::*;
 pub use self::call_modifiers::*;
@@ -49,6 +50,7 @@ pub trait SystemTypes {
 
     /// Common system functions implementation(ecrecover, keccak256, ecadd, etc).
     type SystemFunctions: SystemFunctions<Self::Resources>;
+    type SystemFunctionsExt: SystemFunctionsExt<Self::Resources>;
 
     type Logger: Logger + Default;
 
@@ -134,6 +136,10 @@ impl<S: SystemTypes> System<S> {
 
     pub fn get_gas_limit(&self) -> u64 {
         self.metadata.block_level_metadata.gas_limit
+    }
+
+    pub fn get_pubdata_limit(&self) -> u64 {
+        self.metadata.block_level_metadata.pubdata_limit
     }
 
     pub fn get_gas_per_pubdata(&self) -> ruint::aliases::U256 {
