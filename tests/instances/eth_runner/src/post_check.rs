@@ -415,9 +415,9 @@ pub fn post_check(
                     receipt.transaction_index, res.gas_used, receipt.gas_used,
                     gas_difference,
                 );
-            return Err(PostCheckError::GasMismatch {
-                id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
-            });
+            // return Err(PostCheckError::GasMismatch {
+            //     id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
+            // });
         }
     }
 

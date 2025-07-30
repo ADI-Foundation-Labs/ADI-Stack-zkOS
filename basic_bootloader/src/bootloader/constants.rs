@@ -71,8 +71,8 @@ pub const L1_TX_INTRINSIC_NATIVE_COST: usize = 10_000;
 // Value taken from system-contracts, to adjust.
 pub const L1_TX_INTRINSIC_PUBDATA: usize = 88;
 
-/// Does not include signature verification.
-pub const L2_TX_INTRINSIC_GAS: usize = 18_000;
+/// Does include signature verification.
+pub const L2_TX_INTRINSIC_GAS: usize = 21_000;
 
 /// Extra cost for deployment transactions.
 pub const DEPLOYMENT_TX_EXTRA_INTRINSIC_GAS: usize = 32_000;
@@ -82,6 +82,18 @@ pub const L2_TX_INTRINSIC_PUBDATA: usize = 0;
 
 // To be adjusted
 pub const L2_TX_INTRINSIC_NATIVE_COST: usize = 4_000;
+
+/// Cost to convert zero byte of calldata into "token"
+pub const CALLDATA_ZERO_BYTE_TOKEN_FACTOR: u64 = 1;
+
+/// Cost to convert non-zero byte of calldata into "token"
+pub const CALLDATA_NON_ZERO_BYTE_TOKEN_FACTOR: u64 = 4;
+
+/// Cost in gas per "token" of calldata
+pub const CALLDATA_TOKEN_GAS_COST: u64 = 4;
+
+/// EIP-7623 minimal "token" cost
+pub const TOTAL_COST_FLOOR_PER_TOKEN: u64 = 10;
 
 /// Cost in gas to store one zero byte of calldata
 pub const CALLDATA_ZERO_BYTE_GAS_COST: usize = 4;

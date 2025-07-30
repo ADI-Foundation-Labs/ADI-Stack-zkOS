@@ -74,6 +74,8 @@ pub enum InvalidTransaction {
     BlockGasLimitTooHigh,
     /// Protocol upgrade tx should be first in the block.
     UpgradeTxNotFirst,
+    /// EIP-7623 calldata cost is not paid
+    EIP7623IntrinsicGasIsTooLow,
 
     /// Call during AA validation reverted
     Revert {
