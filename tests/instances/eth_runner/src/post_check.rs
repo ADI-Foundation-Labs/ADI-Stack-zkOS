@@ -5,7 +5,7 @@ use rig::forward_system::run::BlockOutput;
 use rig::log::{error, info};
 use ruint::aliases::{B160, B256, U256};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use zk_ee::utils::u256_to_usize_saturated;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -270,6 +270,20 @@ fn zksync_os_output_into_account_state(
             .into_iter()
             .map(|(key, value, _)| (key.as_u8_array(), value)),
     );
+    for (address, (nonce, balance, bytecode_hash)) in output.account_diffs {
+        let mut state = AccountState {
+            balance: Some(balance),
+            nonce: Some(nonce),
+            code: None,
+            storage: Some(BTreeMap::new()),
+        };
+        if let Some(bytecode) = preimages.get(&bytecode_hash.as_u8_array()) {
+            let owned: Vec<u8> = bytecode.to_owned();
+            state.code = Some(owned.into());
+        }
+        let existing = updates.insert(address, state);
+        assert!(existing.is_none());
+    }
     for w in output.storage_writes {
         if rig::chain::is_account_properties_address(&w.account) {
             // populate account
@@ -289,6 +303,7 @@ fn zksync_os_output_into_account_state(
                     };
                     AccountProperties::decode(&encoded.try_into().unwrap())
                 };
+                assert!(updates.contains_key(&address) == false);
                 let entry = updates.entry(address).or_default();
                 entry.balance = Some(props.balance);
                 entry.nonce = Some(props.nonce);
@@ -341,6 +356,8 @@ pub fn post_check(
     prestate_cache: Cache,
     miner: B160,
 ) -> Result<(), PostCheckError> {
+    assert_eq!(receipts.len(), output.tx_results.len());
+
     for (res, receipt) in output.tx_results.iter().zip(receipts.iter()) {
         info!(
             "Checking transaction {} for consistency",

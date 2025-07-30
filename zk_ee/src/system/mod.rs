@@ -72,6 +72,14 @@ pub struct SystemFrameSnapshot<S: SystemTypes> {
     io: <S::IO as IOSubsystem>::StateSnapshot,
 }
 
+impl<S: SystemTypes> core::fmt::Debug for SystemFrameSnapshot<S> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("SystemFrameSnapshot")
+            .field("io", &self.io)
+            .finish()
+    }
+}
+
 impl<S: SystemTypes> System<S> {
     /// Returns logger for debugging purposes.
     pub fn get_logger(&self) -> S::Logger {
@@ -180,9 +188,10 @@ where
     /// Returns the snapshot which the system can rollback to on finishing the frame.
     #[track_caller]
     pub fn start_global_frame(&mut self) -> Result<SystemFrameSnapshot<S>, InternalError> {
-        let mut logger = self.get_logger();
-        let _ = logger.write_fmt(format_args!("Start global frame\n"));
         let io = self.io.start_io_frame()?;
+
+        let mut logger = self.get_logger();
+        let _ = logger.write_fmt(format_args!("Start global frame with handle {:?}\n", &io));
 
         Ok(SystemFrameSnapshot { io })
     }
@@ -196,8 +205,8 @@ where
     ) -> Result<(), InternalError> {
         let mut logger = self.get_logger();
         let _ = logger.write_fmt(format_args!(
-            "Finish global frame, revert = {}\n",
-            rollback_handle.is_some()
+            "Finish global frame, revert handle = {:?}\n",
+            &rollback_handle,
         ));
 
         // revert IO if needed, and copy memory

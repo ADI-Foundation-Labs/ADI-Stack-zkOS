@@ -305,7 +305,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             system_functions.add_contract_deployer();
         }
 
-        let mut first_tx = true;
+        let mut tx_counter = 0;
 
         // now we can run every transaction
         while let Some(next_tx_data_len_bytes) = {
@@ -330,7 +330,10 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
 
             let mut logger: <S as SystemTypes>::Logger = system.get_logger();
             let _ = logger.write_fmt(format_args!("====================================\n"));
-            let _ = logger.write_fmt(format_args!("TX execution begins\n"));
+            let _ = logger.write_fmt(format_args!(
+                "TX execution begins for transaction {}\n",
+                tx_counter
+            ));
 
             let initial_calldata_buffer =
                 initial_calldata_buffer.as_tx_buffer(next_tx_data_len_bytes);
@@ -345,7 +348,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                 &mut system,
                 &mut system_functions,
                 memories.reborrow(),
-                first_tx,
+                tx_counter == 0,
                 tracer,
             );
 
@@ -410,37 +413,14 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                 .get_logger()
                 .write_fmt(format_args!("Tx stats = {tx_stats:?}\n"));
 
-            first_tx = false;
-
-            let coinbase = system.get_coinbase();
-            let mut inf_resources = S::Resources::FORMAL_INFINITE;
-            let bootloader_balance = system
-                .io
-                .read_account_properties(
-                    ExecutionEnvironmentType::NoEE,
-                    &mut inf_resources,
-                    &BOOTLOADER_FORMAL_ADDRESS,
-                    AccountDataRequest::empty().with_nominal_token_balance(),
-                )
-                .expect("must read bootloader balance")
-                .nominal_token_balance
-                .0;
-            if !bootloader_balance.is_zero() {
-                system
-                    .io
-                    .transfer_nominal_token_value(
-                        ExecutionEnvironmentType::NoEE,
-                        &mut inf_resources,
-                        &BOOTLOADER_FORMAL_ADDRESS,
-                        &coinbase,
-                        &bootloader_balance,
-                    )
-                    .expect("must be able to move funds to coinbase");
-            }
-
             let mut logger = system.get_logger();
-            let _ = logger.write_fmt(format_args!("TX execution ends\n"));
+            let _ = logger.write_fmt(format_args!(
+                "TX execution ends for transaction {}\n",
+                tx_counter
+            ));
             let _ = logger.write_fmt(format_args!("====================================\n"));
+
+            tx_counter += 1;
         }
 
         let _ = system

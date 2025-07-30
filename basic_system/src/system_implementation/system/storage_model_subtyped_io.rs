@@ -58,6 +58,17 @@ pub struct TypedFullIOStateSnapshot<M: StorageModel> {
     events: usize,
 }
 
+impl<M: StorageModel> core::fmt::Debug for TypedFullIOStateSnapshot<M> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("TypedFullIOStateSnapshot")
+            .field("io", &self.io)
+            .field("transient", &self.transient)
+            .field("messages", &self.messages)
+            .field("events", &self.events)
+            .finish()
+    }
+}
+
 impl<
         A: Allocator + Clone + Default,
         R: Resources,

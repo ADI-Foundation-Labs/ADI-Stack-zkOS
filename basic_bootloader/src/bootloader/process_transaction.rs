@@ -528,6 +528,7 @@ where
                 return Err(e);
             }
         };
+        drop(validation_rollback_handle);
 
         system
             .get_logger()
@@ -540,7 +541,7 @@ where
         system.set_tx_context(transaction.from.read(), tx_context.gas_price_to_use);
 
         // Take a snapshot in case we need to revert due to out of native.
-        let rollback_handle = system.start_global_frame()?;
+        let main_body_rollback_handle = system.start_global_frame()?;
 
         // pubdata_info = (pubdata_used, to_charge_for_pubdata) can be cached
         // to used in the refund step only if the execution succeeded.
@@ -564,7 +565,7 @@ where
                         Some((pubdata_used, to_charge_for_pubdata))
                     }
                     ExecutionResult::Revert { .. } => {
-                        system.finish_global_frame(Some(&rollback_handle))?;
+                        system.finish_global_frame(Some(&main_body_rollback_handle))?;
                         let _ = system
                             .get_logger()
                             .write_fmt(format_args!("Transaction main payload was reverted\n"));
@@ -581,12 +582,13 @@ where
                         "Transaction ran out of native resources: {e:?}\n"
                     ));
                     tx_context.resources.main_resources.exhaust_ergs();
-                    system.finish_global_frame(Some(&rollback_handle))?;
+                    system.finish_global_frame(Some(&main_body_rollback_handle))?;
                     (ExecutionResult::Revert { output: &[] }, None)
                 }
                 _ => return Err(e.into()),
             },
         };
+        drop(main_body_rollback_handle);
 
         // Just used for computing native used
         let resources_before_refund = tx_context.resources.main_resources.clone();
@@ -783,7 +785,7 @@ where
             &mut context.resources.main_resources,
         )?;
 
-        let rollback_handle = system.start_global_frame()?;
+        let refund_rollback_handle = system.start_global_frame()?;
 
         match crate::bootloader::execution_steps::process_fee_payments::refund_transaction_fee::<
             S,
@@ -794,7 +796,7 @@ where
                 system.finish_global_frame(None)?;
             }
             Err(TxError::Internal(e)) => {
-                system.finish_global_frame(Some(&rollback_handle))?;
+                system.finish_global_frame(Some(&refund_rollback_handle))?;
                 return Err(e);
             }
             Err(TxError::Validation(e)) => {
@@ -802,10 +804,15 @@ where
                     .get_logger()
                     .write_fmt(format_args!("Validation error {:?} on refund\n", &e))
                     .unwrap();
-                system.finish_global_frame(Some(&rollback_handle))?;
+                system.finish_global_frame(Some(&refund_rollback_handle))?;
                 return Err(internal_error!("WTF"))?; // TODO
             }
         }
+        drop(refund_rollback_handle);
+
+        let _ = system
+            .get_logger()
+            .write_fmt(format_args!("Refund was processed\n"));
 
         Ok((gas_used, evm_refund, total_pubdata_used))
     }

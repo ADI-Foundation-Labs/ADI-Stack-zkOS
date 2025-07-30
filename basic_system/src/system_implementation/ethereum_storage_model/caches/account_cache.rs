@@ -816,6 +816,25 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
 
         Ok(())
     }
+
+    ///
+    /// Returns slots that were changed during execution.
+    ///
+    pub fn net_diffs_iter(
+        &self,
+    ) -> impl Iterator<Item = (B160, (u64, U256, Bytes32))> + use<'_, A, SC, N, R> {
+        self.cache
+            .iter()
+            .filter(|v| v.initial().value() != v.current().value())
+            .map(|v| {
+                let address = v.key().0;
+                let current = v.current().value();
+                (
+                    address,
+                    (current.nonce, current.balance, current.bytecode_hash),
+                )
+            })
+    }
 }
 
 define_subsystem!(AccountCache,

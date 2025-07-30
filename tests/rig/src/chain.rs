@@ -458,7 +458,6 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         let mut account_properties = HashMap::<B160, EthereumAccountProperties>::new();
         for el in witness.keys.iter() {
             if el.len() == 20 {
-                // dbg!(hex::encode(el));
                 let hash = crypto::sha3::Keccak256::digest(el);
                 let digits = digits_from_key(&hash);
                 let path = Path::new(&digits);
@@ -485,6 +484,9 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             gas_limit: block_context.gas_limit,
             mix_hash: block_context.mix_hash,
         };
+
+        println!("Will try to run {} transactions", transactions.len());
+
         let tx_source = TxListSource {
             transactions: transactions.into(),
         };

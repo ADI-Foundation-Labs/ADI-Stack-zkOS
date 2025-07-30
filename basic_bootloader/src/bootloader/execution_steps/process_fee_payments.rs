@@ -83,16 +83,29 @@ pub(crate) fn refund_transaction_fee<S: EthereumLikeTypes, Config: BasicBootload
 where
     S::IO: IOSubsystemExt,
 {
+    if gas_to_refund == 0 {
+        system
+            .get_logger()
+            .write_fmt(format_args!("Nothing to refund\n"))
+            .unwrap();
+        return Ok(());
+    }
+
     // we should check remaining ergs (already refunded), and avoid paying if it's too low
     if context.minimal_ergs_to_charge.0 / ERGS_PER_GAS >= gas_to_refund {
         system
             .get_logger()
             .write_fmt(format_args!(
-                "Minimal intrinsic cost to charge is higher than gas spent, aborting refund"
+                "Minimal intrinsic cost to charge is higher than gas spent, aborting refund\n"
             ))
             .unwrap();
         return Ok(());
     }
+
+    system
+        .get_logger()
+        .write_fmt(format_args!("Will refund {} gas\n", gas_to_refund))
+        .unwrap();
     let refund_amount = context
         .gas_price_to_use
         .checked_mul(U256::from(gas_to_refund))

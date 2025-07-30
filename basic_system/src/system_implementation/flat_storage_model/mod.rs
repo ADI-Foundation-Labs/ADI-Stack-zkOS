@@ -81,6 +81,7 @@ pub struct FlatTreeWithAccountsUnderHashesStorageModel<
     pub(crate) allocator: A,
 }
 
+#[derive(Debug)]
 pub struct FlatTreeWithAccountsUnderHashesStorageModelStateSnapshot {
     storage: StorageSnapshotId,
     account_data: CacheSnapshotId,

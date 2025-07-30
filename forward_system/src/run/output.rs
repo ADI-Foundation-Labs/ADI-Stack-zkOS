@@ -6,6 +6,7 @@ use arrayvec::ArrayVec;
 pub use basic_bootloader::bootloader::block_header::BlockHeader;
 use basic_bootloader::bootloader::errors::InvalidTransaction;
 use ruint::aliases::B160;
+use ruint::aliases::U256;
 use zk_ee::common_structs::GenericLogContent;
 use zk_ee::common_structs::{
     derive_flat_storage_key, GenericEventContent, L2ToL1Log, PreimageType,
@@ -129,6 +130,7 @@ pub struct BlockOutput {
     pub tx_results: Vec<TxResult>,
     // TODO: will be returned per tx later
     pub storage_writes: Vec<StorageWrite>,
+    pub account_diffs: Vec<(B160, (u64, U256, Bytes32))>,
     pub published_preimages: Vec<(Bytes32, Vec<u8>, PreimageType)>,
     pub pubdata: Vec<u8>,
 }
@@ -165,6 +167,7 @@ impl<TR: TxResultCallback> From<ForwardRunningResultKeeper<TR>> for BlockOutput 
             tx_results,
             new_preimages,
             pubdata,
+            account_diffs,
             ..
         } = value;
 
@@ -223,6 +226,7 @@ impl<TR: TxResultCallback> From<ForwardRunningResultKeeper<TR>> for BlockOutput 
             header: block_header.unwrap(),
             tx_results,
             storage_writes,
+            account_diffs,
             published_preimages: new_preimages,
             pubdata,
         }

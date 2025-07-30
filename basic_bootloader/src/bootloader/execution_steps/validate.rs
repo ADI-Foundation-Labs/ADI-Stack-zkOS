@@ -238,6 +238,14 @@ where
         L2_TX_INTRINSIC_NATIVE_COST as u64,
     )?;
 
+    system
+        .get_logger()
+        .write_fmt(format_args!(
+            "Proposed resources for transaction: {:?}\n",
+            &tx_resources
+        ))
+        .unwrap();
+
     // NOTE: we provided a "hint" for "from", so it's sequencer's risks here:
     // - either "from" is valid at it has at least enough balance, valid signature, etc to eventually pay for all validation
     // - or we will perform non-mutating operations without any payment

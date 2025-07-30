@@ -104,6 +104,15 @@ pub const CALLDATA_NON_ZERO_BYTE_GAS_COST: usize = 16;
 /// Default value of gasPerPubdata for non EIP-712 txs.
 pub const DEFAULT_GAS_PER_PUBDATA: U256 = U256::from_limbs([1, 0, 0, 0]);
 
+/// Computational cost of 7702 auth
+pub const PER_AUTH_INTRINSIC_COST: u64 = 2000;
+
+/// Computational cost of 2930 access list per address
+pub const PER_ADDRESS_ACCESS_LIST_INTRINSIC_COST: u64 = 2000;
+
+/// Computational cost of 2930 access list per slot
+pub const PER_SLOT_ACCESS_LIST_INTRINSIC_COST: u64 = 2000;
+
 /// EVM tester requires a high native_per_gas, but it hard-codes
 /// low gas prices. We need to bypass the usual way to compute this
 /// value. The value is so high because of modexp tests.

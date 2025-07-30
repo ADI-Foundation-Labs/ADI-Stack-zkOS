@@ -242,12 +242,16 @@ pub fn single_eth_run(block_dir: String, chain_id: Option<u64>) -> anyhow::Resul
     let block_context = block.get_block_context();
     let (transactions, skipped) = block.get_transactions(&calltrace);
 
-    let receipts = receipts
+    dbg!(&skipped);
+
+    let receipts: Vec<TransactionReceipt> = receipts
         .result
         .into_iter()
         .enumerate()
         .filter_map(|(i, x)| if skipped.contains(&i) { None } else { Some(x) })
         .collect();
+
+    assert_eq!(receipts.len(), transactions.len());
 
     let ps_trace = PrestateTrace {
         result: ps_trace

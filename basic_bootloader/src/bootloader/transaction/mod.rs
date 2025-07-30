@@ -723,24 +723,59 @@ impl<'a> ZkSyncTransaction<'a> {
     where
         S::IO: IOSubsystemExt,
     {
+        use evm_interpreter::ERGS_PER_GAS;
+        use zk_ee::system::Ergs;
+
         let iter = self
             .reserved_dynamic
             .access_list_iter(&self.underlying_buffer)
             .map_err(|()| InvalidTransaction::InvalidStructure)?;
         for res in iter {
+            // per-address charge
+            resources.charge(&S::Resources::from_ergs_and_native(
+                Ergs(evm_interpreter::gas_constants::ACCESS_LIST_ADDRESS * ERGS_PER_GAS),
+                    <<S::Resources as Resources>::Native as zk_ee::system::Computational>::from_computational(crate::bootloader::constants::PER_ADDRESS_ACCESS_LIST_INTRINSIC_COST)
+                )
+            )?;
+
             let (address, keys) = res.map_err(|()| InvalidTransaction::InvalidStructure)?;
+
             system
-                .io
-                .touch_account(ExecutionEnvironmentType::NoEE, resources, &address, true)?;
+                .get_logger()
+                .write_fmt(format_args!("Will touch address {:?} as warm\n", &address,))
+                .unwrap();
+
+            resources.with_infinite_ergs(|resources| {
+                system
+                    .io
+                    .touch_account(ExecutionEnvironmentType::NoEE, resources, &address, true)
+            })?;
             for key in keys {
-                let key = key.map_err(|()| InvalidTransaction::InvalidStructure)?;
-                system.io.storage_touch(
-                    ExecutionEnvironmentType::NoEE,
-                    resources,
-                    &address,
-                    &key,
-                    true,
+                // per-slot charge
+                resources.charge(&S::Resources::from_ergs_and_native(
+                    Ergs(evm_interpreter::gas_constants::ACCESS_LIST_STORAGE_KEY * ERGS_PER_GAS),
+                        <<S::Resources as Resources>::Native as zk_ee::system::Computational>::from_computational(crate::bootloader::constants::PER_SLOT_ACCESS_LIST_INTRINSIC_COST)
+                    )
                 )?;
+                let key = key.map_err(|()| InvalidTransaction::InvalidStructure)?;
+
+                system
+                    .get_logger()
+                    .write_fmt(format_args!(
+                        "Will touch address {:?}, slot {:?} as warm\n",
+                        &address, &key,
+                    ))
+                    .unwrap();
+
+                resources.with_infinite_ergs(|resources| {
+                    system.io.storage_touch(
+                        ExecutionEnvironmentType::NoEE,
+                        resources,
+                        &address,
+                        &key,
+                        true,
+                    )
+                })?;
             }
         }
         Ok(())

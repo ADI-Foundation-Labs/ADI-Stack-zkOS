@@ -25,7 +25,7 @@ use ruint::aliases::U256;
 pub trait IOSubsystem: Sized {
     type Resources: Resources;
     type IOTypes: SystemIOTypesConfig;
-    type StateSnapshot;
+    type StateSnapshot: core::fmt::Debug;
 
     /// Read value from storage at a given slot (address, key).
     fn storage_read<const TRANSIENT: bool>(

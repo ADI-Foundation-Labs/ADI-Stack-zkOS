@@ -80,6 +80,7 @@ impl StorageElementMetadata {
     }
 }
 
+#[derive(Debug)]
 pub struct StorageSnapshotId {
     pub cache: CacheSnapshotId,
     #[cfg(feature = "evm_refunds")]

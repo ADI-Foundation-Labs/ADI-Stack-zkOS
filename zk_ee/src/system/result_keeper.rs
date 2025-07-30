@@ -11,6 +11,7 @@ use crate::common_structs::{
 };
 use crate::kv_markers::MAX_EVENT_TOPICS;
 use crate::types_config::SystemIOTypesConfig;
+use crate::utils::Bytes32;
 
 pub trait IOResultKeeper<IOTypes: SystemIOTypesConfig> {
     fn events<'a>(
@@ -24,6 +25,17 @@ pub trait IOResultKeeper<IOTypes: SystemIOTypesConfig> {
     fn storage_diffs(
         &mut self,
         _iter: impl Iterator<Item = (IOTypes::Address, IOTypes::StorageKey, IOTypes::StorageValue)>,
+    ) {
+    }
+
+    fn basic_account_diffs(
+        &mut self,
+        _iter: impl Iterator<
+            Item = (
+                IOTypes::Address,
+                (u64, IOTypes::NominalTokenValue, IOTypes::BytecodeHashValue),
+            ),
+        >,
     ) {
     }
 

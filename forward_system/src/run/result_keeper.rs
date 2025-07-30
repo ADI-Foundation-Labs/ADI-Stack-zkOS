@@ -2,6 +2,7 @@ use crate::run::TxResultCallback;
 use basic_bootloader::bootloader::block_header::BlockHeader;
 use basic_bootloader::bootloader::result_keeper::{ResultKeeperExt, TxProcessingOutput};
 use ruint::aliases::B160;
+use ruint::aliases::U256;
 use std::alloc::Global;
 use zk_ee::common_structs::{
     GenericEventContent, GenericEventContentWithTxRef, GenericLogContent,
@@ -30,6 +31,7 @@ pub struct ForwardRunningResultKeeper<TR: TxResultCallback> {
     pub events: Vec<GenericEventContent<MAX_EVENT_TOPICS, EthereumIOTypesConfig>>,
     pub logs: Vec<GenericLogContent<EthereumIOTypesConfig>>,
     pub storage_writes: Vec<(B160, Bytes32, Bytes32)>,
+    pub account_diffs: Vec<(B160, (u64, U256, Bytes32))>,
     pub tx_results: Vec<
         Result<TxProcessingOutputOwned, basic_bootloader::bootloader::errors::InvalidTransaction>,
     >,
@@ -46,6 +48,7 @@ impl<TR: TxResultCallback> ForwardRunningResultKeeper<TR> {
             events: vec![],
             logs: vec![],
             storage_writes: vec![],
+            account_diffs: vec![],
             tx_results: vec![],
             new_preimages: vec![],
             pubdata: vec![],
@@ -84,6 +87,10 @@ impl<TR: TxResultCallback> IOResultKeeper<EthereumIOTypesConfig>
 
     fn storage_diffs(&mut self, iter: impl Iterator<Item = (B160, Bytes32, Bytes32)>) {
         self.storage_writes = iter.collect();
+    }
+
+    fn basic_account_diffs(&mut self, iter: impl Iterator<Item = (B160, (u64, U256, Bytes32))>) {
+        self.account_diffs = iter.collect();
     }
 
     fn new_preimages<'a>(

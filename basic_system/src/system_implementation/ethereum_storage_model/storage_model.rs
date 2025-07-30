@@ -47,6 +47,7 @@ pub struct EthereumStorageModel<
     pub(crate) allocator: A,
 }
 
+#[derive(Debug)]
 pub struct EthereumStorageModelStateSnapshot {
     storage: StorageSnapshotId,
     account_data: CacheSnapshotId,
@@ -116,6 +117,11 @@ impl<
         // Here we have to cascade everything
 
         // 1. Return uncompressed state diffs for sequencer
+
+        // Accounts
+        result_keeper.basic_account_diffs(account_cache.net_diffs_iter());
+
+        // Storage slots
         result_keeper.storage_diffs(storage_cache.net_diffs_iter().map(|(k, v)| {
             let WarmStorageKey { address, key } = k;
             let value = v.current_value;
