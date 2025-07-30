@@ -3,7 +3,7 @@ use constants::{MAX_TX_LEN_WORDS, TX_OFFSET_WORDS};
 use errors::BootloaderSubsystemError;
 use result_keeper::ResultKeeperExt;
 use ruint::aliases::*;
-use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
+use system_hooks::addresses_constants::{BOOTLOADER_FORMAL_ADDRESS, L2_INTEROP_ROOT_STORAGE_ADDRESS};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::memory::slice_vec::SliceVec;
 use zk_ee::system::{EthereumLikeTypes, System, SystemTypes};
@@ -207,6 +207,51 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         let mut first_tx = true;
         let mut upgrade_tx_hash = Bytes32::zero();
         let mut block_gas_used = 0;
+        let mut interop_root_hasher = crypto::sha3::Keccak256::new();
+
+        // Block of code needed for interop.
+        // We need to add interop roots to the interop root storage.
+        // We do it by calling the addInteropRoot function.
+        // The function is defined in the InteropRootStorage contract.
+        // The function is called with the chainId, blockOrBatchNumber, and the sides.
+        // The sides are the interop roots.
+        // The chainId is the chainId of the interop root.
+        // The blockOrBatchNumber is the block number of the interop root.
+        //
+        // We also compute the rolling hash of the interop roots and include it as part of the public input
+        system
+            .get_interop_roots()
+            .iter()
+            .filter(|interop_root| interop_root.chain_id != 0 && interop_root.block_number != 0)
+            .for_each(|interop_root| {
+                let mut data = [0u8; 160];
+                data[24..32].copy_from_slice(&interop_root.chain_id.to_be_bytes());
+                data[56..64].copy_from_slice(&interop_root.block_number.to_be_bytes());
+                data[92..96].copy_from_slice(&32u32.to_be_bytes());
+                data[124..128].copy_from_slice(&1u32.to_be_bytes());
+                data[128..160].copy_from_slice(&interop_root.root[0].as_u8_ref());
+                interop_root_hasher.update(&data);
+
+                data[92..96].copy_from_slice(&96u32.to_be_bytes());
+
+                // fb6200c6: function addInteropRoot(uint256 chainId, uint256 blockOrBatchNumber, bytes32[] calldata sides) external;
+                let mut calldata = [0xfb, 0x62, 0x00, 0xc6].to_vec();
+                calldata.extend(&data);
+
+                let _ = Self::run_single_interaction(
+                    &mut system,
+                    &mut system_functions,
+                    memories.reborrow(),
+                    &calldata,
+                    &BOOTLOADER_FORMAL_ADDRESS,
+                    &L2_INTEROP_ROOT_STORAGE_ADDRESS,
+                    S::Resources::FORMAL_INFINITE,
+                    &U256::ZERO,
+                    true,
+                );
+            });
+
+        let interop_root_hash = Bytes32::from(interop_root_hasher.finalize());
 
         // now we can run every transaction
         while let Some(next_tx_data_len_bytes) = {
@@ -384,7 +429,13 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             "Bootloader execution is complete, will proceed with applying changes\n"
         ));
 
-        let r = system.finish(block_hash, l1_to_l2_tx_hash, upgrade_tx_hash, result_keeper);
+        let r = system.finish(
+            block_hash,
+            l1_to_l2_tx_hash,
+            upgrade_tx_hash,
+            interop_root_hash,
+            result_keeper,
+        );
         cycle_marker::end!("run_prepared");
         #[allow(clippy::let_and_return)]
         Ok(r)

@@ -6,6 +6,7 @@ use rig::log::warn;
 use rig::utils::encode_alloy_rpc_tx;
 use ruint::aliases::{B160, U256};
 use serde::{Deserialize, Serialize};
+use zk_ee::system::metadata::InteropRoots;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Block {
@@ -23,6 +24,7 @@ impl Block {
             coinbase: B160::from_be_bytes(self.result.header.beneficiary.0 .0),
             gas_limit: self.result.header.gas_limit,
             mix_hash: U256::from_be_bytes(self.result.header.mix_hash.0),
+            interop_roots: InteropRoots::default(),
         }
     }
 

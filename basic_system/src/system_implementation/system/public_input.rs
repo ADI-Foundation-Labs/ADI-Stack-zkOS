@@ -61,6 +61,8 @@ pub struct BlocksOutput {
     pub l2_to_l1_logs_hashes_hash: Bytes32,
     /// Protocol upgrade tx hash (0 if there wasn't)
     pub upgrade_tx_hash: Bytes32,
+    /// Linear keccak256 hash of interop roots
+    pub interop_root_rolling_hash: Bytes32,
 }
 
 impl BlocksOutput {
@@ -79,6 +81,7 @@ impl BlocksOutput {
         hasher.update(self.priority_ops_hashes_hash.as_u8_ref());
         hasher.update(self.l2_to_l1_logs_hashes_hash.as_u8_ref());
         hasher.update(self.upgrade_tx_hash.as_u8_ref());
+        hasher.update(self.interop_root_rolling_hash.as_u8_ref());
         hasher.finalize()
     }
 }
@@ -140,6 +143,8 @@ pub struct BatchOutput {
     pub l2_logs_tree_root: Bytes32,
     /// Protocol upgrade tx hash (0 if there wasn't)
     pub upgrade_tx_hash: Bytes32,
+    /// Linear keccak256 hash of interop roots (0 if there weren't)
+    pub interop_root_rolling_hash: Bytes32,
 }
 
 impl BatchOutput {

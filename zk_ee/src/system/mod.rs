@@ -34,6 +34,7 @@ use self::{
     logger::Logger,
     metadata::{BlockMetadataFromOracle, Metadata},
 };
+use crate::system::metadata::InteropRoot;
 use crate::utils::Bytes32;
 use crate::{
     execution_environment_type::ExecutionEnvironmentType,
@@ -96,6 +97,10 @@ impl<S: SystemTypes> System<S> {
         {
             ruint::aliases::U256::ONE
         }
+    }
+
+    pub fn get_interop_roots(&self) -> [InteropRoot; 100] {
+        self.metadata.block_level_metadata.interop_roots.0
     }
 
     pub fn get_blockhash(&self, block_number: u64) -> ruint::aliases::U256 {
@@ -309,6 +314,7 @@ where
         block_hash: Bytes32,
         l1_to_l2_txs_hash: Bytes32,
         upgrade_tx_hash: Bytes32,
+        interop_root_rolling_hash: Bytes32,
         result_keeper: &mut impl IOResultKeeper<S::IOTypes>,
     ) -> <S::IO as IOSubsystemExt>::FinalData {
         let logger = self.get_logger();
@@ -317,6 +323,7 @@ where
             block_hash,
             l1_to_l2_txs_hash,
             upgrade_tx_hash,
+            interop_root_rolling_hash,
             result_keeper,
             logger,
         )

@@ -19,6 +19,7 @@ use log::{debug, info, trace};
 use oracle_provider::{BasicZkEEOracleWrapper, ReadWitnessSource, ZkEENonDeterminismSource};
 use risc_v_simulator::sim::{DiagnosticsConfig, ProfilerConfig};
 use ruint::aliases::{B160, B256, U256};
+use zk_ee::system::metadata::InteropRoots;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
@@ -49,6 +50,7 @@ pub struct BlockContext {
     pub coinbase: B160,
     pub gas_limit: u64,
     pub mix_hash: U256,
+    pub interop_roots: InteropRoots,
 }
 
 impl Default for BlockContext {
@@ -61,6 +63,7 @@ impl Default for BlockContext {
             coinbase: B160::default(),
             gas_limit: MAX_BLOCK_GAS_LIMIT,
             mix_hash: U256::ONE,
+            interop_roots: InteropRoots::default(),
         }
     }
 }
@@ -175,6 +178,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             coinbase: block_context.coinbase,
             gas_limit: block_context.gas_limit,
             mix_hash: block_context.mix_hash,
+            interop_roots: block_context.interop_roots,
         };
         let tx_source = TxListSource {
             transactions: transactions.into(),
@@ -252,6 +256,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             coinbase: block_context.coinbase,
             gas_limit: block_context.gas_limit,
             mix_hash: block_context.mix_hash,
+            interop_roots: block_context.interop_roots,
         };
         let state_commitment = FlatStorageCommitment::<{ TREE_HEIGHT }> {
             root: *self.state_tree.storage_tree.root(),

@@ -1,3 +1,5 @@
+use crate::utils::Bytes32;
+
 use super::{
     errors::internal::InternalError,
     kv_markers::{ExactSizeChain, UsizeDeserializable, UsizeSerializable},
@@ -71,6 +73,104 @@ impl UsizeDeserializable for BlockHashes {
     }
 }
 
+#[cfg_attr(feature = "testing", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub struct InteropRoot {
+    pub root: [Bytes32; 1],
+    pub block_number: u64,
+    pub chain_id: u64,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct InteropRoots(pub [InteropRoot; 100]);
+
+impl Default for InteropRoots {
+    fn default() -> Self {
+        Self([InteropRoot::default(); 100])
+    }
+}
+
+#[cfg(feature = "testing")]
+impl serde::Serialize for InteropRoots {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.0.to_vec().serialize(serializer)
+    }
+}
+
+#[cfg(feature = "testing")]
+impl<'de> serde::Deserialize<'de> for InteropRoots {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let vec: Vec<InteropRoot> = Vec::deserialize(deserializer)?;
+        let array: [InteropRoot; 100] = vec
+            .try_into()
+            .map_err(|_| serde::de::Error::custom("Expected array of length 100"))?;
+        Ok(Self(array))
+    }
+}
+
+impl UsizeSerializable for InteropRoots {
+    const USIZE_LEN: usize = <InteropRoot as UsizeSerializable>::USIZE_LEN * 100;
+
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        super::kv_markers::ExactSizeChainN::<_, _, 100>::new(
+            core::iter::empty::<usize>(),
+            core::array::from_fn(|i| Some(self.0[i].iter())),
+        )
+    }
+}
+
+impl UsizeDeserializable for InteropRoots {
+    const USIZE_LEN: usize = <InteropRoot as UsizeDeserializable>::USIZE_LEN * 100;
+
+    fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
+        Ok(Self(core::array::from_fn(|_| {
+            InteropRoot::from_iter(src).unwrap_or_default()
+        })))
+    }
+}
+
+impl UsizeSerializable for InteropRoot {
+    const USIZE_LEN: usize = <Bytes32 as UsizeSerializable>::USIZE_LEN * 100
+        + <u64 as UsizeSerializable>::USIZE_LEN
+        + <u64 as UsizeSerializable>::USIZE_LEN;
+
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        ExactSizeChain::new(
+            ExactSizeChain::new(
+                UsizeSerializable::iter(&self.root[0]),
+                UsizeSerializable::iter(&self.block_number),
+            ),
+            UsizeSerializable::iter(&self.chain_id),
+        )
+    }
+}
+
+impl UsizeDeserializable for InteropRoot {
+    const USIZE_LEN: usize = <Bytes32 as UsizeSerializable>::USIZE_LEN * 100
+        + <u64 as UsizeSerializable>::USIZE_LEN
+        + <u64 as UsizeSerializable>::USIZE_LEN;
+
+    fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
+        let interop_roots = <Bytes32 as UsizeDeserializable>::from_iter(src)?;
+        let block_number = <u64 as UsizeDeserializable>::from_iter(src)?;
+        let chain_id = <u64 as UsizeDeserializable>::from_iter(src)?;
+
+        let new = Self {
+            root: [interop_roots],
+            block_number,
+            chain_id,
+        };
+
+        Ok(new)
+    }
+}
+
 // we only need to know limited set of parameters here,
 // those that define "block", like uniform fee for block,
 // block number, etc
@@ -93,6 +193,7 @@ pub struct BlockMetadataFromOracle {
     /// Source of randomness, currently holds the value
     /// of prevRandao.
     pub mix_hash: U256,
+    pub interop_roots: InteropRoots,
 }
 
 impl BlockMetadataFromOracle {
@@ -108,14 +209,16 @@ impl BlockMetadataFromOracle {
             coinbase: B160::ZERO,
             block_hashes: BlockHashes::default(),
             mix_hash: U256::ONE,
+            interop_roots: InteropRoots::default(),
         }
     }
 }
 
 impl UsizeSerializable for BlockMetadataFromOracle {
-    const USIZE_LEN: usize = <U256 as UsizeSerializable>::USIZE_LEN * (4 + 256)
+    const USIZE_LEN: usize = <U256 as UsizeSerializable>::USIZE_LEN * (3 + 256)
         + <u64 as UsizeSerializable>::USIZE_LEN * 4
-        + <B160 as UsizeDeserializable>::USIZE_LEN;
+        + <B160 as UsizeDeserializable>::USIZE_LEN
+        + <InteropRoots as UsizeDeserializable>::USIZE_LEN;
 
     fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
         ExactSizeChain::new(
@@ -144,7 +247,7 @@ impl UsizeSerializable for BlockMetadataFromOracle {
                 ),
                 UsizeSerializable::iter(&self.block_hashes),
             ),
-            UsizeSerializable::iter(&self.mix_hash),
+            UsizeSerializable::iter(&self.interop_roots),
         )
     }
 }
@@ -163,6 +266,7 @@ impl UsizeDeserializable for BlockMetadataFromOracle {
         let coinbase = UsizeDeserializable::from_iter(src)?;
         let block_hashes = UsizeDeserializable::from_iter(src)?;
         let mix_hash = UsizeDeserializable::from_iter(src)?;
+        let interop_roots = UsizeDeserializable::from_iter(src)?;
 
         let new = Self {
             eip1559_basefee,
@@ -175,6 +279,7 @@ impl UsizeDeserializable for BlockMetadataFromOracle {
             coinbase,
             block_hashes,
             mix_hash,
+            interop_roots,
         };
 
         Ok(new)
