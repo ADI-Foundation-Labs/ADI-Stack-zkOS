@@ -17,6 +17,12 @@ cargo run --release --bin evm-tester -- [-v] \
 
 There are more rarely used options, which you may check out with `./target/release/evm-tester --help`.
 
+To run all tests:
+
+```bash
+cargo run --bin evm-tester --features zksync_os_forward_system/no_print --release -- --spec_tests
+```
+
 ## License
 
 The EVM Tester is distributed under the terms of either
