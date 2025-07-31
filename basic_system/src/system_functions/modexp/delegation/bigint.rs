@@ -7,8 +7,8 @@ use core::alloc::Allocator;
 use core::fmt::Debug;
 use core::mem::MaybeUninit;
 use crypto::{bigint_op_delegation_raw, bigint_op_delegation_with_carry_bit_raw, BigIntOps};
-use zk_ee::system_io_oracle::Arithmetics;
-use zk_ee::system_io_oracle::{ArithmeticsParam, IOOracle};
+use zk_ee::system_io_oracle::IOOracle;
+use super::super::{MODEXP_ADVISE_QUERY_ID, ModExpAdviseParams};
 
 // There is a small choice to make - either we do exponentiation walking as via LE or BE exponent.
 // If we do LE, then we square the base, and multiply accumulator by it
@@ -766,7 +766,7 @@ impl<'a, O: IOOracle> ModexpAdvisor for OracleAdvisor<'a, O> {
         quotient_dst: &mut BigintRepr<A>,
         remainder_dst: &mut BigintRepr<A>,
     ) {
-        let arg: ArithmeticsParam = {
+        let arg: ModExpAdviseParams = {
             let a_len = a.digits;
             let a_ptr = a.backing.as_ptr();
 
@@ -775,7 +775,7 @@ impl<'a, O: IOOracle> ModexpAdvisor for OracleAdvisor<'a, O> {
 
             assert!(modulus_len > 0);
 
-            let arg = ArithmeticsParam {
+            let arg = ModExpAdviseParams {
                 op: 0,
                 a_ptr: a_ptr.addr() as u32,
                 a_len: a_len as u32,
@@ -791,8 +791,9 @@ impl<'a, O: IOOracle> ModexpAdvisor for OracleAdvisor<'a, O> {
         // We assume that oracle's response is well-formed lengths-wise, and we will check value-wise separately
         let mut it = self
             .inner
-            .create_oracle_access_iterator::<Arithmetics>(
-                (&arg as *const ArithmeticsParam).addr() as u32
+            .raw_query(
+                MODEXP_ADVISE_QUERY_ID,
+                &((&arg as *const ModExpAdviseParams).addr() as u32)
             )
             .unwrap();
 

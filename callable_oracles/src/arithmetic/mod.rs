@@ -1,5 +1,6 @@
 use oracle_provider::OracleQueryProcessor;
 use risc_v_simulator::abstractions::memory::MemorySource;
+use basic_system::system_functions::modexp::{MODEXP_ADVISE_QUERY_ID, ModExpAdviseParams};
 
 use crate::utils::{
     evaluate::{read_memory_as_u64, read_struct},
@@ -10,21 +11,9 @@ pub struct ArithmeticQuery<M: MemorySource> {
     pub marker: std::marker::PhantomData<M>,
 }
 
-#[repr(C)]
-#[derive(Debug, Default)]
-pub struct ArithmeticsParam {
-    pub op: u32,
-    pub a_ptr: u32,
-    pub a_len: u32,
-    pub b_ptr: u32,
-    pub b_len: u32,
-    pub modulus_ptr: u32,
-    pub modulus_len: u32,
-}
-
 impl<M: MemorySource> OracleQueryProcessor<M> for ArithmeticQuery<M> {
     fn supported_query_ids(&self) -> Vec<u32> {
-        vec![0x101]
+        vec![MODEXP_ADVISE_QUERY_ID]
     }
 
     fn process_buffered_query(
@@ -45,10 +34,10 @@ impl<M: MemorySource> OracleQueryProcessor<M> for ArithmeticQuery<M> {
         );
 
         assert!(arg_ptr % 4 == 0);
-        const { assert!(core::mem::align_of::<ArithmeticsParam>() == 4) }
-        const { assert!(core::mem::size_of::<ArithmeticsParam>() % 4 == 0) }
+        const { assert!(core::mem::align_of::<ModExpAdviseParams>() == 4) }
+        const { assert!(core::mem::size_of::<ModExpAdviseParams>() % 4 == 0) }
 
-        let arg = unsafe { read_struct::<ArithmeticsParam, _>(memory, arg_ptr as u32) }.unwrap();
+        let arg = unsafe { read_struct::<ModExpAdviseParams, _>(memory, arg_ptr as u32) }.unwrap();
 
         const { assert!(8 == core::mem::size_of::<usize>()) };
         assert!(arg.a_ptr > 0);

@@ -118,17 +118,6 @@ pub trait SimpleOracleQuery: Sized {
     }
 }
 
-#[repr(C)]
-pub struct ArithmeticsParam {
-    pub op: u32,
-    pub a_ptr: u32,
-    pub a_len: u32,
-    pub b_ptr: u32,
-    pub b_len: u32,
-    pub modulus_ptr: u32,
-    pub modulus_len: u32,
-}
-
 ///
 /// Oracle interface
 ///
