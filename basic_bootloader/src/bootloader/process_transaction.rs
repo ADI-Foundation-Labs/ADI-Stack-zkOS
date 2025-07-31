@@ -19,7 +19,7 @@ use gas_helpers::get_resources_to_charge_for_pubdata;
 use gas_helpers::ResourcesForTx;
 use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
 use system_hooks::HooksStorage;
-use zk_ee::internal_error;
+use zk_ee::{internal_error, wrap_error};
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::system::errors::root_cause::GetRootCause;
 use zk_ee::system::errors::root_cause::RootCause;
@@ -623,7 +623,7 @@ where
                 &mut tx_context,
                 pubdata_info,
                 tracer,
-            )?;
+            ).map_err(|e| wrap_error!(e))?;
 
         // Add back the intrinsic native charged in get_resources_for_tx,
         // as initial_resources doesn't include them.
@@ -691,7 +691,7 @@ where
         context: &mut <EthereumEOATransactionFlow<S> as BasicTransactionFlowInBootloader<S>>::TransactionContext,
         pubdata_info: Option<(u64, S::Resources)>,
         tracer: &mut impl Tracer<S>,
-    ) -> Result<(u64, u64, u64), BootloaderSubsystemError> {
+    ) -> Result<(u64, u64, u64), BalanceSubsystemError> {
         if Config::ONLY_SIMULATE {
             let min_gas_used = context.minimal_ergs_to_charge.0 / ERGS_PER_GAS;
             // Compute gas used following the same logic as in normal execution

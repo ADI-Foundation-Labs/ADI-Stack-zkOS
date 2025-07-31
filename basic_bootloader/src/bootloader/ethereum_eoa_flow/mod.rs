@@ -372,7 +372,7 @@ where
         transaction: &Self::Transaction<'_>,
         context: &mut Self::TransactionContext,
         _tracer: &mut impl Tracer<S>,
-    ) -> Result<(), BootloaderSubsystemError> {
+    ) -> Result<(), BalanceSubsystemError> {
         // here we refund the user, then we will transfer fee to the operator
 
         // use would be refunded based on potentially one gas price, and operator will be paid using different one. But those

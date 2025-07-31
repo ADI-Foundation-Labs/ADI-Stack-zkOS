@@ -19,6 +19,7 @@ use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::tracer::Tracer;
 use zk_ee::system::{errors::system::SystemError, EthereumLikeTypes, System, *};
 use zk_ee::utils::*;
+use zk_ee::system::errors::runtime::RuntimeError;
 
 fn create_resources_for_tx<S: EthereumLikeTypes>(
     gas_limit: u64,
@@ -363,10 +364,17 @@ where
                 InvalidTransaction::NonceOverflowInTransaction,
             ));
         }
-        Err(e) => {
-            todo!();
-            // return Err(TxError::Internal(e));
+        Err(SubsystemError::LeafDefect(e)) => {
+            return Err(TxError::Internal(e.into()));
         }
+        Err(SubsystemError::LeafRuntime(RuntimeError::OutOfErgs(_))) => {
+            unreachable!();
+        }
+        Err(SubsystemError::LeafRuntime(RuntimeError::OutOfNativeResources(_))) => {
+            // TODO: decide if we wan to allow such cases at all
+            return Err(TxError::Validation(InvalidTransaction::OutOfNativeResourcesDuringValidation));
+        }
+        Err(SubsystemError::Cascaded(cascaded)) => match cascaded {}
     };
     let err = if old_nonce > originator_expected_nonce {
         TxError::Validation(InvalidTransaction::NonceTooLow {

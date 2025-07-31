@@ -10,6 +10,7 @@ use zk_ee::system::ReturnValues;
 use zk_ee::system::System;
 use zk_ee::system::SystemTypes;
 use zk_ee::types_config::SystemIOTypesConfig;
+use zk_ee::system::BalanceSubsystemError;
 
 // Address deployed, or reason for the lack thereof.
 pub enum DeployedAddress<IOTypes: SystemIOTypesConfig> {
@@ -125,5 +126,5 @@ where
         transaction: &Self::Transaction<'_>,
         context: &mut Self::TransactionContext,
         tracer: &mut impl Tracer<S>,
-    ) -> Result<(), BootloaderSubsystemError>;
+    ) -> Result<(), BalanceSubsystemError>;
 }
