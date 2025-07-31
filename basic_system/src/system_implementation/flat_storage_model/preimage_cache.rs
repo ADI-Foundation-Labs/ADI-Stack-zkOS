@@ -9,14 +9,17 @@ use zk_ee::{
         errors::{internal::InternalError, system::SystemError},
         IOResultKeeper, Resources,
     },
-    system_io_oracle::{IOOracle, GENERIC_PREIMAGE_QUERY_ID},
+    system_io_oracle::{IOOracle, PREIMAGE_SUBSPACE_MASK},
     types_config::EthereumIOTypesConfig,
     utils::{Bytes32, UsizeAlignedByteBox, USIZE_SIZE},
 };
 
+use super::cost_constants::PREIMAGE_CACHE_GET_NATIVE_COST;
+use super::*;
 use crate::system_implementation::flat_storage_model::cost_constants::blake2s_native_cost;
 
-use super::cost_constants::PREIMAGE_CACHE_GET_NATIVE_COST;
+pub const FLAT_STORAGE_GENERIC_PREIMAGE_QUERY_ID: u32 =
+    PREIMAGE_SUBSPACE_MASK | FLAT_STORAGE_SUBSPACE_MASK | 0x00;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "testing", derive(serde::Serialize, serde::Deserialize))]
@@ -95,7 +98,7 @@ impl<R: Resources, A: Allocator + Clone> BytecodeAndAccountDataPreimagesStorage<
             // expect higher-level model todo so.
             // We charge for native.
             let it = oracle
-                .raw_query(GENERIC_PREIMAGE_QUERY_ID, hash)
+                .raw_query(FLAT_STORAGE_GENERIC_PREIMAGE_QUERY_ID, hash)
                 .expect("must make an iterator for preimage");
             // IMPORTANT: oracle should be somewhat "sane", it also limits the number of cycles spent below.
             // We also allow some slack here to account for 64/32 bit archs

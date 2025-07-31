@@ -22,10 +22,10 @@ pub struct ReadTreeResponder<T: ReadStorageTree> {
 
 impl<T: ReadStorageTree> ReadTreeResponder<T> {
     const SUPPORTED_QUERY_IDS: &[u32] = &[
+        InitialStorageSlotQuery::<EthereumIOTypesConfig>::QUERY_ID,
         PreviousIndexQuery::QUERY_ID,
         ExactIndexQuery::QUERY_ID,
         PROOF_FOR_INDEX_QUERY_ID,
-        InitialStorageSlotQuery::<EthereumIOTypesConfig>::QUERY_ID,
     ];
 }
 

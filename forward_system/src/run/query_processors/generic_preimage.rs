@@ -1,11 +1,12 @@
 use super::*;
 use crate::run::PreimageSource;
 use basic_system::system_implementation::ethereum_storage_model::{
-    BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID, BYTECODE_PREIMAGE_QUERY_ID,
+    ETHEREUM_BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID, ETHEREUM_BYTECODE_PREIMAGE_QUERY_ID,
     ETHEREUM_MPT_PREIMAGE_BYTE_LEN_QUERY_ID, ETHEREUM_MPT_PREIMAGE_WORDS_QUERY_ID,
 };
+use basic_system::system_implementation::flat_storage_model::FLAT_STORAGE_GENERIC_PREIMAGE_QUERY_ID;
 use zk_ee::oracle::ReadIterWrapper;
-use zk_ee::system_io_oracle::{dyn_usize_iterator::DynUsizeIterator, GENERIC_PREIMAGE_QUERY_ID};
+use zk_ee::system_io_oracle::dyn_usize_iterator::DynUsizeIterator;
 use zk_ee::utils::Bytes32;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,9 +16,9 @@ pub struct GenericPreimageResponder<PS: PreimageSource> {
 
 impl<PS: PreimageSource> GenericPreimageResponder<PS> {
     const SUPPORTED_QUERY_IDS: &[u32] = &[
-        GENERIC_PREIMAGE_QUERY_ID,
-        // BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID,
-        BYTECODE_PREIMAGE_QUERY_ID,
+        FLAT_STORAGE_GENERIC_PREIMAGE_QUERY_ID,
+        ETHEREUM_BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID,
+        ETHEREUM_BYTECODE_PREIMAGE_QUERY_ID,
         ETHEREUM_MPT_PREIMAGE_BYTE_LEN_QUERY_ID,
         ETHEREUM_MPT_PREIMAGE_WORDS_QUERY_ID,
     ];
@@ -47,7 +48,7 @@ impl<PS: PreimageSource, M: MemorySource> OracleQueryProcessor<M> for GenericPre
             hex::encode(hash.as_u8_array_ref())
         ));
 
-        if query_id == BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID
+        if query_id == ETHEREUM_BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID
             || query_id == ETHEREUM_MPT_PREIMAGE_BYTE_LEN_QUERY_ID
         {
             let len = preimage.len() as u32;

@@ -1,6 +1,7 @@
 // Representation of big integers using primitives that are friendly for our delegations
 extern crate alloc;
 
+use super::super::{ModExpAdviseParams, MODEXP_ADVISE_QUERY_ID};
 use super::u256::*;
 use alloc::vec::Vec;
 use core::alloc::Allocator;
@@ -8,7 +9,6 @@ use core::fmt::Debug;
 use core::mem::MaybeUninit;
 use crypto::{bigint_op_delegation_raw, bigint_op_delegation_with_carry_bit_raw, BigIntOps};
 use zk_ee::system_io_oracle::IOOracle;
-use super::super::{MODEXP_ADVISE_QUERY_ID, ModExpAdviseParams};
 
 // There is a small choice to make - either we do exponentiation walking as via LE or BE exponent.
 // If we do LE, then we square the base, and multiply accumulator by it
@@ -793,7 +793,7 @@ impl<'a, O: IOOracle> ModexpAdvisor for OracleAdvisor<'a, O> {
             .inner
             .raw_query(
                 MODEXP_ADVISE_QUERY_ID,
-                &((&arg as *const ModExpAdviseParams).addr() as u32)
+                &((&arg as *const ModExpAdviseParams).addr() as u32),
             )
             .unwrap();
 

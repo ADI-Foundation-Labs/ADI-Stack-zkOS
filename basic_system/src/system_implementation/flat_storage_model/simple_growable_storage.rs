@@ -16,6 +16,7 @@
 // For a case if we need to prove reading a "fresh" key, but do not need to write, we just need to read 2 array elements, but are not
 // mandated to write anything.
 
+use super::FLAT_STORAGE_SUBSPACE_MASK;
 use alloc::alloc::Global;
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
@@ -788,7 +789,7 @@ impl<const N: usize> StateRootView<EthereumIOTypesConfig> for FlatStorageCommitm
 pub struct PreviousIndexQuery;
 
 impl SimpleOracleQuery for PreviousIndexQuery {
-    const QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 0;
+    const QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | FLAT_STORAGE_SUBSPACE_MASK | 0x00;
     type Input = Bytes32;
     type Output = u64;
 }
@@ -796,7 +797,7 @@ impl SimpleOracleQuery for PreviousIndexQuery {
 pub struct ExactIndexQuery;
 
 impl SimpleOracleQuery for ExactIndexQuery {
-    const QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 1;
+    const QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | FLAT_STORAGE_SUBSPACE_MASK | 0x01;
     type Input = Bytes32;
     type Output = u64;
 }
@@ -809,7 +810,8 @@ fn get_index<O: IOOracle>(oracle: &mut O, flat_key: &Bytes32) -> u64 {
     ExactIndexQuery::get(oracle, flat_key).expect("must deserialize index for key")
 }
 
-pub const PROOF_FOR_INDEX_QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 2;
+pub const PROOF_FOR_INDEX_QUERY_ID: u32 =
+    STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | FLAT_STORAGE_SUBSPACE_MASK | 0x02;
 
 pub struct ProofForIndexQuery<const N: usize, H: FlatStorageHasher, A: Allocator + Clone + Default>
 {

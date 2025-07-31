@@ -15,14 +15,17 @@ use zk_ee::{
 };
 
 use super::super::cost_constants::PREIMAGE_CACHE_GET_NATIVE_COST;
+use crate::system_implementation::ethereum_storage_model::ETHEREUM_STORAGE_SUBSPACE_MASK;
 
 pub struct PreimageLengthQuery;
 
-pub const BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID: u32 = PREIMAGE_SUBSPACE_MASK | 0;
-pub const BYTECODE_PREIMAGE_QUERY_ID: u32 = PREIMAGE_SUBSPACE_MASK | 1;
+pub const ETHEREUM_BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID: u32 =
+    PREIMAGE_SUBSPACE_MASK | ETHEREUM_STORAGE_SUBSPACE_MASK | 0x00;
+pub const ETHEREUM_BYTECODE_PREIMAGE_QUERY_ID: u32 =
+    PREIMAGE_SUBSPACE_MASK | ETHEREUM_STORAGE_SUBSPACE_MASK | 0x01;
 
 impl SimpleOracleQuery for PreimageLengthQuery {
-    const QUERY_ID: u32 = BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID;
+    const QUERY_ID: u32 = ETHEREUM_BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID;
     type Input = Bytes32;
     type Output = u32;
 }
@@ -78,7 +81,7 @@ impl<R: Resources, A: Allocator + Clone> BytecodeKeccakPreimagesStorage<R, A> {
                 buffer_size,
                 |dst| {
                     oracle
-                        .expose_preimage(BYTECODE_PREIMAGE_QUERY_ID, hash, dst)
+                        .expose_preimage(ETHEREUM_BYTECODE_PREIMAGE_QUERY_ID, hash, dst)
                         .expect("must get preimage")
                 },
                 self.allocator.clone(),

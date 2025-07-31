@@ -15,11 +15,11 @@ use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::internal_error;
 use zk_ee::memory::ArrayBuilder;
 use zk_ee::system::errors::interface::InterfaceError;
+use zk_ee::system::errors::runtime::RuntimeError;
 use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::tracer::Tracer;
 use zk_ee::system::{errors::system::SystemError, EthereumLikeTypes, System, *};
 use zk_ee::utils::*;
-use zk_ee::system::errors::runtime::RuntimeError;
 
 fn create_resources_for_tx<S: EthereumLikeTypes>(
     gas_limit: u64,
@@ -190,16 +190,24 @@ where
             non_zero_bytes.saturating_mul(CALLDATA_NON_ZERO_BYTE_TOKEN_FACTOR);
         let num_tokens = zero_bytes_factor.saturating_add(non_zero_bytes_factor);
 
-        let floor_tokens_gas_cost = num_tokens.saturating_mul(TOTAL_COST_FLOOR_PER_TOKEN);
-        let intrinsic_gas = (L2_TX_INTRINSIC_GAS as u64).saturating_add(floor_tokens_gas_cost);
+        #[cfg(feature = "eip_7623")]
+        {
+            let floor_tokens_gas_cost = num_tokens.saturating_mul(TOTAL_COST_FLOOR_PER_TOKEN);
+            let intrinsic_gas = (L2_TX_INTRINSIC_GAS as u64).saturating_add(floor_tokens_gas_cost);
 
-        require!(
-            intrinsic_gas <= tx_gas_limit,
-            InvalidTransaction::EIP7623IntrinsicGasIsTooLow,
-            system
-        )?;
+            require!(
+                intrinsic_gas <= tx_gas_limit,
+                InvalidTransaction::EIP7623IntrinsicGasIsTooLow,
+                system
+            )?;
 
-        (num_tokens, intrinsic_gas)
+            (num_tokens, intrinsic_gas)
+        }
+
+        #[cfg(not(feature = "eip_7623"))]
+        {
+            (num_tokens, L2_TX_INTRINSIC_GAS as u64)
+        }
     };
 
     let gas_per_pubdata =
@@ -372,9 +380,11 @@ where
         }
         Err(SubsystemError::LeafRuntime(RuntimeError::OutOfNativeResources(_))) => {
             // TODO: decide if we wan to allow such cases at all
-            return Err(TxError::Validation(InvalidTransaction::OutOfNativeResourcesDuringValidation));
+            return Err(TxError::Validation(
+                InvalidTransaction::OutOfNativeResourcesDuringValidation,
+            ));
         }
-        Err(SubsystemError::Cascaded(cascaded)) => match cascaded {}
+        Err(SubsystemError::Cascaded(cascaded)) => match cascaded {},
     };
     let err = if old_nonce > originator_expected_nonce {
         TxError::Validation(InvalidTransaction::NonceTooLow {

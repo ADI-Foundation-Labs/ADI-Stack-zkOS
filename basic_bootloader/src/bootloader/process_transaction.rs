@@ -19,13 +19,13 @@ use gas_helpers::get_resources_to_charge_for_pubdata;
 use gas_helpers::ResourcesForTx;
 use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
 use system_hooks::HooksStorage;
-use zk_ee::{internal_error, wrap_error};
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::system::errors::root_cause::GetRootCause;
 use zk_ee::system::errors::root_cause::RootCause;
 use zk_ee::system::errors::runtime::RuntimeError;
 use zk_ee::system::{EthereumLikeTypes, Resources};
 use zk_ee::types_config::EthereumIOTypesConfig;
+use zk_ee::{internal_error, wrap_error};
 
 #[derive(Debug)]
 pub struct TxProcessingResult<'a> {
@@ -623,7 +623,8 @@ where
                 &mut tx_context,
                 pubdata_info,
                 tracer,
-            ).map_err(|e| wrap_error!(e))?;
+            )
+            .map_err(|e| wrap_error!(e))?;
 
         // Add back the intrinsic native charged in get_resources_for_tx,
         // as initial_resources doesn't include them.

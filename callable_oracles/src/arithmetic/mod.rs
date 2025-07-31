@@ -1,6 +1,6 @@
+use basic_system::system_functions::modexp::{ModExpAdviseParams, MODEXP_ADVISE_QUERY_ID};
 use oracle_provider::OracleQueryProcessor;
 use risc_v_simulator::abstractions::memory::MemorySource;
-use basic_system::system_functions::modexp::{MODEXP_ADVISE_QUERY_ID, ModExpAdviseParams};
 
 use crate::utils::{
     evaluate::{read_memory_as_u64, read_struct},

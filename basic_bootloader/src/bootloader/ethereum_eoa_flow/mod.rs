@@ -96,15 +96,13 @@ where
             .resources
             .main_resources
             .with_infinite_ergs(|resources| {
-                system
-                    .io
-                    .update_account_nominal_token_balance(
-                        ExecutionEnvironmentType::NoEE, // out of scope of other interactions
-                        resources,
-                        &from,
-                        &value,
-                        true,
-                    )
+                system.io.update_account_nominal_token_balance(
+                    ExecutionEnvironmentType::NoEE, // out of scope of other interactions
+                    resources,
+                    &from,
+                    &value,
+                    true,
+                )
             })
             .map_err(|e| match e {
                 SubsystemError::LeafUsage(interface_error) => {
@@ -399,15 +397,13 @@ where
                 .resources
                 .main_resources
                 .with_infinite_ergs(|resources| {
-                    system
-                        .io
-                        .update_account_nominal_token_balance(
-                            ExecutionEnvironmentType::NoEE, // out of scope of other interactions
-                            resources,
-                            &receiver,
-                            &refund,
-                            false,
-                        )
+                    system.io.update_account_nominal_token_balance(
+                        ExecutionEnvironmentType::NoEE, // out of scope of other interactions
+                        resources,
+                        &receiver,
+                        &refund,
+                        false,
+                    )
                 })?;
         }
 
@@ -425,15 +421,13 @@ where
             .resources
             .main_resources
             .with_infinite_ergs(|resources| {
-                system
-                    .io
-                    .update_account_nominal_token_balance(
-                        ExecutionEnvironmentType::NoEE, // out of scope of other interactions
-                        resources,
-                        &coinbase,
-                        &fee,
-                        false,
-                    )
+                system.io.update_account_nominal_token_balance(
+                    ExecutionEnvironmentType::NoEE, // out of scope of other interactions
+                    resources,
+                    &coinbase,
+                    &fee,
+                    false,
+                )
             })?;
 
         Ok(())

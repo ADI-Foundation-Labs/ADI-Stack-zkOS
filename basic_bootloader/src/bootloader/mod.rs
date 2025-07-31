@@ -261,7 +261,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
     /// Runs the transactions that it loads from the oracle.
     /// This code runs both in sequencer (then it uses ForwardOracle - that stores data in local variables)
     /// and in prover (where oracle uses CRS registers to communicate).
-    pub fn run_prepared_tx_loop<Config: BasicBootloaderExecutionConfig>(
+    pub fn run_tx_loop<Config: BasicBootloaderExecutionConfig>(
         oracle: <S::IO as IOSubsystemExt>::IOOracle,
         result_keeper: &mut impl ResultKeeperExt,
         tx_hashes_collector: &mut impl TxHashesCollector,
@@ -273,7 +273,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
     where
         S::IO: IOSubsystemExt,
     {
-        cycle_marker::start!("run_prepared_ext");
+        cycle_marker::start!("run_tx_loop");
         // we will model initial calldata buffer as just another "heap"
         let mut system: System<S> =
             System::init_from_oracle(oracle).expect("system must be able to initialize itself");
@@ -430,7 +430,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             "Bootloader execution is complete, will proceed with applying changes\n"
         ));
 
-        cycle_marker::end!("run_prepared_ext");
+        cycle_marker::end!("run_tx_loop");
 
         Ok(system)
     }
@@ -473,7 +473,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
 
         let mut block_gas_used = 0u64;
 
-        let system = Self::run_prepared_tx_loop::<Config>(
+        let system = Self::run_tx_loop::<Config>(
             oracle,
             result_keeper,
             &mut tx_hashes_collector,
@@ -562,7 +562,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
 
         let mut block_gas_used = 0u64;
 
-        let system = Self::run_prepared_tx_loop::<Config>(
+        let system = Self::run_tx_loop::<Config>(
             oracle,
             result_keeper,
             &mut tx_hashes_collector,

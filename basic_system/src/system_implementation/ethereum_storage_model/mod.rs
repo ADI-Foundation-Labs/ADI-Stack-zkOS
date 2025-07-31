@@ -16,9 +16,11 @@ pub use self::storage_model::EthereumStorageModel;
 
 use zk_ee::utils::Bytes32;
 
+pub const ETHEREUM_STORAGE_SUBSPACE_MASK: u32 = 0x00_00_e0_00;
+
 pub use self::caches::account_properties::ETHEREUM_ACCOUNT_INITIAL_STATE_QUERY_ID;
 pub use self::caches::preimage::{
-    BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID, BYTECODE_PREIMAGE_QUERY_ID,
+    ETHEREUM_BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID, ETHEREUM_BYTECODE_PREIMAGE_QUERY_ID,
 };
 pub use self::mpt::{
     BoxInterner, ByteBuffer, EthereumMPT, Interner, InterningBuffer, InterningWordBuffer, Path,

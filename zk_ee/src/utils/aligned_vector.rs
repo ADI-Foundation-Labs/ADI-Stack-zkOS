@@ -81,17 +81,19 @@ impl<A: Allocator> UsizeAlignedByteBox<A> {
     }
 
     pub fn from_usize_iterator_in(src: impl ExactSizeIterator<Item = usize>, allocator: A) -> Self {
-        let mut inner: alloc::boxed::Box<[usize], A> =
-            unsafe { alloc::boxed::Box::new_uninit_slice_in(src.len(), allocator).assume_init() };
-        let mut dst = inner.as_mut_ptr();
-        for word in src {
-            unsafe {
-                dst.write(word);
-                dst = dst.add(1);
-            }
+        let word_capacity = src.len();
+        let mut inner: alloc::boxed::Box<[MaybeUninit<usize>], A> =
+            alloc::boxed::Box::new_uninit_slice_in(word_capacity, allocator);
+        // iterators will have same length by the contract
+        unsafe {
+            core::hint::assert_unchecked(src.len() == inner.len());
         }
-
-        let byte_capacity = inner.len() * USIZE_SIZE;
+        for (src, dst) in src.zip(inner.iter_mut()) {
+            dst.write(src);
+        }
+        // everything was initialized
+        let inner = unsafe { inner.assume_init() };
+        let byte_capacity = word_capacity * USIZE_SIZE;
 
         Self {
             inner,
@@ -106,9 +108,9 @@ impl<A: Allocator> UsizeAlignedByteBox<A> {
     ) -> Self {
         let mut inner: alloc::boxed::Box<[MaybeUninit<usize>], A> =
             alloc::boxed::Box::new_uninit_slice_in(buffer_size, allocator);
-        let written = init_fn(&mut inner);
-        assert!(written <= buffer_size); // we do not want to truncate or realloc, but we will expose only written part below
-        let byte_capacity = written * USIZE_SIZE;
+        let written_words = init_fn(&mut inner);
+        assert!(written_words <= buffer_size); // we do not want to truncate or realloc, but we will expose only written part below
+        let byte_capacity = written_words * USIZE_SIZE; // we only count initialized words for capacity purposes
 
         Self {
             inner: unsafe { inner.assume_init() },
@@ -116,8 +118,14 @@ impl<A: Allocator> UsizeAlignedByteBox<A> {
         }
     }
 
+    #[track_caller]
     pub fn truncated_to_byte_length(&mut self, byte_len: usize) {
-        assert!(byte_len <= self.byte_capacity);
+        assert!(
+            byte_len <= self.byte_capacity,
+            "trying to truncate to {} bytes, while capacity is just {} bytes",
+            byte_len,
+            self.byte_capacity
+        );
         self.byte_capacity = byte_len;
     }
 }

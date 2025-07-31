@@ -25,8 +25,9 @@ use zk_ee::utils::{Bytes32, USIZE_SIZE};
 
 struct OracleProxy<'o, O: IOOracle>(&'o mut O);
 
-pub const ETHEREUM_MPT_PREIMAGE_BYTE_LEN_QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 1;
-pub const ETHEREUM_MPT_PREIMAGE_WORDS_QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 2;
+pub const ETHEREUM_MPT_PREIMAGE_BYTE_LEN_QUERY_ID: u32 =
+    STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 0x81;
+pub const ETHEREUM_MPT_PREIMAGE_WORDS_QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 0x82;
 
 impl<'o, O: IOOracle> PreimagesOracle for OracleProxy<'o, O> {
     fn provide_preimage<'a, I: super::Interner<'a> + 'a>(
