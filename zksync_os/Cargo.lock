@@ -195,6 +195,8 @@ name = "basic_system"
 version = "0.1.0"
 dependencies = [
  "arrayvec",
+ "cfg-if",
+ "const_for",
  "crypto",
  "cycle_marker",
  "either",
@@ -202,8 +204,10 @@ dependencies = [
  "modexp",
  "paste",
  "ruint",
+ "serde",
  "storage_models",
  "strum_macros",
+ "system_hooks",
  "zk_ee",
 ]
 
@@ -1079,6 +1083,7 @@ dependencies = [
  "cycle_marker",
  "paste",
  "ruint",
+ "serde",
  "strum_macros",
 ]
 
