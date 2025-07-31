@@ -39,8 +39,8 @@ pub struct Arguments {
     pub threads: Option<usize>,
 
     /// Specify the environment to run tests on.
-    /// Available arguments: `EVMEmulator`, `ZKsyncOS`.
-    /// The default value is EVMEmulator
+    /// Available arguments: `ZKsyncOS`.
+    /// The default value is ZKsyncOS
     #[structopt(long = "environment")]
     pub environment: Option<evm_tester::Environment>,
 
