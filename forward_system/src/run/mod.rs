@@ -112,6 +112,7 @@ pub fn generate_proof_input<T: ReadStorageTree, PS: PreimageSource, TS: TxSource
     oracle.add_external_processor(zk_proof_data_responder);
     oracle.add_external_processor(preimage_responder);
     oracle.add_external_processor(tree_responder);
+    oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
 
     // We'll wrap the source, to collect all the reads.
     let copy_source = ReadWitnessSource::new(oracle);
@@ -126,7 +127,7 @@ pub fn make_oracle_for_proofs_and_dumps<
     T: ReadStorageTree,
     PS: PreimageSource,
     TS: TxSource,
-    M: MemorySource,
+    M: MemorySource + 'static,
 >(
     batch_context: BatchContext,
     tree: T,
@@ -149,7 +150,7 @@ pub fn make_oracle_for_proofs_and_dumps_for_init_data<
     T: ReadStorageTree,
     PS: PreimageSource,
     TS: TxSource,
-    M: MemorySource,
+    M: MemorySource + 'static,
 >(
     batch_context: BatchContext,
     tree: T,
@@ -175,6 +176,7 @@ pub fn make_oracle_for_proofs_and_dumps_for_init_data<
     oracle.add_external_processor(preimage_responder);
     oracle.add_external_processor(tree_responder);
     oracle.add_external_processor(zk_proof_data_responder);
+    oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
 
     if add_uart {
         let uart_responder = UARTPrintReponsder::default();
@@ -253,9 +255,7 @@ pub fn run_batch_with_oracle_dump_ext<
     oracle.add_external_processor(preimage_responder);
     oracle.add_external_processor(tree_responder);
     oracle.add_external_processor(zk_proof_data_responder);
-    oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery {
-        marker: std::marker::PhantomData,
-    });
+    oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
     oracle.add_external_processor(UARTPrintReponsder);
 
     let mut result_keeper = ForwardRunningResultKeeper::new(tx_result_callback);
@@ -291,6 +291,7 @@ pub fn run_batch_from_oracle_dump<
     oracle.add_external_processor(preimage_responder);
     oracle.add_external_processor(tree_responder);
     oracle.add_external_processor(zk_proof_data_responder);
+    oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
 
     let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
 

@@ -359,10 +359,10 @@ pub fn post_check(
     assert_eq!(receipts.len(), output.tx_results.len());
 
     for (res, receipt) in output.tx_results.iter().zip(receipts.iter()) {
-        info!(
-            "Checking transaction {} for consistency",
-            receipt.transaction_index,
-        );
+        // info!(
+        //     "Checking transaction {} for consistency",
+        //     receipt.transaction_index,
+        // );
         let res = match res {
             Ok(res) => res,
             Err(e) => {

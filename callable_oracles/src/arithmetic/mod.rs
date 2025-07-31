@@ -8,7 +8,15 @@ use crate::utils::{
 };
 
 pub struct ArithmeticQuery<M: MemorySource> {
-    pub marker: std::marker::PhantomData<M>,
+    _marker: std::marker::PhantomData<M>,
+}
+
+impl<M: MemorySource> Default for ArithmeticQuery<M> {
+    fn default() -> Self {
+        Self {
+            _marker: std::marker::PhantomData,
+        }
+    }
 }
 
 impl<M: MemorySource> OracleQueryProcessor<M> for ArithmeticQuery<M> {
