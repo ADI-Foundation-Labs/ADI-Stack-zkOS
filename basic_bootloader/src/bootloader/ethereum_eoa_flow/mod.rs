@@ -105,24 +105,24 @@ where
                         &value,
                         true,
                     )
-                    .map_err(|e| match e {
-                        SubsystemError::LeafUsage(interface_error) => {
-                            unreachable!(
-                                "balance should be pre-verified, but received error {:?}",
-                                interface_error
-                            );
-                        }
-                        SubsystemError::LeafDefect(internal_error) => internal_error.into(),
-                        SubsystemError::LeafRuntime(runtime_error) => match runtime_error {
-                            RuntimeError::OutOfNativeResources(_) => {
-                                TxError::oon_as_validation(out_of_native_resources!().into())
-                            }
-                            RuntimeError::OutOfErgs(_) => {
-                                TxError::Validation(InvalidTransaction::OutOfGasDuringValidation)
-                            }
-                        },
-                        SubsystemError::Cascaded(cascaded_error) => match cascaded_error {},
-                    })
+            })
+            .map_err(|e| match e {
+                SubsystemError::LeafUsage(interface_error) => {
+                    unreachable!(
+                        "balance should be pre-verified, but received error {:?}",
+                        interface_error
+                    );
+                }
+                SubsystemError::LeafDefect(internal_error) => internal_error.into(),
+                SubsystemError::LeafRuntime(runtime_error) => match runtime_error {
+                    RuntimeError::OutOfNativeResources(_) => {
+                        TxError::oon_as_validation(out_of_native_resources!().into())
+                    }
+                    RuntimeError::OutOfErgs(_) => {
+                        TxError::Validation(InvalidTransaction::OutOfGasDuringValidation)
+                    }
+                },
+                SubsystemError::Cascaded(cascaded_error) => match cascaded_error {},
             })?;
 
         Ok(())
@@ -351,8 +351,7 @@ where
             system,
             U256::from(context.native_per_pubdata),
             &mut context.resources.main_resources,
-            None,
-            // Some(validation_pubdata), // TODO
+            Some(context.validation_pubdata),
         )?;
         if !has_enough {
             let _ = system
@@ -409,23 +408,7 @@ where
                             &refund,
                             false,
                         )
-                        .expect("TODO");
-                    // .map_err(|e| match e {
-                    //     SubsystemError::LeafUsage(interface_error) => {
-                    //         todo!();
-                    //     }
-                    //     SubsystemError::LeafDefect(internal_error) => internal_error.into(),
-                    //     SubsystemError::LeafRuntime(runtime_error) => match runtime_error {
-                    //         RuntimeError::OutOfNativeResources(_) => {
-                    //             TxError::oon_as_validation(out_of_native_resources!().into())
-                    //         }
-                    //         RuntimeError::OutOfErgs(_) => {
-                    //             TxError::Validation(InvalidTransaction::OutOfGasDuringValidation)
-                    //         }
-                    //     },
-                    //     SubsystemError::Cascaded(cascaded_error) => match cascaded_error {},
-                    // })
-                });
+                })?;
         }
 
         assert!(context.gas_used > 0);
@@ -451,23 +434,7 @@ where
                         &fee,
                         false,
                     )
-                    .expect("TODO");
-                // .map_err(|e| match e {
-                //     SubsystemError::LeafUsage(interface_error) => {
-                //         todo!();
-                //     }
-                //     SubsystemError::LeafDefect(internal_error) => internal_error.into(),
-                //     SubsystemError::LeafRuntime(runtime_error) => match runtime_error {
-                //         RuntimeError::OutOfNativeResources(_) => {
-                //             TxError::oon_as_validation(out_of_native_resources!().into())
-                //         }
-                //         RuntimeError::OutOfErgs(_) => {
-                //             TxError::Validation(InvalidTransaction::OutOfGasDuringValidation)
-                //         }
-                //     },
-                //     SubsystemError::Cascaded(cascaded_error) => match cascaded_error {},
-                // })
-            });
+            })?;
 
         Ok(())
     }
