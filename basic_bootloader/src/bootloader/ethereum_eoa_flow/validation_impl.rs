@@ -419,13 +419,16 @@ where
         }
     }
 
-    // Balance check - originator must cover fee prepayment plus whatever "value" it would like to send along
-    let fee_amount = gas_price
+    let worst_case_fee_amount = U256::from(transaction.max_fee_per_gas.read())
         .checked_mul(U256::from(tx_gas_limit))
-        .ok_or(internal_error!("gas price by tx gas limit"))?;
+        .ok_or(internal_error!("max gas price by tx gas limit"))?;
+
+    debug_assert!(U256::from(transaction.max_fee_per_gas.read()) >= gas_price);
+
+    // Balance check - originator must cover fee prepayment plus whatever "value" it would like to send along
     let tx_value = transaction.value.read();
     let total_required_balance = tx_value
-        .checked_add(U256::from(fee_amount))
+        .checked_add(U256::from(worst_case_fee_amount))
         .ok_or(internal_error!("transaction amount + fee"))?;
     if total_required_balance > originator_account_data.nominal_token_balance.0 {
         return Err(TxError::Validation(
@@ -435,6 +438,11 @@ where
             },
         ));
     }
+
+    // But the fee to charge is based on current block context, and not worst case of max fee (backward-compatible manner)
+    let fee_amount = gas_price
+        .checked_mul(U256::from(tx_gas_limit))
+        .ok_or(internal_error!("gas price by tx gas limit"))?;
 
     Ok(TxContextForPreAndPostProcessing {
         resources: tx_resources,
