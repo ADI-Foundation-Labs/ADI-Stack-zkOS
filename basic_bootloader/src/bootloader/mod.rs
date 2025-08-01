@@ -210,6 +210,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         let mut first_tx = true;
         let mut upgrade_tx_hash = Bytes32::zero();
         let mut block_gas_used = 0;
+        #[allow(unused_mut)]
         let mut interop_root_hasher = crypto::sha3::Keccak256::new();
 
         // Block of code needed for interop.
@@ -222,6 +223,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         // The blockOrBatchNumber is the block number of the interop root.
         //
         // We also compute the rolling hash of the interop roots and include it as part of the public input
+        #[cfg(feature = "interop")]
         system
             .get_interop_roots()
             .iter()
