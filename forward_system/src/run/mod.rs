@@ -48,14 +48,14 @@ use crate::run::test_impl::{NoopTxCallback, TxListSource};
 pub use basic_bootloader::bootloader::errors::InvalidTransaction;
 use basic_system::system_implementation::flat_storage_model::*;
 use oracle_provider::{ReadWitnessSource, ZkEENonDeterminismSource};
-pub use zk_ee::system::metadata::BlockMetadataFromOracle as BatchContext;
+pub use zk_ee::system::metadata::BlockMetadataFromOracle as BlockContext;
 
 pub use self::query_processors::*;
 
 pub type StorageCommitment = FlatStorageCommitment<{ TREE_HEIGHT }>;
 
-pub fn run_batch<T: ReadStorageTree, PS: PreimageSource, TS: TxSource, TR: TxResultCallback>(
-    batch_context: BatchContext,
+pub fn run_block<T: ReadStorageTree, PS: PreimageSource, TS: TxSource, TR: TxResultCallback>(
+    block_context: BlockContext,
     tree: T,
     preimage_source: PS,
     tx_source: TS,
@@ -63,7 +63,7 @@ pub fn run_batch<T: ReadStorageTree, PS: PreimageSource, TS: TxSource, TR: TxRes
     tracer: &mut impl Tracer<ForwardRunningSystem>,
 ) -> Result<BlockOutput, ForwardSubsystemError> {
     let block_metadata_reponsder = BlockMetadataResponder {
-        block_metadata: batch_context,
+        block_metadata: block_context,
     };
     let tx_data_reponder = TxDataResponder {
         tx_source,
@@ -87,14 +87,14 @@ pub fn run_batch<T: ReadStorageTree, PS: PreimageSource, TS: TxSource, TR: TxRes
 // TODO: we should run it on native arch and it should return pubdata and other outputs via result keeper
 pub fn generate_proof_input<T: ReadStorageTree, PS: PreimageSource, TS: TxSource>(
     zk_os_program_path: PathBuf,
-    batch_context: BatchContext,
+    block_context: BlockContext,
     proof_data: ProofData<StorageCommitment>,
     tree: T,
     preimage_source: PS,
     tx_source: TS,
 ) -> Result<Vec<u32>, ForwardSubsystemError> {
     let block_metadata_reponsder = BlockMetadataResponder {
-        block_metadata: batch_context,
+        block_metadata: block_context,
     };
     let tx_data_reponder = TxDataResponder {
         tx_source,
@@ -129,7 +129,7 @@ pub fn make_oracle_for_proofs_and_dumps<
     TS: TxSource,
     M: MemorySource + 'static,
 >(
-    batch_context: BatchContext,
+    block_context: BlockContext,
     tree: T,
     preimage_source: PS,
     tx_source: TS,
@@ -137,7 +137,7 @@ pub fn make_oracle_for_proofs_and_dumps<
     add_uart: bool,
 ) -> ZkEENonDeterminismSource<M> {
     make_oracle_for_proofs_and_dumps_for_init_data(
-        batch_context,
+        block_context,
         tree,
         preimage_source,
         tx_source,
@@ -152,7 +152,7 @@ pub fn make_oracle_for_proofs_and_dumps_for_init_data<
     TS: TxSource,
     M: MemorySource + 'static,
 >(
-    batch_context: BatchContext,
+    block_context: BlockContext,
     tree: T,
     preimage_source: PS,
     tx_source: TS,
@@ -160,7 +160,7 @@ pub fn make_oracle_for_proofs_and_dumps_for_init_data<
     add_uart: bool,
 ) -> ZkEENonDeterminismSource<M> {
     let block_metadata_reponsder = BlockMetadataResponder {
-        block_metadata: batch_context,
+        block_metadata: block_context,
     };
     let tx_data_responder = TxDataResponder {
         tx_source,
@@ -186,13 +186,14 @@ pub fn make_oracle_for_proofs_and_dumps_for_init_data<
     oracle
 }
 
-pub fn run_batch_with_oracle_dump<
+
+pub fn run_block_with_oracle_dump<
     T: ReadStorageTree + Clone + serde::Serialize,
     PS: PreimageSource + Clone + serde::Serialize,
     TS: TxSource + Clone + serde::Serialize,
     TR: TxResultCallback,
 >(
-    batch_context: BatchContext,
+    block_context: BlockContext,
     tree: T,
     preimage_source: PS,
     tx_source: TS,
@@ -201,7 +202,7 @@ pub fn run_batch_with_oracle_dump<
     tracer: &mut impl Tracer<ForwardRunningSystem>,
 ) -> Result<BlockOutput, ForwardSubsystemError> {
     run_batch_with_oracle_dump_ext::<T, PS, TS, TR, BasicBootloaderForwardSimulationConfig>(
-        batch_context,
+        block_context,
         tree,
         preimage_source,
         tx_source,
@@ -218,7 +219,7 @@ pub fn run_batch_with_oracle_dump_ext<
     TR: TxResultCallback,
     Config: BasicBootloaderExecutionConfig,
 >(
-    batch_context: BatchContext,
+    block_context: BlockContext,
     tree: T,
     preimage_source: PS,
     tx_source: TS,
@@ -227,7 +228,7 @@ pub fn run_batch_with_oracle_dump_ext<
     tracer: &mut impl Tracer<ForwardRunningSystem>,
 ) -> Result<BlockOutput, ForwardSubsystemError> {
     let block_metadata_reponsder = BlockMetadataResponder {
-        block_metadata: batch_context,
+        block_metadata: block_context,
     };
     let tx_data_responder = TxDataResponder {
         tx_source,
@@ -309,7 +310,7 @@ pub fn run_block_from_oracle_dump<
 ///
 pub fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
     transaction: Vec<u8>,
-    block_context: BatchContext,
+    block_context: BlockContext,
     storage: S,
     preimage_source: PS,
     tracer: &mut impl Tracer<ForwardRunningSystem>,

@@ -142,9 +142,9 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
     }
 
     /// TODO: duplicated from API, unify. That is also buggy as it doesn't account for ROM in the machine
-    /// Runs a batch in riscV - using zksync_os binary - and returns the
+    /// Runs a block in riscV - using zksync_os binary - and returns the
     /// witness that can be passed to the prover subsystem.
-    pub fn run_batch_generate_witness<const FLAMEGRAPH: bool>(
+    pub fn run_block_generate_witness<const FLAMEGRAPH: bool>(
         oracle: ZkEENonDeterminismSource<VectorMemoryImpl>,
         app: &Option<String>,
     ) -> Vec<u32> {
@@ -368,7 +368,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         }
 
         if let Some(path) = witness_output_file {
-            let result = Self::run_batch_generate_witness::<false>(oracle, &app);
+            let result = Self::run_block_generate_witness::<false>(oracle, &app);
             let mut file = File::create(&path).expect("should create file");
             let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
             let hex = hex::encode(witness);
