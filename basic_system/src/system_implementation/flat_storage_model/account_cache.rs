@@ -65,8 +65,7 @@ pub struct NewModelAccountCache<
     SC: StackCtor<N>,
     const N: usize,
 > {
-    pub(crate) cache:
-        HistoryMap<BitsOrd160, CacheRecord<AccountProperties, AccountPropertiesMetadata>, A>,
+    pub cache: HistoryMap<BitsOrd160, CacheRecord<AccountProperties, AccountPropertiesMetadata>, A>,
     pub(crate) current_tx_number: u32,
     alloc: A,
     phantom: PhantomData<(R, P, SC)>,

@@ -105,13 +105,15 @@ impl<const N: usize, SC: StackCtor<M>, const M: usize, A: Allocator + Clone>
 
     pub fn iter_net_diff(
         &self,
-    ) -> impl Iterator<Item = &GenericEventContent<N, EthereumIOTypesConfig, A>> {
+    ) -> impl ExactSizeIterator<Item = &GenericEventContent<N, EthereumIOTypesConfig, A>> + Clone
+    {
         self.list.iter()
     }
 
     pub fn events_ref_iter(
         &'_ self,
-    ) -> impl Iterator<Item = GenericEventContentWithTxRef<'_, { N }, EthereumIOTypesConfig>> {
+    ) -> impl ExactSizeIterator<Item = GenericEventContentWithTxRef<'_, { N }, EthereumIOTypesConfig>>
+           + Clone {
         self.list.iter().map(|event| GenericEventContentWithTxRef {
             tx_number: event.tx_number,
             address: &event.address,

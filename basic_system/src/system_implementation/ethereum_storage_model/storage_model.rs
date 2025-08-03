@@ -10,7 +10,7 @@ use crate::system_implementation::ethereum_storage_model::caches::full_storage_c
 use crate::system_implementation::ethereum_storage_model::caches::preimage::BytecodeKeccakPreimagesStorage;
 use crate::system_implementation::ethereum_storage_model::persist_changes::EthereumStoragePersister;
 use core::alloc::Allocator;
-use crypto::MiniDigest;
+use ruint::aliases::B160;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::StorageCacheModel;
 use storage_models::common_structs::StorageModel;
@@ -21,6 +21,7 @@ use zk_ee::system::BalanceSubsystemError;
 use zk_ee::system::DeconstructionSubsystemError;
 use zk_ee::system::NonceSubsystemError;
 use zk_ee::system::Resources;
+use zk_ee::system::*;
 use zk_ee::{
     common_structs::{history_map::CacheSnapshotId, WarmStorageKey},
     execution_environment_type::ExecutionEnvironmentType,
@@ -42,9 +43,9 @@ pub struct EthereumStorageModel<
     const N: usize,
     const PROOF_ENV: bool,
 > {
-    pub(crate) account_cache: EthereumAccountCache<A, R, SC, N>,
-    pub(crate) storage_cache: EthereumStorageCache<A, SC, N, R, P>,
-    pub(crate) preimages_cache: BytecodeKeccakPreimagesStorage<R, A>,
+    pub account_cache: EthereumAccountCache<A, R, SC, N>,
+    pub storage_cache: EthereumStorageCache<A, SC, N, R, P>,
+    pub preimages_cache: BytecodeKeccakPreimagesStorage<R, A>,
     pub(crate) allocator: A,
 }
 
@@ -98,67 +99,6 @@ impl<
 
     fn pubdata_used_by_tx(&self) -> u32 {
         0
-    }
-
-    fn finish(
-        self,
-        oracle: &mut impl IOOracle,
-        state_commitment: Option<&mut Self::StorageCommitment>,
-        _pubdata_hasher: &mut impl MiniDigest,
-        result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
-        logger: &mut impl Logger,
-    ) -> Result<(), InternalError> {
-        let Self {
-            storage_cache,
-            preimages_cache,
-            mut account_cache,
-            allocator,
-        } = self;
-
-        // Here we have to cascade everything
-
-        // 1. Return uncompressed state diffs for sequencer
-
-        // Accounts
-        result_keeper.basic_account_diffs(account_cache.net_diffs_iter());
-
-        // Storage slots
-        result_keeper.storage_diffs(storage_cache.net_diffs_iter().map(|(k, v)| {
-            let WarmStorageKey { address, key } = k;
-            let value = v.current_value;
-            (address, key, value)
-        }));
-
-        // we also artificially spam preimages
-        result_keeper.new_preimages(
-            preimages_cache
-                .storage
-                .iter()
-                .map(|(k, v)| (k, v.as_slice(), PreimageType::Bytecode)),
-        );
-
-        // 2. Account data diffs
-
-        // 3. Verify/apply reads and writes
-        cycle_marker::wrap!("verify_and_apply_batch", {
-            if let Some(state_commitment) = state_commitment {
-                let mut storage_level_updater = EthereumStoragePersister;
-                storage_level_updater.persist_changes(
-                    &mut account_cache,
-                    &storage_cache,
-                    &state_commitment,
-                    oracle,
-                    logger,
-                    allocator.clone(),
-                )?;
-
-                Ok(())
-            } else {
-                Ok(())
-            }
-        })?;
-
-        Ok(())
     }
 
     fn storage_read(
@@ -410,6 +350,120 @@ impl<
         self.storage_cache
             .slot_values
             .add_to_refund_counter_impl(refund)
+    }
+
+    fn persist_caches(
+        &mut self,
+        _oracle: &mut impl IOOracle,
+        _result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
+    ) {
+        // NOP
+    }
+
+    fn report_new_preimages(&mut self, result_keeper: &mut impl IOResultKeeper<Self::IOTypes>) {
+        // we will spam ALL preimages for now for account cache
+        // we also artificially spam preimages
+        result_keeper.new_preimages(
+            self.preimages_cache
+                .storage
+                .iter()
+                .map(|(k, v)| (k, v.as_slice(), PreimageType::Bytecode)),
+        );
+    }
+
+    type AccountAddress<'a>
+        = &'a B160
+    where
+        Self: 'a;
+    type AccountDiff<'a>
+        = BasicAccountDiff<Self::IOTypes>
+    where
+        Self: 'a;
+
+    fn get_account_diff<'a>(
+        &'a self,
+        _address: Self::AccountAddress<'a>,
+    ) -> Option<Self::AccountDiff<'a>> {
+        None
+    }
+    fn accounts_diffs_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = (Self::AccountAddress<'a>, Self::AccountDiff<'a>)> + Clone
+    {
+        self.account_cache.cache.iter().map(|v| {
+            let current = v.current().value();
+            (
+                v.key().as_ref(),
+                (current.nonce, current.balance, current.bytecode_hash),
+            )
+        })
+    }
+
+    type StorageKey<'a>
+        = &'a WarmStorageKey
+    where
+        Self: 'a;
+    type StorageDiff<'a>
+        = StorageDiff<Self::IOTypes>
+    where
+        Self: 'a;
+    fn get_storage_diff<'a>(&'a self, key: Self::StorageKey<'a>) -> Option<Self::StorageDiff<'a>> {
+        use zk_ee::common_structs::cache_record::Appearance;
+
+        self.storage_cache.slot_values.cache.get(key).map(|item| {
+            let current_record = item.current();
+            let initial_record = item.initial();
+
+            StorageDiff {
+                initial_value: *initial_record.value(),
+                current_value: *current_record.value(),
+                is_new_storage_slot: initial_record.appearance() == Appearance::Unset,
+                initial_value_used: true,
+            }
+        })
+    }
+
+    fn storage_diffs_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = (Self::StorageKey<'a>, Self::StorageDiff<'a>)> + Clone {
+        use zk_ee::common_structs::cache_record::Appearance;
+
+        self.storage_cache.slot_values.cache.iter().map(|item| {
+            let current_record = item.current();
+            let initial_record = item.initial();
+            (
+                item.key(),
+                // TODO: so far we copy, but can try to remove it eventually
+                StorageDiff {
+                    initial_value: *initial_record.value(),
+                    current_value: *current_record.value(),
+                    is_new_storage_slot: initial_record.appearance() == Appearance::Unset,
+                    initial_value_used: true,
+                },
+            )
+        })
+    }
+
+    fn update_commitment(
+        &mut self,
+        state_commitment: Option<&mut Self::StorageCommitment>,
+        oracle: &mut impl IOOracle,
+        logger: &mut impl Logger,
+    ) {
+        if let Some(state_commitment) = state_commitment {
+            let mut persister = EthereumStoragePersister;
+            let initial_commitment = *state_commitment;
+            *state_commitment = persister
+                .persist_changes(
+                    &mut self.account_cache,
+                    &self.storage_cache,
+                    &initial_commitment,
+                    oracle,
+                    logger,
+                    self.allocator.clone(),
+                )
+                .expect("must persist changes to state");
+        }
     }
 }
 

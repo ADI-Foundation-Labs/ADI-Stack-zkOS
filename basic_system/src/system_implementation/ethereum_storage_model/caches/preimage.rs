@@ -38,7 +38,7 @@ pub struct PreimageRequestForUnknownLength {
 }
 
 pub struct BytecodeKeccakPreimagesStorage<R: Resources, A: Allocator + Clone = Global> {
-    pub(crate) storage: BTreeMap<Bytes32, UsizeAlignedByteBox<A>, A>,
+    pub storage: BTreeMap<Bytes32, UsizeAlignedByteBox<A>, A>,
     pub(crate) allocator: A,
     _marker: PhantomData<R>,
 }

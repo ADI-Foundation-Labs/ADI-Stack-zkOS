@@ -2,11 +2,14 @@ use crate::io_oracle::CsrBasedIOOracle;
 use crate::skip_list_quasi_vec::ListVec;
 use crate::system::bootloader::BootloaderAllocator;
 use alloc::alloc::Allocator;
+use basic_bootloader::bootloader::block_flow::*;
+use basic_bootloader::bootloader::stf::*;
 use basic_bootloader::bootloader::BasicBootloader;
 use basic_system::system_functions::NoStdSystemFunctions;
 use basic_system::system_implementation::flat_storage_model::FlatTreeWithAccountsUnderHashesStorageModel;
-use basic_system::system_implementation::system::EthereumLikeStorageAccessCostModel;
-use basic_system::system_implementation::system::TypedFullIO;
+use basic_system::system_implementation::system::{
+    BasicStorageModel, EthereumLikeStorageAccessCostModel,
+};
 use stack_trait::StackCtor;
 use zk_ee::memory::*;
 use zk_ee::reference_implementations::BaseResources;
@@ -33,7 +36,7 @@ type Native = zk_ee::reference_implementations::DecreasingNative;
 impl<O: IOOracle, L: Logger + Default> SystemTypes for ProofRunningSystemTypes<O, L> {
     type IOTypes = EthereumIOTypesConfig;
     type Resources = BaseResources<Native>;
-    type IO = TypedFullIO<
+    type IO = BasicStorageModel<
         Self::Allocator,
         Self::Resources,
         EthereumLikeStorageAccessCostModel,
@@ -57,5 +60,14 @@ impl<O: IOOracle, L: Logger + Default> SystemTypes for ProofRunningSystemTypes<O
 }
 
 impl<O: IOOracle, L: Logger + Default> EthereumLikeTypes for ProofRunningSystemTypes<O, L> {}
+
+impl<O: IOOracle, L: Logger + Default> BasicSTF for ProofRunningSystemTypes<O, L> {
+    type BlockDataKeeper = ZKBasicBlockDataKeeper;
+    type PreTxLoopOp = ZKHeaderStructurePreTxOp;
+    type TxLoopOp = DefaultTxLoop;
+    type PostTxLoopOp = ZKHeaderStructurePostTxOp<true>;
+}
+
+impl<O: IOOracle, L: Logger + Default> EthereumLikeBasicSTF for ProofRunningSystemTypes<O, L> {}
 
 pub type ProvingBootloader<O, L> = BasicBootloader<ProofRunningSystemTypes<O, L>>;

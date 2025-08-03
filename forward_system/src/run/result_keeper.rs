@@ -107,7 +107,9 @@ impl<TR: TxResultCallback> IOResultKeeper<EthereumIOTypesConfig>
     }
 }
 
-impl<TR: TxResultCallback> ResultKeeperExt for ForwardRunningResultKeeper<TR> {
+impl<TR: TxResultCallback> ResultKeeperExt<EthereumIOTypesConfig>
+    for ForwardRunningResultKeeper<TR>
+{
     fn tx_processed(
         &mut self,
         tx_result: Result<

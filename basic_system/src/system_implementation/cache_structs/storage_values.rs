@@ -107,7 +107,7 @@ pub struct GenericPubdataAwareStorageValuesCache<
     R: Resources,
     P: StorageAccessPolicy<R, V>,
 > {
-    pub(crate) cache: HistoryMap<K, CacheRecord<V, StorageElementMetadata>, A>,
+    pub cache: HistoryMap<K, CacheRecord<V, StorageElementMetadata>, A>,
     pub(crate) resources_policy: P,
     pub(crate) current_tx_number: TransactionId,
     pub(crate) initial_values: BTreeMap<K, (V, TransactionId), A>, // Used to cache initial values at the beginning of the tx (For EVM gas model)
@@ -326,6 +326,7 @@ impl<
         })?;
 
         // we need to replace-update
+        #[cfg(feature = "evm_refunds")]
         if let Some(mut refund_counter) = self.evm_refunds_counter.value().cloned() {
             self.resources_policy.refund_for_storage_write(
                 ee_type,

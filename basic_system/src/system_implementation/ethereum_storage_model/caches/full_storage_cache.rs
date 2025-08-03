@@ -169,7 +169,7 @@ impl<
         P: StorageAccessPolicy<R, Bytes32>,
     > EthereumStorageCache<A, SC, N, R, P>
 {
-    pub fn iter_as_storage_types(
+    pub(crate) fn iter_as_storage_types(
         &self,
     ) -> impl Iterator<Item = (WarmStorageKey, WarmStorageValue)> + Clone + use<'_, A, SC, N, R, P>
     {

@@ -8,7 +8,6 @@ use cost_constants::EVENT_STORAGE_BASE_NATIVE_COST;
 use cost_constants::EVENT_TOPIC_NATIVE_COST;
 use cost_constants::WARM_TSTORAGE_READ_NATIVE_COST;
 use cost_constants::WARM_TSTORAGE_WRITE_NATIVE_COST;
-use crypto::MiniDigest;
 use evm_interpreter::gas_constants::LOG;
 use evm_interpreter::gas_constants::LOGDATA;
 use evm_interpreter::gas_constants::LOGTOPIC;
@@ -16,10 +15,10 @@ use evm_interpreter::gas_constants::TLOAD;
 use evm_interpreter::gas_constants::TSTORE;
 use storage_models::common_structs::generic_transient_storage::GenericTransientStorage;
 use storage_models::common_structs::StorageModel;
+use zk_ee::common_structs::GenericEventContentWithTxRef;
+use zk_ee::common_structs::GenericLogContentWithTxRef;
 use zk_ee::common_structs::L2_TO_L1_LOG_SERIALIZE_SIZE;
 use zk_ee::interface_error;
-#[cfg(not(feature = "wrap-in-batch"))]
-use zk_ee::kv_markers::UsizeDeserializable;
 use zk_ee::out_of_ergs_error;
 use zk_ee::{
     common_structs::{EventsStorage, LogsStorage},
@@ -32,7 +31,9 @@ use zk_ee::{
     utils::UsizeAlignedByteBox,
 };
 
-pub struct TypedFullIO<
+// Basic storage model carries all the caches inside, along with storage implementation (that defines it's commitment format).
+// Logs/Events materialization as state root is moved to the result keeper and any finalization word
+pub struct BasicStorageModel<
     A: Allocator + Clone + Default,
     R: Resources,
     P: StorageAccessPolicy<R, Bytes32>,
@@ -42,25 +43,25 @@ pub struct TypedFullIO<
     M: StorageModel<IOTypes = EthereumIOTypesConfig, Resources = R, InitData = P>,
     const PROOF_ENV: bool,
 > {
-    pub(crate) storage: M,
-    pub(crate) transient_storage: GenericTransientStorage<WarmStorageKey, Bytes32, SC, N, A>,
-    pub(crate) logs_storage: LogsStorage<SC, N, A>,
-    pub(crate) events_storage: EventsStorage<MAX_EVENT_TOPICS, SC, N, A>,
+    pub storage: M,
+    pub transient_storage: GenericTransientStorage<WarmStorageKey, Bytes32, SC, N, A>,
+    pub logs_storage: LogsStorage<SC, N, A>,
+    pub events_storage: EventsStorage<MAX_EVENT_TOPICS, SC, N, A>,
     pub(crate) allocator: A,
-    pub(crate) oracle: O,
+    pub oracle: O,
     pub(crate) tx_number: u32,
 }
 
-pub struct TypedFullIOStateSnapshot<M: StorageModel> {
+pub struct BasicStorageModelStateSnapshot<M: StorageModel> {
     io: M::StateSnapshot,
     transient: CacheSnapshotId,
     messages: usize,
     events: usize,
 }
 
-impl<M: StorageModel> core::fmt::Debug for TypedFullIOStateSnapshot<M> {
+impl<M: StorageModel> core::fmt::Debug for BasicStorageModelStateSnapshot<M> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("TypedFullIOStateSnapshot")
+        f.debug_struct("BasicStorageModeStateSnapshot")
             .field("io", &self.io)
             .field("transient", &self.transient)
             .field("messages", &self.messages)
@@ -78,11 +79,11 @@ impl<
         O: IOOracle,
         M: StorageModel<IOTypes = EthereumIOTypesConfig, Resources = R, InitData = P>,
         const PROOF_ENV: bool,
-    > IOSubsystem for TypedFullIO<A, R, P, SC, N, O, M, PROOF_ENV>
+    > IOSubsystem for BasicStorageModel<A, R, P, SC, N, O, M, PROOF_ENV>
 {
     type IOTypes = EthereumIOTypesConfig;
     type Resources = R;
-    type StateSnapshot = TypedFullIOStateSnapshot<M>;
+    type StateSnapshot = BasicStorageModelStateSnapshot<M>;
 
     fn storage_read<const TRANSIENT: bool>(
         &mut self,
@@ -366,7 +367,7 @@ impl<
         let messages = self.logs_storage.start_frame();
         let events = self.events_storage.start_frame();
 
-        Ok(TypedFullIOStateSnapshot {
+        Ok(BasicStorageModelStateSnapshot {
             io,
             transient,
             messages,
@@ -394,107 +395,6 @@ impl<
     }
 }
 
-pub trait TypedFinishIO {
-    type IOStateCommittment: Clone + UsizeDeserializable + UsizeDeserializable + core::fmt::Debug;
-    type FinalData;
-
-    fn finish(
-        self,
-        state_commitment: Option<&mut Self::IOStateCommittment>,
-        l2_to_l1_logs_hasher: &mut impl MiniDigest,
-        pubdata_hasher: &mut impl MiniDigest,
-        result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
-        logger: &mut impl Logger,
-    ) -> Self::FinalData;
-}
-
-impl<
-        A: Allocator + Clone + Default,
-        R: Resources,
-        P: StorageAccessPolicy<R, Bytes32> + Default,
-        SC: StackCtor<N>,
-        const N: usize,
-        O: IOOracle,
-        M: StorageModel<IOTypes = EthereumIOTypesConfig, Resources = R, InitData = P>,
-    > TypedFinishIO for TypedFullIO<A, R, P, SC, N, O, M, false>
-{
-    type IOStateCommittment = M::StorageCommitment;
-    type FinalData = O;
-
-    fn finish(
-        mut self,
-        state_commitment: Option<&mut Self::IOStateCommittment>,
-        l2_to_l1_logs_hasher: &mut impl MiniDigest,
-        pubdata_hasher: &mut impl MiniDigest,
-        result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
-        logger: &mut impl Logger,
-    ) -> Self::FinalData {
-        // dump pubdata and state diffs
-
-        // we don't need to append pubdata to the hash, but caller should care about it
-        self.storage
-            .finish(
-                &mut self.oracle,
-                state_commitment,
-                pubdata_hasher,
-                result_keeper,
-                logger,
-            )
-            .expect("Failed to finish storage");
-        self.logs_storage
-            .apply_pubdata(l2_to_l1_logs_hasher, result_keeper);
-
-        result_keeper.logs(self.logs_storage.messages_ref_iter());
-        result_keeper.events(self.events_storage.events_ref_iter());
-
-        self.oracle
-    }
-}
-
-// In practice we will not use single block batches
-// This functionality is here only for the tests
-#[cfg(not(feature = "wrap-in-batch"))]
-impl<
-        A: Allocator + Clone + Default,
-        R: Resources,
-        P: StorageAccessPolicy<R, Bytes32> + Default,
-        SC: StackCtor<N>,
-        const N: usize,
-        O: IOOracle,
-        M: StorageModel<IOTypes = EthereumIOTypesConfig, Resources = R, InitData = P>,
-    > TypedFinishIO for TypedFullIO<A, R, P, SC, N, O, M, true>
-{
-    type FinalData = O;
-    type IOStateCommittment = M::StorageCommitment;
-
-    fn finish(
-        mut self,
-        state_commitment: Option<&mut Self::IOStateCommittment>,
-        l2_to_l1_logs_hasher: &mut impl MiniDigest,
-        pubdata_hasher: &mut impl MiniDigest,
-        result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
-        logger: &mut impl Logger,
-    ) -> Self::FinalData {
-        self.storage
-            .finish(
-                &mut self.oracle,
-                state_commitment,
-                pubdata_hasher,
-                result_keeper,
-                logger,
-            )
-            .expect("Failed to finish storage");
-        self.logs_storage
-            .apply_l2_to_l1_logs_hashes_to_hasher(l2_to_l1_logs_hasher);
-        self.logs_storage
-            .apply_pubdata(pubdata_hasher, result_keeper);
-        result_keeper.logs(self.logs_storage.messages_ref_iter());
-        result_keeper.events(self.events_storage.events_ref_iter());
-
-        self.oracle
-    }
-}
-
 impl<
         A: Allocator + Clone + Default,
         R: Resources,
@@ -504,9 +404,7 @@ impl<
         O: IOOracle,
         const PROOF_ENV: bool,
         M: StorageModel<IOTypes = EthereumIOTypesConfig, Resources = R, InitData = P, Allocator = A>,
-    > IOSubsystemExt for TypedFullIO<A, R, P, SC, N, O, M, PROOF_ENV>
-where
-    Self: TypedFinishIO,
+    > IOSubsystemExt for BasicStorageModel<A, R, P, SC, N, O, M, PROOF_ENV>
 {
     type IOOracle = O;
 
@@ -785,6 +683,92 @@ impl<
         O: IOOracle,
         const PROOF_ENV: bool,
         M: StorageModel<IOTypes = EthereumIOTypesConfig, Resources = R, InitData = P, Allocator = A>,
-    > EthereumLikeIOSubsystem for TypedFullIO<A, R, P, SC, N, O, M, PROOF_ENV>
+    > EthereumLikeIOSubsystem for BasicStorageModel<A, R, P, SC, N, O, M, PROOF_ENV>
 {
+}
+
+impl<
+        A: Allocator + Clone + Default,
+        R: Resources,
+        P: StorageAccessPolicy<R, Bytes32> + Default,
+        SC: StackCtor<N>,
+        const N: usize,
+        O: IOOracle,
+        const PROOF_ENV: bool,
+        M: StorageModel<IOTypes = EthereumIOTypesConfig, Resources = R, InitData = P, Allocator = A>,
+    > IOTeardown<EthereumIOTypesConfig> for BasicStorageModel<A, R, P, SC, N, O, M, PROOF_ENV>
+{
+    type IOStateCommittment = M::StorageCommitment;
+
+    fn flush_caches(&mut self, result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>) {
+        self.storage.persist_caches(&mut self.oracle, result_keeper);
+    }
+
+    fn report_new_preimages(
+        &mut self,
+        result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
+    ) {
+        self.storage.report_new_preimages(result_keeper);
+    }
+
+    type AccountAddress<'a>
+        = M::AccountAddress<'a>
+    where
+        Self: 'a;
+    type AccountDiff<'a>
+        = M::AccountDiff<'a>
+    where
+        Self: 'a;
+    fn get_account_diff<'a>(
+        &'a self,
+        address: Self::AccountAddress<'a>,
+    ) -> Option<Self::AccountDiff<'a>> {
+        self.storage.get_account_diff(address)
+    }
+    fn accounts_diffs_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = (Self::AccountAddress<'a>, Self::AccountDiff<'a>)> + Clone
+    {
+        self.storage.accounts_diffs_iterator()
+    }
+
+    type StorageKey<'a>
+        = M::StorageKey<'a>
+    where
+        Self: 'a;
+    type StorageDiff<'a>
+        = M::StorageDiff<'a>
+    where
+        Self: 'a;
+    fn get_storage_diff<'a>(&'a self, key: Self::StorageKey<'a>) -> Option<Self::StorageDiff<'a>> {
+        self.storage.get_storage_diff(key)
+    }
+    fn storage_diffs_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = (Self::StorageKey<'a>, Self::StorageDiff<'a>)> + Clone {
+        self.storage.storage_diffs_iterator()
+    }
+
+    fn events_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<
+        Item = GenericEventContentWithTxRef<'a, { MAX_EVENT_TOPICS }, EthereumIOTypesConfig>,
+    > + Clone {
+        self.events_storage.events_ref_iter()
+    }
+    fn signals_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = GenericLogContentWithTxRef<'a, EthereumIOTypesConfig>> + Clone
+    {
+        self.logs_storage.messages_ref_iter()
+    }
+
+    fn update_commitment(
+        &mut self,
+        state_commitment: Option<&mut Self::IOStateCommittment>,
+        logger: &mut impl Logger,
+    ) {
+        self.storage
+            .update_commitment(state_commitment, &mut self.oracle, logger);
+    }
 }

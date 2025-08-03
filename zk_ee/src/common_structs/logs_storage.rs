@@ -152,7 +152,7 @@ impl<IOTypes: SystemIOTypesConfig, A: Allocator> GenericLogContent<IOTypes, A> {
 pub type LogContent<A: Allocator = Global> = GenericLogContent<EthereumIOTypesConfig, A>;
 
 pub struct LogsStorage<SC: StackCtor<N>, const N: usize, A: Allocator + Clone = Global> {
-    list: HistoryList<LogContent<A>, u32, SC, N, A>,
+    pub list: HistoryList<LogContent<A>, u32, SC, N, A>,
     pubdata_used_by_committed_logs: u32,
     _marker: core::marker::PhantomData<A>,
 }
@@ -245,14 +245,9 @@ impl<SC: StackCtor<N>, const N: usize, A: Allocator + Clone + Default> LogsStora
 
     pub fn messages_ref_iter(
         &'_ self,
-    ) -> impl Iterator<Item = GenericLogContentWithTxRef<'_, EthereumIOTypesConfig>> {
+    ) -> impl ExactSizeIterator<Item = GenericLogContentWithTxRef<'_, EthereumIOTypesConfig>> + Clone
+    {
         self.list.iter().map(|message| message.to_ref())
-    }
-
-    pub fn apply_l2_to_l1_logs_hashes_to_hasher(&self, hasher: &mut impl MiniDigest) {
-        for message in self.list.iter() {
-            hasher.update(L2ToL1Log::from(message).hash().as_u8_ref());
-        }
     }
 
     pub fn calculate_pubdata_used_by_tx(&self) -> Result<u32, InternalError> {
@@ -267,37 +262,58 @@ impl<SC: StackCtor<N>, const N: usize, A: Allocator + Clone + Default> LogsStora
         }
     }
 
-    pub fn apply_pubdata(
+    pub fn apply_logs_to_pubdata_and_record_log_hashes<LFN: FnMut(&Bytes32)>(
         &self,
-        hasher: &mut impl MiniDigest,
-        results_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
+        result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
+        pubdata_hasher: &mut impl MiniDigest,
+        mut log_hasher_fn: Option<LFN>,
     ) {
         let logs_count = (self.list.len() as u32).to_be_bytes();
-        hasher.update(logs_count);
-        results_keeper.pubdata(&logs_count);
+        pubdata_hasher.update(logs_count);
+        result_keeper.pubdata(&logs_count);
+
         let mut messages_count: u32 = 0;
         // First we encode all the L2L1 log information.
-        self.list.iter().for_each(|el| {
-            if let GenericLogContentData::UserMsg(_) = el.data {
+
+        let mut log_inner_hasher = crypto::sha3::Keccak256::new();
+        for log in self.list.iter() {
+            if let GenericLogContentData::UserMsg(..) = &log.data {
                 messages_count += 1;
             }
-            let log: L2ToL1Log = el.into();
-            log.add_encoding_to_hasher(hasher);
-            log.pubdata(results_keeper);
-        });
+            let log = L2ToL1Log::from(log);
+            if let Some(log_hasher_fn) = log_hasher_fn.as_mut() {
+                (log_hasher_fn)(&log.hash(&mut log_inner_hasher));
+            }
+            log.add_encoding_to_hasher(pubdata_hasher);
+            log.pubdata(result_keeper);
+        }
+
         // Then, we do a second pass to publish messages
         let messages_count = messages_count.to_be_bytes();
-        hasher.update(messages_count);
-        results_keeper.pubdata(&messages_count);
+        pubdata_hasher.update(messages_count);
+        result_keeper.pubdata(&messages_count);
         self.list.iter().for_each(|el| {
             if let GenericLogContentData::UserMsg(UserMsgData { data, .. }) = &el.data {
-                let len = (data.as_slice().len() as u32).to_be_bytes();
-                hasher.update(len);
-                results_keeper.pubdata(&len);
-                hasher.update(data.as_slice());
-                results_keeper.pubdata(data.as_slice());
+                let len = (data.len() as u32).to_be_bytes();
+                pubdata_hasher.update(len);
+                result_keeper.pubdata(&len);
+                pubdata_hasher.update(data.as_slice());
+                result_keeper.pubdata(data.as_slice());
             }
         })
+    }
+
+    pub fn apply_logs_to_pubdata(
+        &self,
+        results_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
+        pubdata_hasher: &mut impl MiniDigest,
+    ) {
+        let lfn = |_: &Bytes32| {};
+        self.apply_logs_to_pubdata_and_record_log_hashes(
+            results_keeper,
+            pubdata_hasher,
+            Some(lfn).take(), // otherwise type can not be deduced
+        )
     }
 
     // we use it for tests to generate single block batches
@@ -400,9 +416,10 @@ impl<SC: StackCtor<N>, const N: usize, A: Allocator + Clone + Default> LogsStora
             ],
         ];
         let mut elements = alloc::vec::Vec::with_capacity_in(self.list.len(), A::default());
+        let mut log_hasher = crypto::sha3::Keccak256::new();
         self.list.iter().for_each(|el| {
             let log: L2ToL1Log = el.into();
-            elements.push(log.hash())
+            elements.push(log.hash(&mut log_hasher));
         });
         let mut curr_non_default = self.list.len();
         #[allow(clippy::needless_range_loop)]
@@ -467,16 +484,15 @@ impl L2ToL1Log {
     /// Returns keccak hash of the l2 to l1 log solidity abi packed encoding.
     /// In fact, packed abi encoding in this case just equals to concatenation of all the fields big-endian representations.
     ///
-    fn hash(&self) -> Bytes32 {
-        let mut hasher = crypto::sha3::Keccak256::new();
-        self.add_encoding_to_hasher(&mut hasher);
-        hasher.finalize().into()
+    pub fn hash(&self, hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>) -> Bytes32 {
+        self.add_encoding_to_hasher(hasher);
+        Bytes32::from_array(hasher.finalize_reset())
     }
 
     ///
     /// Adds the packed abi encoding of the log to the hasher.
     ///
-    fn add_encoding_to_hasher(&self, hasher: &mut impl MiniDigest) {
+    pub fn add_encoding_to_hasher(&self, hasher: &mut impl MiniDigest) {
         hasher.update([self.l2_shard_id]);
         hasher.update([if self.is_service { 1 } else { 0 }]);
         hasher.update(self.tx_number_in_block.to_be_bytes());
@@ -488,7 +504,7 @@ impl L2ToL1Log {
     ///
     /// Adds the packed abi encoding of the log to the pubdata.
     ///
-    fn pubdata(&self, result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>) {
+    pub fn pubdata(&self, result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>) {
         result_keeper.pubdata(&[self.l2_shard_id]);
         result_keeper.pubdata(&[if self.is_service { 1 } else { 0 }]);
         result_keeper.pubdata(&self.tx_number_in_block.to_be_bytes());

@@ -193,9 +193,8 @@ pub fn run_proving_inner<
     let _ = L::default().write_fmt(format_args!("IO implementer init is complete"));
 
     // Load all transactions from oracle and apply them.
-    let (mut oracle, public_input) = ProvingBootloader::<O, L>::run_prepared::<
+    let (mut oracle, public_input) = ProvingBootloader::<O, L>::run::<
         BasicBootloaderProvingExecutionConfig,
-        true,
     >(oracle, &mut NopResultKeeper, &mut NopTracer::default())
     .expect("Tried to prove a failing batch");
 

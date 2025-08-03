@@ -115,7 +115,7 @@ impl<T: Sized, const N: usize, A: Allocator + Clone> zk_ee::memory::stack_trait:
         self.0.clear()
     }
 
-    fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T>
+    fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T> + Clone
     where
         T: 'a,
     {
@@ -136,6 +136,16 @@ pub struct ListVecIter<'a, T: Sized, const N: usize> {
     outer: alloc::collections::linked_list::Iter<'a, ArrayVec<T, N>>,
     inner: Option<core::slice::Iter<'a, T>>,
     remaining: usize,
+}
+
+impl<'a, T: Sized, const N: usize> Clone for ListVecIter<'a, T, N> {
+    fn clone(&self) -> Self {
+        Self {
+            outer: self.outer.clone(),
+            inner: self.inner.clone(),
+            remaining: self.remaining,
+        }
+    }
 }
 
 impl<'a, T: Sized, const N: usize> Iterator for ListVecIter<'a, T, N> {

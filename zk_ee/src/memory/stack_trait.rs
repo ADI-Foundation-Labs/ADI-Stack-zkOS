@@ -34,7 +34,7 @@ pub trait Stack<T: Sized, A: Allocator> {
             }
         }
     }
-    fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T>
+    fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T> + Clone
     where
         T: 'a;
 }
@@ -65,7 +65,7 @@ impl<T: Sized, A: Allocator> Stack<T, A> for Vec<T, A> {
     fn truncate(&mut self, new_len: usize) {
         Vec::truncate(self, new_len);
     }
-    fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T>
+    fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T> + Clone
     where
         T: 'a,
     {

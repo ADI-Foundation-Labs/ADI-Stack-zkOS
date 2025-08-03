@@ -39,7 +39,7 @@ impl<V, M: Clone, SC: StackCtor<N>, const N: usize, A: Allocator + Clone>
         self.list.top_mut().map(|(v, m)| (v, m))
     }
 
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = &V> {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = &V> + Clone {
         self.list.iter().map(|(v, _)| v)
     }
 

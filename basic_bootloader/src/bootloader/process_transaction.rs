@@ -833,7 +833,7 @@ where
         let _ = system.get_logger().write_fmt(format_args!(
             "Minimal gas used from validation = {minimal_gas_used}\n"
         ));
-        let gas_used = core::cmp::max(gas_used, minimal_gas_used);
+        let mut gas_used = core::cmp::max(gas_used, minimal_gas_used);
 
         #[cfg(not(feature = "unlimited_native"))]
         {

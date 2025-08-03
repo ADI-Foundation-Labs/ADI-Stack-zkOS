@@ -1,9 +1,6 @@
 //! Implementation of the system interface.
 use crate::system_implementation::cache_structs::storage_values::StorageAccessPolicy;
 use crate::system_implementation::flat_storage_model::*;
-use crate::system_implementation::system::public_input::{
-    BlocksOutput, BlocksPublicInput, ChainStateCommitment,
-};
 use core::alloc::Allocator;
 use errors::system::SystemError;
 use evm_interpreter::gas_constants::COLD_SLOAD_COST;
@@ -23,14 +20,11 @@ use zk_ee::{
     system_io_oracle::IOOracle,
 };
 
-mod public_input;
-mod storage_model_subtyped_io;
-mod system_post_work;
+mod basic_storage_model;
+pub mod public_input;
 
-pub use self::public_input::BatchOutput;
-pub use self::public_input::BatchPublicInput;
-pub use self::storage_model_subtyped_io::*;
-pub use self::system_post_work::*;
+pub use self::basic_storage_model::*;
+pub use self::public_input::*;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EthereumLikeStorageAccessCostModel;
