@@ -16,6 +16,9 @@ use ruint::aliases::U256;
 use zk_ee::internal_error;
 use zk_ee::system::errors::{internal::InternalError, runtime::RuntimeError, system::SystemError};
 
+mod ethereum_tx_format;
+pub use self::ethereum_tx_format::EthereumTransaction;
+
 mod abi_utils;
 pub mod access_list_parser;
 #[cfg(feature = "pectra")]

@@ -21,6 +21,7 @@ impl AccessListParser {
 }
 
 // Used to enforce strict encoding
+#[derive(Clone, Copy, Debug)]
 struct PreviousItemInfo {
     offset: usize,
     nb_keys: usize,
@@ -34,6 +35,7 @@ impl PreviousItemInfo {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
 pub struct AccessListIter<'a> {
     slice: &'a [u8],
     pub(crate) count: usize,
@@ -128,6 +130,12 @@ impl<'a> Iterator for AccessListIter<'a> {
         let current = self.parse_current();
         self.index += 1;
         Some(current)
+    }
+}
+
+impl<'a> ExactSizeIterator for AccessListIter<'a> {
+    fn len(&self) -> usize {
+        self.count - self.index
     }
 }
 
