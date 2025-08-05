@@ -111,9 +111,6 @@ impl<'a> Iterator for AuthorizationListIter<'a> {
     }
 }
 
-// Magic byte from EIP-7702
-const MAGIC: u8 = 0x05;
-
 impl AuthorizationListItem {
     /// Validate and apply an authorization list item, following EIP-7702:
     /// 1. Verify the chain ID is 0 or the ID of the current chain.

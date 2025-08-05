@@ -1,0 +1,652 @@
+use super::*;
+use crate::bootloader::errors::InvalidTransaction;
+use crate::bootloader::transaction::ethereum_tx_format::EthereumTransaction;
+use crate::bootloader::transaction_flow::BasicTransactionFlow;
+use crate::bootloader::BasicBootloader;
+use core::fmt::Write;
+use crypto::MiniDigest;
+use evm_interpreter::ERGS_PER_GAS;
+use ruint::aliases::U256;
+use zk_ee::common_structs::GenericEventContentRef;
+use zk_ee::internal_error;
+use zk_ee::kv_markers::MAX_EVENT_TOPICS;
+use zk_ee::out_of_native_resources;
+use zk_ee::system::errors::root_cause::GetRootCause;
+use zk_ee::system::errors::root_cause::RootCause;
+use zk_ee::system::errors::runtime::RuntimeError;
+use zk_ee::system::errors::subsystem::SubsystemError;
+use zk_ee::system::logger::Logger;
+use zk_ee::system::*;
+use zk_ee::types_config::EthereumIOTypesConfig;
+use zk_ee::utils::Bytes32;
+
+pub struct EthereumTransactionFlow<S: EthereumLikeTypes> {
+    _marker: core::marker::PhantomData<S>,
+}
+
+#[derive(Debug)]
+pub struct EthereumTxResult<'a> {
+    pub result: ExecutionResult<'a, EthereumIOTypesConfig>,
+    pub tx_hash: Bytes32,
+    pub gas_used: u64,
+}
+
+impl<'a> MinimalTransactionOutput<'a> for EthereumTxResult<'a> {
+    fn is_success(&self) -> bool {
+        match &self.result {
+            ExecutionResult::Success { .. } => true,
+            ExecutionResult::Revert { .. } => false,
+        }
+    }
+    fn returndata(&self) -> &[u8] {
+        match &self.result {
+            ExecutionResult::Success { output } => match output {
+                ExecutionOutput::Call(returndata) => returndata,
+                ExecutionOutput::Create(..) => &[],
+            },
+            ExecutionResult::Revert { output } => output,
+        }
+    }
+    fn transaction_hash(&self) -> Bytes32 {
+        self.tx_hash
+    }
+    fn into_bookkeeper_output(self) -> TxProcessingOutput<'a> {
+        let (success, returndata, created_address) = match self.result {
+            ExecutionResult::Success { output } => match output {
+                ExecutionOutput::Call(returndata) => (true, returndata, None),
+                ExecutionOutput::Create(returndata, address) => (true, returndata, Some(address)),
+            },
+            ExecutionResult::Revert { output } => (false, output, None),
+        };
+
+        TxProcessingOutput {
+            status: success,
+            output: returndata,
+            contract_address: created_address,
+            gas_used: self.gas_used,
+            gas_refunded: 0,
+            computational_native_used: 0,
+            pubdata_used: 0,
+        }
+    }
+}
+
+mod validation_impl;
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct LogsBloom {
+    inner: [u64; 32], // blindly the capacity for 2048 bits, treated as BE integer all together
+}
+
+impl LogsBloom {
+    pub fn mark_events<'a>(
+        &mut self,
+        hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
+        event: impl Iterator<Item = GenericEventContentRef<'a, MAX_EVENT_TOPICS, EthereumIOTypesConfig>>,
+    ) {
+        for event in event {
+            self.mark_event(hasher, event);
+        }
+    }
+
+    pub fn mark_event<'a>(
+        &mut self,
+        hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
+        event: GenericEventContentRef<'a, MAX_EVENT_TOPICS, EthereumIOTypesConfig>,
+    ) {
+        hasher.update(&event.address.to_be_bytes::<20>());
+        let address_hash = hasher.finalize_reset();
+        self.mark(&address_hash);
+        for topic in event.topics.iter() {
+            hasher.update(topic.as_u8_ref());
+            let topic_hash = hasher.finalize_reset();
+            self.mark(&topic_hash);
+        }
+    }
+
+    fn mark(&mut self, hash: &[u8; 32]) {
+        // take lowest 11 bits integer of each of 2-byte words BE words
+        for i in [0, 2, 4] {
+            let word = [hash[i], hash[i + 1]];
+            let word = (u16::from_be_bytes(word) & 0x7ff) as usize; // equal to mod 2048
+            let u64_idx = 31 - word / 64; // BE
+            let bit_idx = 63 - word % 64; // BE
+            self.inner[u64_idx] |= 1 << bit_idx;
+        }
+    }
+
+    pub fn merge(&mut self, other: &Self) {
+        for (dst, src) in self.inner.iter_mut().zip(other.inner.iter()) {
+            *dst |= *src;
+        }
+    }
+}
+
+pub struct ResourcesForEthereumTx<S: EthereumLikeTypes> {
+    pub main_resources: S::Resources,
+}
+
+impl<S: EthereumLikeTypes> core::fmt::Debug for ResourcesForEthereumTx<S> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ResourcesForEthereumTx")
+            .field("gas", &(self.main_resources.ergs().0 / ERGS_PER_GAS))
+            .field("main_resources", &self.main_resources)
+            .finish()
+    }
+}
+
+pub struct EthereumTxContext<S: EthereumLikeTypes> {
+    pub resources: ResourcesForEthereumTx<S>,
+    pub tx_hash: Bytes32,
+    pub fee_to_prepay: U256,
+    pub gas_price_for_metadata: U256,
+    pub gas_price_for_fee_commitment: U256,
+    pub minimal_gas_to_charge: u64,
+    pub originator_nonce_to_use: u64,
+    pub tx_gas_limit: u64,
+    pub gas_used: u64,
+}
+
+impl<S: EthereumLikeTypes> core::fmt::Debug for EthereumTxContext<S> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("TxContextForPreAndPostProcessing")
+            .field("resources", &self.resources)
+            .field("tx_hash", &self.tx_hash)
+            .field("fee_to_prepay", &self.fee_to_prepay)
+            .field("gas_price_for_metadata", &self.gas_price_for_metadata)
+            .field(
+                "gas_price_for_fee_commitment",
+                &self.gas_price_for_fee_commitment,
+            )
+            .field("minimal_gas_to_charge", &self.minimal_gas_to_charge)
+            .field("originator_nonce_to_use", &self.originator_nonce_to_use)
+            .field("tx_gas_limit", &self.tx_gas_limit)
+            .field("gas_used", &self.gas_used)
+            .finish()
+    }
+}
+
+impl<S: EthereumLikeTypes> BasicTransactionFlow<S> for EthereumTransactionFlow<S>
+where
+    S::IO: IOSubsystemExt,
+{
+    type Transaction<'a> = EthereumTransaction<'a>;
+    type TransactionContext = EthereumTxContext<S>;
+    type ExecutionBodyExtraData = (); // we can use context for everything
+
+    fn parse_transaction<'a>(
+        system: &System<S>,
+        source: &'a mut [u8],
+        _tracer: &mut impl Tracer<S>,
+    ) -> Result<Self::Transaction<'a>, TxError> {
+        let chain_id = system
+            .get_chain_id()
+            .try_into()
+            .expect("too large chain ID");
+        EthereumTransaction::parse(&*source, chain_id)
+            .map_err(|_| TxError::Validation(InvalidTransaction::InvalidEncoding))
+    }
+
+    fn validate_and_prepare_context<'a, Config: BasicBootloaderExecutionConfig>(
+        system: &mut System<S>,
+        transaction: Self::Transaction<'a>,
+        tracer: &mut impl Tracer<S>,
+    ) -> Result<(Self::TransactionContext, Self::Transaction<'a>), TxError> {
+        self::validation_impl::validate_and_compute_fee_for_transaction::<S, Config>(
+            system,
+            transaction,
+            tracer,
+        )
+    }
+
+    fn precharge_fee<Config: BasicBootloaderExecutionConfig>(
+        system: &mut System<S>,
+        transaction: &Self::Transaction<'_>,
+        context: &mut Self::TransactionContext,
+        _tracer: &mut impl Tracer<S>,
+    ) -> Result<(), TxError> {
+        let from = transaction.signer();
+        let value = context.fee_to_prepay;
+
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Will precharge {:?} native tokens for transaction\n",
+            &value
+        ));
+
+        context
+            .resources
+            .main_resources
+            .with_infinite_ergs(|resources| {
+                system.io.update_account_nominal_token_balance(
+                    ExecutionEnvironmentType::NoEE, // out of scope of other interactions
+                    resources,
+                    from,
+                    &value,
+                    true,
+                )
+            })
+            .map_err(|e| match e {
+                SubsystemError::LeafUsage(interface_error) => {
+                    unreachable!(
+                        "balance should be pre-verified, but received error {:?}",
+                        interface_error
+                    );
+                }
+                SubsystemError::LeafDefect(internal_error) => internal_error.into(),
+                SubsystemError::LeafRuntime(runtime_error) => match runtime_error {
+                    RuntimeError::OutOfNativeResources(_) => {
+                        TxError::oon_as_validation(out_of_native_resources!().into())
+                    }
+                    RuntimeError::OutOfErgs(_) => {
+                        TxError::Validation(InvalidTransaction::OutOfGasDuringValidation)
+                    }
+                },
+                SubsystemError::Cascaded(cascaded_error) => match cascaded_error {},
+            })?;
+
+        Ok(())
+    }
+
+    fn create_frame_and_execute_transaction_payload<'a, Config: BasicBootloaderExecutionConfig>(
+        system: &mut System<S>,
+        system_functions: &mut HooksStorage<S, <S as SystemTypes>::Allocator>,
+        memories: RunnerMemoryBuffers<'a>,
+        transaction: &Self::Transaction<'_>,
+        context: &mut Self::TransactionContext,
+        tracer: &mut impl Tracer<S>,
+    ) -> Result<
+        (
+            ExecutionResult<'a, <S as SystemTypes>::IOTypes>,
+            Self::ExecutionBodyExtraData,
+        ),
+        BootloaderSubsystemError,
+    > {
+        // Take a snapshot in case we need to revert due to out of native.
+        let main_body_rollback_handle = system.start_global_frame()?;
+
+        let execution_result = match Self::execute_or_deploy_inner::<Config>(
+            system,
+            system_functions,
+            memories,
+            &transaction,
+            context,
+            tracer,
+        ) {
+            Ok(r) => {
+                match r {
+                    ExecutionResult::Success { .. } => {
+                        system.finish_global_frame(None)?;
+                        let _ = system
+                            .get_logger()
+                            .write_fmt(format_args!("Transaction main payload was processed\n"));
+                    }
+                    ExecutionResult::Revert { .. } => {
+                        system.finish_global_frame(Some(&main_body_rollback_handle))?;
+                        let _ = system
+                            .get_logger()
+                            .write_fmt(format_args!("Transaction main payload was reverted\n"));
+                    }
+                };
+
+                r
+            }
+            // Out of native is converted to a top-level revert and
+            // gas is exhausted.
+            Err(e) => match e.root_cause() {
+                RootCause::Runtime(e @ RuntimeError::OutOfNativeResources(_)) => {
+                    let _ = system.get_logger().write_fmt(format_args!(
+                        "Transaction ran out of native resources: {e:?}\n"
+                    ));
+                    context.resources.main_resources.exhaust_ergs();
+                    system.finish_global_frame(Some(&main_body_rollback_handle))?;
+
+                    ExecutionResult::Revert { output: &[] }
+                }
+                _ => return Err(e.into()),
+            },
+        };
+        drop(main_body_rollback_handle);
+
+        Ok((execution_result, ()))
+    }
+
+    fn before_refund<'a, Config: BasicBootloaderExecutionConfig>(
+        system: &mut System<S>,
+        transaction: &Self::Transaction<'a>,
+        context: &mut Self::TransactionContext,
+        _result: &ExecutionResult<'a, <S as SystemTypes>::IOTypes>,
+        _extra_data: Self::ExecutionBodyExtraData,
+        _tracer: &mut impl Tracer<S>,
+    ) -> Result<(), InternalError> {
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Have {:?} resources available before refund\n",
+            &context.resources.main_resources,
+        ));
+
+        let min_gas_used = context.minimal_gas_to_charge;
+        // Compute gas used following the same logic as in normal execution
+
+        let (_gas_refund, gas_used, _evm_refund) = BasicBootloader::<S>::compute_gas_refund(
+            system,
+            S::Resources::empty(),
+            transaction.gas_limit(),
+            min_gas_used,
+            U256::ZERO,
+            &mut context.resources.main_resources,
+        )?;
+        context.gas_used = gas_used;
+
+        return Ok(());
+    }
+
+    fn refund_and_commit_fee<'a, Config: BasicBootloaderExecutionConfig>(
+        system: &mut System<S>,
+        transaction: &Self::Transaction<'_>,
+        context: &mut Self::TransactionContext,
+        _tracer: &mut impl Tracer<S>,
+    ) -> Result<(), BalanceSubsystemError> {
+        // here we refund the user, then we will transfer fee to the operator
+
+        // use would be refunded based on potentially one gas price, and operator will be paid using different one. But those
+        // changes are not "transfers" in nature
+
+        assert!(
+            context.gas_used <= context.tx_gas_limit,
+            "gas limit is {}, but {} gas is reported as used",
+            context.tx_gas_limit,
+            context.gas_used
+        );
+
+        if context.tx_gas_limit > context.gas_used {
+            let _ = system.get_logger().write_fmt(format_args!(
+                "Gas price for refund is {:?}\n",
+                &context.gas_price_for_metadata
+            ));
+
+            // refund
+            let receiver = transaction.signer();
+            let refund = context.gas_price_for_metadata
+                * U256::from(context.tx_gas_limit - context.gas_used); // can not overflow
+
+            context
+                .resources
+                .main_resources
+                .with_infinite_ergs(|resources| {
+                    system.io.update_account_nominal_token_balance(
+                        ExecutionEnvironmentType::NoEE, // out of scope of other interactions
+                        resources,
+                        &receiver,
+                        &refund,
+                        false,
+                    )
+                })?;
+        }
+
+        assert!(context.gas_used > 0);
+
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Gas price for coinbase fee is {:?}\n",
+            &context.gas_price_for_fee_commitment
+        ));
+
+        let fee = context.gas_price_for_fee_commitment * U256::from(context.gas_used); // can not overflow
+        let coinbase = system.get_coinbase();
+
+        context
+            .resources
+            .main_resources
+            .with_infinite_ergs(|resources| {
+                system.io.update_account_nominal_token_balance(
+                    ExecutionEnvironmentType::NoEE, // out of scope of other interactions
+                    resources,
+                    &coinbase,
+                    &fee,
+                    false,
+                )
+            })?;
+
+        Ok(())
+    }
+
+    type ExecutionResult<'a> = EthereumTxResult<'a>;
+
+    fn after_execution<'a, Config: BasicBootloaderExecutionConfig>(
+        system: &mut System<S>,
+        transaction: Self::Transaction<'_>,
+        context: Self::TransactionContext,
+        result: ExecutionResult<'a, <S as SystemTypes>::IOTypes>,
+        transaciton_data_collector: &mut impl BlockTransactionsDataCollector<S, Self>,
+        _tracer: &mut impl Tracer<S>,
+    ) -> Self::ExecutionResult<'a> {
+        transaciton_data_collector.record_transaction_results(
+            &*system,
+            &transaction,
+            &context,
+            &result,
+        );
+
+        EthereumTxResult {
+            result,
+            tx_hash: context.tx_hash,
+            gas_used: context.gas_used,
+        }
+    }
+}
+
+impl<S: EthereumLikeTypes> EthereumTransactionFlow<S>
+where
+    S::IO: IOSubsystemExt,
+{
+    fn execute_call<'a, Config: BasicBootloaderExecutionConfig>(
+        system: &mut System<S>,
+        system_functions: &mut HooksStorage<S, S::Allocator>,
+        memories: RunnerMemoryBuffers<'a>,
+        transaction: &<Self as BasicTransactionFlow<S>>::Transaction<'_>,
+        context: &mut <Self as BasicTransactionFlow<S>>::TransactionContext,
+        tracer: &mut impl Tracer<S>,
+    ) -> Result<TxExecutionResult<'a, S>, BootloaderSubsystemError> {
+        let from = transaction.signer();
+        let main_calldata = transaction.calldata();
+        let to = transaction.destination().unwrap_or_default();
+        let nominal_token_value = transaction.value();
+
+        let resources = context.resources.main_resources.take();
+
+        let final_state = BasicBootloader::<S>::run_single_interaction(
+            system,
+            system_functions,
+            memories,
+            main_calldata,
+            from,
+            &to,
+            resources,
+            nominal_token_value,
+            true,
+            tracer,
+        )?;
+
+        let CompletedExecution {
+            return_values,
+            resources_returned,
+            reverted,
+            ..
+        } = final_state;
+
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Resources to refund = {resources_returned:?}\n",
+        ));
+        context.resources.main_resources.reclaim(resources_returned);
+
+        Ok(TxExecutionResult {
+            return_values,
+            reverted,
+            deployed_address: DeployedAddress::CallNoAddress,
+        })
+    }
+
+    fn perform_deployment<'a, Config: BasicBootloaderExecutionConfig>(
+        system: &mut System<S>,
+        system_functions: &mut HooksStorage<S, S::Allocator>,
+        memories: RunnerMemoryBuffers<'a>,
+        transaction: &<Self as BasicTransactionFlow<S>>::Transaction<'_>,
+        context: &mut <Self as BasicTransactionFlow<S>>::TransactionContext,
+        to_ee_type: ExecutionEnvironmentType,
+        tracer: &mut impl Tracer<S>,
+    ) -> Result<TxExecutionResult<'a, S>, BootloaderSubsystemError> {
+        use crate::bootloader::runner::run_till_completion;
+        use crate::bootloader::supported_ees::SystemBoundEVMInterpreter;
+
+        // NOTE: in this transaction execution workflow (from this folder),
+        // we did pre-charge for deployment being the entry-point for the transaction,
+        // and validated input length. So we just need to move into EE
+
+        let ee_specific_deployment_processing_data = match to_ee_type {
+            ExecutionEnvironmentType::NoEE => {
+                return Err(internal_error!("Deployment cannot target NoEE").into());
+            }
+            ExecutionEnvironmentType::EVM => {
+                SystemBoundEVMInterpreter::<S>::default_ee_deployment_options(system)
+            }
+        };
+
+        assert!(transaction.destination().is_none());
+
+        let from = transaction.signer();
+        let main_calldata = transaction.calldata();
+        let nominal_token_value = *transaction.value();
+
+        let resources = context.resources.main_resources.take();
+
+        let deployment_parameters = DeploymentPreparationParameters {
+            address_of_deployer: *from,
+            call_scratch_space: None,
+            constructor_parameters: &[],
+            nominal_token_value,
+            deployment_code: main_calldata,
+            ee_specific_deployment_processing_data,
+            deployer_full_resources: resources,
+            deployer_nonce: Some(context.originator_nonce_to_use),
+        };
+        let rollback_handle = system.start_global_frame()?;
+
+        let final_state = run_till_completion(
+            memories,
+            system,
+            system_functions,
+            to_ee_type,
+            ExecutionEnvironmentSpawnRequest::RequestedDeployment(deployment_parameters),
+            tracer,
+        )?;
+        let TransactionEndPoint::CompletedDeployment(CompletedDeployment {
+            resources_returned,
+            deployment_result,
+        }) = final_state
+        else {
+            return Err(internal_error!("attempt to deploy ended up in invalid state").into());
+        };
+
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Resources to refund = {resources_returned:?}\n",
+        ));
+        context.resources.main_resources.reclaim(resources_returned);
+
+        let (deployment_success, reverted, return_values, at) = match deployment_result {
+            DeploymentResult::Successful {
+                return_values,
+                deployed_at,
+                ..
+            } => (true, false, return_values, Some(deployed_at)),
+            DeploymentResult::Failed { return_values, .. } => (false, true, return_values, None),
+        };
+        // Do not forget to reassign it back after potential copy when finishing frame
+        system.finish_global_frame(reverted.then_some(&rollback_handle))?;
+
+        // TODO: debug implementation for Bits uses global alloc, which panics in ZKsync OS
+        #[cfg(not(target_arch = "riscv32"))]
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Deployment at {at:?} ended with success = {deployment_success}\n"
+        ));
+        let returndata_iter = return_values.returndata.iter().copied();
+        let _ = system.get_logger().write_fmt(format_args!("Returndata = "));
+        let _ = system.get_logger().log_data(returndata_iter);
+        let deployed_address = at
+            .map(DeployedAddress::Address)
+            .unwrap_or(DeployedAddress::RevertedNoAddress);
+        Ok(TxExecutionResult {
+            return_values,
+            reverted: !deployment_success,
+            deployed_address,
+        })
+    }
+
+    fn execute_or_deploy_inner<'a, Config: BasicBootloaderExecutionConfig>(
+        system: &mut System<S>,
+        system_functions: &mut HooksStorage<S, S::Allocator>,
+        memories: RunnerMemoryBuffers<'a>,
+        transaction: &<Self as BasicTransactionFlow<S>>::Transaction<'_>,
+        context: &mut <Self as BasicTransactionFlow<S>>::TransactionContext,
+        tracer: &mut impl Tracer<S>,
+    ) -> Result<ExecutionResult<'a, S::IOTypes>, BootloaderSubsystemError> {
+        let _ = system
+            .get_logger()
+            .write_fmt(format_args!("Start of execution\n"));
+
+        let TxExecutionResult {
+            return_values,
+            reverted,
+            deployed_address,
+        } = if let Some(_) = transaction.destination() {
+            Self::execute_call::<Config>(
+                system,
+                system_functions,
+                memories,
+                transaction,
+                context,
+                tracer,
+            )?
+        } else {
+            // deployment
+            Self::perform_deployment::<Config>(
+                system,
+                system_functions,
+                memories,
+                transaction,
+                context,
+                ExecutionEnvironmentType::EVM,
+                tracer,
+            )?
+        };
+
+        let returndata_region = return_values.returndata;
+        let _ = system
+            .get_logger()
+            .log_data(returndata_region.iter().copied());
+
+        let _ = system
+            .get_logger()
+            .write_fmt(format_args!("Main TX body successful = {}\n", !reverted));
+
+        let execution_result = match reverted {
+            true => ExecutionResult::Revert {
+                output: returndata_region,
+            },
+            false => {
+                // Safe to do so by construction.
+                match deployed_address {
+                    DeployedAddress::Address(at) => ExecutionResult::Success {
+                        output: ExecutionOutput::Create(returndata_region, at),
+                    },
+                    _ => ExecutionResult::Success {
+                        output: ExecutionOutput::Call(returndata_region),
+                    },
+                }
+            }
+        };
+
+        let _ = system
+            .get_logger()
+            .write_fmt(format_args!("Transaction execution completed\n"));
+
+        Ok(execution_result)
+    }
+}

@@ -15,6 +15,7 @@ use evm_interpreter::gas_constants::TLOAD;
 use evm_interpreter::gas_constants::TSTORE;
 use storage_models::common_structs::generic_transient_storage::GenericTransientStorage;
 use storage_models::common_structs::StorageModel;
+use zk_ee::common_structs::GenericEventContentRef;
 use zk_ee::common_structs::GenericEventContentWithTxRef;
 use zk_ee::common_structs::GenericLogContentWithTxRef;
 use zk_ee::common_structs::L2_TO_L1_LOG_SERIALIZE_SIZE;
@@ -747,6 +748,14 @@ impl<
         &'a self,
     ) -> impl ExactSizeIterator<Item = (Self::StorageKey<'a>, Self::StorageDiff<'a>)> + Clone {
         self.storage.storage_diffs_iterator()
+    }
+
+    fn events_in_this_tx_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<
+        Item = GenericEventContentRef<'a, { MAX_EVENT_TOPICS }, EthereumIOTypesConfig>,
+    > + Clone {
+        self.events_storage.events_in_transaction_ref_iter()
     }
 
     fn events_iterator<'a>(

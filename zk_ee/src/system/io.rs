@@ -8,6 +8,7 @@ use core::marker::PhantomData;
 use super::errors::internal::InternalError;
 use super::errors::system::SystemError;
 use super::Resources;
+use crate::common_structs::GenericEventContentRef;
 use crate::common_structs::GenericEventContentWithTxRef;
 use crate::common_structs::GenericLogContentWithTxRef;
 use crate::define_subsystem;
@@ -544,6 +545,10 @@ pub trait IOTeardown<IOTypes: SystemIOTypesConfig>: IOSubsystemExt<IOTypes = IOT
     fn storage_diffs_iterator<'a>(
         &'a self,
     ) -> impl ExactSizeIterator<Item = (Self::StorageKey<'a>, Self::StorageDiff<'a>)> + Clone;
+
+    fn events_in_this_tx_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = GenericEventContentRef<'a, { MAX_EVENT_TOPICS }, IOTypes>> + Clone;
 
     fn events_iterator<'a>(
         &'a self,

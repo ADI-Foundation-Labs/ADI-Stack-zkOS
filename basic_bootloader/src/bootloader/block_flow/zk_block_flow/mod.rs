@@ -1,5 +1,4 @@
 use super::*;
-use crate::bootloader::block_flow::block_data_keeper::ZKBasicBlockDataKeeper;
 use crate::bootloader::block_flow::post_tx_loop_op::PostTxLoopOp;
 use basic_system::system_implementation::cache_structs::storage_values::StorageAccessPolicy;
 use basic_system::system_implementation::flat_storage_model::*;
@@ -15,12 +14,15 @@ mod post_tx_op_proving;
 #[cfg(feature = "wrap-in-batch")]
 mod post_tx_op_batch_proving;
 
+mod block_data;
 mod post_tx_op_sequencing;
 mod pre_tx_loop;
 mod tx_loop;
 
+pub use self::block_data::*;
+
 pub struct ZKHeaderStructurePreTxOp;
 
-pub struct DefaultTxLoop;
+pub struct ZKHeaderStructureTxLoop;
 
 pub struct ZKHeaderStructurePostTxOp<const PROOF_ENV: bool>;

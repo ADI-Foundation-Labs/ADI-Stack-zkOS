@@ -24,12 +24,12 @@ where
     S::IO: IOSubsystemExt
         + IOTeardown<S::IOTypes, IOStateCommittment = FlatStorageCommitment<TREE_HEIGHT>>, // IOStateCommittment bound is trivial, most likely needed due to missing associated types equality feature in the current state of the compiler
 {
-    type BlockDataKeeper = ZKBasicBlockDataKeeper;
+    type BlockData = ZKBasicTransactionDataKeeper;
     type PostTxLoopOpResult = (O, Bytes32);
 
     fn post_op(
         system: System<S>,
-        block_data: Self::BlockDataKeeper,
+        block_data: Self::BlockData,
         result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig>,
     ) -> Self::PostTxLoopOpResult {
         // form block header

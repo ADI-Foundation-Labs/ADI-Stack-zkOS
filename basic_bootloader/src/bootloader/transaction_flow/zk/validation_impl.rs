@@ -1,7 +1,7 @@
+use super::TxContextForPreAndPostProcessing;
 use crate::bootloader::constants::*;
 use crate::bootloader::errors::InvalidTransaction::CreateInitCodeSizeLimit;
 use crate::bootloader::errors::{InvalidTransaction, TxError};
-use crate::bootloader::ethereum_eoa_flow::TxContextForPreAndPostProcessing;
 use crate::bootloader::gas_helpers::ResourcesForTx;
 use crate::bootloader::transaction::ZkSyncTransaction;
 use crate::bootloader::BasicBootloaderExecutionConfig;
@@ -456,6 +456,10 @@ where
         native_per_gas,
         tx_gas_limit,
         gas_used: 0,
+        gas_refunded: 0,
         validation_pubdata: 0,
+        total_pubdata: 0,
+        initial_resources: S::Resources::empty(),
+        resources_before_refund: S::Resources::empty(),
     })
 }

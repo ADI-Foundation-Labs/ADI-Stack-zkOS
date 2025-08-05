@@ -217,5 +217,5 @@ impl<'a> RLPParsable<'a> for AccessListForAddress<'a> {
     }
 }
 
-pub(crate) type AccessList<'a> =
+pub type AccessList<'a> =
     RLPListOfHomogeneousItems<'a, ListEncapsulated<'a, AccessListForAddress<'a>>, true>;

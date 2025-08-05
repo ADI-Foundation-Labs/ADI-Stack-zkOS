@@ -62,9 +62,9 @@ impl<O: IOOracle, L: Logger + Default> SystemTypes for ProofRunningSystemTypes<O
 impl<O: IOOracle, L: Logger + Default> EthereumLikeTypes for ProofRunningSystemTypes<O, L> {}
 
 impl<O: IOOracle, L: Logger + Default> BasicSTF for ProofRunningSystemTypes<O, L> {
-    type BlockDataKeeper = ZKBasicBlockDataKeeper;
+    type BlockDataKeeper = ZKBasicTransactionDataKeeper;
     type PreTxLoopOp = ZKHeaderStructurePreTxOp;
-    type TxLoopOp = DefaultTxLoop;
+    type TxLoopOp = ZKHeaderStructureTxLoop;
     type PostTxLoopOp = ZKHeaderStructurePostTxOp<true>;
 }
 

@@ -1,4 +1,4 @@
-use basic_bootloader::bootloader::block_flow::ethereum_block_flow::EthereumPostOp;
+use basic_bootloader::bootloader::block_flow::ethereum_block_flow::*;
 
 use super::*;
 
@@ -33,9 +33,9 @@ impl<O: IOOracle> SystemTypes for EthereumStorageSystemTypes<O> {
 impl<O: IOOracle> EthereumLikeTypes for EthereumStorageSystemTypes<O> {}
 
 impl<O: IOOracle> BasicSTF for EthereumStorageSystemTypes<O> {
-    type BlockDataKeeper = ZKBasicBlockDataKeeper;
-    type PreTxLoopOp = ZKHeaderStructurePreTxOp;
-    type TxLoopOp = DefaultTxLoop;
+    type BlockDataKeeper = EthereumBasicTransactionDataKeeper;
+    type PreTxLoopOp = EthereumPreOp;
+    type TxLoopOp = EthereumLoopOp;
     type PostTxLoopOp = EthereumPostOp<false>;
 }
 

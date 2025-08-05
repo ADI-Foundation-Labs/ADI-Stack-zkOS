@@ -16,8 +16,10 @@ use ruint::aliases::U256;
 use zk_ee::internal_error;
 use zk_ee::system::errors::{internal::InternalError, runtime::RuntimeError, system::SystemError};
 
-mod ethereum_tx_format;
-pub use self::ethereum_tx_format::EthereumTransaction;
+pub mod ethereum_tx_format;
+
+// Magic byte from EIP-7702
+pub const EIP7702_MAGIC: u8 = 0x05;
 
 mod abi_utils;
 pub mod access_list_parser;
@@ -1509,7 +1511,7 @@ impl<'a> Parser<'a> {
     }
 }
 
-fn charge_keccak<R: Resources>(len: usize, resources: &mut R) -> Result<(), TxError> {
+pub fn charge_keccak<R: Resources>(len: usize, resources: &mut R) -> Result<(), TxError> {
     let native_cost = basic_system::system_functions::keccak256::keccak256_native_cost::<R>(len);
     resources
         .charge(&R::from_native(native_cost))

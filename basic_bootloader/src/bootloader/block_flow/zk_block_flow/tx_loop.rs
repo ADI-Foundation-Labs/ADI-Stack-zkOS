@@ -1,18 +1,18 @@
 use super::*;
 use crate::bootloader::block_flow::tx_loop::TxLoopOp;
 
-impl<S: EthereumLikeTypes> TxLoopOp<S> for DefaultTxLoop
+impl<S: EthereumLikeTypes> TxLoopOp<S> for ZKHeaderStructureTxLoop
 where
     S::IO: IOSubsystemExt,
 {
-    type BlockDataKeeper = ZKBasicBlockDataKeeper;
+    type BlockData = ZKBasicTransactionDataKeeper;
 
     fn loop_op<'a, Config: BasicBootloaderExecutionConfig>(
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
         initial_calldata_buffer: &mut TxDataBuffer<S::Allocator>,
         mut memories: RunnerMemoryBuffers<'a>,
-        block_data: &mut Self::BlockDataKeeper,
+        block_data: &mut Self::BlockData,
         result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig>,
         tracer: &mut impl Tracer<S>,
     ) -> Result<(), BootloaderSubsystemError> {
@@ -98,7 +98,19 @@ where
                         },
                         ExecutionResult::Revert { output } => (false, output, None),
                     };
+
+                    // it is concrete type here!
+                    block_data.start_transaction();
                     block_data.record_gas_used_by_transaction(tx_processing_result.gas_used);
+                    block_data.record_transaction_hash(&tx_processing_result.tx_hash);
+                    if tx_processing_result.is_l1_tx {
+                        block_data.record_enforced_transaction_hash(&tx_processing_result.tx_hash);
+                    }
+                    if tx_processing_result.is_upgrade_tx {
+                        block_data.record_upgrade_transaction_hash(&tx_processing_result.tx_hash);
+                    }
+                    block_data.finish_transaction();
+
                     result_keeper.tx_processed(Ok(TxProcessingOutput {
                         status,
                         output: &output,
@@ -108,16 +120,6 @@ where
                         computational_native_used: tx_processing_result.computational_native_used,
                         pubdata_used: tx_processing_result.pubdata_used,
                     }));
-
-                    block_data.record_transaction_hash(&tx_processing_result.tx_hash);
-
-                    if tx_processing_result.is_l1_tx {
-                        block_data.record_enforced_transaction_hash(&tx_processing_result.tx_hash);
-                    }
-
-                    if tx_processing_result.is_upgrade_tx {
-                        block_data.record_upgrade_transaction_hash(&tx_processing_result.tx_hash);
-                    }
                 }
             }
 

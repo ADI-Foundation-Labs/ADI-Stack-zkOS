@@ -21,6 +21,8 @@ mod minimal_rlp_parser;
 mod transaction;
 
 pub use self::transaction::EthereumTransaction;
+pub use eip_2930_tx::{AccessList, AccessListForAddress};
+pub use eip_7702_tx::{AuthorizationEntry, AuthorizationList};
 
 fn u64_encoding_len(value: u64) -> usize {
     if value < 0x80 {

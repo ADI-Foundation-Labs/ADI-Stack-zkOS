@@ -127,6 +127,8 @@ impl<T: Sized, const N: usize, A: Allocator + Clone> zk_ee::memory::stack_trait:
             remaining: self.len(),
         }
     }
+
+    // TODO: implement customized iter_skip_n
 }
 
 // Invariants:

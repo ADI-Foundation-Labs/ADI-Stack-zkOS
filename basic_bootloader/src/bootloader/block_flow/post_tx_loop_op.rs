@@ -1,5 +1,4 @@
 use super::*;
-use crate::bootloader::block_flow::block_data_keeper::BlockDataKeeper;
 
 pub trait PostTxLoopOp<S: SystemTypes>
 where
@@ -7,11 +6,11 @@ where
 {
     type PostTxLoopOpResult;
 
-    type BlockDataKeeper: BlockDataKeeper;
+    type BlockData;
 
     fn post_op(
         system: System<S>,
-        block_data: Self::BlockDataKeeper,
+        block_data: Self::BlockData,
         result_keeper: &mut impl ResultKeeperExt<S::IOTypes>,
     ) -> Self::PostTxLoopOpResult;
 }

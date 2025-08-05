@@ -17,9 +17,9 @@ pub mod run_single_interaction;
 pub mod runner;
 pub mod supported_ees;
 
-pub mod ethereum_eoa_flow;
 mod gas_helpers;
 mod paymaster_helper;
+mod process_l1_transaction;
 mod process_transaction;
 pub mod transaction;
 pub mod transaction_flow;
@@ -37,7 +37,7 @@ use core::alloc::Allocator;
 use core::fmt::Write;
 use core::mem::MaybeUninit;
 use crypto::MiniDigest;
-use zk_ee::{internal_error, oracle::*};
+use zk_ee::oracle::*;
 
 use crate::bootloader::block_header::BlockHeader;
 use crate::bootloader::config::BasicBootloaderExecutionConfig;

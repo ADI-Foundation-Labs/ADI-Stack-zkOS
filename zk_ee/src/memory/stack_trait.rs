@@ -37,6 +37,12 @@ pub trait Stack<T: Sized, A: Allocator> {
     fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T> + Clone
     where
         T: 'a;
+    fn iter_skip_n<'a>(&'a self, n: usize) -> impl ExactSizeIterator<Item = &'a T> + Clone
+    where
+        T: 'a,
+    {
+        self.iter().skip(n)
+    }
 }
 
 impl<T: Sized, A: Allocator> Stack<T, A> for Vec<T, A> {
@@ -70,6 +76,12 @@ impl<T: Sized, A: Allocator> Stack<T, A> for Vec<T, A> {
         T: 'a,
     {
         self[..].iter()
+    }
+    fn iter_skip_n<'a>(&'a self, n: usize) -> impl ExactSizeIterator<Item = &'a T> + Clone
+    where
+        T: 'a,
+    {
+        self[n..].iter()
     }
 }
 

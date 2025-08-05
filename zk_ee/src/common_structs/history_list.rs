@@ -43,6 +43,10 @@ impl<V, M: Clone, SC: StackCtor<N>, const N: usize, A: Allocator + Clone>
         self.list.iter().map(|(v, _)| v)
     }
 
+    pub fn iter_skip_n(&self, n: usize) -> impl ExactSizeIterator<Item = &V> + Clone {
+        self.list.iter_skip_n(n).map(|(v, _)| v)
+    }
+
     pub fn len(&self) -> usize {
         self.list.len()
     }

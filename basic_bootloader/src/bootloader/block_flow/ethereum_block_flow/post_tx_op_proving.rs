@@ -24,12 +24,12 @@ impl<
 where
     S::IO: IOSubsystemExt + IOTeardown<S::IOTypes>,
 {
-    type BlockDataKeeper = ZKBasicBlockDataKeeper;
+    type BlockData = EthereumBasicTransactionDataKeeper;
     type PostTxLoopOpResult = (O, Bytes32);
 
     fn post_op(
         _system: System<S>,
-        _block_data: Self::BlockDataKeeper,
+        _block_data: Self::BlockData,
         _result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig>,
     ) -> Self::PostTxLoopOpResult {
         todo!();

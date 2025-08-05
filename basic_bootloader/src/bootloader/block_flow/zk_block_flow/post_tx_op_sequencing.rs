@@ -23,12 +23,12 @@ impl<
 where
     S::IO: IOSubsystemExt + IOTeardown<S::IOTypes>,
 {
-    type BlockDataKeeper = ZKBasicBlockDataKeeper;
+    type BlockData = ZKBasicTransactionDataKeeper;
     type PostTxLoopOpResult = ();
 
     fn post_op(
         system: System<S>,
-        block_data: Self::BlockDataKeeper,
+        block_data: Self::BlockData,
         result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig>,
     ) -> Self::PostTxLoopOpResult {
         // form block header

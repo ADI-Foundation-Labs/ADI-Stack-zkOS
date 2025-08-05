@@ -133,15 +133,20 @@ impl<'a> EthereumTransaction<'a> {
         &self.signer
     }
 
-    pub fn sig_v_r_s(&self) -> (u64, &'a [u8], &'a [u8]) {
+    pub fn sig_parity_r_s(&self) -> (bool, &'a [u8], &'a [u8]) {
         match &self.inner {
-            EthereumTxInner::Legacy(_, sig) | EthereumTxInner::LegacyWithEIP155(_, sig) => {
-                (sig.v, sig.r, sig.s)
+            EthereumTxInner::Legacy(_, sig) => {
+                ((sig.v - 27) == 1, sig.r, sig.s) // prechecked
             }
-            EthereumTxInner::EIP2930(_, sig) => (sig.y_parity as u64, sig.r, sig.s),
-            EthereumTxInner::EIP1559(_, sig) => (sig.y_parity as u64, sig.r, sig.s),
-            EthereumTxInner::EIP4844(_, sig) => (sig.y_parity as u64, sig.r, sig.s),
-            EthereumTxInner::EIP7702(_, sig) => (sig.y_parity as u64, sig.r, sig.s),
+            EthereumTxInner::LegacyWithEIP155(_, sig) => {
+                let chain_id = self.chain_id;
+                let parity = sig.v - 35 - (chain_id * 2); // no underflows
+                (parity == 1, sig.r, sig.s)
+            }
+            EthereumTxInner::EIP2930(_, sig) => (sig.y_parity, sig.r, sig.s),
+            EthereumTxInner::EIP1559(_, sig) => (sig.y_parity, sig.r, sig.s),
+            EthereumTxInner::EIP4844(_, sig) => (sig.y_parity, sig.r, sig.s),
+            EthereumTxInner::EIP7702(_, sig) => (sig.y_parity, sig.r, sig.s),
         }
     }
 

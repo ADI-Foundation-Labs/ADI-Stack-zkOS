@@ -12,6 +12,7 @@ use ruint::aliases::B160;
 use zk_ee::system::{IOResultKeeper, NopResultKeeper};
 use zk_ee::types_config::SystemIOTypesConfig;
 
+#[derive(Debug, Clone, Copy)]
 pub struct TxProcessingOutput<'a> {
     pub status: bool,
     pub output: &'a [u8],
