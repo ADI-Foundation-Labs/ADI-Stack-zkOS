@@ -83,8 +83,6 @@ where
                     result_keeper.tx_processed(Err(err));
                 }
                 Ok(tx_processing_result) => {
-                    // TODO: debug implementation for ruint types uses global alloc, which panics in ZKsync OS
-                    #[cfg(not(target_arch = "riscv32"))]
                     let _ = system.get_logger().write_fmt(format_args!(
                         "Tx execution result = {:?}\n",
                         &tx_processing_result,

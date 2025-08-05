@@ -10,7 +10,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-ruint = {version = "1.15.0", default-features=false}
+ruint = { version = "1.16", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 
 

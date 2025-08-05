@@ -561,8 +561,6 @@ where
         // Do not forget to reassign it back after potential copy when finishing frame
         system.finish_global_frame(reverted.then_some(&rollback_handle))?;
 
-        // TODO: debug implementation for Bits uses global alloc, which panics in ZKsync OS
-        #[cfg(not(target_arch = "riscv32"))]
         let _ = system.get_logger().write_fmt(format_args!(
             "Deployment at {at:?} ended with success = {deployment_success}\n"
         ));

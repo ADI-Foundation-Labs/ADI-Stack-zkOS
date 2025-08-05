@@ -23,8 +23,6 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
     where
         S::IO: IOSubsystemExt,
     {
-        // TODO: debug implementation for ruint types uses global alloc, which panics in ZKsync OS
-        #[cfg(not(target_arch = "riscv32"))]
         let _ = system.get_logger().write_fmt(format_args!(
             "Minting {nominal_token_value:?} tokens to {to:?}\n"
         ));

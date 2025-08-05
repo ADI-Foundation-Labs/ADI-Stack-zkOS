@@ -196,19 +196,15 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
     where
         S::IO: IOSubsystemExt,
     {
-        // TODO: debug implementation for ruint types uses global alloc, which panics in ZKsync OS
-        #[cfg(not(target_arch = "riscv32"))]
-        {
-            let _ = self.system.get_logger().write_fmt(format_args!(
-                "External call to 0x{:040x}\n",
-                call_request.callee.as_uint()
-            ));
+        let _ = self.system.get_logger().write_fmt(format_args!(
+            "External call to 0x{:040x}\n",
+            call_request.callee.as_uint()
+        ));
 
-            let _ = self.system.get_logger().write_fmt(format_args!(
-                "External call with parameters:\n{:?}\n",
-                &call_request,
-            ));
-        }
+        let _ = self.system.get_logger().write_fmt(format_args!(
+            "External call with parameters:\n{:?}\n",
+            &call_request,
+        ));
 
         // By default, code execution is disabled for calls in kernel space
         // (< SPECIAL_ADDRESS_BOUND). These calls will either be handled by
@@ -795,8 +791,6 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                             return_values: ReturnValues::empty(),
                             deployed_at,
                         };
-                        // TODO: debug implementation for Bits uses global alloc, which panics in ZKsync OS
-                        #[cfg(not(target_arch = "riscv32"))]
                         let _ = self.system.get_logger().write_fmt(format_args!(
                             "Successfully deployed contract at {deployed_at:?} \n"
                         ));
