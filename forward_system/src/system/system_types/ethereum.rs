@@ -33,7 +33,7 @@ impl<O: IOOracle> SystemTypes for EthereumStorageSystemTypes<O> {
 impl<O: IOOracle> EthereumLikeTypes for EthereumStorageSystemTypes<O> {}
 
 impl<O: IOOracle> BasicSTF for EthereumStorageSystemTypes<O> {
-    type BlockDataKeeper = EthereumBasicTransactionDataKeeper;
+    type BlockDataKeeper = EthereumBasicTransactionDataKeeper<Global, Global>;
     type PreTxLoopOp = EthereumPreOp;
     type TxLoopOp = EthereumLoopOp;
     type PostTxLoopOp = EthereumPostOp<false>;

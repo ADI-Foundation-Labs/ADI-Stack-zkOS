@@ -5,6 +5,7 @@ use core::alloc::Allocator;
 use ruint::aliases::B160;
 use zk_ee::basic_queries::InitialStorageSlotQuery;
 use zk_ee::common_structs::cache_record::{Appearance, CacheRecord};
+#[cfg(feature = "evm_refunds")]
 use zk_ee::common_structs::history_counter::HistoryCounter;
 #[cfg(feature = "evm_refunds")]
 use zk_ee::common_structs::history_counter::HistoryCounterSnapshotId;
@@ -387,6 +388,9 @@ impl<
         }
 
         #[cfg(not(feature = "evm_refunds"))]
-        Ok(())
+        {
+            let _ = refund;
+            Ok(())
+        }
     }
 }

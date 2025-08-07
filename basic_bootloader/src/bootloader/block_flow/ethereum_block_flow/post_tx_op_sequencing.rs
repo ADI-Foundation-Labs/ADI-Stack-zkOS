@@ -25,7 +25,7 @@ impl<
 where
     S::IO: IOSubsystemExt + IOTeardown<S::IOTypes>,
 {
-    type BlockData = EthereumBasicTransactionDataKeeper;
+    type BlockData = EthereumBasicTransactionDataKeeper<S::Allocator, S::Allocator>;
     type PostTxLoopOpResult = ();
 
     fn post_op(
@@ -37,9 +37,11 @@ where
 
         let mut logger = system.get_logger();
 
+        let block_data_results = block_data.compute_header_values(&system);
+
         // TODO: we need formal header for now, but later on restructure it
 
-        let block_gas_used = block_data.block_gas_used;
+        let block_gas_used = block_data_results.block_gas_used;
         let block_number = system.get_block_number();
         let previous_block_hash = system.get_blockhash(block_number);
         let beneficiary = system.get_coinbase();

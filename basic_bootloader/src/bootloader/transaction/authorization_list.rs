@@ -241,6 +241,7 @@ impl AuthorizationListItem {
         &self,
         resources: &mut S::Resources,
     ) -> Result<[u8; 32], TxError> {
+        use crate::bootloader::transaction::EIP7702_MAGIC;
         use crypto::sha3::Keccak256;
         use crypto::MiniDigest;
 
@@ -252,7 +253,7 @@ impl AuthorizationListItem {
         let encoding_len = 1 + total_list_len;
         crate::bootloader::transaction::charge_keccak(encoding_len, resources)?;
         let mut hasher = Keccak256::new();
-        hasher.update([MAGIC]);
+        hasher.update([EIP7702_MAGIC]);
         rlp::apply_list_length_encoding_to_hash(list_payload_len, &mut hasher);
         rlp::apply_number_encoding_to_hash(&self.chain_id.to_be_bytes::<32>(), &mut hasher);
         rlp::apply_bytes_encoding_to_hash(

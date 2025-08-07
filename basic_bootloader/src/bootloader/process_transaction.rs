@@ -298,6 +298,10 @@ where
             system
         )?;
 
+        let _ = system
+            .get_logger()
+            .write_fmt(format_args!("Final gas used: {gas_used}\n"));
+
         Ok((total_gas_refund, gas_used, refund_before_native))
     }
 }

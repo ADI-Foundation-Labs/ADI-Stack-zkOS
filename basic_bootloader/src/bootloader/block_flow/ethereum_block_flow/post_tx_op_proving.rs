@@ -24,7 +24,7 @@ impl<
 where
     S::IO: IOSubsystemExt + IOTeardown<S::IOTypes>,
 {
-    type BlockData = EthereumBasicTransactionDataKeeper;
+    type BlockData = EthereumBasicTransactionDataKeeper<S::Allocator, S::Allocator>;
     type PostTxLoopOpResult = (O, Bytes32);
 
     fn post_op(

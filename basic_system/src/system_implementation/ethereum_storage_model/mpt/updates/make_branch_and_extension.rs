@@ -76,7 +76,9 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                     let new_unreferenced_value = OpaqueValue {
                         parent_node: new_branch_node,
                         branch_index,
-                        encoding: existing_extension.next_node_key,
+                        value: LeafValue::RLPEnveloped {
+                            envelope: existing_extension.next_node_key,
+                        },
                     };
                     let new_unreferenced_value_node = NodeType::unreferenced_value_in_branch(
                         self.branch_unreferenced_values.len(),
@@ -84,7 +86,9 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                     self.branch_unreferenced_values.push(new_unreferenced_value);
                     // put it into cache - it's single exceptional case. It is also not different from just terminal value
                     let key = interner.make_terminal_branch_value_key(
-                        existing_extension.next_node_key.full_encoding(),
+                        LeafValue::RLPEnveloped {
+                            envelope: existing_extension.next_node_key,
+                        },
                         hasher,
                     )?;
                     self.keys_cache.insert(new_unreferenced_value_node, key);
@@ -192,7 +196,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 let new_terminal_value = OpaqueValue {
                     parent_node: new_branch_node,
                     branch_index,
-                    encoding: existing_leaf.value,
+                    value: existing_leaf.value.take_value(),
                 };
                 let new_terminal_node =
                     NodeType::terminal_value_in_branch(self.branch_terminal_values.len());

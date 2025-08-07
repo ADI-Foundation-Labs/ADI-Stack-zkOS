@@ -54,4 +54,33 @@ impl Block {
             skipped,
         )
     }
+
+    pub fn get_raw_transactions(self, calltrace: &CallTrace) -> (Vec<Vec<u8>>, HashSet<usize>) {
+        let mut skipped: HashSet<usize> = HashSet::new();
+        (
+            self.result
+                .transactions
+                .into_transactions()
+                .enumerate()
+                .zip(calltrace.result.iter())
+                .filter_map(|((i, tx), calltrace)| {
+                    // Skip unsupported txs or tx that call into unsupported precompiles
+                    let calls_unsupported_percompile =
+                        || calltrace.result.has_call_to_unsupported_precompile();
+                    let transaction_type = tx.ty();
+                    const SUPPORTED_TX_TYPES: &[u8] = &[0, 1, 2, 4];
+                    let supported_tx_type = SUPPORTED_TX_TYPES.contains(&transaction_type);
+                    if supported_tx_type && !calls_unsupported_percompile() {
+                        Some(tx.inner.into_encoded().encoded_bytes().to_vec())
+                    } else {
+                        // panic!("Skipping unsupported transaction of type {transaction_type:?}");
+                        warn!("Skipping unsupported transaction of type {transaction_type:?}");
+                        skipped.insert(i);
+                        None
+                    }
+                })
+                .collect(),
+            skipped,
+        )
+    }
 }

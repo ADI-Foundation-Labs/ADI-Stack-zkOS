@@ -1,17 +1,30 @@
 // Quasi-vector implementation that uses a chain of fixed-size allocated chunks
 
-use crate::memory_aux::PAGE_SIZE;
-
 use alloc::collections::LinkedList;
 use arrayvec::ArrayVec;
-use core::{alloc::Allocator, ptr::NonNull};
+use core::alloc::Allocator;
 
 // Invariants:
 // - last element in list is never an empty array
 // - all elements in the list except for the last are full
 pub struct ListVec<T: Sized, const N: usize, A: Allocator>(LinkedList<ArrayVec<T, N>, A>);
 
-pub const fn num_elements_in_backing_node<T: Sized, A: Allocator>() -> usize {
+impl<T: Sized, const N: usize, A: Allocator> core::fmt::Debug for ListVec<T, N, A>
+where
+    T: core::fmt::Debug,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("ListVec").field(&self.0).finish()
+    }
+}
+
+pub const fn num_elements_in_backing_node<
+    const PAGE_SIZE: usize,
+    T: Sized,
+    A: core::alloc::Allocator,
+>() -> usize {
+    use core::ptr::NonNull;
+
     // Size of the two pointers for a linked list node
     // plus the ArrayVec overhead
     let mut min_consumed = core::mem::size_of::<Option<NonNull<()>>>()
@@ -37,7 +50,7 @@ impl<T: Sized, const N: usize, A: Allocator + Clone> ListVec<T, N, A> {
     }
 }
 
-impl<T: Sized, const N: usize, A: Allocator + Clone> zk_ee::memory::stack_trait::Stack<T, A>
+impl<T: Sized, const N: usize, A: Allocator + Clone> super::stack_trait::Stack<T, A>
     for ListVec<T, N, A>
 {
     fn new_in(alloc: A) -> Self {

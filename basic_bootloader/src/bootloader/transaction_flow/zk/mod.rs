@@ -1,7 +1,7 @@
 use super::*;
 use crate::bootloader::errors::InvalidTransaction;
-use crate::bootloader::BasicBootloader;
 use crate::bootloader::{transaction::ZkSyncTransaction, transaction_flow::BasicTransactionFlow};
+use crate::bootloader::{BasicBootloader, TxDataBuffer};
 use core::fmt::Write;
 use ruint::aliases::U256;
 use zk_ee::internal_error;
@@ -132,9 +132,27 @@ where
 
     // We also keep initial transaction parsing/obtaining out of scope
 
+    type ScratchSpace = TxDataBuffer<S::Allocator>;
+    fn create_tx_loop_scratch_space(system: &mut System<S>) -> Self::ScratchSpace {
+        TxDataBuffer::new(system.get_allocator())
+    }
+
+    type TransactionBuffer<'a> = &'a mut [u8];
+    fn try_begin_next_tx<'a>(
+        system: &'_ mut System<S>,
+        scratch_space: &'a mut Self::ScratchSpace,
+    ) -> Option<Self::TransactionBuffer<'a>> {
+        let tx_length_in_bytes = system
+            .try_begin_next_tx(&mut scratch_space.into_writable())
+            .expect("TX start call must always succeed")?;
+        let initial_calldata_buffer = scratch_space.as_tx_buffer(tx_length_in_bytes);
+
+        Some(initial_calldata_buffer)
+    }
+
     fn parse_transaction<'a>(
         _system: &System<S>,
-        source: &'a mut [u8],
+        source: Self::TransactionBuffer<'a>,
         _tracer: &mut impl Tracer<S>,
     ) -> Result<Self::Transaction<'a>, TxError> {
         ZkSyncTransaction::try_from_slice(source)
@@ -500,7 +518,7 @@ where
 
         transaciton_data_collector.record_transaction_results(
             &*system,
-            &transaction,
+            transaction,
             &context,
             &result,
         );

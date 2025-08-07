@@ -21,12 +21,11 @@ pub(crate) enum DescendPath<'a> {
     },
     LeafReached {
         final_node: NodeType,
-        value: RLPSlice<'a>,
     },
     BranchReached {
         final_branch_node: NodeType,
         branch_index: usize,
-        value: RLPSlice<'a>,
+        child_to_use: NodeType,
     },
     UnreferencedPathEncountered {
         last_known_node: NodeType,
@@ -53,11 +52,10 @@ pub(crate) enum AppendPath<'a> {
     },
     LeafReached {
         allocated_node: NodeType,
-        value: RLPSlice<'a>,
     },
     BranchReached {
         final_branch_node: NodeType,
-        value: RLPSlice<'a>,
+        child_to_use: NodeType,
     },
 }
 
@@ -149,7 +147,8 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         Ok(())
     }
 
-    // we will not use a separate pre-fill of the tree to avoid
+    // we will not use a separate pre-fill of the tree, so this method is mutable and will
+    // append/reveal nodes as needed
     pub fn get(
         &mut self,
         mut path: Path<'_>,
@@ -189,17 +188,23 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                     debug_assert_eq!(current_node, branch_node);
                     return Ok(&[]);
                 }
-                DescendPath::LeafReached { final_node, value } => {
+                DescendPath::LeafReached { final_node } => {
                     debug_assert_eq!(current_node, final_node);
-                    return Ok(value.data());
+                    return Ok(self.leaf_nodes[final_node.index()].value.data());
                 }
                 DescendPath::BranchReached {
                     final_branch_node,
-                    value,
+                    child_to_use,
                     ..
                 } => {
                     debug_assert_eq!(current_node, final_branch_node);
-                    return Ok(value.data());
+                    if child_to_use.is_empty() {
+                        return Ok(&[]);
+                    } else {
+                        return Ok(self.branch_terminal_values[child_to_use.index()]
+                            .value
+                            .data());
+                    }
                 }
                 DescendPath::UnreferencedPathEncountered {
                     last_known_node,
@@ -251,22 +256,24 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                     parent_branch_index = branch_index;
                     key = next_key;
                 }
-                AppendPath::LeafReached {
-                    allocated_node,
-                    value,
-                } => {
+                AppendPath::LeafReached { allocated_node } => {
                     debug_assert_ne!(current_node, allocated_node);
                     self.link_if_needed(current_node, parent_branch_index, allocated_node)?;
-                    return Ok(value.data());
+                    return Ok(self.leaf_nodes[allocated_node.index()].value.data());
                 }
                 AppendPath::BranchReached {
                     final_branch_node,
-                    value,
-                    ..
+                    child_to_use,
                 } => {
                     debug_assert_ne!(current_node, final_branch_node);
                     self.link_if_needed(current_node, parent_branch_index, final_branch_node)?;
-                    return Ok(value.data());
+                    if child_to_use.is_empty() {
+                        return Ok(&[]);
+                    } else {
+                        return Ok(self.branch_terminal_values[child_to_use.index()]
+                            .value
+                            .data());
+                    }
                 }
                 AppendPath::Follow {
                     allocated_node,
@@ -296,12 +303,11 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         }
         if current_node.is_leaf() {
             // we need to follow the path
-            let existing_leaf = &self.leaf_nodes[current_node.index()];
-            let common_prefix_len = path.follow_common_prefix(&existing_leaf.path_segment)?;
+            let existing_path_segment = self.leaf_nodes[current_node.index()].path_segment;
+            let common_prefix_len = path.follow_common_prefix(existing_path_segment)?;
             if path.is_empty() {
                 Ok(DescendPath::LeafReached {
                     final_node: current_node,
-                    value: existing_leaf.value,
                 })
             } else {
                 Ok(DescendPath::PathDiverged {
@@ -340,18 +346,11 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
             let branch_index = path.take_branch()?;
             let child_node = existing_branch.child_nodes[branch_index];
             if path.is_empty() {
-                if child_node.is_empty() {
+                if child_node.is_empty() || child_node.is_terminal_value_in_branch() {
                     Ok(DescendPath::BranchReached {
                         final_branch_node: current_node,
                         branch_index,
-                        value: RLPSlice::empty(),
-                    })
-                } else if child_node.is_terminal_value_in_branch() {
-                    let opaque = &self.branch_terminal_values[child_node.index()];
-                    Ok(DescendPath::BranchReached {
-                        final_branch_node: current_node,
-                        branch_index,
-                        value: opaque.encoding,
+                        child_to_use: child_node,
                     })
                 } else {
                     Err(())
@@ -362,11 +361,15 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                     branch_index,
                 })
             } else if child_node.is_unreferenced_value_in_branch() {
-                let opaque = &self.branch_unreferenced_values[child_node.index()];
+                let LeafValue::RLPEnveloped { envelope } =
+                    self.branch_unreferenced_values[child_node.index()].value
+                else {
+                    panic!("Unreferenced nodes are only envelopes");
+                };
                 Ok(DescendPath::UnreferencedPathEncountered {
                     last_known_node: current_node,
                     branch_index,
-                    next_key: opaque.encoding,
+                    next_key: envelope,
                 })
             } else if child_node.is_branch() || child_node.is_extension() || child_node.is_leaf() {
                 Ok(DescendPath::Follow {
@@ -443,7 +446,9 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                         let opaque = OpaqueValue {
                             parent_node,
                             branch_index,
-                            encoding: *encoding,
+                            value: LeafValue::RLPEnveloped {
+                                envelope: *encoding,
+                            },
                         };
                         let index = self.branch_unreferenced_values.len();
                         self.branch_unreferenced_values.push(opaque);
@@ -487,17 +492,13 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 }
                 leaf.parent_node = parent_node;
                 let follows = path.follow(leaf.path_segment)?;
-                let leaf_value = leaf.value;
 
-                let index = self.leaf_nodes.len();
-                self.leaf_nodes.push(leaf);
-                let node_type = NodeType::leaf(index);
+                let node_type = self.push_leaf(leaf);
                 self.keys_cache.insert(node_type, key.full_encoding());
 
                 if follows {
                     Ok(AppendPath::LeafReached {
                         allocated_node: node_type,
-                        value: leaf_value,
                     })
                 } else {
                     Ok(AppendPath::PathDiverged {
@@ -513,9 +514,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 let follows = path.follow(extension.path_segment)?;
                 let next_node_key = extension.next_node_key;
 
-                let index = self.extension_nodes.len();
-                self.extension_nodes.push(extension);
-                let node_type = NodeType::extension(index);
+                let node_type = self.push_extension(extension);
                 self.keys_cache.insert(node_type, key.full_encoding());
 
                 if follows {
@@ -544,7 +543,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 let index = self.branch_nodes.len();
                 let inserted_node = NodeType::branch(index);
                 if path.is_empty() {
-                    let mut final_value = RLPSlice::empty();
+                    let mut final_value = NodeType::empty();
                     // we still need to enumerate all branches
                     for (idx, (child_node, encoding)) in branch
                         .child_nodes
@@ -555,19 +554,21 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                         if encoding.is_empty() {
                             *child_node = NodeType::empty();
                         } else {
-                            if idx == branch_index {
-                                final_value = *encoding;
-                            }
                             let index = self.branch_terminal_values.len();
                             let opaque = OpaqueValue {
                                 parent_node: inserted_node,
                                 branch_index: idx,
-                                encoding: *encoding,
+                                value: LeafValue::RLPEnveloped {
+                                    envelope: *encoding,
+                                },
                             };
                             self.branch_terminal_values.push(opaque);
                             let node_type = NodeType::terminal_value_in_branch(index);
                             self.keys_cache.insert(node_type, encoding.full_encoding());
                             *child_node = node_type;
+                        }
+                        if idx == branch_index {
+                            final_value = *child_node;
                         }
                     }
                     self.branch_nodes.push(branch);
@@ -575,7 +576,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
 
                     Ok(AppendPath::BranchReached {
                         final_branch_node: inserted_node,
-                        value: final_value,
+                        child_to_use: final_value,
                     })
                 } else {
                     let mut next_node_key = RLPSlice::empty();
@@ -592,12 +593,14 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                             if idx == branch_index {
                                 next_node_key = *encoding;
                             }
-                            let index = self.branch_unreferenced_values.len();
                             let opaque = OpaqueValue {
                                 parent_node: inserted_node,
                                 branch_index: idx,
-                                encoding: *encoding,
+                                value: LeafValue::RLPEnveloped {
+                                    envelope: *encoding,
+                                },
                             };
+                            let index = self.branch_unreferenced_values.len();
                             self.branch_unreferenced_values.push(opaque);
                             let node_type = NodeType::unreferenced_value_in_branch(index);
                             self.keys_cache.insert(node_type, encoding.full_encoding());
@@ -677,9 +680,9 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
     }
 
     #[inline(always)]
-    pub(crate) fn push_extension(&mut self, new_branch: ExtensionNode<'a>) -> NodeType {
+    pub(crate) fn push_extension(&mut self, new_extension: ExtensionNode<'a>) -> NodeType {
         let index = self.extension_nodes.len();
-        self.extension_nodes.push(new_branch);
+        self.extension_nodes.push(new_extension);
         NodeType::extension(index)
     }
 
@@ -690,7 +693,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         NodeType::branch(index)
     }
 
-    pub(crate) fn ensure_linked(&self) {
+    pub fn ensure_linked(&self) {
         if self.root.is_empty() || self.root.is_opaque_nontrivial_root() {
             return;
         }

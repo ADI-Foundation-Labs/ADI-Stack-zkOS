@@ -10,7 +10,6 @@ where
     fn loop_op<'a, Config: BasicBootloaderExecutionConfig>(
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
-        initial_calldata_buffer: &mut TxDataBuffer<S::Allocator>,
         mut memories: RunnerMemoryBuffers<'a>,
         block_data: &mut Self::BlockData,
         result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig>,
@@ -19,6 +18,9 @@ where
         cycle_marker::start!("run_tx_loop");
 
         let mut tx_counter = 0;
+
+        // we also preallocate calldata buffer - it is reused across transactions
+        let mut initial_calldata_buffer = TxDataBuffer::new(system.get_allocator());
 
         // now we can run every transaction
         while let Some(next_tx_data_len_bytes) = {

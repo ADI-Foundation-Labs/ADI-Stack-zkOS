@@ -12,7 +12,7 @@ where
     fn record_transaction_results(
         &mut self,
         system: &System<S>,
-        transaction: &F::Transaction<'_>,
+        transaction: F::Transaction<'_>,
         context: &F::TransactionContext,
         result: &ExecutionResult<'_, <S as SystemTypes>::IOTypes>,
     );
@@ -29,7 +29,7 @@ where
     fn record_transaction_results(
         &mut self,
         _system: &System<S>,
-        _transaction: &F::Transaction<'_>,
+        _transaction: F::Transaction<'_>,
         _context: &F::TransactionContext,
         _result: &ExecutionResult<'_, <S as SystemTypes>::IOTypes>,
     ) {

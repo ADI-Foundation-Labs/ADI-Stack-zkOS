@@ -12,9 +12,11 @@ pub struct EthereumPostOp<const PROOF_ENV: bool>;
 pub struct EthereumLoopOp;
 
 mod block_data;
+mod block_header;
 mod loop_op;
 mod post_tx_op_proving;
 mod post_tx_op_sequencing;
 mod pre_tx_loop;
+mod rlp_encodings;
 
 pub use self::block_data::*;

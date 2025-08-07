@@ -184,8 +184,6 @@ where
         let mut system: System<S> =
             System::init_from_oracle(oracle).expect("system must be able to initialize itself");
 
-        let mut initial_calldata_buffer = TxDataBuffer::new(system.get_allocator());
-
         pub const MAX_HEAP_BUFFER_SIZE: usize = 1 << 27; // 128 MB
         pub const MAX_RETURN_BUFFER_SIZE: usize = 1 << 27; // 128 MB
 
@@ -219,7 +217,6 @@ where
         <S::TxLoopOp as TxLoopOp<S>>::loop_op::<Config>(
             &mut system,
             &mut system_functions,
-            &mut initial_calldata_buffer,
             memories,
             &mut block_data_keeper,
             result_keeper,

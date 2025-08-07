@@ -1,6 +1,6 @@
 use super::*;
 use crate::bootloader::errors::InvalidTransaction;
-use crate::bootloader::transaction::ethereum_tx_format::EthereumTransaction;
+use crate::bootloader::transaction::ethereum_tx_format::EthereumTransactionWithBuffer;
 use crate::bootloader::transaction_flow::BasicTransactionFlow;
 use crate::bootloader::BasicBootloader;
 use core::fmt::Write;
@@ -19,6 +19,7 @@ use zk_ee::system::logger::Logger;
 use zk_ee::system::*;
 use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::utils::Bytes32;
+use zk_ee::utils::UsizeAlignedByteBox;
 
 pub struct EthereumTransactionFlow<S: EthereumLikeTypes> {
     _marker: core::marker::PhantomData<S>,
@@ -79,12 +80,22 @@ pub struct LogsBloom {
 }
 
 impl LogsBloom {
+    pub fn as_bytes(&self) -> &[u8; 256] {
+        // We are overaligned and continuous
+        unsafe { core::mem::transmute(self) }
+    }
+    fn as_bytes_mut(&mut self) -> &mut [u8; 256] {
+        // We are overaligned and continuous
+        unsafe { core::mem::transmute(self) }
+    }
     pub fn mark_events<'a>(
         &mut self,
         hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
-        event: impl Iterator<Item = GenericEventContentRef<'a, MAX_EVENT_TOPICS, EthereumIOTypesConfig>>,
+        events: impl Iterator<
+            Item = GenericEventContentRef<'a, MAX_EVENT_TOPICS, EthereumIOTypesConfig>,
+        >,
     ) {
-        for event in event {
+        for event in events {
             self.mark_event(hasher, event);
         }
     }
@@ -109,9 +120,13 @@ impl LogsBloom {
         for i in [0, 2, 4] {
             let word = [hash[i], hash[i + 1]];
             let word = (u16::from_be_bytes(word) & 0x7ff) as usize; // equal to mod 2048
-            let u64_idx = 31 - word / 64; // BE
-            let bit_idx = 63 - word % 64; // BE
-            self.inner[u64_idx] |= 1 << bit_idx;
+            let byte_idx = word / 8;
+            let bit_idx = word % 8;
+            self.as_bytes_mut()[255 - byte_idx] |= 1 << bit_idx;
+
+            // let u64_idx = 31 - word / 64; // BE
+            // let bit_idx = 63 - word % 64; // BE
+            // self.inner[u64_idx] |= 1 << bit_idx;
         }
     }
 
@@ -170,21 +185,71 @@ impl<S: EthereumLikeTypes> BasicTransactionFlow<S> for EthereumTransactionFlow<S
 where
     S::IO: IOSubsystemExt,
 {
-    type Transaction<'a> = EthereumTransaction<'a>;
+    type Transaction<'a> = EthereumTransactionWithBuffer<S::Allocator>;
     type TransactionContext = EthereumTxContext<S>;
     type ExecutionBodyExtraData = (); // we can use context for everything
 
+    type ScratchSpace = ();
+    fn create_tx_loop_scratch_space(_system: &mut System<S>) -> Self::ScratchSpace {
+        ()
+    }
+
+    type TransactionBuffer<'a> = UsizeAlignedByteBox<S::Allocator>;
+    fn try_begin_next_tx<'a>(
+        system: &'_ mut System<S>,
+        _scratch_space: &'a mut Self::ScratchSpace,
+    ) -> Option<Self::TransactionBuffer<'a>> {
+        let allocator = system.get_allocator();
+        let (tx_length_in_bytes, mut buffer) = system
+            .try_begin_next_tx_with_constructor(move |tx_length_in_bytes| {
+                UsizeAlignedByteBox::preallocated_in(tx_length_in_bytes, allocator)
+            })
+            .expect("TX start call must always succeed")?;
+        buffer.truncated_to_byte_length(tx_length_in_bytes);
+
+        Some(buffer)
+    }
+
     fn parse_transaction<'a>(
         system: &System<S>,
-        source: &'a mut [u8],
+        source: Self::TransactionBuffer<'a>,
         _tracer: &mut impl Tracer<S>,
     ) -> Result<Self::Transaction<'a>, TxError> {
         let chain_id = system
             .get_chain_id()
             .try_into()
             .expect("too large chain ID");
-        EthereumTransaction::parse(&*source, chain_id)
+        EthereumTransactionWithBuffer::parse_from_buffer(source, chain_id)
             .map_err(|_| TxError::Validation(InvalidTransaction::InvalidEncoding))
+    }
+
+    fn before_validation<'a>(
+        system: &System<S>,
+        transaction: &Self::Transaction<'a>,
+        _tracer: &mut impl Tracer<S>,
+    ) -> Result<(), TxError> {
+        if let Some(to) = transaction.destination() {
+            let _ = system.get_logger().write_fmt(
+                format_args!(
+                    "Will try to process transaction to 0x{:040x} with gas limit of {} and value of {:?} and {} bytes of calldata\n",
+                    to.as_uint(),
+                    transaction.gas_limit(),
+                    transaction.value(),
+                    transaction.calldata().len(),
+                )
+            );
+        } else {
+            let _ = system.get_logger().write_fmt(
+                format_args!(
+                    "Will try to process deployment with gas limit of {} and value of {:?} and {} bytes of calldata\n",
+                    transaction.gas_limit(),
+                    transaction.value(),
+                    transaction.calldata().len(),
+                )
+            );
+        }
+
+        Ok(())
     }
 
     fn validate_and_prepare_context<'a, Config: BasicBootloaderExecutionConfig>(
@@ -192,11 +257,46 @@ where
         transaction: Self::Transaction<'a>,
         tracer: &mut impl Tracer<S>,
     ) -> Result<(Self::TransactionContext, Self::Transaction<'a>), TxError> {
-        self::validation_impl::validate_and_compute_fee_for_transaction::<S, Config>(
+        self::validation_impl::validate_and_compute_fee_for_transaction::<S, Config, _>(
             system,
             transaction,
             tracer,
         )
+    }
+
+    fn before_fee_collection<'a>(
+        system: &System<S>,
+        transaction: &Self::Transaction<'a>,
+        context: &Self::TransactionContext,
+        _tracer: &mut impl Tracer<S>,
+    ) -> Result<(), TxError> {
+        if let Some(to) = transaction.destination() {
+            let _ = system.get_logger().write_fmt(
+                format_args!(
+                    "Will process transaction with hash {:?}:\nCall from 0x{:040x} to 0x{:040x} with gas limit of {} and value of {:?} and {} bytes of calldata\n",
+                    transaction.transaction_hash(),
+                    transaction.signer().as_uint(),
+                    to.as_uint(),
+                    transaction.gas_limit(),
+                    transaction.value(),
+                    transaction.calldata().len(),
+                )
+            );
+        } else {
+            let _ = system.get_logger().write_fmt(
+                format_args!(
+                    "Will process transaction with hash {:?}:\nDeployment from 0x{:040x} at nonce {} with gas limit of {} and value of {:?} and {} bytes of calldata\n",
+                    transaction.transaction_hash(),
+                    transaction.signer().as_uint(),
+                    context.originator_nonce_to_use,
+                    transaction.gas_limit(),
+                    transaction.value(),
+                    transaction.calldata().len(),
+                )
+            );
+        }
+
+        Ok(())
     }
 
     fn precharge_fee<Config: BasicBootloaderExecutionConfig>(
@@ -243,6 +343,17 @@ where
                 },
                 SubsystemError::Cascaded(cascaded_error) => match cascaded_error {},
             })?;
+
+        Ok(())
+    }
+
+    fn before_execute_transaction_payload<'a>(
+        system: &mut System<S>,
+        transaction: &Self::Transaction<'a>,
+        context: &mut Self::TransactionContext,
+        _tracer: &mut impl Tracer<S>,
+    ) -> Result<(), TxError> {
+        system.set_tx_context(*transaction.signer(), context.gas_price_for_metadata);
 
         Ok(())
     }
@@ -420,7 +531,7 @@ where
     ) -> Self::ExecutionResult<'a> {
         transaciton_data_collector.record_transaction_results(
             &*system,
-            &transaction,
+            transaction,
             &context,
             &result,
         );

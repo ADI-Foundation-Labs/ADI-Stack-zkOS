@@ -16,7 +16,7 @@ pub fn process_single_intrinsic_transaction<
     system: &mut System<S>,
     system_functions: &mut HooksStorage<S, S::Allocator>,
     memories: RunnerMemoryBuffers<'a>,
-    initial_calldata_buffer: &'a mut [u8],
+    transaction_buffer: F::TransactionBuffer<'a>,
     transaciton_data_collector: &mut impl BlockTransactionsDataCollector<S, F>,
     tracer: &mut impl Tracer<S>,
 ) -> Result<F::ExecutionResult<'a>, TxError>
@@ -26,7 +26,7 @@ where
     // first one should parse matching transaction type.
     // NOTE: there is no access to IO at parsing - it buffer is pre-filled for us
 
-    let transaction = F::parse_transaction(&*system, initial_calldata_buffer, tracer)?;
+    let transaction = F::parse_transaction(&*system, transaction_buffer, tracer)?;
 
     F::before_validation(&*system, &transaction, tracer)?;
 

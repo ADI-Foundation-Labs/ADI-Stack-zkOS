@@ -1,5 +1,8 @@
 use super::*;
 
+// NOTE: we can consider this slice as potentially "lazy" for storage purposes, so it's possible to avoid
+// asking caller to make RLP slice envelope on top of whatever is encoded inside (opaque bytes)
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct RLPSlice<'a> {
     full_encoding: &'a [u8],
@@ -13,7 +16,7 @@ impl<'a> RLPSlice<'a> {
             raw_data_offset: 1,
         }
     }
-    pub const fn full_encoding(&self) -> &'a [u8] {
+    pub(crate) const fn full_encoding(&self) -> &'a [u8] {
         self.full_encoding
     }
 
@@ -27,8 +30,13 @@ impl<'a> RLPSlice<'a> {
     }
 
     #[track_caller]
-    pub fn parse_from_slice(mut data: &'a [u8]) -> Result<Self, ()> {
-        Self::parse(&mut data)
+    pub fn from_slice(mut data: &'a [u8]) -> Result<Self, ()> {
+        let new = Self::parse(&mut data)?;
+        if data.is_empty() == false {
+            return Err(());
+        } else {
+            Ok(new)
+        }
     }
 
     #[track_caller]
@@ -179,7 +187,9 @@ pub(crate) fn parse_node_from_bytes<'a>(
                 path_segment,
                 raw_nibbles_encoding: nibbles_encoding.full_encoding(),
                 parent_node: NodeType::unlinked(),
-                value: pieces[1],
+                value: LeafValue::RLPEnveloped {
+                    envelope: pieces[1],
+                },
             };
 
             Ok((ParsedNode::Leaf(leaf_node), pieces))

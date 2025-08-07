@@ -67,7 +67,7 @@ where
     fn record_transaction_results(
         &mut self,
         _system: &System<S>,
-        _transaction: &<ZkTransactionFlowOnlyEOA<S> as BasicTransactionFlow<S>>::Transaction<'_>,
+        _transaction: <ZkTransactionFlowOnlyEOA<S> as BasicTransactionFlow<S>>::Transaction<'_>,
         _context: &<ZkTransactionFlowOnlyEOA<S> as BasicTransactionFlow<S>>::TransactionContext,
         _result: &ExecutionResult<'_, <S as SystemTypes>::IOTypes>,
     ) {

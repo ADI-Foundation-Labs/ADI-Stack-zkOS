@@ -9,6 +9,7 @@ use crate::bootloader::transaction::ethereum_tx_format::{
 use crate::bootloader::BasicBootloaderExecutionConfig;
 use crate::bootloader::Bytes32;
 use crate::require;
+use core::alloc::Allocator;
 use core::fmt::Write;
 use core::u64;
 use crypto::secp256k1::SECP256K1N_HALF;
@@ -30,10 +31,7 @@ fn create_resources_for_tx<S: EthereumLikeTypes>(
     calldata_len: u64,
     calldata_tokens: u64,
 ) -> Result<ResourcesForEthereumTx<S>, TxError> {
-    let mut intrinsic_overhead = 0u64;
-    // NOTE: this one is up for debate - we can either charge it here,
-    // or in the corresponding branch that does deployments. Latter is much better if we will
-    // want to use the same deployment processing function for L1 to L2 transactions too
+    let mut intrinsic_overhead = L2_TX_INTRINSIC_GAS as u64;
     if is_deployment {
         if calldata_len > MAX_INITCODE_SIZE as u64 {
             return Err(TxError::Validation(CreateInitCodeSizeLimit));
@@ -384,11 +382,12 @@ pub(crate) fn validate_and_compute_fee_for_transaction<
     'a,
     S: EthereumLikeTypes,
     Config: BasicBootloaderExecutionConfig,
+    A: Allocator,
 >(
     system: &mut System<S>,
-    mut transaction: EthereumTransaction<'a>,
+    mut transaction: EthereumTransactionWithBuffer<A>,
     _tracer: &mut impl Tracer<S>,
-) -> Result<(EthereumTxContext<S>, EthereumTransaction<'a>), TxError>
+) -> Result<(EthereumTxContext<S>, EthereumTransactionWithBuffer<A>), TxError>
 where
     S::IO: IOSubsystemExt,
 {
@@ -487,7 +486,7 @@ where
     }
 
     // We need sender before any IO
-    {
+    if Config::ONLY_SIMULATE == false {
         transaction.recover_signer(|tx| {
             let signed_hash = tx.hash_for_signature_verification();
             let (parity, r, s) = tx.sig_parity_r_s();
@@ -499,8 +498,8 @@ where
             let mut ecrecover_input = [0u8; 128];
             ecrecover_input[0..32].copy_from_slice(signed_hash.as_u8_array_ref());
             ecrecover_input[63] = (parity as u8) + 27;
-            ecrecover_input[64..96].copy_from_slice(r);
-            ecrecover_input[96..128].copy_from_slice(s);
+            ecrecover_input[64..96][(32 - r.len())..].copy_from_slice(r);
+            ecrecover_input[96..128][(32 - s.len())..].copy_from_slice(s);
 
             let mut ecrecover_output = ArrayBuilder::default();
             tx_resources
@@ -524,6 +523,9 @@ where
 
             Ok(recovered_from)
         })?;
+    } else {
+        // Ask oracle
+        todo!();
     }
 
     // any IO starts here

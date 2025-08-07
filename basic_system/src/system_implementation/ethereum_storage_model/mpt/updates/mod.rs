@@ -257,15 +257,13 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 let child = self.branch_nodes[branch.index()].child_nodes[branch_index];
                 if child.is_empty() {
                     // short and rare, can do right here
-                    let mut interned_value = interner.intern_slice(pre_encoded_value)?;
-                    let encoding = RLPSlice::parse(&mut interned_value)?;
-                    if interned_value.is_empty() == false {
-                        return Err(());
-                    };
                     let new_opaque = OpaqueValue {
                         parent_node: branch,
                         branch_index,
-                        encoding,
+                        value: LeafValue::from_pre_encoded_with_interner(
+                            pre_encoded_value,
+                            interner,
+                        )?,
                     };
                     let index = self.branch_terminal_values.len();
                     self.branch_terminal_values.push(new_opaque);
@@ -277,12 +275,8 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                     self.remove_from_cache(&child);
                     // just update it
                     let existing_opaque = &mut self.branch_terminal_values[child.index()];
-                    let mut interned_value = interner.intern_slice(pre_encoded_value)?;
-                    let encoding = RLPSlice::parse(&mut interned_value)?;
-                    if interned_value.is_empty() == false {
-                        return Err(());
-                    };
-                    existing_opaque.encoding = encoding;
+                    existing_opaque.value =
+                        LeafValue::from_pre_encoded_with_interner(pre_encoded_value, interner)?;
 
                     Ok(())
                 } else {
@@ -313,8 +307,25 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
 
     pub fn insert(
         &mut self,
-        mut path: Path<'_>,
+        path: Path<'_>,
         pre_encoded_value: &[u8],
+        preimages_oracle: &mut impl PreimagesOracle,
+        interner: &mut (impl Interner<'a> + 'a),
+        hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
+    ) -> Result<(), ()> {
+        self.insert_lazy_value(
+            path,
+            LeafValue::from_pre_encoded_with_interner(pre_encoded_value, interner)?,
+            preimages_oracle,
+            interner,
+            hasher,
+        )
+    }
+
+    pub fn insert_lazy_value(
+        &mut self,
+        mut path: Path<'_>,
+        value: LeafValue<'a>,
         preimages_oracle: &mut impl PreimagesOracle,
         interner: &mut (impl Interner<'a> + 'a),
         hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
@@ -322,8 +333,6 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         // find insertion point
         if self.root.is_empty() {
             let path_segment = interner.intern_slice(path.full_path())?;
-            let mut value = interner.intern_slice(pre_encoded_value)?;
-            let value = RLPSlice::parse(&mut value)?;
             let leaf_node = LeafNode {
                 path_segment,
                 parent_node: NodeType::empty(),
@@ -347,7 +356,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 branch,
                 branch_index,
                 path,
-                pre_encoded_value,
+                value,
                 interner,
             ),
             ValueInsertionStrategy::MakeBranchAndExtension {
@@ -367,13 +376,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                     hasher,
                 )?;
 
-                self.insert(
-                    original_path,
-                    pre_encoded_value,
-                    preimages_oracle,
-                    interner,
-                    hasher,
-                )
+                self.insert_lazy_value(original_path, value, preimages_oracle, interner, hasher)
             }
             ValueInsertionStrategy::WriteIntoBranchValue {
                 branch,
@@ -382,15 +385,10 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 self.remove_from_cache(&branch);
 
                 // short and rare, can do right here
-                let mut interned_value = interner.intern_slice(pre_encoded_value)?;
-                let encoding = RLPSlice::parse(&mut interned_value)?;
-                if interned_value.is_empty() == false {
-                    return Err(());
-                };
                 let new_opaque = OpaqueValue {
                     parent_node: branch,
                     branch_index,
-                    encoding,
+                    value,
                 };
                 let index = self.branch_terminal_values.len();
                 self.branch_terminal_values.push(new_opaque);
@@ -455,8 +453,9 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
             Ok((false, known_key))
         } else {
             let leaf = &self.leaf_nodes[leaf_node.index()];
-            let new_key =
-                interner.make_leaf_key(leaf.path_segment, leaf.value.full_encoding(), hasher)?;
+            let path_for_nibbles = leaf.path_segment;
+            let value = self.leaf_nodes[leaf_node.index()].value.take_value();
+            let new_key = interner.make_leaf_key_for_value(path_for_nibbles, value, hasher)?;
             self.keys_cache.insert(leaf_node, new_key);
 
             Ok((true, new_key))
@@ -497,12 +496,12 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         if let Some(known_key) = self.keys_cache.get(&terminal_branch_value).copied() {
             Ok((false, known_key))
         } else {
-            let existing_terminal_branch_value =
-                &self.branch_terminal_values[terminal_branch_value.index()];
-            let new_key = interner.make_terminal_branch_value_key(
-                existing_terminal_branch_value.encoding.full_encoding(),
-                hasher,
-            )?;
+            let existing_terminal_branch_value = self.branch_terminal_values
+                [terminal_branch_value.index()]
+            .value
+            .take_value();
+            let new_key =
+                interner.make_terminal_branch_value_key(existing_terminal_branch_value, hasher)?;
             self.keys_cache.insert(terminal_branch_value, new_key);
 
             Ok((true, new_key))

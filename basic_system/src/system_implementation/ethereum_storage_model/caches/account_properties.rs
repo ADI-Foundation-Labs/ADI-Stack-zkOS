@@ -103,50 +103,58 @@ impl EthereumAccountProperties {
     pub(crate) fn rlp_encode_for_leaf(&self, buffer: &mut [MaybeUninit<u8>; 128]) -> &[u8] {
         // We need to make (slice(list(elements))) ...
         // first compute total length of elements to encode
-        let mut total_list_len = 0usize;
+        let mut concatenation_length = 0usize;
         let nonce_bits = {
             let bits = 64 - self.nonce.leading_zeros();
-            total_list_len += 1;
-            if bits != 0 && bits <= 7 {
-                // just as-is - single byte
+            concatenation_length += 1;
+            if bits <= 7 {
+                // just as-is - single byte (including 0)
             } else {
                 let bytes = bits.next_multiple_of(8) / 8;
-                total_list_len += bytes as usize;
+                concatenation_length += bytes as usize;
             }
 
             bits
         };
         let balance_bits = {
             let bits = 256 - self.balance.leading_zeros();
-            total_list_len += 1;
-            if bits != 0 && bits <= 7 {
+            concatenation_length += 1;
+            if bits <= 7 {
                 // just as-is - single byte
             } else {
                 let bytes = bits.next_multiple_of(8) / 8;
-                total_list_len += bytes as usize;
+                concatenation_length += bytes as usize;
             }
 
             bits
         };
-        total_list_len += 1;
-        total_list_len += 32;
-        total_list_len += 1;
-        total_list_len += 32;
+        concatenation_length += 1;
+        concatenation_length += 32;
+        concatenation_length += 1;
+        concatenation_length += 32;
 
-        assert!(total_list_len > 55);
-        assert!(total_list_len < 256);
+        // so our encoding is always 0xf7+1, concatenation_length as u8
+        assert!(concatenation_length > 55);
+        assert!(concatenation_length < 256);
 
-        let list_encoding_len = 2 + total_list_len;
+        // this includes 2 bytes to indicate list of length that fits into 1 byte
+        let list_encoding_len = 1 + 1 + concatenation_length;
+        // this includes 2 bytes to apply "slice" on top, with length that fits into 1 bytes
         let total_encoding_len = 1 + 1 + list_encoding_len;
+
+        // so our encoding is always 0xb7 + 1, list_encoding_len as u8
         assert!(total_encoding_len > 55);
         assert!(total_encoding_len <= 128);
 
         buffer[0].write(0xb7 + 1);
-        buffer[0].write(total_list_len as u8);
+        buffer[1].write(list_encoding_len as u8);
         buffer[2].write(0xf7 + 1);
-        buffer[3].write(list_encoding_len as u8);
+        buffer[3].write(concatenation_length as u8);
         let mut offset = 4;
-        if nonce_bits <= 7 {
+        if nonce_bits == 0 {
+            buffer[offset].write(0x80);
+            offset += 1;
+        } else if nonce_bits <= 7 {
             buffer[offset].write(self.nonce as u8);
             offset += 1;
         } else {
@@ -160,7 +168,10 @@ impl EthereumAccountProperties {
             offset += byte_len;
         }
 
-        if balance_bits <= 7 {
+        if balance_bits == 0 {
+            buffer[offset].write(0x80);
+            offset += 1;
+        } else if balance_bits <= 7 {
             buffer[offset].write(self.balance.as_limbs()[0] as u8);
             offset += 1;
         } else {
@@ -173,6 +184,7 @@ impl EthereumAccountProperties {
             buffer[offset..][..byte_len].write_copy_of_slice(&balance[(32 - byte_len)..]);
             offset += byte_len;
         }
+
         buffer[offset].write(0x80 + 32);
         offset += 1;
         buffer[offset..][..32].write_copy_of_slice(self.storage_root.as_u8_ref());

@@ -2,6 +2,7 @@
 #![feature(allocator_api)]
 #![feature(box_into_inner)]
 #![feature(btreemap_alloc)]
+#![feature(array_try_from_fn)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::result_unit_err)]
 #![allow(clippy::needless_lifetimes)]
@@ -30,6 +31,7 @@ pub mod common_traits;
 pub mod execution_environment_type;
 pub mod kv_markers;
 pub mod memory;
+pub mod metadata_markers;
 pub mod oracle;
 pub mod reference_implementations;
 pub mod system;

@@ -17,36 +17,12 @@ pub struct Metadata<IOTypes: SystemIOTypesConfig> {
 /// Hash for block number N will be at index [current_block_number - N - 1]
 /// (most recent will be at the start) if N is one of the most recent
 /// 256 blocks.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct BlockHashes(pub [U256; 256]);
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct BlockHashes(#[serde(with = "serde_big_array::BigArray")] pub [U256; 256]);
 
 impl Default for BlockHashes {
     fn default() -> Self {
         Self([U256::ZERO; 256])
-    }
-}
-
-#[cfg(feature = "testing")]
-impl serde::Serialize for BlockHashes {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.to_vec().serialize(serializer)
-    }
-}
-
-#[cfg(feature = "testing")]
-impl<'de> serde::Deserialize<'de> for BlockHashes {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let vec: Vec<U256> = Vec::deserialize(deserializer)?;
-        let array: [U256; 256] = vec
-            .try_into()
-            .map_err(|_| serde::de::Error::custom("Expected array of length 256"))?;
-        Ok(Self(array))
     }
 }
 
@@ -65,9 +41,7 @@ impl UsizeDeserializable for BlockHashes {
     const USIZE_LEN: usize = <U256 as UsizeDeserializable>::USIZE_LEN * 256;
 
     fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
-        Ok(Self(core::array::from_fn(|_| {
-            U256::from_iter(src).unwrap_or_default()
-        })))
+        Ok(Self(core::array::try_from_fn(|_| U256::from_iter(src))?))
     }
 }
 
@@ -75,8 +49,7 @@ impl UsizeDeserializable for BlockHashes {
 // those that define "block", like uniform fee for block,
 // block number, etc
 
-#[cfg_attr(feature = "testing", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BlockMetadataFromOracle {
     // Chain id is temporarily also added here (so that it can be easily passed from the oracle)
     // long term, we have to decide whether we want to keep it here, or add a separate oracle

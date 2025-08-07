@@ -10,7 +10,6 @@ pub fn generic_loop_op<
 >(
     system: &mut System<S>,
     system_functions: &mut HooksStorage<S, S::Allocator>,
-    initial_calldata_buffer: &mut TxDataBuffer<S::Allocator>,
     mut memories: RunnerMemoryBuffers<'a>,
     transaciton_data_collector: &mut impl BlockTransactionsDataCollector<S, F>,
     result_keeper: &mut impl ResultKeeperExt<S::IOTypes>,
@@ -23,13 +22,10 @@ where
 
     let mut tx_counter = 0;
 
+    let mut inter_tx_scratch = F::create_tx_loop_scratch_space(system);
+
     // now we can run every transaction
-    while let Some(next_tx_data_len_bytes) = {
-        let mut writable = initial_calldata_buffer.into_writable();
-        system
-            .try_begin_next_tx(&mut writable)
-            .expect("TX start call must always succeed")
-    } {
+    while let Some(next_tx_buffer) = { F::try_begin_next_tx(system, &mut inter_tx_scratch) } {
         // warm up the coinbase formally
         {
             let mut inf_resources = S::Resources::FORMAL_INFINITE;
@@ -51,9 +47,7 @@ where
             tx_counter
         ));
 
-        let initial_calldata_buffer = initial_calldata_buffer.as_tx_buffer(next_tx_data_len_bytes);
-
-        tracer.begin_tx(initial_calldata_buffer);
+        tracer.begin_tx(next_tx_buffer.as_ref());
 
         // We will give the full buffer here, and internally we will use parts of it to give forward to EEs
         cycle_marker::start!("process_transaction");
@@ -62,7 +56,7 @@ where
             system,
             system_functions,
             memories.reborrow(),
-            initial_calldata_buffer,
+            next_tx_buffer,
             transaciton_data_collector,
             tracer,
         );

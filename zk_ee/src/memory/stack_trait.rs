@@ -87,10 +87,10 @@ impl<T: Sized, A: Allocator> Stack<T, A> for Vec<T, A> {
 
 pub struct VecStackCtor {}
 
-impl StackCtor<0> for VecStackCtor {
+impl<const M: usize> StackCtor<M> for VecStackCtor {
     type Stack<T: Sized, const N: usize, A: Allocator + Clone> = Vec<T, A>;
 
-    fn new_in<T, A: Allocator + Clone>(alloc: A) -> Self::Stack<T, 0, A> {
-        Self::Stack::<T, 0, A>::new_in(alloc)
+    fn new_in<T, A: Allocator + Clone>(alloc: A) -> Self::Stack<T, M, A> {
+        Self::Stack::<T, M, A>::new_in(alloc)
     }
 }

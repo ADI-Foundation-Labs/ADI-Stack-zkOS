@@ -23,8 +23,8 @@ pub use self::caches::preimage::{
     ETHEREUM_BYTECODE_LENGTH_FROM_PREIMAGE_QUERY_ID, ETHEREUM_BYTECODE_PREIMAGE_QUERY_ID,
 };
 pub use self::mpt::{
-    BoxInterner, ByteBuffer, EthereumMPT, Interner, InterningBuffer, InterningWordBuffer, Path,
-    PreimagesOracle, RLPSlice, EMPTY_ROOT_HASH,
+    BoxInterner, ByteBuffer, EthereumMPT, Interner, InterningBuffer, InterningWordBuffer,
+    LazyEncodable, LazyLeafValue, LeafValue, Path, PreimagesOracle, RLPSlice, EMPTY_ROOT_HASH,
 };
 pub use self::persist_changes::{
     ETHEREUM_MPT_PREIMAGE_BYTE_LEN_QUERY_ID, ETHEREUM_MPT_PREIMAGE_WORDS_QUERY_ID,

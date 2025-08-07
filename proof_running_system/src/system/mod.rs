@@ -1,5 +1,4 @@
 use crate::io_oracle::CsrBasedIOOracle;
-use crate::skip_list_quasi_vec::ListVec;
 use crate::system::bootloader::BootloaderAllocator;
 use alloc::alloc::Allocator;
 use basic_bootloader::bootloader::block_flow::*;
@@ -11,6 +10,7 @@ use basic_system::system_implementation::system::{
     BasicStorageModel, EthereumLikeStorageAccessCostModel,
 };
 use stack_trait::StackCtor;
+use zk_ee::memory::skip_list_quasi_vec::ListVec;
 use zk_ee::memory::*;
 use zk_ee::reference_implementations::BaseResources;
 use zk_ee::system::{logger::Logger, EthereumLikeTypes, SystemTypes};

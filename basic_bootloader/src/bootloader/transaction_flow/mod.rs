@@ -85,12 +85,21 @@ where
     type ExecutionBodyExtraData: core::fmt::Debug;
     type ExecutionResult<'a>: MinimalTransactionOutput<'a>;
 
+    type ScratchSpace;
+    fn create_tx_loop_scratch_space(system: &mut System<S>) -> Self::ScratchSpace;
+
+    type TransactionBuffer<'a>: AsRef<[u8]>;
+    fn try_begin_next_tx<'a>(
+        system: &'_ mut System<S>,
+        scratch_space: &'a mut Self::ScratchSpace,
+    ) -> Option<Self::TransactionBuffer<'a>>;
+
     // We identity few steps that are somewhat universal (it's named "basic"),
     // and will try to adhere to them to easier compose the execution flow for transactions that are "intrinsic" and not "enforced upon".
 
     fn parse_transaction<'a>(
         system: &System<S>,
-        source: &'a mut [u8],
+        buffer: Self::TransactionBuffer<'a>,
         tracer: &mut impl Tracer<S>,
     ) -> Result<Self::Transaction<'a>, TxError>;
 

@@ -34,6 +34,7 @@ use self::{
     logger::Logger,
     metadata::{BlockMetadataFromOracle, Metadata},
 };
+use crate::oracle::AsUsizeWritable;
 use crate::system_io_oracle::BLOCK_METADATA_QUERY_ID;
 use crate::system_io_oracle::TX_DATA_WORDS_QUERY_ID;
 use crate::utils::Bytes32;
@@ -246,6 +247,13 @@ where
         Ok(system)
     }
 
+    pub fn try_get_next_tx_byte_size(&mut self) -> Result<Option<usize>, InternalError> {
+        match self.io.oracle().try_begin_next_tx()? {
+            None => return Ok(None),
+            Some(size) => Ok(Some(size.get() as usize)),
+        }
+    }
+
     pub fn try_begin_next_tx(
         &mut self,
         tx_write_iter: &mut impl crate::oracle::SafeUsizeWritable,
@@ -274,6 +282,42 @@ where
         self.io.begin_next_tx();
 
         Ok(Some(next_tx_len_bytes))
+    }
+
+    pub fn try_begin_next_tx_with_constructor<B: AsUsizeWritable>(
+        &mut self,
+        buffer_constructor: impl FnOnce(usize) -> B,
+    ) -> Result<Option<(usize, B)>, InternalError> {
+        use crate::oracle::usize_rw::{SafeUsizeWritable, UsizeWriteable};
+
+        let next_tx_len_bytes = match self.io.oracle().try_begin_next_tx()? {
+            None => return Ok(None),
+            Some(size) => size.get() as usize,
+        };
+        // create buffer
+        let mut buffer = (buffer_constructor)(next_tx_len_bytes);
+        let mut as_writable = buffer.as_writable();
+        let next_tx_len_usize_words = next_tx_len_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE;
+        if as_writable.len() < next_tx_len_usize_words {
+            return Err(internal_error!("destination iterator len is insufficient"));
+        }
+        let tx_iterator = self
+            .io
+            .oracle()
+            .raw_query_with_empty_input(TX_DATA_WORDS_QUERY_ID)?;
+        if tx_iterator.len() != next_tx_len_usize_words {
+            return Err(internal_error!("iterator len is inconsistent"));
+        }
+        for word in tx_iterator {
+            unsafe {
+                as_writable.write_usize(word);
+            }
+        }
+        drop(as_writable);
+
+        self.io.begin_next_tx();
+
+        Ok(Some((next_tx_len_bytes, buffer)))
     }
 
     pub fn deploy_bytecode(

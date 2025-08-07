@@ -7,12 +7,11 @@ impl<S: EthereumLikeTypes> TxLoopOp<S> for EthereumLoopOp
 where
     S::IO: IOSubsystemExt + IOTeardown<S::IOTypes>,
 {
-    type BlockData = EthereumBasicTransactionDataKeeper;
+    type BlockData = EthereumBasicTransactionDataKeeper<S::Allocator, S::Allocator>;
 
     fn loop_op<'a, Config: BasicBootloaderExecutionConfig>(
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
-        initial_calldata_buffer: &mut TxDataBuffer<S::Allocator>,
         memories: RunnerMemoryBuffers<'a>,
         block_data: &mut Self::BlockData,
         result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig>,
@@ -21,7 +20,6 @@ where
         generic_loop_op::<S, Config, EthereumTransactionFlow<S>>(
             system,
             system_functions,
-            initial_calldata_buffer,
             memories,
             block_data,
             result_keeper,

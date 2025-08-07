@@ -70,12 +70,18 @@ impl<M: MemorySource> OracleQueryProcessor<M> for InMemoryEthereumInitialStorage
             let mut hasher = crypto::sha3::Keccak256::new();
             let mut accounts_mpt =
                 EthereumMPT::new_in(initial_root.as_u8_array(), &mut interner, Global).unwrap();
-            let encoding = accounts_mpt
-                .get(path, &mut self.preimages_oracle, &mut interner, &mut hasher)
-                .unwrap();
+            let Ok(encoding) =
+                accounts_mpt.get(path, &mut self.preimages_oracle, &mut interner, &mut hasher)
+            else {
+                panic!(
+                    "Failed to get initial storage slot value for address 0x{:040x} and key {:?}",
+                    address.address.as_uint(),
+                    address.key,
+                );
+            };
             if encoding.is_empty() == false {
                 // strip one more RLP
-                let rlp_slice = RLPSlice::parse_from_slice(encoding).unwrap();
+                let rlp_slice = RLPSlice::from_slice(encoding).unwrap();
                 value = bytes32_from_rlp_slice(&rlp_slice).unwrap();
             }
         };

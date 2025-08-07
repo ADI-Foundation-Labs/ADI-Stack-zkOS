@@ -153,9 +153,7 @@ impl EthereumStoragePersister {
     ) -> Result<Bytes32, InternalError> {
         // and can actually apply those
 
-        let _ = logger
-            .write_fmt(format_args!("Beginning MTP updates"))
-            .expect("must log");
+        let _ = logger.write_fmt(format_args!("Beginning MTP updates\n"));
 
         let mut it_fill_initial = storage_cache.iter_as_storage_types();
         let mut it_set_final = it_fill_initial.clone();
@@ -515,7 +513,7 @@ impl EthereumStoragePersister {
                                 .rlp_encode_for_leaf(&mut account_data_encoding_buffer);
                             mpt.update(path, pre_encoded_value, &mut interner, &mut hasher)
                                 .map_err(|_| {
-                                    internal_error!("failed to get update account value in MPT")
+                                    internal_error!("failed to update account value in MPT")
                                 })?;
                         }
                     }

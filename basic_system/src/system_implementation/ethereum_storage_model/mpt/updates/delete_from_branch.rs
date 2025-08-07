@@ -46,7 +46,11 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                     prefix_len,
                 };
                 // we have to allocate the next one and decide
-                let key = self.branch_unreferenced_values[surviving_node.index()].encoding;
+                let LeafValue::RLPEnveloped { envelope: key } =
+                    self.branch_unreferenced_values[surviving_node.index()].value
+                else {
+                    panic!("unreferenced opaque nodes area only envelopes");
+                };
                 let current_node = branch_node;
                 let parent_branch_index = surviving_branch;
                 match self.descend_through_proof(
@@ -188,16 +192,20 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         self.remove_from_cache(&existing_leaf_node);
         self.remove_from_cache(&upper_branch_node);
 
-        let existing_leaf = self.leaf_nodes[existing_leaf_node.index()];
-        let mut new_path_buffer = interner.get_buffer(existing_leaf.path_segment.len() + 1)?;
+        let existing_leaf = &self.leaf_nodes[existing_leaf_node.index()];
+        let existing_path_segment = existing_leaf.path_segment;
+        let mut new_path_buffer = interner.get_buffer(existing_path_segment.len() + 1)?;
         new_path_buffer.write_byte(branch_index as u8);
-        new_path_buffer.write_slice(existing_leaf.path_segment);
+        new_path_buffer.write_slice(existing_path_segment);
         let path_segment = new_path_buffer.flush();
+        let value = self.leaf_nodes[existing_leaf_node.index()]
+            .value
+            .take_value();
         let leaf_node = LeafNode {
             path_segment,
             parent_node: upper_branch_node,
             raw_nibbles_encoding: &[], // it's a fresh one, so we do not benefit from it
-            value: existing_leaf.value,
+            value,
         };
         let new_leaf_node = self.push_leaf(leaf_node);
 
@@ -225,17 +233,21 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         self.remove_from_cache(&upper_extension_node);
 
         // glue paths together
-        let existing_leaf = self.leaf_nodes[existing_leaf_node.index()];
+        let existing_leaf = &self.leaf_nodes[existing_leaf_node.index()];
+        let existing_path_segment = existing_leaf.path_segment;
         let parent_extension = self.extension_nodes[upper_extension_node.index()];
         debug_assert_eq!(parent_extension.child_node, removed_branch_node);
 
-        let mut new_path_buffer = interner.get_buffer(
-            existing_leaf.path_segment.len() + 1 + parent_extension.path_segment.len(),
-        )?;
+        let mut new_path_buffer = interner
+            .get_buffer(existing_path_segment.len() + 1 + parent_extension.path_segment.len())?;
         new_path_buffer.write_slice(parent_extension.path_segment);
         new_path_buffer.write_byte(branch_index as u8);
-        new_path_buffer.write_slice(existing_leaf.path_segment);
+        new_path_buffer.write_slice(existing_path_segment);
         let path_segment = new_path_buffer.flush();
+
+        let value = self.leaf_nodes[existing_leaf_node.index()]
+            .value
+            .take_value();
 
         let grand_parent = parent_extension.parent_node;
         self.remove_from_cache(&grand_parent);
@@ -246,7 +258,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
             path_segment,
             parent_node: grand_parent,
             raw_nibbles_encoding: &[], // it's a fresh one, so we do not benefit from it
-            value: existing_leaf.value,
+            value,
         };
         let new_leaf_node = self.push_leaf(leaf_node);
 

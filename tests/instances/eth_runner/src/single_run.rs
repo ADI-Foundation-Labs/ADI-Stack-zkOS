@@ -240,7 +240,8 @@ pub fn single_eth_run(block_dir: String, chain_id: Option<u64>) -> anyhow::Resul
     let miner = block.result.header.beneficiary;
 
     let block_context = block.get_block_context();
-    let (transactions, skipped) = block.get_transactions(&calltrace);
+    // let (transactions, skipped) = block.get_transactions(&calltrace);
+    let (transactions, skipped) = block.get_raw_transactions(&calltrace);
 
     let receipts: Vec<TransactionReceipt> = receipts
         .result
