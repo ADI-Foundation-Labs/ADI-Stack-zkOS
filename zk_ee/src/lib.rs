@@ -3,6 +3,7 @@
 #![feature(box_into_inner)]
 #![feature(btreemap_alloc)]
 #![feature(array_try_from_fn)]
+#![feature(maybe_uninit_write_slice)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::result_unit_err)]
 #![allow(clippy::needless_lifetimes)]

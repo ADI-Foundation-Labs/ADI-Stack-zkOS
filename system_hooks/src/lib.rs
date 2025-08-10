@@ -5,6 +5,7 @@
 #![allow(clippy::needless_borrows_for_generic_args)]
 #![allow(clippy::result_unit_err)]
 #![allow(clippy::type_complexity)]
+// TODO: We use final type constants for many cost constants, but we could use smaller ones to reduce binary size
 
 //!
 //! This crate contains system hooks implementation.
@@ -21,6 +22,7 @@ use crate::addresses_constants::*;
 use crate::contract_deployer::contract_deployer_hook;
 use crate::l1_messenger::l1_messenger_hook;
 use crate::l2_base_token::l2_base_token_hook;
+use crate::precompiles::precompile_hook_impl;
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use core::marker::PhantomData;
@@ -46,9 +48,14 @@ pub mod mock_precompiles;
 // Temporarily disabled, only used for AA.
 // pub mod nonce_holder;
 mod contract_deployer;
+mod eip_2537;
 mod l1_messenger;
 mod l2_base_token;
 mod precompiles;
+
+pub use self::eip_2537::*;
+
+pub use self::precompiles::PurePrecompileInvocation;
 
 /// System hooks process the given call request.
 ///
@@ -320,6 +327,16 @@ where
             SystemHook::Stateless(SystemStatelessHook(
                 pure_system_function_hook_impl::<SystemFunctionInvocationExt<S, E, P>, E, S>,
             )),
+        )
+    }
+
+    pub fn add_precompile_from_pure_invocation<P>(&mut self, address_low: u16)
+    where
+        P: PurePrecompileInvocation,
+    {
+        self.add_hook(
+            address_low,
+            SystemHook::Stateless(SystemStatelessHook(precompile_hook_impl::<S, P>)),
         )
     }
 

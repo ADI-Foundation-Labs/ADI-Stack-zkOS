@@ -68,6 +68,15 @@ impl<'a, T> SliceVec<'a, T> {
             Some(unsafe { self.memory[self.length - 1].assume_init_mut() })
         }
     }
+
+    #[inline]
+    pub fn extend_from_slice(&mut self, source: &[T])
+    where
+        T: Copy,
+    {
+        self.memory[self.length..][..source.len()].write_copy_of_slice(source);
+        self.length += source.len();
+    }
 }
 
 impl<T: Clone> SliceVec<'_, T> {
