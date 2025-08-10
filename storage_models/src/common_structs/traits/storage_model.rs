@@ -253,5 +253,6 @@ pub trait StorageModel: Sized + SnapshottableIo {
         state_commitment: Option<&mut Self::StorageCommitment>,
         oracle: &mut impl IOOracle,
         logger: &mut impl Logger,
+        result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
     );
 }

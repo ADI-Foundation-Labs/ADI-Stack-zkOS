@@ -1,5 +1,9 @@
 use crate::{colors, init_logger};
+use alloy::consensus::Header;
+use alloy::eips::eip4844::BlobTransactionSidecarItem;
 use alloy::signers::local::PrivateKeySigner;
+use alloy_rlp::Decodable;
+use alloy_rlp::Encodable;
 use basic_bootloader::bootloader::config::BasicBootloaderCallSimulationConfig;
 use basic_bootloader::bootloader::config::BasicBootloaderForwardSimulationConfig;
 use basic_bootloader::bootloader::constants::MAX_BLOCK_GAS_LIMIT;
@@ -11,7 +15,9 @@ use basic_system::system_implementation::flat_storage_model::{
     address_into_special_storage_key, AccountProperties, ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
     TREE_HEIGHT,
 };
+use crypto::ark_serialize::CanonicalDeserialize;
 use ethers::signers::LocalWallet;
+use forward_system::run::result_keeper::ForwardRunningResultKeeper;
 use forward_system::run::test_impl::{
     InMemoryPreimageSource, InMemoryTree, NoopTxCallback, TxListSource,
 };
@@ -416,16 +422,26 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         &mut self,
         transactions: Vec<Vec<u8>>,
         witness: alloy_rpc_types_debug::ExecutionWitness,
-        block_context: Option<BlockContext>,
-    ) -> BlockOutput {
+        block_header: Header,
+        withdrawals: Vec<u8>,
+        blobs: Vec<BlobTransactionSidecarItem>,
+    ) -> ForwardRunningResultKeeper<NoopTxCallback> {
         use crypto::MiniDigest;
         use std::collections::BTreeMap;
 
-        let mut headers = alloy::rlp::Rlp::new(&witness.headers[0]).unwrap();
-        let _ = headers.get_next::<[u8; 32]>().unwrap();
-        let _ = headers.get_next::<[u8; 32]>().unwrap();
-        let coinbase = headers.get_next::<[u8; 20]>().unwrap().unwrap();
-        let initial_root = headers.get_next::<[u8; 32]>().unwrap().unwrap();
+        let headers: Vec<Header> = witness
+            .headers
+            .iter()
+            .map(|el| {
+                let mut slice: &[u8] = &el.0;
+                Header::decode(&mut slice).unwrap()
+            })
+            .collect();
+
+        assert!(headers.len() > 0);
+        assert_eq!(headers.len(), witness.headers.len());
+
+        let initial_root = headers[0].state_root;
 
         let mut preimage_source = InMemoryPreimageSource::default();
         let mut oracle: BTreeMap<Bytes32, Vec<u8>> = BTreeMap::new();
@@ -454,7 +470,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         let mut interner = BoxInterner::with_capacity_in(1 << 26, Global);
         let mut hasher = crypto::sha3::Keccak256::new();
-        let mut accounts_mpt = EthereumMPT::new_in(initial_root, &mut interner, Global).unwrap();
+        let mut accounts_mpt = EthereumMPT::new_in(initial_root.0, &mut interner, Global).unwrap();
         let mut account_properties = HashMap::<B160, EthereumAccountProperties>::new();
         for el in witness.keys.iter() {
             if el.len() == 20 {
@@ -471,29 +487,19 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             }
         }
 
-        let mut block_context = block_context.unwrap_or_default();
-        block_context.native_price = U256::ZERO;
-
-        let block_metadata = BlockMetadataFromOracle {
-            chain_id: self.chain_id,
-            block_number: self.block_number + 1,
-            block_hashes: BlockHashes(self.block_hashes),
-            timestamp: block_context.timestamp,
-            eip1559_basefee: block_context.eip1559_basefee,
-            gas_per_pubdata: block_context.gas_per_pubdata,
-            native_price: block_context.native_price,
-            coinbase: block_context.coinbase,
-            gas_limit: block_context.gas_limit,
-            mix_hash: block_context.mix_hash,
-        };
-
         println!("Will try to run {} transactions", transactions.len());
 
         let tx_source = TxListSource {
             transactions: transactions.into(),
         };
 
-        let block_metadata_reponsder = BlockMetadataResponder { block_metadata };
+        let mut target_header_encoding = vec![];
+        block_header.encode(&mut target_header_encoding);
+
+        let target_header_reponsder = EthereumTargetBlockHeaderResponder {
+            target_header: block_header,
+            target_header_encoding,
+        };
         let tx_data_responder = TxDataResponder {
             tx_source,
             next_tx: None,
@@ -506,17 +512,31 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             source: account_properties,
             preimages_oracle: oracle,
         };
-        let initial_root_reponder = EthereumHeaderLikeResponder {
-            initial_state_root: Bytes32::from_array(initial_root),
+
+        let mut blob_hashes = BTreeMap::new();
+        for blob in blobs.into_iter() {
+            let versioned_hash = blob.to_kzg_versioned_hash();
+            let point =
+                crypto::bls12_381::G1Affine::deserialize_compressed(&blob.kzg_commitment.0[..])
+                    .unwrap();
+
+            blob_hashes.insert(Bytes32::from_array(versioned_hash), point);
+        }
+
+        let cl_responder = EthereumCLResponder {
+            withdrawals_list: withdrawals,
+            parent_headers_list: headers,
+            parent_headers_encodings_list: witness.headers.iter().map(|el| el.0.to_vec()).collect(),
+            blob_hashes,
         };
 
         let mut oracle = ZkEENonDeterminismSource::default();
-        oracle.add_external_processor(block_metadata_reponsder);
+        oracle.add_external_processor(target_header_reponsder);
         oracle.add_external_processor(tx_data_responder);
         oracle.add_external_processor(preimage_responder);
         oracle.add_external_processor(initial_account_state_responder);
         oracle.add_external_processor(initial_values_responder);
-        oracle.add_external_processor(initial_root_reponder);
+        oracle.add_external_processor(cl_responder);
         oracle.add_external_processor(UARTPrintReponsder);
 
         use crate::forward_system::system::system_types::ethereum::EthereumStorageSystemTypes;
@@ -528,7 +548,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         let mut nop_tracer = NopTracer::default();
         BasicBootloader::<EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>>::run::<BasicBootloaderForwardETHLikeConfig>(oracle, &mut result_keeper, &mut nop_tracer).expect("must succeed");
 
-        result_keeper.into()
+        result_keeper
     }
 
     ///

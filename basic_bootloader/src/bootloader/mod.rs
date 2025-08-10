@@ -1,3 +1,5 @@
+use crate::bootloader::block_flow::MetadataInitOp;
+use crate::bootloader::block_flow::PostSystemInitOp;
 use crate::bootloader::block_flow::PostTxLoopOp;
 use crate::bootloader::block_flow::PreTxLoopOp;
 use crate::bootloader::block_flow::TxLoopOp;
@@ -171,7 +173,7 @@ where
 {
     /// Run STF to completion assuming that STF has simple structure
     pub fn run<Config: BasicBootloaderExecutionConfig>(
-        oracle: <S::IO as IOSubsystemExt>::IOOracle,
+        mut oracle: <S::IO as IOSubsystemExt>::IOOracle,
         result_keeper: &mut impl ResultKeeperExt<S::IOTypes>,
         tracer: &mut impl Tracer<S>,
     ) -> Result<<S::PostTxLoopOp as PostTxLoopOp<S>>::PostTxLoopOpResult, BootloaderSubsystemError>
@@ -181,8 +183,18 @@ where
         // initialize the system
         cycle_marker::start!("system_init");
         // we will model initial calldata buffer as just another "heap"
-        let mut system: System<S> =
-            System::init_from_oracle(oracle).expect("system must be able to initialize itself");
+        let metadata = <S::MetadataOp as MetadataInitOp<S>>::metadata_op::<Config>(
+            &mut oracle,
+            S::Allocator::default(),
+        )?;
+
+        let mut system: System<S> = System::init_from_metadata_and_oracle(metadata, oracle)?;
+        let mut system_functions = HooksStorage::new_in(system.get_allocator());
+
+        <S::PostSystemInitOp as PostSystemInitOp<S>>::post_init_op::<Config>(
+            &mut system,
+            &mut system_functions,
+        )?;
 
         pub const MAX_HEAP_BUFFER_SIZE: usize = 1 << 27; // 128 MB
         pub const MAX_RETURN_BUFFER_SIZE: usize = 1 << 27; // 128 MB
@@ -195,17 +207,6 @@ where
             heaps: &mut heaps,
             return_data: &mut return_data,
         };
-
-        let mut system_functions = HooksStorage::new_in(system.get_allocator());
-
-        system_functions.add_precompiles();
-
-        #[cfg(not(feature = "disable_system_contracts"))]
-        {
-            system_functions.add_l1_messenger();
-            system_functions.add_l2_base_token();
-            system_functions.add_contract_deployer();
-        }
 
         cycle_marker::end!("system_init");
 

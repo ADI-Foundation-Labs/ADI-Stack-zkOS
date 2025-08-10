@@ -562,6 +562,7 @@ pub trait IOTeardown<IOTypes: SystemIOTypesConfig>: IOSubsystemExt<IOTypes = IOT
         &mut self,
         state_commitment: Option<&mut Self::IOStateCommittment>,
         logger: &mut impl Logger,
+        result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
     );
 }
 

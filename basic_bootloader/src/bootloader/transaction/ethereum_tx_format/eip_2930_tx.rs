@@ -125,6 +125,18 @@ pub struct RLPListOfHomogeneousItemsIter<'a, T: RLPParsable<'a>, const VALIDATE:
     _marker: core::marker::PhantomData<T>,
 }
 
+impl<'a, T: RLPParsable<'a>, const VALIDATE: bool> RLPListOfHomogeneousItems<'a, T, VALIDATE> {
+    pub fn try_parse_slice_in_full(input: &'a [u8]) -> Result<Self, ()> {
+        let mut parser = Parser::new(input);
+        let new = Self::try_parse(&mut parser)?;
+        if parser.is_empty() == false {
+            return Err(());
+        }
+
+        Ok(new)
+    }
+}
+
 impl<'a, T: RLPParsable<'a>, const VALIDATE: bool> RLPParsable<'a>
     for RLPListOfHomogeneousItems<'a, T, VALIDATE>
 {

@@ -1,6 +1,7 @@
 use crate::bootloader::transaction::ethereum_tx_format::eip_2930_tx::{
     AccessList, AccessListForAddress,
 };
+use crate::bootloader::transaction::ethereum_tx_format::eip_4844_tx::BlobHashesList;
 use crate::bootloader::transaction::ethereum_tx_format::eip_7702_tx::{
     AuthorizationEntry, AuthorizationList,
 };
@@ -11,7 +12,8 @@ use super::*;
 use ruint::aliases::{B160, U256};
 use zk_ee::utils::UsizeAlignedByteBox;
 
-// NOTE: this is self-reference, but relatively easy one
+// NOTE: this is self-reference, but relatively easy one. Do NOT derive clone one it,
+// as it's unsound
 pub struct EthereumTransactionWithBuffer<A: Allocator> {
     buffer: UsizeAlignedByteBox<A>,
     inner: EthereumTxInner<'static>,
@@ -141,6 +143,16 @@ impl<A: Allocator> EthereumTransactionWithBuffer<A> {
         }
     }
 
+    pub fn blobs_list<'a>(&'a self) -> Option<BlobHashesList<'a>> {
+        match &self.inner {
+            EthereumTxInner::Legacy(_, _) | EthereumTxInner::LegacyWithEIP155(_, _) => None,
+            EthereumTxInner::EIP2930(_, _) => None,
+            EthereumTxInner::EIP1559(_, _) => None,
+            EthereumTxInner::EIP4844(tx, _) => Some(tx.blob_versioned_hashes),
+            EthereumTxInner::EIP7702(_, _) => None,
+        }
+    }
+
     pub fn authorization_list<'a>(&'a self) -> Option<AuthorizationList<'a>> {
         match &self.inner {
             EthereumTxInner::EIP7702(tx, _) => Some(tx.authorization_list),
@@ -240,6 +252,16 @@ impl<A: Allocator> EthereumTransactionWithBuffer<A> {
             EthereumTxInner::EIP1559(tx, _) => Some(&tx.max_priority_fee_per_gas),
             EthereumTxInner::EIP4844(tx, _) => Some(&tx.max_priority_fee_per_gas),
             EthereumTxInner::EIP7702(tx, _) => Some(&tx.max_priority_fee_per_gas),
+        }
+    }
+
+    pub fn max_fee_per_blob_gas(&self) -> Option<&U256> {
+        match &self.inner {
+            EthereumTxInner::Legacy(_, _) | EthereumTxInner::LegacyWithEIP155(_, _) => None,
+            EthereumTxInner::EIP2930(_, _) => None,
+            EthereumTxInner::EIP1559(_, _) => None,
+            EthereumTxInner::EIP4844(tx, _) => Some(&tx.max_fee_per_blob_gas),
+            EthereumTxInner::EIP7702(_, _) => None,
         }
     }
 }

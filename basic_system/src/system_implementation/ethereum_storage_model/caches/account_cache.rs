@@ -599,15 +599,15 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                 false,
             )
         })?;
-        match account_data.current().appearance() {
-            Appearance::Unset => {}
-            Appearance::Retrieved | Appearance::Updated => {
-                panic!("Trying to deploy into non-empty account")
-            }
-            Appearance::Deconstructed => {
-                todo!();
-            }
-        }
+        // match account_data.current().appearance() {
+        //     Appearance::Unset | Appearance::Retrieved => {}
+        //     Appearance::Updated => {
+        //         panic!("Trying to deploy into non-empty account")
+        //     }
+        //     Appearance::Deconstructed => {
+        //         todo!();
+        //     }
+        // }
 
         let (deployed_code, bytecode_hash) = match from_ee {
             ExecutionEnvironmentType::NoEE => {

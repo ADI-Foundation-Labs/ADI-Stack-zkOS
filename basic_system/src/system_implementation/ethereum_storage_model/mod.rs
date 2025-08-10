@@ -16,7 +16,8 @@ pub use self::storage_model::EthereumStorageModel;
 
 use zk_ee::utils::Bytes32;
 
-pub const ETHEREUM_STORAGE_SUBSPACE_MASK: u32 = 0x00_00_e0_00;
+pub const ETHEREUM_QUERIES_SUBSPACE_MASK: u32 = 0x00_00_e0_00;
+pub const ETHEREUM_STORAGE_SUBSPACE_MASK: u32 = ETHEREUM_QUERIES_SUBSPACE_MASK;
 
 pub use self::caches::account_properties::ETHEREUM_ACCOUNT_INITIAL_STATE_QUERY_ID;
 pub use self::caches::preimage::{

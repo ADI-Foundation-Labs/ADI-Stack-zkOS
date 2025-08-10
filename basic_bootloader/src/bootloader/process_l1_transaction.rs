@@ -19,6 +19,7 @@ use gas_helpers::ResourcesForTx;
 use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
 use system_hooks::HooksStorage;
 use zk_ee::internal_error;
+use zk_ee::metadata_markers::basic_metadata::{BasicMetadata, ZkSpecificPricingMetadata};
 use zk_ee::system::errors::root_cause::GetRootCause;
 use zk_ee::system::errors::root_cause::RootCause;
 use zk_ee::system::errors::runtime::RuntimeError;
@@ -27,6 +28,8 @@ use zk_ee::system::{EthereumLikeTypes, Resources};
 impl<S: EthereumLikeTypes> BasicBootloader<S>
 where
     S::IO: IOSubsystemExt,
+    S::Metadata: ZkSpecificPricingMetadata,
+    <S::Metadata as BasicMetadata<S::IOTypes>>::TransactionMetadata: From<(B160, U256)>,
 {
     pub(crate) fn process_l1_transaction<'a, Config: BasicBootloaderExecutionConfig>(
         system: &mut System<S>,
@@ -35,7 +38,10 @@ where
         transaction: ZkSyncTransaction,
         is_priority_op: bool,
         tracer: &mut impl Tracer<S>,
-    ) -> Result<TxProcessingResult<'a>, TxError> {
+    ) -> Result<TxProcessingResult<'a>, TxError>
+    where
+        S: 'a,
+    {
         // The work done by the bootloader (outside of EE or EOA specific
         // computation) is charged as part of the intrinsic gas cost.
         let gas_limit = transaction.gas_limit.read();
@@ -323,13 +329,15 @@ where
         withheld_resources: S::Resources,
         tracer: &mut impl Tracer<S>,
     ) -> Result<(ExecutionResult<'a, S::IOTypes>, u64, S::Resources), BootloaderSubsystemError>
+    where
+        S: 'a,
     {
         let _ = system
             .get_logger()
             .write_fmt(format_args!("Executing L1 transaction\n"));
 
         let gas_price = U256::from(transaction.max_fee_per_gas.read());
-        system.set_tx_context(from, gas_price);
+        system.set_tx_context((from, gas_price).into());
 
         // Start a frame, to revert minting of value if execution fails
         let rollback_handle = system.start_global_frame()?;

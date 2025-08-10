@@ -1,11 +1,14 @@
 use crate::bootloader::block_flow::ethereum_block_flow::rlp_encodings::CellEnvelope;
 use crate::bootloader::block_flow::ethereum_block_flow::rlp_encodings::ReceiptEncoder;
+use crate::bootloader::block_flow::ethereum_block_flow::rlp_ordering_and_key_for_index;
+use crate::bootloader::block_flow::ethereum_block_flow::EthereumBlockMetadata;
 use crate::bootloader::block_flow::BlockTransactionsDataCollector;
 use crate::bootloader::transaction::ethereum_tx_format::EthereumTransactionWithBuffer;
 use crate::bootloader::transaction_flow::ethereum::EthereumTransactionFlow;
 use crate::bootloader::transaction_flow::ethereum::LogsBloom;
 use crate::bootloader::BasicTransactionFlow;
 use crate::bootloader::ExecutionResult;
+use alloc::collections::BTreeMap;
 use basic_system::system_implementation::ethereum_storage_model::BoxInterner;
 use basic_system::system_implementation::ethereum_storage_model::ByteBuffer;
 use basic_system::system_implementation::ethereum_storage_model::EthereumMPT;
@@ -19,7 +22,6 @@ use basic_system::system_implementation::ethereum_storage_model::EMPTY_ROOT_HASH
 use core::alloc::Allocator;
 use core::fmt::Write;
 use crypto::MiniDigest;
-use std::collections::BTreeMap;
 use zk_ee::common_structs::GenericEventContentRef;
 use zk_ee::memory::skip_list_quasi_vec::ListVec;
 use zk_ee::system::logger::Logger;
@@ -78,6 +80,9 @@ pub fn short_digits_from_key(key: &[u8; 4]) -> [u8; 8] {
 
 pub struct EthereumBasicTransactionDataKeeperHeaderValues {
     pub block_gas_used: u64,
+    pub transactions_root: Bytes32,
+    pub receipts_root: Bytes32,
+    pub block_bloom: LogsBloom,
 }
 
 impl<A: Allocator + Clone, B: Allocator> EthereumBasicTransactionDataKeeper<A, B> {
@@ -160,23 +165,7 @@ impl<A: Allocator + Clone, B: Allocator> EthereumBasicTransactionDataKeeper<A, B
                 events_it,
             );
 
-            let (ordering_key, tx_number_rlp) = if tx_number == 0 {
-                (0x80, ([0x80, 0x00, 0x00, 0x00], 1usize))
-            } else if tx_number < 0x80 {
-                (tx_number, ([tx_number as u8, 0x00, 0x00, 0x00], 1))
-            } else {
-                let ordering_key = 0x80 + tx_number;
-                if tx_number < 1 << 8 {
-                    (ordering_key, ([0x80 + 1, tx_number as u8, 0x00, 0x00], 2))
-                } else if tx_number < 1 << 16 {
-                    (
-                        ordering_key,
-                        ([0x80 + 2, (tx_number >> 8) as u8, tx_number as u8, 0x00], 3),
-                    )
-                } else {
-                    unreachable!()
-                }
-            };
+            let (ordering_key, tx_number_rlp) = rlp_ordering_and_key_for_index(tx_number as u32);
             // we will also remake index, so we can sequentially insert below
             tmp_map.insert(
                 ordering_key,
@@ -192,19 +181,19 @@ impl<A: Allocator + Clone, B: Allocator> EthereumBasicTransactionDataKeeper<A, B
                 value: LazyLeafValue::from_value(receipt),
                 cached_encoding_len_with_metadata: 0,
             };
-            {
-                let mut interner = BoxInterner::with_capacity_in(1 << 25, system.get_allocator());
-                let mut buffer = interner.get_buffer(receipt.required_buffer_len()).unwrap();
-                receipt.encode_into(&mut buffer);
-                let encoding = buffer.flush();
-                let _ = system
-                    .get_logger()
-                    .write_fmt(format_args!("Receipt encoding =\n",));
+            // {
+            //     let mut interner = BoxInterner::with_capacity_in(1 << 25, system.get_allocator());
+            //     let mut buffer = interner.get_buffer(receipt.required_buffer_len()).unwrap();
+            //     receipt.encode_into(&mut buffer);
+            //     let encoding = buffer.flush();
+            //     let _ = system
+            //         .get_logger()
+            //         .write_fmt(format_args!("Receipt encoding =\n",));
 
-                let _ = system.get_logger().log_data(encoding.iter().copied());
+            //     let _ = system.get_logger().log_data(encoding.iter().copied());
 
-                let _ = system.get_logger().write_fmt(format_args!("\n",));
-            }
+            //     let _ = system.get_logger().write_fmt(format_args!("\n",));
+            // }
             receipts_mpt
                 .insert_lazy_value(path, value, &mut (), &mut interner, &mut hasher)
                 .expect("must insert receipts encoder");
@@ -245,11 +234,16 @@ impl<A: Allocator + Clone, B: Allocator> EthereumBasicTransactionDataKeeper<A, B
 
         let _ = system.get_logger().write_fmt(format_args!("\n",));
 
-        EthereumBasicTransactionDataKeeperHeaderValues { block_gas_used }
+        EthereumBasicTransactionDataKeeperHeaderValues {
+            block_gas_used,
+            transactions_root,
+            receipts_root,
+            block_bloom,
+        }
     }
 }
 
-impl<A: Allocator + Clone, S: EthereumLikeTypes>
+impl<A: Allocator + Clone, S: EthereumLikeTypes<Metadata = EthereumBlockMetadata>>
     BlockTransactionsDataCollector<S, EthereumTransactionFlow<S>>
     for EthereumBasicTransactionDataKeeper<A, S::Allocator>
 where
@@ -270,34 +264,36 @@ where
             ExecutionResult::Revert { .. } => false,
         };
 
-        let _ = system.get_logger().write_fmt(format_args!(
-            "Cumulative gas used for TX {} = {}\n",
-            self.current_transaction_number, self.block_gas_used,
-        ));
+        // let _ = system.get_logger().write_fmt(format_args!(
+        //     "Cumulative gas used for TX {} = {}\n",
+        //     self.current_transaction_number, self.block_gas_used,
+        // ));
 
-        let _ = system.get_logger().write_fmt(format_args!(
-            "Events for TX {}:\n",
-            self.current_transaction_number
-        ));
+        // {
+        //     let _ = system.get_logger().write_fmt(format_args!(
+        //         "Events for TX {}:\n",
+        //         self.current_transaction_number
+        //     ));
 
-        for (event_idx, event) in system.io.events_in_this_tx_iterator().enumerate() {
-            let _ = system.get_logger().write_fmt(format_args!(
-                "Event {}: address: 0x{:040x}, topics [",
-                event_idx,
-                event.address.as_uint()
-            ));
-            for topic in event.topics.iter() {
-                let _ = system.get_logger().write_fmt(format_args!("{:?},", topic,));
-            }
-            let _ = system.get_logger().write_fmt(format_args!("], data =\n",));
-            let _ = system.get_logger().log_data(event.data.iter().copied());
-            let _ = system.get_logger().write_fmt(format_args!("\n",));
-        }
+        //     for (event_idx, event) in system.io.events_in_this_tx_iterator().enumerate() {
+        //         let _ = system.get_logger().write_fmt(format_args!(
+        //             "Event {}: address: 0x{:040x}, topics [",
+        //             event_idx,
+        //             event.address.as_uint()
+        //         ));
+        //         for topic in event.topics.iter() {
+        //             let _ = system.get_logger().write_fmt(format_args!("{:?},", topic,));
+        //         }
+        //         let _ = system.get_logger().write_fmt(format_args!("], data =\n",));
+        //         let _ = system.get_logger().log_data(event.data.iter().copied());
+        //         let _ = system.get_logger().write_fmt(format_args!("\n",));
+        //     }
 
-        let _ = system.get_logger().write_fmt(format_args!(
-            "End of events for TX {}\n",
-            self.current_transaction_number
-        ));
+        //     let _ = system.get_logger().write_fmt(format_args!(
+        //         "End of events for TX {}\n",
+        //         self.current_transaction_number
+        //     ));
+        // }
 
         // compute bloom and log number of events
         let mut bloom = LogsBloom::default();
@@ -305,16 +301,19 @@ where
         let num_events = events_it.len();
         let mut hasher = crypto::sha3::Keccak256::new();
         bloom.mark_events(&mut hasher, events_it);
-        let _ = system.get_logger().write_fmt(format_args!(
-            "TX {} bloom =\n",
-            self.current_transaction_number
-        ));
 
-        let _ = system
-            .get_logger()
-            .log_data(bloom.as_bytes().iter().copied());
+        // {
+        //     let _ = system.get_logger().write_fmt(format_args!(
+        //         "TX {} bloom =\n",
+        //         self.current_transaction_number
+        //     ));
 
-        let _ = system.get_logger().write_fmt(format_args!("\n",));
+        //     let _ = system
+        //         .get_logger()
+        //         .log_data(bloom.as_bytes().iter().copied());
+
+        //     let _ = system.get_logger().write_fmt(format_args!("\n",));
+        // }
 
         self.per_tx_data
             .push((tx_status, self.block_gas_used, num_events, bloom));

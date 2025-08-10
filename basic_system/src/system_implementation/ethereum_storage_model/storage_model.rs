@@ -449,6 +449,7 @@ impl<
         state_commitment: Option<&mut Self::StorageCommitment>,
         oracle: &mut impl IOOracle,
         logger: &mut impl Logger,
+        result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
     ) {
         if let Some(state_commitment) = state_commitment {
             let mut persister = EthereumStoragePersister;
@@ -460,6 +461,7 @@ impl<
                     &initial_commitment,
                     oracle,
                     logger,
+                    result_keeper,
                     self.allocator.clone(),
                 )
                 .expect("must persist changes to state");

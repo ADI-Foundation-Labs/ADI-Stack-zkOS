@@ -7,7 +7,6 @@ use crate::bootloader::transaction::ethereum_tx_format::{
     eip_2930_tx::EIP2930Tx,
     eip_4844_tx::EIP4844Tx,
     eip_7702_tx::EIP7702Tx,
-    minimal_rlp_parser::{Parser, RLPParsable, RLPParsableScalar},
 };
 use zk_ee::utils::Bytes32;
 
@@ -19,12 +18,18 @@ mod eip_7702_tx;
 mod legacy_tx;
 mod minimal_rlp_parser;
 mod transaction;
+mod tx_level_metadata;
 
+pub use self::minimal_rlp_parser::{ListEncapsulated, Parser, RLPParsable, RLPParsableScalar};
 pub use self::transaction::{EthereumTransaction, EthereumTransactionWithBuffer};
-pub use eip_2930_tx::{AccessList, AccessListForAddress};
+pub use eip_2930_tx::{
+    AccessList, AccessListForAddress, RLPListOfFixedLengthItems, RLPListOfHomogeneousItems,
+};
+pub use eip_4844_tx::BlobHashesList;
 pub use eip_7702_tx::{AuthorizationEntry, AuthorizationList};
+pub use tx_level_metadata::EthereumTransactionMetadata;
 
-fn u64_encoding_len(value: u64) -> usize {
+pub(crate) fn u64_encoding_len(value: u64) -> usize {
     if value < 0x80 {
         1
     } else {

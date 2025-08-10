@@ -1,8 +1,10 @@
 use super::*;
+use crate::bootloader::block_flow::ethereum_block_flow::oracle_queries::fill_blob_point_from_oracle;
 use crate::bootloader::constants::*;
 use crate::bootloader::errors::InvalidTransaction::CreateInitCodeSizeLimit;
 use crate::bootloader::errors::{InvalidTransaction, TxError};
 use crate::bootloader::ethereum::EthereumTxContext;
+use crate::bootloader::transaction::ethereum_tx_format::BlobHashesList;
 use crate::bootloader::transaction::ethereum_tx_format::{
     AccessList, AccessListForAddress, AuthorizationList,
 };
@@ -12,17 +14,20 @@ use crate::require;
 use core::alloc::Allocator;
 use core::fmt::Write;
 use core::u64;
+use crypto::ark_ff::AdditiveGroup;
 use crypto::secp256k1::SECP256K1N_HALF;
 use evm_interpreter::{ERGS_PER_GAS, MAX_INITCODE_SIZE};
 use ruint::aliases::{B160, U256};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::internal_error;
 use zk_ee::memory::ArrayBuilder;
+use zk_ee::metadata_markers::basic_metadata::BasicBlockMetadata;
 use zk_ee::system::errors::interface::InterfaceError;
 use zk_ee::system::errors::runtime::RuntimeError;
 use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::tracer::Tracer;
 use zk_ee::system::{errors::system::SystemError, EthereumLikeTypes, System};
+use zk_ee::utils::u256_mul_by_word;
 use zk_ee::wrap_error;
 
 fn create_resources_for_tx<S: EthereumLikeTypes>(
@@ -62,30 +67,37 @@ fn create_resources_for_tx<S: EthereumLikeTypes>(
     }
 }
 
-fn get_gas_price<S: EthereumLikeTypes>(
+// effective_gas_price, priority_fee_per_gas
+fn get_gas_prices<S: EthereumLikeTypes>(
     system: &mut System<S>,
     max_fee_per_gas: &U256,
     max_priority_fee_per_gas: Option<&U256>,
-) -> Result<U256, TxError> {
-    let base_fee = system.get_eip1559_basefee();
+) -> Result<(U256, U256), TxError> {
+    let max_priority_fee_per_gas = if let Some(max_priority_fee_per_gas) = max_priority_fee_per_gas
+    {
+        max_priority_fee_per_gas
+    } else {
+        max_fee_per_gas
+    };
     require!(
-        &base_fee <= max_fee_per_gas,
+        max_priority_fee_per_gas <= max_fee_per_gas,
+        TxError::Validation(InvalidTransaction::PriorityFeeGreaterThanMaxFee,),
+        system
+    )?;
+
+    let base_fee = system.get_eip1559_basefee();
+    let (max_fee_minus_base_fee, uf) = max_fee_per_gas.overflowing_sub(base_fee);
+    require!(
+        uf == false,
         TxError::Validation(InvalidTransaction::BaseFeeGreaterThanMaxFee,),
         system
     )?;
-    if let Some(max_priority_fee_per_gas) = max_priority_fee_per_gas {
-        require!(
-            max_priority_fee_per_gas <= max_fee_per_gas,
-            TxError::Validation(InvalidTransaction::PriorityFeeGreaterThanMaxFee,),
-            system
-        )?;
 
-        let priority_fee_per_gas =
-            core::cmp::min(*max_priority_fee_per_gas, *max_fee_per_gas - base_fee);
-        Ok(base_fee + priority_fee_per_gas)
-    } else {
-        Ok(*max_fee_per_gas)
-    }
+    let priority_fee_per_gas = core::cmp::min(*max_priority_fee_per_gas, max_fee_minus_base_fee);
+
+    let effective_gas_price = base_fee + priority_fee_per_gas;
+
+    Ok((effective_gas_price, priority_fee_per_gas))
 }
 
 pub fn parse_and_warm_up_access_list<S: EthereumLikeTypes>(
@@ -146,6 +158,90 @@ where
         }
     }
     Ok(())
+}
+
+pub fn parse_blobs_list<S: EthereumLikeTypes, const MAX_BLOBS_IN_TX: usize>(
+    system: &mut System<S>,
+    blobs_list: BlobHashesList<'_>,
+) -> Result<arrayvec::ArrayVec<(Bytes32, crypto::bls12_381::G1Affine), MAX_BLOBS_IN_TX>, TxError>
+where
+    S::IO: IOSubsystemExt,
+{
+    let mut result = arrayvec::ArrayVec::<_, MAX_BLOBS_IN_TX>::new();
+
+    for blob_hash in blobs_list.iter() {
+        let Ok(blob_hash) = blob_hash else {
+            return Err(TxError::Validation(
+                InvalidTransaction::BlobElementIsNotSupported,
+            ));
+        };
+
+        if blob_hash[0] != VERSIONED_HASH_VERSION_KZG {
+            return Err(TxError::Validation(
+                InvalidTransaction::BlobElementIsNotSupported,
+            ));
+        }
+
+        // now we should consult oracle (a-la CL data) to get actual KZG point encoding, and compute hash.
+        // NOTE: Unfortunately we also need to validate that this encoding is indeed a valid point,
+        // so we will store uncompressed point in the result. Validation requires both decompression + on-curve check + subgroup check.
+        // We will SAVE on computations by requesting uncompressed point, performing validation of it (on-curve and subgroup),
+        // and then compressing and hashing it instead
+
+        let blob_hash = Bytes32::from_array(*blob_hash);
+
+        let kzg: crypto::bls12_381::G1Affine = {
+            let mut x = crypto::bls12_381::Fq::ZERO.into_bigint();
+            let mut y = x;
+            fill_blob_point_from_oracle::<_, 6>(&mut x, &mut y, &blob_hash, system.io.oracle())?;
+
+            let x = crypto::bls12_381::Fq::from_bigint(x).expect("must be proper bigint repr");
+            let y = crypto::bls12_381::Fq::from_bigint(y).expect("must be proper bigint repr");
+            // This will assert inside - non-infinity, on curve, in subgroup
+            let point = crypto::bls12_381::G1Affine::new(x, y);
+
+            point
+        };
+
+        // not infinite, and is on curve/in subgroup
+        let x = &kzg.x;
+        use crypto::ark_ff::PrimeField;
+        let x_encoding = x.into_bigint();
+        // NOTE: we only need 6 lowest limbs, and it's canonical and not Montgomery form anymore
+        let mut encoding = [0u8; 48];
+        // it is BE all the way
+        for (dst, src) in encoding
+            .as_chunks_mut::<8>()
+            .0
+            .iter_mut()
+            .zip(x_encoding.0[..6].iter().rev())
+        {
+            *dst = src.to_be_bytes();
+        }
+        // now we need Y parity
+        let minus_y = -kzg.y;
+        let is_largest = kzg.y.into_bigint() > minus_y.into_bigint();
+        encoding[0] |= 1 << 7 | (is_largest as u8) << 5;
+
+        use crypto::sha256::Digest;
+        let hash = crypto::sha256::Sha256::digest(&encoding);
+        if &hash.as_slice()[1..] != &blob_hash.as_u8_ref()[1..] {
+            return Err(TxError::Validation(
+                InvalidTransaction::BlobElementIsNotSupported,
+            ));
+        }
+
+        result.push((blob_hash, kzg));
+    }
+
+    if result.is_empty() {
+        // transactions that allow blobs should have at least one
+        return Err(TxError::Validation(
+            InvalidTransaction::BlobElementIsNotSupported,
+        ));
+    }
+
+    Ok(result)
 }
 
 pub fn parse_authorization_list_and_apply_delegations<S: EthereumLikeTypes>(
@@ -408,16 +504,10 @@ where
     {
         // Validate that the transaction's gas limit is not larger than
         // the block's gas limit.
-        let block_gas_limit = system.get_gas_limit();
-        // First, check block gas limit can be represented as ergs.
+        let tx_limit = system.metadata.individual_tx_gas_limit();
         require!(
-            block_gas_limit <= MAX_BLOCK_GAS_LIMIT,
-            InvalidTransaction::BlockGasLimitTooHigh,
-            system
-        )?;
-        require!(
-            tx_gas_limit <= block_gas_limit,
-            InvalidTransaction::CallerGasLimitMoreThanBlock,
+            tx_gas_limit <= tx_limit,
+            InvalidTransaction::CallerGasLimitMoreThanTxLimit,
             system
         )?;
     }
@@ -451,18 +541,16 @@ where
         }
     };
 
-    let gas_price = get_gas_price(
+    let (effective_gas_price, priority_fee_per_gas) = get_gas_prices(
         system,
         transaction.max_fee_per_gas(),
         transaction.max_priority_fee_per_gas(),
     )?;
 
-    let gas_price_for_fee_commitment =
-        if let Some(max_priority_fee_per_gas) = transaction.max_priority_fee_per_gas() {
-            *max_priority_fee_per_gas
-        } else {
-            gas_price
-        };
+    let _ = system.get_logger().write_fmt(format_args!(
+        "Effective gas price for transaction is {}, priority fee = {}\n",
+        &effective_gas_price, &priority_fee_per_gas,
+    ));
 
     let is_deployment = transaction.destination().is_none();
 
@@ -608,7 +696,31 @@ where
         }
     }
 
-    // #[cfg(feature = "pectra")]
+    let blobs = if let Some(blobs_list) = transaction.blobs_list() {
+        let tx_max_fee_per_blob_gas = transaction
+            .max_fee_per_blob_gas()
+            .expect("must be present in such TXes");
+        let block_base_fee_per_blob_gas = system.metadata.blob_base_fee_per_gas();
+        if &block_base_fee_per_blob_gas > tx_max_fee_per_blob_gas {
+            return Err(TxError::Validation(
+                InvalidTransaction::BlobElementIsNotSupported,
+            ));
+        }
+        let blobs = match parse_blobs_list::<S, MAX_BLOBS_IN_TX>(system, blobs_list) {
+            Ok(blobs) => blobs,
+            Err(e) => {
+                return Err(e);
+            }
+        };
+
+        blobs
+    } else {
+        arrayvec::ArrayVec::new()
+    };
+
+    // NOTE: it's a special resource - not transaction gas. Will be used to charge fee only
+    let blob_gas_used = (blobs.len() as u64) * GAS_PER_BLOB;
+
     if let Some(auth_list) = transaction.authorization_list() {
         if let Err(e) = parse_authorization_list_and_apply_delegations(
             system,
@@ -619,18 +731,42 @@ where
         }
     }
 
-    let worst_case_fee_amount = transaction
-        .max_fee_per_gas()
-        .checked_mul(U256::from(tx_gas_limit))
-        .ok_or(internal_error!("max gas price by tx gas limit"))?;
+    let worst_case_fee_amount = {
+        let (value, of) = u256_mul_by_word(transaction.max_fee_per_gas(), tx_gas_limit);
+        if of > 0 {
+            return Err(internal_error!("max gas price by tx gas limit").into());
+        }
 
-    debug_assert!(transaction.max_fee_per_gas() >= &gas_price);
+        value
+    };
+
+    let fee_for_blob_gas = if blob_gas_used > 0 {
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Blob gas price = {}\n",
+            &system.metadata.blob_base_fee_per_gas()
+        ));
+
+        let (value, of) = u256_mul_by_word(&system.metadata.blob_base_fee_per_gas(), blob_gas_used);
+        if of > 0 {
+            return Err(internal_error!("blob gas price by blob gas used").into());
+        }
+
+        value
+    } else {
+        U256::ZERO
+    };
+
+    debug_assert!(transaction.max_fee_per_gas() >= &effective_gas_price);
 
     // Balance check - originator must cover fee prepayment plus whatever "value" it would like to send along
     let tx_value = transaction.value();
-    let total_required_balance = tx_value
-        .checked_add(U256::from(worst_case_fee_amount))
+
+    let mut total_required_balance = tx_value
+        .checked_add(worst_case_fee_amount)
         .ok_or(internal_error!("transaction amount + fee"))?;
+    total_required_balance = total_required_balance
+        .checked_add(fee_for_blob_gas)
+        .ok_or(internal_error!("transaction amount + fee + blob gas"))?;
     if total_required_balance > originator_account_data.nominal_token_balance.0 {
         return Err(TxError::Validation(
             InvalidTransaction::LackOfFundForMaxFee {
@@ -641,22 +777,38 @@ where
     }
 
     // But the fee to charge is based on current block context, and not worst case of max fee (backward-compatible manner)
-    let fee_amount = gas_price
-        .checked_mul(U256::from(tx_gas_limit))
-        .ok_or(internal_error!("gas price by tx gas limit"))?;
+    let fee_amount_execution_gas = {
+        let (value, of) = u256_mul_by_word(&effective_gas_price, tx_gas_limit);
+        if of > 0 {
+            return Err(internal_error!("effective gas price by tx gas limit").into());
+        }
+
+        value
+    };
+
+    let total_fee = fee_amount_execution_gas
+        .checked_add(fee_for_blob_gas)
+        .ok_or(internal_error!("transaction fee + blob gas"))?;
 
     let tx_hash = *transaction.transaction_hash();
 
+    let tx_level_metadata = EthereumTransactionMetadata {
+        tx_gas_price: effective_gas_price,
+        tx_origin: *transaction.signer(),
+        blobs,
+    };
+
     let context = EthereumTxContext::<S> {
         resources: tx_resources,
-        fee_to_prepay: fee_amount,
-        gas_price_for_metadata: gas_price,
-        gas_price_for_fee_commitment,
+        fee_to_prepay: total_fee,
+        priority_fee_per_gas,
         minimal_gas_to_charge: minimal_gas_used,
         originator_nonce_to_use: old_nonce,
         tx_hash,
         tx_gas_limit,
         gas_used: 0,
+        blob_gas_used,
+        tx_level_metadata,
     };
 
     Ok((context, transaction))

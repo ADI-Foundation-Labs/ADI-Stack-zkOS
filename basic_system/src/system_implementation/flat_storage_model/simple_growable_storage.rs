@@ -1294,7 +1294,9 @@ pub fn recompute_root_from_proof<const N: usize, H: FlatStorageHasher, A: Alloca
 
     let mut current = leaf_hash;
     let mut index = proof.index;
-    for path in proof.path.iter() {
+    let path_ref: &[Bytes32] = &*proof.path;
+    for path in path_ref.iter() {
+        let path: &Bytes32 = path;
         let (left, right) = if index & 1 == 0 {
             // current is left
             (&current, path)

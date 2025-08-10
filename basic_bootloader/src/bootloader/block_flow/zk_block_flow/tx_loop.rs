@@ -1,9 +1,13 @@
 use super::*;
 use crate::bootloader::block_flow::tx_loop::TxLoopOp;
+use zk_ee::metadata_markers::basic_metadata::BasicMetadata;
+use zk_ee::metadata_markers::basic_metadata::ZkSpecificPricingMetadata;
 
 impl<S: EthereumLikeTypes> TxLoopOp<S> for ZKHeaderStructureTxLoop
 where
     S::IO: IOSubsystemExt,
+    S::Metadata: ZkSpecificPricingMetadata,
+    <S::Metadata as BasicMetadata<S::IOTypes>>::TransactionMetadata: From<(B160, U256)>,
 {
     type BlockData = ZKBasicTransactionDataKeeper;
 

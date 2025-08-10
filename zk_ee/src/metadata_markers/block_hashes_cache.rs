@@ -1,6 +1,7 @@
 use super::*;
-use crate::kv_markers::*;
+use crate::basic_queries::HistoricalHashQuery;
 use crate::system::errors::internal::InternalError;
+use crate::system_io_oracle::{IOOracle, SimpleOracleQuery};
 use crate::utils::Bytes32;
 pub struct BlockHashMetadataRequest;
 
@@ -25,29 +26,30 @@ impl Default for BlockHashesCache {
     }
 }
 
-impl UsizeSerializable for BlockHashesCache {
-    const USIZE_LEN: usize = <Bytes32 as UsizeSerializable>::USIZE_LEN * 256;
+impl BlockHashesCache {
+    pub fn from_oracle(oracle: &mut impl IOOracle) -> Result<Self, InternalError> {
+        let mut new = Self::default();
+        for (depth, dst) in new.cache.iter_mut().enumerate() {
+            *dst = HistoricalHashQuery::get(oracle, &(depth as u32))?;
+        }
 
-    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
-        ExactSizeChainN::<_, _, 256>::new(
-            core::iter::empty(),
-            core::array::from_fn(|i| Some(self.cache[i].iter())),
-        )
+        Ok(new)
+    }
+
+    pub fn cache_entry(&self, depth: usize) -> &Bytes32 {
+        &self.cache[depth]
+    }
+
+    pub fn num_elements_to_verify(&self) -> usize {
+        if self.deepest_accessed == u32::MAX {
+            0
+        } else {
+            (self.deepest_accessed + 1) as usize
+        }
     }
 }
 
-impl UsizeDeserializable for BlockHashesCache {
-    const USIZE_LEN: usize = <Self as UsizeSerializable>::USIZE_LEN;
-
-    fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
-        Ok(Self {
-            cache: core::array::try_from_fn(|_| Bytes32::from_iter(src))?,
-            deepest_accessed: u32::MAX,
-        })
-    }
-}
-
-impl MetadataResponder for BlockHashesCache {
+impl DynamicMetadataResponder for BlockHashesCache {
     #[inline(always)]
     fn can_respond<M: MetadataRequest>() -> bool {
         if core::any::TypeId::of::<M>() == core::any::TypeId::of::<BlockHashMetadataRequest>() {

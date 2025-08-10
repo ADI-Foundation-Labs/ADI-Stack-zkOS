@@ -26,7 +26,7 @@ zksync_os_api = { path = "../../api" }
 
 prover_examples = { workspace = true, optional = true}
 
-alloy = { version = "1", features = ["full", "eip712", "consensus"]}
+alloy = { version = "1", features = ["rlp", "full"] }
 alloy-primitives = { version = "1", features = ["arbitrary"] }
 alloy-rpc-types-debug = { version = "*", default-features = false }
 alloy-rlp = { version = "*" }

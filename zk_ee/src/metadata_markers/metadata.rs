@@ -1,5 +1,5 @@
 use super::basic_metadata::*;
-use super::*;
+use super::{DynamicMetadataResponder, MetadataRequest};
 use crate::types_config::SystemIOTypesConfig;
 use crate::utils::Bytes32;
 use ruint::aliases::U256;
@@ -8,11 +8,11 @@ pub struct SystemMetadata<
     IOTypes: SystemIOTypesConfig,
     B: BasicBlockMetadata<IOTypes>,
     TX: BasicTransactionMetadata<IOTypes>,
-    T,
+    T: DynamicMetadataResponder = (),
 > {
     pub block_level: B,
     pub tx_level: TX,
-    pub other: T,
+    pub dynamic_part: T,
     pub _marker: core::marker::PhantomData<IOTypes>,
 }
 
@@ -20,7 +20,7 @@ impl<
         IOTypes: SystemIOTypesConfig,
         B: BasicBlockMetadata<IOTypes>,
         TX: BasicTransactionMetadata<IOTypes>,
-        T,
+        T: DynamicMetadataResponder,
     > BasicBlockMetadata<IOTypes> for SystemMetadata<IOTypes, B, TX, T>
 {
     fn chain_id(&self) -> u64 {
@@ -56,8 +56,8 @@ impl<
     fn blobs_gas_limit(&self) -> u64 {
         self.block_level.blobs_gas_limit()
     }
-    fn blob_basefee(&self) -> U256 {
-        self.block_level.blob_basefee()
+    fn blob_base_fee_per_gas(&self) -> U256 {
+        self.block_level.blob_base_fee_per_gas()
     }
 }
 
@@ -65,18 +65,18 @@ impl<
         IOTypes: SystemIOTypesConfig,
         B: BasicBlockMetadata<IOTypes>,
         TX: BasicTransactionMetadata<IOTypes>,
-        T,
+        T: DynamicMetadataResponder,
     > BasicTransactionMetadata<IOTypes> for SystemMetadata<IOTypes, B, TX, T>
 {
-    fn origin(&self) -> IOTypes::Address {
-        self.tx_level.origin()
+    fn tx_origin(&self) -> IOTypes::Address {
+        self.tx_level.tx_origin()
     }
     fn tx_gas_price(&self) -> U256 {
         self.tx_level.tx_gas_price()
     }
-    fn tx_gas_limit(&self) -> u64 {
-        self.tx_level.tx_gas_limit()
-    }
+    // fn tx_gas_limit(&self) -> u64 {
+    //     self.tx_level.tx_gas_limit()
+    // }
     fn num_blobs(&self) -> usize {
         self.tx_level.num_blobs()
     }
@@ -89,11 +89,27 @@ impl<
         IOTypes: SystemIOTypesConfig,
         B: BasicBlockMetadata<IOTypes>,
         TX: BasicTransactionMetadata<IOTypes>,
-        T,
+        T: DynamicMetadataResponder,
     > BasicMetadata<IOTypes> for SystemMetadata<IOTypes, B, TX, T>
 {
     type TransactionMetadata = TX;
     fn set_transaction_metadata(&mut self, tx_level_metadata: Self::TransactionMetadata) {
         self.tx_level = tx_level_metadata;
+    }
+}
+
+impl<
+        IOTypes: SystemIOTypesConfig,
+        B: BasicBlockMetadata<IOTypes>,
+        TX: BasicTransactionMetadata<IOTypes>,
+        T: DynamicMetadataResponder,
+    > DynamicMetadataResponder for SystemMetadata<IOTypes, B, TX, T>
+{
+    #[inline(always)]
+    fn can_respond<M: MetadataRequest>() -> bool {
+        T::can_respond::<M>()
+    }
+    fn get_metadata_with_bookkeeping<M: MetadataRequest>(&mut self, input: M::Input) -> M::Output {
+        self.dynamic_part.get_metadata_with_bookkeeping::<M>(input)
     }
 }

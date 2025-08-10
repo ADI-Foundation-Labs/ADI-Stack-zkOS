@@ -3,8 +3,11 @@ use crate::bootloader::errors::InvalidTransaction;
 use crate::bootloader::{transaction::ZkSyncTransaction, transaction_flow::BasicTransactionFlow};
 use crate::bootloader::{BasicBootloader, TxDataBuffer};
 use core::fmt::Write;
+use ruint::aliases::B160;
 use ruint::aliases::U256;
 use zk_ee::internal_error;
+use zk_ee::metadata_markers::basic_metadata::BasicMetadata;
+use zk_ee::metadata_markers::basic_metadata::ZkSpecificPricingMetadata;
 use zk_ee::out_of_native_resources;
 use zk_ee::system::errors::root_cause::GetRootCause;
 use zk_ee::system::errors::root_cause::RootCause;
@@ -122,6 +125,8 @@ impl<S: EthereumLikeTypes> core::fmt::Debug for TxContextForPreAndPostProcessing
 impl<S: EthereumLikeTypes> BasicTransactionFlow<S> for ZkTransactionFlowOnlyEOA<S>
 where
     S::IO: IOSubsystemExt,
+    S::Metadata: ZkSpecificPricingMetadata,
+    <S::Metadata as BasicMetadata<S::IOTypes>>::TransactionMetadata: From<(B160, U256)>,
 {
     type Transaction<'a> = ZkSyncTransaction<'a>;
     type TransactionContext = TxContextForPreAndPostProcessing<S>;
@@ -254,7 +259,7 @@ where
         let initial_resources = context.resources.main_resources.clone();
         context.initial_resources = initial_resources;
 
-        system.set_tx_context(transaction.from.read(), context.gas_price_for_metadata);
+        system.set_tx_context((transaction.from.read(), context.gas_price_for_metadata).into());
 
         Ok(())
     }
@@ -272,7 +277,10 @@ where
             Self::ExecutionBodyExtraData,
         ),
         BootloaderSubsystemError,
-    > {
+    >
+    where
+        S: 'a,
+    {
         // Take a snapshot in case we need to revert due to out of native.
         let main_body_rollback_handle = system.start_global_frame()?;
 
@@ -541,6 +549,8 @@ where
 impl<S: EthereumLikeTypes> ZkTransactionFlowOnlyEOA<S>
 where
     S::IO: IOSubsystemExt,
+    S::Metadata: ZkSpecificPricingMetadata,
+    <S::Metadata as BasicMetadata<S::IOTypes>>::TransactionMetadata: From<(B160, U256)>,
 {
     fn execute_call<'a, Config: BasicBootloaderExecutionConfig>(
         system: &mut System<S>,
@@ -549,7 +559,10 @@ where
         transaction: &<Self as BasicTransactionFlow<S>>::Transaction<'_>,
         context: &mut <Self as BasicTransactionFlow<S>>::TransactionContext,
         tracer: &mut impl Tracer<S>,
-    ) -> Result<TxExecutionResult<'a, S>, BootloaderSubsystemError> {
+    ) -> Result<TxExecutionResult<'a, S>, BootloaderSubsystemError>
+    where
+        S: 'a,
+    {
         let from = transaction.from.read();
         let main_calldata = transaction.calldata();
         let to = transaction.to.read();
@@ -597,7 +610,10 @@ where
         context: &mut <Self as BasicTransactionFlow<S>>::TransactionContext,
         to_ee_type: ExecutionEnvironmentType,
         tracer: &mut impl Tracer<S>,
-    ) -> Result<TxExecutionResult<'a, S>, BootloaderSubsystemError> {
+    ) -> Result<TxExecutionResult<'a, S>, BootloaderSubsystemError>
+    where
+        S: 'a,
+    {
         use crate::bootloader::runner::run_till_completion;
         use crate::bootloader::supported_ees::SystemBoundEVMInterpreter;
 
@@ -688,6 +704,8 @@ where
         context: &mut <Self as BasicTransactionFlow<S>>::TransactionContext,
         tracer: &mut impl Tracer<S>,
     ) -> Result<(ExecutionResult<'a, S::IOTypes>, (u64, S::Resources)), BootloaderSubsystemError>
+    where
+        S: 'a,
     {
         let _ = system
             .get_logger()

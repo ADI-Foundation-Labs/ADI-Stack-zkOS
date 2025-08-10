@@ -1,6 +1,7 @@
 use crate::prestate::*;
 use crate::receipts::TransactionReceipt;
 use alloy::hex;
+use alloy_rpc_types_eth::Withdrawal;
 use rig::forward_system::run::BlockOutput;
 use rig::log::{error, info};
 use ruint::aliases::{B160, B256, U256};
@@ -121,6 +122,7 @@ impl DiffTrace {
         output: BlockOutput,
         prestate_cache: Cache,
         miner: B160,
+        withdrawals: &[Withdrawal],
     ) -> Result<(), PostCheckError> {
         let diffs = self.collect_diffs(&prestate_cache, miner);
         let zksync_os_diffs = zksync_os_output_into_account_state(output, &prestate_cache)?;
@@ -222,6 +224,7 @@ impl DiffTrace {
                             address,
                             acc,
                             &prestate_cache,
+                            withdrawals,
                         ) {
                             error!(
                                 "Reference must have write for account {} {:?}",
@@ -242,6 +245,7 @@ fn zksync_os_diff_consistent_with_selfdestruct(
     address: &B160,
     acc: &AccountState,
     prestate_cache: &Cache,
+    _withdrawals: &[Withdrawal],
 ) -> bool {
     let diff_is_empty = acc.balance.is_none_or(|b| b.is_zero())
         && acc.nonce.is_none_or(|n| n == 0)
@@ -255,6 +259,7 @@ fn zksync_os_diff_consistent_with_selfdestruct(
                 && pre.nonce.is_none_or(|n| n == 0)
         })
     };
+
     diff_is_empty && prestate_can_be_deployed()
 }
 
@@ -355,6 +360,7 @@ pub fn post_check(
     diff_trace: DiffTrace,
     prestate_cache: Cache,
     miner: B160,
+    withdrawals: &[Withdrawal],
 ) -> Result<(), PostCheckError> {
     assert_eq!(receipts.len(), output.tx_results.len());
 
@@ -438,7 +444,7 @@ pub fn post_check(
         }
     }
 
-    diff_trace.check_storage_writes(output, prestate_cache, miner)?;
+    diff_trace.check_storage_writes(output, prestate_cache, miner, withdrawals)?;
 
     info!("All good!");
     Ok(())

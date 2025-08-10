@@ -1,17 +1,25 @@
 use super::*;
+use alloy::consensus::Header;
+use basic_bootloader::bootloader::block_flow::ethereum_block_flow::oracle_queries::{
+    ETHEREUM_TARGET_HEADER_BUFFER_DATA_QUERY_ID, ETHEREUM_TARGET_HEADER_BUFFER_LEN_QUERY_ID,
+};
 use oracle_provider::OracleQueryProcessor;
-use zk_ee::system_io_oracle::INITIAL_STATE_COMMITTMENT_QUERY_ID;
+use zk_ee::oracle::ReadIterWrapper;
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub struct EthereumHeaderLikeResponder {
-    pub initial_state_root: Bytes32,
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct EthereumTargetBlockHeaderResponder {
+    pub target_header: Header,
+    pub target_header_encoding: Vec<u8>,
 }
 
-impl EthereumHeaderLikeResponder {
-    const SUPPORTED_QUERY_IDS: &[u32] = &[INITIAL_STATE_COMMITTMENT_QUERY_ID];
+impl EthereumTargetBlockHeaderResponder {
+    const SUPPORTED_QUERY_IDS: &[u32] = &[
+        ETHEREUM_TARGET_HEADER_BUFFER_LEN_QUERY_ID,
+        ETHEREUM_TARGET_HEADER_BUFFER_DATA_QUERY_ID,
+    ];
 }
 
-impl<M: MemorySource> OracleQueryProcessor<M> for EthereumHeaderLikeResponder {
+impl<M: MemorySource> OracleQueryProcessor<M> for EthereumTargetBlockHeaderResponder {
     fn supported_query_ids(&self) -> Vec<u32> {
         Self::SUPPORTED_QUERY_IDS.to_vec()
     }
@@ -28,6 +36,18 @@ impl<M: MemorySource> OracleQueryProcessor<M> for EthereumHeaderLikeResponder {
     ) -> Box<dyn ExactSizeIterator<Item = usize> + 'static> {
         assert!(Self::SUPPORTED_QUERY_IDS.contains(&query_id));
 
-        DynUsizeIterator::from_constructor(self.initial_state_root, UsizeSerializable::iter)
+        match query_id {
+            ETHEREUM_TARGET_HEADER_BUFFER_LEN_QUERY_ID => DynUsizeIterator::from_constructor(
+                self.target_header_encoding.len() as u32,
+                UsizeSerializable::iter,
+            ),
+            ETHEREUM_TARGET_HEADER_BUFFER_DATA_QUERY_ID => DynUsizeIterator::from_constructor(
+                self.target_header_encoding.clone(),
+                |inner_ref| ReadIterWrapper::from(inner_ref.iter().copied()),
+            ),
+            _ => {
+                unreachable!()
+            }
+        }
     }
 }

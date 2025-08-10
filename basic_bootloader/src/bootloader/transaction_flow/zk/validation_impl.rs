@@ -14,6 +14,7 @@ use ruint::aliases::{B160, U256};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::internal_error;
 use zk_ee::memory::ArrayBuilder;
+use zk_ee::metadata_markers::basic_metadata::ZkSpecificPricingMetadata;
 use zk_ee::system::errors::interface::InterfaceError;
 use zk_ee::system::errors::runtime::RuntimeError;
 use zk_ee::system::errors::subsystem::SubsystemError;
@@ -31,7 +32,10 @@ fn create_resources_for_tx<S: EthereumLikeTypes>(
     intrinsic_gas: u64,
     intrinsic_pubdata: u64,
     intrinsic_native: u64,
-) -> Result<ResourcesForTx<S>, TxError> {
+) -> Result<ResourcesForTx<S>, TxError>
+where
+    S::Metadata: ZkSpecificPricingMetadata,
+{
     // This is the real limit, which we later use to compute native_used.
     // From it, we discount intrinsic pubdata and then take the min
     // with the MAX_NATIVE_COMPUTATIONAL.
@@ -143,6 +147,7 @@ pub(crate) fn validate_and_compute_fee_for_transaction<
 ) -> Result<TxContextForPreAndPostProcessing<S>, TxError>
 where
     S::IO: IOSubsystemExt,
+    S::Metadata: ZkSpecificPricingMetadata,
 {
     // NOTE: this function checks the transaction validity a-la Ethereum one,
     // but also takes into account ZK/L2 specific pieces, such as pubdata in state-diffs model,

@@ -15,11 +15,15 @@ mod post_tx_op_proving;
 mod post_tx_op_batch_proving;
 
 mod block_data;
+mod metadata_op;
+mod post_init_op;
 mod post_tx_op_sequencing;
 mod pre_tx_loop;
 mod tx_loop;
 
 pub use self::block_data::*;
+
+pub struct ZKHeaderPostInitOp;
 
 pub struct ZKHeaderStructurePreTxOp;
 

@@ -1,4 +1,6 @@
-use crate::bootloader::block_flow::{PostTxLoopOp, PreTxLoopOp, TxLoopOp};
+use crate::bootloader::block_flow::{
+    MetadataInitOp, PostSystemInitOp, PostTxLoopOp, PreTxLoopOp, TxLoopOp,
+};
 use zk_ee::types_config::EthereumIOTypesConfig;
 
 use super::*;
@@ -8,6 +10,8 @@ where
     <Self as SystemTypes>::IO: IOSubsystemExt + IOTeardown<Self::IOTypes>,
 {
     type BlockDataKeeper;
+    type MetadataOp: MetadataInitOp<Self>;
+    type PostSystemInitOp: PostSystemInitOp<Self>;
     type PreTxLoopOp: PreTxLoopOp<Self, PreTxLoopResult = Self::BlockDataKeeper>;
     type TxLoopOp: TxLoopOp<Self, BlockData = Self::BlockDataKeeper>;
     type PostTxLoopOp: PostTxLoopOp<Self, BlockData = Self::BlockDataKeeper>;

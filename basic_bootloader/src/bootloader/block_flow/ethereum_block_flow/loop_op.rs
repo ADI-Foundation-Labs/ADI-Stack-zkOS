@@ -3,7 +3,7 @@ use crate::bootloader::block_flow::generic_tx_loop::generic_loop_op;
 use crate::bootloader::block_flow::tx_loop::TxLoopOp;
 use crate::bootloader::transaction_flow::ethereum::EthereumTransactionFlow;
 
-impl<S: EthereumLikeTypes> TxLoopOp<S> for EthereumLoopOp
+impl<S: EthereumLikeTypes<Metadata = EthereumBlockMetadata>> TxLoopOp<S> for EthereumLoopOp
 where
     S::IO: IOSubsystemExt + IOTeardown<S::IOTypes>,
 {

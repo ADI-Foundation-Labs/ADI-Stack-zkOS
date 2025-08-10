@@ -410,6 +410,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
             return Ok(());
         }
         let (_, new_root) = self.get_node_key(self.root, interner, hasher)?;
+
         self.interned_root_node_key = new_root;
 
         Ok(())

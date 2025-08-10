@@ -19,6 +19,7 @@ impl<
                 EthereumStorageModel<A, R, P, SC, N, true>,
                 true,
             >,
+            Metadata = EthereumBlockMetadata,
         >,
     > PostTxLoopOp<S> for EthereumPostOp<true>
 where

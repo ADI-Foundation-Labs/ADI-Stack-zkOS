@@ -29,8 +29,10 @@ rand = {version = "0.9.0", optional = true}
 strum_macros = "0.27.1"
 paste = "1.0.15"
 
+hex = { version = "*", optional = true }
+
 [features]
-testing = ["zk_ee/testing", "evm_interpreter/testing", "ruint/serde", "rand", "crypto/testing"]
+testing = ["zk_ee/testing", "evm_interpreter/testing", "ruint/serde", "rand", "crypto/testing", "hex"]
 evm-compatibility = []
 default = ["testing"]
 cycle_marker = ["cycle_marker/log_to_file"]
@@ -39,7 +41,7 @@ proving = ["crypto/proving"]
 evm_refunds = []
 
 [dev-dependencies]
-hex = {version = "0.4.3"}
+hex = "*"
 proptest = "1.6.0"
 crypto = { path = "../crypto", default-features = false, features = ["secp256k1-static-context", "testing"]}
 num-bigint = "*"

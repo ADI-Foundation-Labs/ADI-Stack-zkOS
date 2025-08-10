@@ -37,6 +37,14 @@ pub(crate) struct EncodedList<'a> {
 }
 
 impl<'a> Parser<'a> {
+    pub unsafe fn pos(&self) -> *const u8 {
+        self.slice.as_ptr()
+    }
+
+    pub unsafe fn consumed_slice(&self, start: *const u8) -> &'a [u8] {
+        unsafe { core::slice::from_ptr_range(start..self.slice.as_ptr()) }
+    }
+
     pub(crate) fn new(slice: &'a [u8]) -> Self {
         Self { slice }
     }
@@ -211,6 +219,16 @@ impl<'a> FixedLenScalar<'a> for RLPZeroInteger {
 }
 
 pub trait RLPParsable<'a>: Sized {
+    fn try_parse_slice_in_full(input: &'a [u8]) -> Result<Self, ()> {
+        let mut parser = Parser::new(input);
+        let new = Self::try_parse(&mut parser)?;
+        if parser.is_empty() {
+            Ok(new)
+        } else {
+            Err(())
+        }
+    }
+
     fn try_parse(parser: &mut Parser<'a>) -> Result<Self, ()>;
 }
 

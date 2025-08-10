@@ -1,11 +1,16 @@
 use crate::block::Block;
 use crate::block_hashes::BlockHashes;
 use crate::calltrace::CallTrace;
+use crate::dump_utils::AccountStateDiffs;
 use crate::native_model::compute_ratio;
 use crate::post_check::post_check;
 use crate::prestate::{populate_prestate, DiffTrace, PrestateTrace};
 use crate::receipts::{BlockReceipts, TransactionReceipt};
+use alloy::consensus::Header;
+use alloy::eips::eip4844::BlobTransactionSidecarItem;
 use alloy_primitives::U256;
+use alloy_rlp::Encodable;
+use alloy_rpc_types_eth::Withdrawal;
 use rig::log::info;
 use rig::*;
 use std::fs::{self, File};
@@ -24,6 +29,7 @@ fn run<const RANDOMIZED: bool>(
     calltrace: CallTrace,
     block_hashes: Option<BlockHashes>,
     witness_output_dir: Option<String>,
+    withdrawals: &[Withdrawal],
 ) -> anyhow::Result<()> {
     chain.set_last_block_number(block_number - 1);
 
@@ -61,6 +67,7 @@ fn run<const RANDOMIZED: bool>(
         diff_trace,
         prestate_cache,
         ruint::aliases::B160::from_be_bytes(miner.into()),
+        withdrawals,
     )
     .unwrap();
 
@@ -70,7 +77,7 @@ fn run<const RANDOMIZED: bool>(
 #[allow(clippy::too_many_arguments)]
 fn eth_run(
     mut chain: Chain<false>,
-    block_context: BlockContext,
+    header: Header,
     block_number: u64,
     miner: alloy::primitives::Address,
     ps_trace: PrestateTrace,
@@ -80,6 +87,10 @@ fn eth_run(
     calltrace: CallTrace,
     block_hashes: Vec<U256>,
     witness: alloy_rpc_types_debug::ExecutionWitness,
+    withdrawals: &[Withdrawal],
+    withdrawals_encoding: Vec<u8>,
+    account_diffs: Vec<AccountStateDiffs>,
+    blobs: Vec<BlobTransactionSidecarItem>,
 ) -> anyhow::Result<()> {
     chain.set_last_block_number(block_number - 1);
 
@@ -87,14 +98,58 @@ fn eth_run(
 
     let prestate_cache = populate_prestate(&mut chain, ps_trace, &calltrace);
 
-    let output = chain.run_eth_block(transactions, witness, Some(block_context));
+    let mut result_keeper =
+        chain.run_eth_block(transactions, witness, header, withdrawals_encoding, blobs);
 
+    for el in account_diffs.into_iter() {
+        use ruint::aliases::B160;
+        // use crate::prestate::BitsOrd160;
+        use basic_system::system_implementation::cache_structs::BitsOrd160;
+        let address = B160::from_be_bytes(el.address.0 .0);
+        let Some(output) = result_keeper
+            .account_encodings
+            .remove(&BitsOrd160::from(address))
+        else {
+            use crate::single_run::log::error;
+            error!(
+                "No account leaf encoding for 0x{}",
+                hex::encode(el.address.0 .0)
+            );
+            // panic!("No account leaf encoding for {}", &el.address);
+            continue;
+        };
+        if hex::decode(&el.post_leaf_encoding[2..])
+            .unwrap()
+            .ends_with(&output)
+            == false
+        {
+            use crate::single_run::log::error;
+            error!(
+                "Expected leaf encoding for 0x{} is\n{}\nbut output contains\n0x{}",
+                hex::encode(el.address.0 .0),
+                &el.post_leaf_encoding,
+                hex::encode(&output),
+            );
+            // panic!(
+            //     "Expected leaf encoding for 0x{} is\n{}\nbut output contains\n0x{}",
+            //     hex::encode(el.address.0.0),
+            //     &el.post_leaf_encoding,
+            //     hex::encode(&output),
+            // );
+        } else {
+            use crate::single_run::log::info;
+            info!("Account leaf data matches for {}", &el.address);
+        }
+    }
+
+    let output = result_keeper.into();
     post_check(
         output,
         receipts,
         diff_trace,
         prestate_cache,
         ruint::aliases::B160::from_be_bytes(miner.into()),
+        withdrawals,
     )
     .unwrap();
 
@@ -136,6 +191,8 @@ pub fn single_run(
     let miner = block.result.header.beneficiary;
 
     let block_context = block.get_block_context();
+    // let withdrawals = block.result.withdrawals.clone().map(|el| el.0).unwrap_or_default();
+    let withdrawals = vec![];
     let (transactions, skipped) = block.get_transactions(&calltrace);
 
     let receipts = receipts
@@ -186,6 +243,7 @@ pub fn single_run(
             calltrace,
             block_hashes,
             witness_output_dir,
+            &withdrawals,
         )
     } else {
         let chain = Chain::empty(Some(1));
@@ -201,8 +259,15 @@ pub fn single_run(
             calltrace,
             block_hashes,
             witness_output_dir,
+            &withdrawals,
         )
     }
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+struct BlobTransactionQuasiSidecarItem {
+    pub kzg_commitment: alloy_primitives::FixedBytes<48>,
+    pub kzg_proof: alloy_primitives::FixedBytes<48>,
 }
 
 pub fn single_eth_run(block_dir: String, chain_id: Option<u64>) -> anyhow::Result<()> {
@@ -239,9 +304,40 @@ pub fn single_eth_run(block_dir: String, chain_id: Option<u64>) -> anyhow::Resul
     // assert!(block.result.header.gas_used <= 11_000_000);
     let miner = block.result.header.beneficiary;
 
-    let block_context = block.get_block_context();
-    // let (transactions, skipped) = block.get_transactions(&calltrace);
+    let account_diffs_file = File::open(dir.join("account_diffs.json"))?;
+    let account_diffs: Vec<AccountStateDiffs> = serde_json::from_reader(account_diffs_file)?;
+
+    let blobs_file = File::open(dir.join("blobs.json"))?;
+    let blobs: Vec<BlobTransactionQuasiSidecarItem> = serde_json::from_reader(blobs_file)?;
+
+    let blobs: Vec<BlobTransactionSidecarItem> = blobs
+        .into_iter()
+        .enumerate()
+        .map(|(idx, el)| BlobTransactionSidecarItem {
+            index: idx as u64,
+            blob: Box::default(),
+            kzg_commitment: el.kzg_commitment,
+            kzg_proof: el.kzg_proof,
+        })
+        .collect();
+
+    let header = block.result.header.clone().into();
+    let withdrawals = block
+        .result
+        .withdrawals
+        .clone()
+        .map(|el| el.0)
+        .unwrap_or_default();
+    let withdrawals_encoding = if let Some(withdrawals) = block.result.withdrawals.clone() {
+        let mut buff = vec![];
+        withdrawals.encode(&mut buff);
+
+        buff
+    } else {
+        Vec::new()
+    };
     let (transactions, skipped) = block.get_raw_transactions(&calltrace);
+    assert!(skipped.is_empty());
 
     let receipts: Vec<TransactionReceipt> = receipts
         .result
@@ -282,7 +378,7 @@ pub fn single_eth_run(block_dir: String, chain_id: Option<u64>) -> anyhow::Resul
     let chain = Chain::empty(chain_id);
     eth_run(
         chain,
-        block_context,
+        header,
         block_number,
         miner,
         ps_trace,
@@ -292,5 +388,9 @@ pub fn single_eth_run(block_dir: String, chain_id: Option<u64>) -> anyhow::Resul
         calltrace,
         block_hashes,
         witness,
+        &withdrawals,
+        withdrawals_encoding,
+        account_diffs,
+        blobs,
     )
 }

@@ -590,6 +590,32 @@ pub trait ETHMPTInternerExt<'a>: Interner<'a> {
     ) -> Result<&'a [u8], ()> {
         self.make_leaf_key_for_value(&[], value, hasher)
     }
+
+    fn make_unreferenced_branch_value_key(
+        &mut self,
+        pre_encoded_value: &[u8],
+        hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
+    ) -> Result<&'a [u8], ()> {
+        let total_len = pre_encoded_value.len();
+        if total_len < 32 {
+            let mut buffer = self.get_buffer(total_len)?;
+            let writer = &mut buffer;
+            writer.write_slice(pre_encoded_value);
+            let result = buffer.flush();
+
+            Ok(result)
+        } else {
+            let writer = hasher;
+            writer.write_slice(pre_encoded_value);
+            let key = writer.finalize_reset();
+
+            let mut buffer = self.get_buffer(33)?;
+            buffer.write_byte(0x80 + 32);
+            buffer.write_slice(key.as_ref());
+
+            Ok(buffer.flush())
+        }
+    }
 }
 
 // Default impl

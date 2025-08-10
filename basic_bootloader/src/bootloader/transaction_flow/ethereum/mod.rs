@@ -1,9 +1,13 @@
 use super::*;
+use crate::bootloader::block_flow::ethereum_block_flow::EthereumBlockMetadata;
+use crate::bootloader::block_flow::ethereum_block_flow::*;
 use crate::bootloader::errors::InvalidTransaction;
+use crate::bootloader::transaction::ethereum_tx_format::EthereumTransactionMetadata;
 use crate::bootloader::transaction::ethereum_tx_format::EthereumTransactionWithBuffer;
 use crate::bootloader::transaction_flow::BasicTransactionFlow;
 use crate::bootloader::BasicBootloader;
 use core::fmt::Write;
+use core::ptr::addr_of_mut;
 use crypto::MiniDigest;
 use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::U256;
@@ -74,12 +78,25 @@ impl<'a> MinimalTransactionOutput<'a> for EthereumTxResult<'a> {
 
 mod validation_impl;
 
-#[derive(Clone, Copy, Debug, Default)]
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct LogsBloom {
     inner: [u64; 32], // blindly the capacity for 2048 bits, treated as BE integer all together
 }
 
 impl LogsBloom {
+    pub fn from_bytes(input: &[u8; 256]) -> Self {
+        unsafe {
+            let mut result = core::mem::MaybeUninit::<Self>::uninit();
+            core::ptr::write(
+                addr_of_mut!((*result.as_mut_ptr()).inner).cast::<[u8; 256]>(),
+                *input,
+            );
+
+            result.assume_init()
+        }
+    }
+
     pub fn as_bytes(&self) -> &[u8; 256] {
         // We are overaligned and continuous
         unsafe { core::mem::transmute(self) }
@@ -154,12 +171,13 @@ pub struct EthereumTxContext<S: EthereumLikeTypes> {
     pub resources: ResourcesForEthereumTx<S>,
     pub tx_hash: Bytes32,
     pub fee_to_prepay: U256,
-    pub gas_price_for_metadata: U256,
-    pub gas_price_for_fee_commitment: U256,
+    pub priority_fee_per_gas: U256,
     pub minimal_gas_to_charge: u64,
     pub originator_nonce_to_use: u64,
     pub tx_gas_limit: u64,
     pub gas_used: u64,
+    pub blob_gas_used: u64,
+    pub tx_level_metadata: EthereumTransactionMetadata<{ MAX_BLOBS_IN_TX }>,
 }
 
 impl<S: EthereumLikeTypes> core::fmt::Debug for EthereumTxContext<S> {
@@ -168,20 +186,19 @@ impl<S: EthereumLikeTypes> core::fmt::Debug for EthereumTxContext<S> {
             .field("resources", &self.resources)
             .field("tx_hash", &self.tx_hash)
             .field("fee_to_prepay", &self.fee_to_prepay)
-            .field("gas_price_for_metadata", &self.gas_price_for_metadata)
-            .field(
-                "gas_price_for_fee_commitment",
-                &self.gas_price_for_fee_commitment,
-            )
+            .field("priority_fee_per_gas", &self.priority_fee_per_gas)
             .field("minimal_gas_to_charge", &self.minimal_gas_to_charge)
             .field("originator_nonce_to_use", &self.originator_nonce_to_use)
             .field("tx_gas_limit", &self.tx_gas_limit)
             .field("gas_used", &self.gas_used)
+            .field("blob_gas_used", &self.blob_gas_used)
+            .field("tx_level_metadata", &self.tx_level_metadata)
             .finish()
     }
 }
 
-impl<S: EthereumLikeTypes> BasicTransactionFlow<S> for EthereumTransactionFlow<S>
+impl<S: EthereumLikeTypes<Metadata = EthereumBlockMetadata>> BasicTransactionFlow<S>
+    for EthereumTransactionFlow<S>
 where
     S::IO: IOSubsystemExt,
 {
@@ -309,7 +326,8 @@ where
         let value = context.fee_to_prepay;
 
         let _ = system.get_logger().write_fmt(format_args!(
-            "Will precharge {:?} native tokens for transaction\n",
+            "Will precharge 0x{:040x} with {:?} native tokens for transaction\n",
+            from.as_uint(),
             &value
         ));
 
@@ -349,11 +367,11 @@ where
 
     fn before_execute_transaction_payload<'a>(
         system: &mut System<S>,
-        transaction: &Self::Transaction<'a>,
+        _transaction: &Self::Transaction<'a>,
         context: &mut Self::TransactionContext,
         _tracer: &mut impl Tracer<S>,
     ) -> Result<(), TxError> {
-        system.set_tx_context(*transaction.signer(), context.gas_price_for_metadata);
+        system.set_tx_context(context.tx_level_metadata.clone());
 
         Ok(())
     }
@@ -371,7 +389,10 @@ where
             Self::ExecutionBodyExtraData,
         ),
         BootloaderSubsystemError,
-    > {
+    >
+    where
+        S: 'a,
+    {
         // Take a snapshot in case we need to revert due to out of native.
         let main_body_rollback_handle = system.start_global_frame()?;
 
@@ -471,13 +492,19 @@ where
         if context.tx_gas_limit > context.gas_used {
             let _ = system.get_logger().write_fmt(format_args!(
                 "Gas price for refund is {:?}\n",
-                &context.gas_price_for_metadata
+                &context.tx_level_metadata.tx_gas_price
             ));
 
             // refund
             let receiver = transaction.signer();
-            let refund = context.gas_price_for_metadata
+            let refund = context.tx_level_metadata.tx_gas_price
                 * U256::from(context.tx_gas_limit - context.gas_used); // can not overflow
+
+            let _ = system.get_logger().write_fmt(format_args!(
+                "Will refund 0x{:040x} with {:?} native tokens\n",
+                receiver.as_uint(),
+                &refund
+            ));
 
             context
                 .resources
@@ -495,26 +522,32 @@ where
 
         assert!(context.gas_used > 0);
 
-        let _ = system.get_logger().write_fmt(format_args!(
-            "Gas price for coinbase fee is {:?}\n",
-            &context.gas_price_for_fee_commitment
-        ));
+        if context.priority_fee_per_gas.is_zero() == false {
+            let _ = system.get_logger().write_fmt(format_args!(
+                "Gas price for coinbase fee is {:?}\n",
+                &context.priority_fee_per_gas
+            ));
 
-        let fee = context.gas_price_for_fee_commitment * U256::from(context.gas_used); // can not overflow
-        let coinbase = system.get_coinbase();
+            let fee = context.priority_fee_per_gas * U256::from(context.gas_used); // can not overflow
+            let coinbase = system.get_coinbase();
 
-        context
-            .resources
-            .main_resources
-            .with_infinite_ergs(|resources| {
-                system.io.update_account_nominal_token_balance(
-                    ExecutionEnvironmentType::NoEE, // out of scope of other interactions
-                    resources,
-                    &coinbase,
-                    &fee,
-                    false,
-                )
-            })?;
+            let _ = system
+                .get_logger()
+                .write_fmt(format_args!("Coinbase's share of fee is {:?}\n", &fee));
+
+            context
+                .resources
+                .main_resources
+                .with_infinite_ergs(|resources| {
+                    system.io.update_account_nominal_token_balance(
+                        ExecutionEnvironmentType::NoEE, // out of scope of other interactions
+                        resources,
+                        &coinbase,
+                        &fee,
+                        false,
+                    )
+                })?;
+        }
 
         Ok(())
     }
@@ -544,7 +577,7 @@ where
     }
 }
 
-impl<S: EthereumLikeTypes> EthereumTransactionFlow<S>
+impl<S: EthereumLikeTypes<Metadata = EthereumBlockMetadata>> EthereumTransactionFlow<S>
 where
     S::IO: IOSubsystemExt,
 {
@@ -555,7 +588,10 @@ where
         transaction: &<Self as BasicTransactionFlow<S>>::Transaction<'_>,
         context: &mut <Self as BasicTransactionFlow<S>>::TransactionContext,
         tracer: &mut impl Tracer<S>,
-    ) -> Result<TxExecutionResult<'a, S>, BootloaderSubsystemError> {
+    ) -> Result<TxExecutionResult<'a, S>, BootloaderSubsystemError>
+    where
+        S: 'a,
+    {
         let from = transaction.signer();
         let main_calldata = transaction.calldata();
         let to = transaction.destination().unwrap_or_default();
@@ -603,7 +639,10 @@ where
         context: &mut <Self as BasicTransactionFlow<S>>::TransactionContext,
         to_ee_type: ExecutionEnvironmentType,
         tracer: &mut impl Tracer<S>,
-    ) -> Result<TxExecutionResult<'a, S>, BootloaderSubsystemError> {
+    ) -> Result<TxExecutionResult<'a, S>, BootloaderSubsystemError>
+    where
+        S: 'a,
+    {
         use crate::bootloader::runner::run_till_completion;
         use crate::bootloader::supported_ees::SystemBoundEVMInterpreter;
 
@@ -695,7 +734,10 @@ where
         transaction: &<Self as BasicTransactionFlow<S>>::Transaction<'_>,
         context: &mut <Self as BasicTransactionFlow<S>>::TransactionContext,
         tracer: &mut impl Tracer<S>,
-    ) -> Result<ExecutionResult<'a, S::IOTypes>, BootloaderSubsystemError> {
+    ) -> Result<ExecutionResult<'a, S::IOTypes>, BootloaderSubsystemError>
+    where
+        S: 'a,
+    {
         let _ = system
             .get_logger()
             .write_fmt(format_args!("Start of execution\n"));

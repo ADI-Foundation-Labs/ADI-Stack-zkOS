@@ -48,6 +48,9 @@ pub trait IOResultKeeper<IOTypes: SystemIOTypesConfig> {
     /// This method can be called several times with consecutive parts of pubdata.
     ///
     fn pubdata<'a>(&mut self, _value: &'a [u8]) {}
+
+    /// Convenience if we will want to also dump account's properties encoding separately in raw form
+    fn account_state_opaque_encoding(&mut self, _address: &IOTypes::Address, _encoding: &[u8]) {}
 }
 
 pub struct NopResultKeeper;

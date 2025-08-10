@@ -1,4 +1,7 @@
 pub mod dyn_usize_iterator;
+use crate::utils::UsizeAlignedByteBox;
+use crate::{system::errors::internal::InternalError, utils::Bytes32};
+use core::alloc::Allocator;
 ///
 /// Oracle is an abstraction boundary on how OS (System trait) gets IO information and eventually
 /// updates state and/or sends messages to one more layer above
@@ -8,8 +11,6 @@ pub mod dyn_usize_iterator;
 /// versus image (that depends on which hash is used) it beyond the scope of this trait
 ///
 use core::{mem::MaybeUninit, num::NonZeroU32};
-
-use crate::{system::errors::internal::InternalError, utils::Bytes32};
 
 use super::kv_markers::{UsizeDeserializable, UsizeSerializable};
 
@@ -31,8 +32,8 @@ pub const ADVISE_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x00_05_00_00;
 pub const NEXT_TX_SIZE_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 0;
 pub const DISCONNECT_ORACLE_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 1;
 pub const BLOCK_METADATA_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 2;
-pub const ZK_PROOF_DATA_INIT_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 3;
-pub const TX_DATA_WORDS_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 4;
+pub const TX_DATA_WORDS_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 3;
+pub const ZK_PROOF_DATA_INIT_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 4;
 
 #[allow(clippy::identity_op)]
 pub const GENERIC_PREIMAGE_QUERY_ID: u32 = PREIMAGE_SUBSPACE_MASK | 0;
@@ -42,6 +43,9 @@ pub const INITIAL_STORAGE_SLOT_VALUE_QUERY_ID: u32 = ACCOUNT_AND_STORAGE_SUBSPAC
 
 #[allow(clippy::identity_op)]
 pub const INITIAL_STATE_COMMITTMENT_QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 0;
+
+#[allow(clippy::identity_op)]
+pub const HISTORICAL_BLOCK_HASH_QUERY_ID: u32 = ADVISE_SUBSPACE_MASK | 0;
 
 ///
 /// Convenience trait to define all expected types under one umbrella.
@@ -207,6 +211,35 @@ pub trait IOOracle: 'static + Sized {
         }
 
         Ok(words_written)
+    }
+
+    fn get_bytes_from_query<A: Allocator, I: UsizeSerializable + UsizeDeserializable>(
+        &mut self,
+        length_query_id: u32, // must return number of bytes
+        body_query_id: u32,   // must return
+        input: &I,
+        allocator: A,
+    ) -> Result<Option<UsizeAlignedByteBox<A>>, InternalError> {
+        use crate::internal_error;
+        use crate::utils::USIZE_SIZE;
+
+        let size = self.query_serializable::<I, u32>(length_query_id, input)?;
+        if size == 0 {
+            return Ok(None);
+        }
+        let num_bytes = size as usize;
+        let num_words = num_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE;
+        let body_query_it = self.raw_query(body_query_id, input)?;
+        let body_it_len = body_query_it.len();
+        // Some slack to account for 32/64 bit arch differences
+        if body_it_len.next_multiple_of(2) != num_words.next_multiple_of(2) {
+            return Err(internal_error!("iterator len is inconsistent"));
+        }
+        // create buffer
+        let mut buffer = UsizeAlignedByteBox::from_usize_iterator_in(body_query_it, allocator);
+        buffer.truncated_to_byte_length(num_bytes);
+
+        Ok(Some(buffer))
     }
 }
 

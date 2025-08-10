@@ -24,6 +24,7 @@ callable_oracles = { path = "../callable_oracles", default-features = false }
 crypto = { path = "../crypto", default-features = false }
 ruint = { version = "1.16", default-features = false }
 arrayvec = { version = "0.7.4", default-features = false }
+alloy = { version = "1", features = ["full", "eip712", "consensus"] }
 hex = { version = "*", optional = true }
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
 bincode = "1.3"

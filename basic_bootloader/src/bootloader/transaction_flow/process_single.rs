@@ -22,6 +22,7 @@ pub fn process_single_intrinsic_transaction<
 ) -> Result<F::ExecutionResult<'a>, TxError>
 where
     S::IO: IOSubsystemExt,
+    S: 'a,
 {
     // first one should parse matching transaction type.
     // NOTE: there is no access to IO at parsing - it buffer is pre-filled for us

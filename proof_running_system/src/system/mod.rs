@@ -13,6 +13,7 @@ use stack_trait::StackCtor;
 use zk_ee::memory::skip_list_quasi_vec::ListVec;
 use zk_ee::memory::*;
 use zk_ee::reference_implementations::BaseResources;
+use zk_ee::system::metadata::Metadata;
 use zk_ee::system::{logger::Logger, EthereumLikeTypes, SystemTypes};
 use zk_ee::system_io_oracle::IOOracle;
 use zk_ee::types_config::EthereumIOTypesConfig;
@@ -57,12 +58,15 @@ impl<O: IOOracle, L: Logger + Default> SystemTypes for ProofRunningSystemTypes<O
     type SystemFunctionsExt = NoStdSystemFunctions;
     type Allocator = BootloaderAllocator;
     type Logger = L;
+    type Metadata = Metadata;
 }
 
 impl<O: IOOracle, L: Logger + Default> EthereumLikeTypes for ProofRunningSystemTypes<O, L> {}
 
 impl<O: IOOracle, L: Logger + Default> BasicSTF for ProofRunningSystemTypes<O, L> {
     type BlockDataKeeper = ZKBasicTransactionDataKeeper;
+    type MetadataOp = Metadata;
+    type PostSystemInitOp = ZKHeaderPostInitOp;
     type PreTxLoopOp = ZKHeaderStructurePreTxOp;
     type TxLoopOp = ZKHeaderStructureTxLoop;
     type PostTxLoopOp = ZKHeaderStructurePostTxOp<true>;

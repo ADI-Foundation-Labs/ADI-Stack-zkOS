@@ -12,7 +12,7 @@ pub trait MetadataRequest: 'static + Sized {
     type Output: 'static + Copy; // no drop
 }
 
-pub trait MetadataResponder {
+pub trait DynamicMetadataResponder {
     #[inline(always)]
     fn can_respond<M: MetadataRequest>() -> bool {
         false
@@ -42,13 +42,25 @@ pub struct MetadataCollection<T, U> {
     second: U,
 }
 
-impl<T: MetadataResponder> MetadataResponder for MetadataCollection<T, EmptyMetadata> {
+impl DynamicMetadataResponder for () {
     #[inline(always)]
     fn can_respond<M: MetadataRequest>() -> bool {
-        <T as MetadataResponder>::can_respond::<M>()
+        false
+    }
+    fn get_metadata_with_bookkeeping<M: MetadataRequest>(&mut self, _input: M::Input) -> M::Output {
+        unreachable!("ability to query metadata should be pre-checked");
+    }
+}
+
+impl<T: DynamicMetadataResponder> DynamicMetadataResponder
+    for MetadataCollection<T, EmptyMetadata>
+{
+    #[inline(always)]
+    fn can_respond<M: MetadataRequest>() -> bool {
+        <T as DynamicMetadataResponder>::can_respond::<M>()
     }
     fn get_metadata_with_bookkeeping<M: MetadataRequest>(&mut self, input: M::Input) -> M::Output {
-        if <T as MetadataResponder>::can_respond::<M>() {
+        if <T as DynamicMetadataResponder>::can_respond::<M>() {
             self.first.get_metadata_with_bookkeeping::<M>(input)
         } else {
             unreachable!("ability to query metadata should be pre-checked");
@@ -56,7 +68,7 @@ impl<T: MetadataResponder> MetadataResponder for MetadataCollection<T, EmptyMeta
     }
 }
 
-impl<T: MetadataResponder> MetadataCollection<T, EmptyMetadata> {
+impl<T: DynamicMetadataResponder> MetadataCollection<T, EmptyMetadata> {
     pub fn initial(first: T) -> Self {
         Self {
             first,
@@ -64,7 +76,7 @@ impl<T: MetadataResponder> MetadataCollection<T, EmptyMetadata> {
         }
     }
 
-    pub fn add_responder<U: MetadataResponder>(
+    pub fn add_responder<U: DynamicMetadataResponder>(
         self,
         next_responder: U,
     ) -> MetadataCollection<MetadataCollection<T, U>, EmptyMetadata> {

@@ -290,7 +290,7 @@ impl UsizeSerializable for Bytes32 {
             } else if #[cfg(target_pointer_width = "32")] {
                 return self.as_u32_array_ref().into_iter().map(|el| *el as usize);
             } else if #[cfg(target_pointer_width = "64")] {
-                return self.as_u64_array_ref().iter().map(|el| *el as usize);
+                return self.as_u64_array_ref().map(|el| el as usize).into_iter();
             } else {
                 compile_error!("unsupported architecture")
             }

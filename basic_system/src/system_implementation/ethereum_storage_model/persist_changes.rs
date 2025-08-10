@@ -19,8 +19,9 @@ use zk_ee::internal_error;
 use zk_ee::memory::stack_trait::StackCtor;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::system::logger::Logger;
-use zk_ee::system::Resources;
+use zk_ee::system::{IOResultKeeper, Resources};
 use zk_ee::system_io_oracle::{IOOracle, STATE_AND_MERKLE_PATHS_SUBSPACE_MASK};
+use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::utils::{Bytes32, USIZE_SIZE};
 
 struct OracleProxy<'o, O: IOOracle>(&'o mut O);
@@ -28,6 +29,8 @@ struct OracleProxy<'o, O: IOOracle>(&'o mut O);
 pub const ETHEREUM_MPT_PREIMAGE_BYTE_LEN_QUERY_ID: u32 =
     STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 0x81;
 pub const ETHEREUM_MPT_PREIMAGE_WORDS_QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 0x82;
+
+const LEAF_VALUE_PRE_ENCODING_MAX_LEN: usize = 34;
 
 impl<'o, O: IOOracle> PreimagesOracle for OracleProxy<'o, O> {
     fn provide_preimage<'a, I: super::Interner<'a> + 'a>(
@@ -109,7 +112,51 @@ impl EthereumStoragePersister {
         }
     }
 
-    fn encode_slot_value<'a>(value: &Bytes32, buffer: &'a mut [MaybeUninit<u8>; 33]) -> &'a [u8] {
+    // TODO: consider to make it lazy
+    fn encode_slot_value<'a>(
+        value: &Bytes32,
+        buffer: &'a mut [MaybeUninit<u8>; LEAF_VALUE_PRE_ENCODING_MAX_LEN],
+    ) -> &'a [u8] {
+        // NOTE: we need to actually do value -> shortest BE slice,
+        // then encode such slice as RLP, and then again encode such slice as RLP to place it directly into leaf
+        let byte_len = value.num_trailing_nonzero_bytes();
+        let offset;
+        if byte_len == 0 {
+            // rlp(rlp([])) = rlp([0x80]) = 0x81, 0x80
+            buffer[0].write(0x81);
+            buffer[1].write(0x80);
+            offset = 2;
+        } else if byte_len == 1 {
+            let b = value.as_u8_array_ref()[31];
+            if b < 0x80 {
+                // rlp(rlp([0x01])) = rlp([0x01]) = 0x01
+                buffer[0].write(b);
+                offset = 1;
+            } else {
+                // rlp(rlp([0xff])) = rlp([0x81, 0xff]) = 0x82, 0x81, 0xff
+                buffer[0].write(0x80 + 2);
+                buffer[1].write(0x81 + 2);
+                buffer[2].write(b);
+                offset = 3;
+            }
+        } else {
+            // "inner" slice is at most 32 bytes, so outer is at most 33
+            buffer[0].write(0x81 + (byte_len as u8));
+            buffer[1].write(0x80 + (byte_len as u8));
+            buffer[2..][..byte_len as usize]
+                .write_copy_of_slice(&value.as_u8_array_ref()[(32 - byte_len as usize)..]);
+            offset = 2 + byte_len as usize;
+        }
+        assert!(offset <= LEAF_VALUE_PRE_ENCODING_MAX_LEN);
+
+        unsafe { core::slice::from_raw_parts(buffer.as_ptr().cast::<u8>().cast(), offset) }
+    }
+
+    #[allow(dead_code)]
+    fn encode_slot_value_inner<'a>(
+        value: &Bytes32,
+        buffer: &'a mut [MaybeUninit<u8>; 33],
+    ) -> &'a [u8] {
         let byte_len = value.num_trailing_nonzero_bytes();
         let offset;
         if byte_len == 0 {
@@ -149,6 +196,7 @@ impl EthereumStoragePersister {
         initial_state_root: &Bytes32,
         oracle: &mut impl IOOracle,
         logger: &mut impl Logger,
+        result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
         allocator: A,
     ) -> Result<Bytes32, InternalError> {
         // and can actually apply those
@@ -170,8 +218,11 @@ impl EthereumStoragePersister {
         )
         .map_err(|_| internal_error!("failed to allocate MTP data"))?;
 
-        let mut account_data_encoding_buffer = [MaybeUninit::uninit(); 128];
-        let mut slot_value_encoding_buffer = [MaybeUninit::uninit(); 33];
+        use crate::system_implementation::ethereum_storage_model::caches::account_properties::ACCOUNT_LEAF_VALUE_PRE_ENCODING_MAX_LEN;
+        let mut account_data_encoding_buffer =
+            [MaybeUninit::uninit(); ACCOUNT_LEAF_VALUE_PRE_ENCODING_MAX_LEN];
+        let mut slot_value_encoding_buffer =
+            [MaybeUninit::uninit(); LEAF_VALUE_PRE_ENCODING_MAX_LEN];
 
         let mut counter;
         let mut active_address;
@@ -181,14 +232,21 @@ impl EthereumStoragePersister {
             //     .write_fmt(format_args!(
             //         "Processing initial value for slot {:?}\n",
             //         &addr
-            //     ))
-            //     .expect("must log");
+            //     ));
 
             let entry = account_cache
                 .cache
                 .get((&addr.address).into())
                 .expect("account with storage address must be cached");
             let initial_root = entry.current().value().storage_root;
+
+            // let _ = logger
+            //     .write_fmt(format_args!(
+            //         "Initial storage root for address 0x{:040x} is {:?}\n",
+            //         addr.address.as_uint(),
+            //         &initial_root,
+            //     ));
+
             mpt.purge_for_reuse(initial_root.as_u8_array(), &mut interner)
                 .map_err(|_| internal_error!("failed to allocate MTP data"))?;
             let digits = Self::cache_slot_value_as_digits(&addr.key, &mut key_cache, &mut hasher);
@@ -221,8 +279,7 @@ impl EthereumStoragePersister {
                     //     .write_fmt(format_args!(
                     //         "Processing initial value for slot {:?}\n",
                     //         &addr
-                    //     ))
-                    //     .expect("must log");
+                    //     ));
 
                     if active_address == addr.address {
                         let digits = Self::cache_slot_value_as_digits(
@@ -263,8 +320,7 @@ impl EthereumStoragePersister {
                 //     .write_fmt(format_args!(
                 //         "Should process {} potential updates for address {:?}\n",
                 //         counter, &active_address
-                //     ))
-                //     .expect("must log");
+                //     ));
 
                 let mut any_mutation = false;
                 for _ in 0..counter {
@@ -274,8 +330,7 @@ impl EthereumStoragePersister {
                     //     .write_fmt(format_args!(
                     //         "Processing potential updates for slot {:?}\n",
                     //         &addr
-                    //     ))
-                    //     .expect("must log");
+                    //     ));
 
                     debug_assert_eq!(addr.address, active_address);
                     if v.initial_value != v.current_value {
@@ -295,14 +350,14 @@ impl EthereumStoragePersister {
                             //     .write_fmt(format_args!(
                             //         "Will insert value {:?} at slot {:?}\n",
                             //         &v.current_value, &addr.key
-                            //     ))
-                            //     .expect("must log");
+                            //     ));
 
                             // encode value
                             let pre_encoded_value = Self::encode_slot_value(
                                 &v.current_value,
                                 &mut slot_value_encoding_buffer,
                             );
+
                             mpt.insert(
                                 path,
                                 pre_encoded_value,
@@ -317,8 +372,7 @@ impl EthereumStoragePersister {
                             //     .write_fmt(format_args!(
                             //         "Will delete value {:?} at slot {:?}\n",
                             //         &v.initial_value, &addr.key
-                            //     ))
-                            //     .expect("must log");
+                            //     ));
 
                             mpt.delete(path, &mut preimage_oracle, &mut interner, &mut hasher)
                                 .map_err(|_| {
@@ -330,14 +384,14 @@ impl EthereumStoragePersister {
                             //     .write_fmt(format_args!(
                             //         "Will update slot {:?} as {:?} -> {:?}\n",
                             //         &addr.key, &v.initial_value, &v.current_value
-                            //     ))
-                            //     .expect("must log");
+                            //     ));
 
                             // encode value
                             let pre_encoded_value = Self::encode_slot_value(
                                 &v.current_value,
                                 &mut slot_value_encoding_buffer,
                             );
+
                             mpt.update(path, pre_encoded_value, &mut interner, &mut hasher)
                                 .map_err(|_| {
                                     internal_error!("failed to get update value in MPT")
@@ -346,15 +400,14 @@ impl EthereumStoragePersister {
                     }
                 }
                 // recompute new root
-                {
+                if any_mutation {
                     // let _ = logger
                     //     .write_fmt(format_args!(
                     //         "Will update storage root for {:?}\n",
                     //         &active_address
-                    //     ))
-                    //     .expect("must log");
+                    //     ));
 
-                    // NOTE: this is fast NOP if no mutations happened
+                    // NOTE: this is fast NOP if no mutations happened, but we will not do it anyway
                     mpt.recompute(&mut interner, &mut hasher)
                         .map_err(|_| internal_error!("failed to compute new root for MPT"))?;
 
@@ -364,9 +417,15 @@ impl EthereumStoragePersister {
                         .expect("account with storage address must be cached");
                     let new_root = Bytes32::from_array(mpt.root(&mut hasher));
 
-                    if any_mutation {
-                        assert_ne!(new_root, e.current().value().storage_root);
-                    }
+                    // let _ = logger
+                    //     .write_fmt(format_args!(
+                    //         "New storage root for address 0x{:040x} is {:?}\n",
+                    //         active_address.as_uint(),
+                    //         &new_root,
+                    //     ));
+
+                    assert_ne!(new_root, e.current().value().storage_root);
+
                     let _ = e.update(|v| {
                         v.update(|v, _m| {
                             v.storage_root = new_root;
@@ -382,8 +441,7 @@ impl EthereumStoragePersister {
                     //     .write_fmt(format_args!(
                     //         "Setting {:?} as new active address\n",
                     //         &addr.address
-                    //     ))
-                    //     .expect("must log");
+                    //     ));
 
                     // Now we should update MTP for next account, and reset counter
                     // reuse for the next account
@@ -394,6 +452,13 @@ impl EthereumStoragePersister {
                     let initial_root = entry.current().value().storage_root;
                     mpt.purge_for_reuse(initial_root.as_u8_array(), &mut interner)
                         .map_err(|_| internal_error!("failed to purge MTP for reuse"))?;
+
+                    // let _ = logger
+                    //     .write_fmt(format_args!(
+                    //         "Initial storage root for address 0x{:040x} is {:?}\n",
+                    //         addr.address.as_uint(),
+                    //         &initial_root,
+                    //     ));
 
                     let digits =
                         Self::cache_slot_value_as_digits(&addr.key, &mut key_cache, &mut hasher);
@@ -423,8 +488,7 @@ impl EthereumStoragePersister {
         }
 
         // let _ = logger
-        //     .write_fmt(format_args!("Will update accounts MTP now\n",))
-        //     .expect("must log");
+        //     .write_fmt(format_args!("Will update accounts MTP now\n",));
 
         // now reuse for accounts
         mpt.purge_for_reuse(initial_state_root.as_u8_array(), &mut interner)
@@ -436,8 +500,7 @@ impl EthereumStoragePersister {
             let addr = record.key();
 
             // let _ = logger
-            //     .write_fmt(format_args!("Updating the state of address {:?}\n", addr))
-            //     .expect("must log");
+            //     .write_fmt(format_args!("Updating the state of address {:?}\n", addr));
 
             let initial = record.initial();
             let current = record.current();
@@ -458,6 +521,15 @@ impl EthereumStoragePersister {
                 .map_err(|_| internal_error!("failed to get initial account value in MPT"))?;
 
             debug_assert_ne!(initial.appearance(), Appearance::Deconstructed);
+
+            // let _ = logger
+            //     .write_fmt(format_args!("Leaf initial value for address 0x{:040x} is 0x", addr.0.as_uint()));
+
+            // let _ = logger
+            //     .log_data(initial_expected_value.iter().copied());
+
+            // let _ = logger
+            //     .write_fmt(format_args!("\n",));
 
             if initial.appearance() == Appearance::Unset {
                 // check that it's empty
@@ -481,15 +553,28 @@ impl EthereumStoragePersister {
                     assert_eq!(initial.value().storage_root, EMPTY_ROOT_HASH);
                     assert!(initial.value().is_empty());
                     assert!(initial.value().is_empty());
+
+                    result_keeper.account_state_opaque_encoding(&addr.0, initial_expected_value);
                 }
                 Appearance::Retrieved | Appearance::Updated => {
                     if initial.appearance() == Appearance::Unset {
                         // we will need to insert
-                        if initial.appearance() != Appearance::Deconstructed {
+                        if current.appearance() != Appearance::Deconstructed {
                             // encode - we need slice, that is over list internally
                             let pre_encoded_value = current
                                 .value()
                                 .rlp_encode_for_leaf(&mut account_data_encoding_buffer);
+
+                            // let _ = logger
+                            //     .write_fmt(format_args!("Leaf updated value for address 0x{:040x} is 0x", addr.0.as_uint()));
+
+                            // let _ = logger
+                            //     .log_data(pre_encoded_value.iter().copied());
+
+                            // let _ = logger
+                            //     .write_fmt(format_args!("\n",));
+
+                            result_keeper.account_state_opaque_encoding(&addr.0, pre_encoded_value);
 
                             mpt.insert(
                                 path,
@@ -501,20 +586,43 @@ impl EthereumStoragePersister {
                             .map_err(|_| {
                                 internal_error!("failed to get update account value in MPT")
                             })?;
+                        } else {
+                            result_keeper
+                                .account_state_opaque_encoding(&addr.0, initial_expected_value);
                         }
                     } else {
-                        if initial.value().storage_root != current.value().storage_root {
+                        let initial = initial.value();
+                        let current = current.value();
+                        let modified = initial.nonce != current.nonce
+                            || initial.balance != current.balance
+                            || initial.bytecode_hash != current.bytecode_hash
+                            || initial.storage_root != current.storage_root;
+                        if modified {
                             // we checked initial, and rolled-over any possible updates on it,
                             // so this step is safe to skip if it's unchanged
 
                             // encode - we need slice, that is over list internally
-                            let pre_encoded_value = current
-                                .value()
-                                .rlp_encode_for_leaf(&mut account_data_encoding_buffer);
+                            let pre_encoded_value =
+                                current.rlp_encode_for_leaf(&mut account_data_encoding_buffer);
+
+                            // let _ = logger
+                            //     .write_fmt(format_args!("Leaf updated value for address 0x{:040x} is 0x", addr.0.as_uint()));
+
+                            // let _ = logger
+                            //     .log_data(pre_encoded_value.iter().copied());
+
+                            // let _ = logger
+                            //     .write_fmt(format_args!("\n",));
+
+                            result_keeper.account_state_opaque_encoding(&addr.0, pre_encoded_value);
+
                             mpt.update(path, pre_encoded_value, &mut interner, &mut hasher)
                                 .map_err(|_| {
                                     internal_error!("failed to update account value in MPT")
                                 })?;
+                        } else {
+                            result_keeper
+                                .account_state_opaque_encoding(&addr.0, initial_expected_value);
                         }
                     }
                 }
@@ -524,9 +632,7 @@ impl EthereumStoragePersister {
         mpt.recompute(&mut interner, &mut hasher)
             .map_err(|_| internal_error!("failed to compute new state root for MPT"))?;
 
-        let _ = logger
-            .write_fmt(format_args!("State MTP was updated\n",))
-            .expect("must log");
+        let _ = logger.write_fmt(format_args!("State MTP was updated\n",));
 
         Ok(Bytes32::from_array(mpt.root(&mut hasher)))
     }

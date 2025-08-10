@@ -185,7 +185,7 @@ impl UsizeSerializable for U256 {
                     return core::mem::transmute::<Self, [u32; 8]>(*self).into_iter().map(|el| el as usize);
                 }
             } else if #[cfg(target_pointer_width = "64")] {
-                return self.as_limbs().iter().map(|el| *el as usize);
+                return self.as_limbs().map(|el| el as usize).into_iter();
             } else {
                 compile_error!("unsupported architecture")
             }
@@ -257,7 +257,7 @@ impl UsizeSerializable for B160 {
                     return core::mem::transmute::<Self, [u32; 6]>(*self).into_iter().map(|el| el as usize);
                 }
             } else if #[cfg(target_pointer_width = "64")] {
-                return self.as_limbs().iter().map(|el| *el as usize);
+                return self.as_limbs().map(|el| el as usize).into_iter();
             } else {
                 compile_error!("unsupported architecture")
             }

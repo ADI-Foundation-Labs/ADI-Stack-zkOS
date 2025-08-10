@@ -776,8 +776,9 @@ impl<
         &mut self,
         state_commitment: Option<&mut Self::IOStateCommittment>,
         logger: &mut impl Logger,
+        result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
     ) {
         self.storage
-            .update_commitment(state_commitment, &mut self.oracle, logger);
+            .update_commitment(state_commitment, &mut self.oracle, logger, result_keeper);
     }
 }

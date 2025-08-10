@@ -27,15 +27,15 @@ pub trait BasicBlockMetadata<IOTypes: SystemIOTypesConfig> {
     fn blobs_gas_limit(&self) -> u64 {
         u64::MAX
     }
-    fn blob_basefee(&self) -> U256 {
+    fn blob_base_fee_per_gas(&self) -> U256 {
         U256::ZERO
     }
 }
 
 pub trait BasicTransactionMetadata<IOTypes: SystemIOTypesConfig> {
-    fn origin(&self) -> IOTypes::Address;
+    fn tx_origin(&self) -> IOTypes::Address;
     fn tx_gas_price(&self) -> U256;
-    fn tx_gas_limit(&self) -> u64;
+    // fn tx_gas_limit(&self) -> u64;
     fn num_blobs(&self) -> usize {
         0
     }

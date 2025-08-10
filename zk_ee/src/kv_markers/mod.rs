@@ -35,6 +35,17 @@ pub trait UsizeSerializable {
     fn iter(&self) -> impl ExactSizeIterator<Item = usize>;
 }
 
+// Only serializable will have default impl
+impl<T: UsizeSerializable, const N: usize> UsizeSerializable for [T; N] {
+    const USIZE_LEN: usize = <T as UsizeSerializable>::USIZE_LEN * N;
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        ExactSizeChainN::<_, _, N>::new(
+            core::iter::empty::<usize>(),
+            core::array::from_fn(|i| Some(UsizeSerializable::iter(&self[i]))),
+        )
+    }
+}
+
 pub trait UsizeDeserializable: Sized {
     const USIZE_LEN: usize;
 

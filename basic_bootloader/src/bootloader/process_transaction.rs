@@ -9,180 +9,17 @@ pub use crate::bootloader::zk::ZkTxResult as TxProcessingResult;
 use crate::{require, require_internal};
 use evm_interpreter::ERGS_PER_GAS;
 use system_hooks::HooksStorage;
+use zk_ee::metadata_markers::basic_metadata::BasicMetadata;
+use zk_ee::metadata_markers::basic_metadata::ZkSpecificPricingMetadata;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::system::{EthereumLikeTypes, Resources};
 use zk_ee::wrap_error;
 
+// NOTE: less bounds here
 impl<S: EthereumLikeTypes> BasicBootloader<S>
 where
     S::IO: IOSubsystemExt,
 {
-    ///
-    /// Process transaction.
-    ///
-    /// We are passing callstack from outside to reuse its memory space between different transactions.
-    /// It's expected to be empty.
-    ///
-    pub fn process_transaction<'a, Config: BasicBootloaderExecutionConfig>(
-        initial_calldata_buffer: &mut [u8],
-        system: &mut System<S>,
-        system_functions: &mut HooksStorage<S, S::Allocator>,
-        memories: RunnerMemoryBuffers<'a>,
-        is_first_tx: bool,
-        tracer: &mut impl Tracer<S>,
-    ) -> Result<TxProcessingResult<'a>, TxError> {
-        let transaction = ZkSyncTransaction::try_from_slice(initial_calldata_buffer)
-            .map_err(|_| TxError::Validation(InvalidTransaction::InvalidEncoding))?;
-
-        // Safe to unwrap here, as this should have been validated in the
-        // previous call.
-        let tx_type = transaction.tx_type.read();
-
-        match tx_type {
-            ZkSyncTransaction::UPGRADE_TX_TYPE => {
-                if !is_first_tx {
-                    Err(Validation(InvalidTransaction::UpgradeTxNotFirst))
-                } else {
-                    Self::process_l1_transaction::<Config>(
-                        system,
-                        system_functions,
-                        memories,
-                        transaction,
-                        false,
-                        tracer,
-                    )
-                }
-            }
-            ZkSyncTransaction::L1_L2_TX_TYPE => Self::process_l1_transaction::<Config>(
-                system,
-                system_functions,
-                memories,
-                transaction,
-                true,
-                tracer,
-            ),
-            _ => Self::process_l2_transaction::<Config>(
-                system,
-                system_functions,
-                memories,
-                transaction,
-                tracer,
-            ),
-        }
-    }
-
-    fn process_l2_transaction<'a, Config: BasicBootloaderExecutionConfig>(
-        system: &mut System<S>,
-        system_functions: &mut HooksStorage<S, S::Allocator>,
-        memories: RunnerMemoryBuffers<'a>,
-        transaction: ZkSyncTransaction<'_>,
-        tracer: &mut impl Tracer<S>,
-    ) -> Result<TxProcessingResult<'a>, TxError> {
-        ZkTransactionFlowOnlyEOA::<S>::before_validation(&*system, &transaction, tracer)?;
-
-        // Here we will follow basic Ethereum EOA flow, but caller is responsible to manage frames
-
-        let validation_rollback_handle = system.start_global_frame()?;
-
-        let (mut tx_context, transaction) =
-            match ZkTransactionFlowOnlyEOA::<S>::validate_and_prepare_context::<Config>(
-                system,
-                transaction,
-                tracer,
-            ) {
-                Ok(v) => v,
-                Err(e) => {
-                    system.finish_global_frame(Some(&validation_rollback_handle))?;
-                    return Err(e);
-                }
-            };
-
-        let _ = system.get_logger().write_fmt(format_args!(
-            "Transaction was validated and can be processed to collect fees\n"
-        ));
-
-        match ZkTransactionFlowOnlyEOA::<S>::precharge_fee::<Config>(
-            system,
-            &transaction,
-            &mut tx_context,
-            tracer,
-        ) {
-            Ok(_) => {
-                system.finish_global_frame(None)?;
-            }
-            Err(e) => {
-                system.finish_global_frame(Some(&validation_rollback_handle))?;
-                return Err(e);
-            }
-        };
-        drop(validation_rollback_handle);
-
-        let _ = system
-            .get_logger()
-            .write_fmt(format_args!("Fees were collected\n"));
-
-        ZkTransactionFlowOnlyEOA::<S>::before_execute_transaction_payload(
-            system,
-            &transaction,
-            &mut tx_context,
-            tracer,
-        )?;
-
-        let (execution_result, pubdata_info) =
-            ZkTransactionFlowOnlyEOA::<S>::create_frame_and_execute_transaction_payload::<Config>(
-                system,
-                system_functions,
-                memories,
-                &transaction,
-                &mut tx_context,
-                tracer,
-            )?;
-
-        ZkTransactionFlowOnlyEOA::<S>::before_refund::<Config>(
-            system,
-            &transaction,
-            &mut tx_context,
-            &execution_result,
-            pubdata_info,
-            tracer,
-        )?;
-
-        let _ = system
-            .get_logger()
-            .write_fmt(format_args!("Start of refund\n"));
-
-        let refund_rollback_handle = system.start_global_frame()?;
-
-        match ZkTransactionFlowOnlyEOA::<S>::refund_and_commit_fee::<Config>(
-            system,
-            &transaction,
-            &mut tx_context,
-            tracer,
-        ) {
-            Ok(_) => {
-                system.finish_global_frame(None)?;
-            }
-            Err(e) => {
-                let _ = system
-                    .get_logger()
-                    .write_fmt(format_args!("Error on refund {:?}\n", &e));
-                system.finish_global_frame(Some(&refund_rollback_handle))?;
-                return Err(wrap_error!(e).into());
-            }
-        }
-        drop(refund_rollback_handle);
-
-        use crate::bootloader::block_flow::NopTransactionDataKeeper;
-        Ok(ZkTransactionFlowOnlyEOA::<S>::after_execution::<Config>(
-            system,
-            transaction,
-            tx_context,
-            execution_result,
-            &mut NopTransactionDataKeeper,
-            tracer,
-        ))
-    }
-
     pub(crate) fn get_gas_price(
         system: &mut System<S>,
         max_fee_per_gas: u128,
@@ -303,5 +140,184 @@ where
             .write_fmt(format_args!("Final gas used: {gas_used}\n"));
 
         Ok((total_gas_refund, gas_used, refund_before_native))
+    }
+}
+
+impl<S: EthereumLikeTypes> BasicBootloader<S>
+where
+    S::IO: IOSubsystemExt,
+    S::Metadata: ZkSpecificPricingMetadata,
+    <S::Metadata as BasicMetadata<S::IOTypes>>::TransactionMetadata: From<(B160, U256)>,
+{
+    ///
+    /// Process transaction.
+    ///
+    /// We are passing callstack from outside to reuse its memory space between different transactions.
+    /// It's expected to be empty.
+    ///
+    pub fn process_transaction<'a, Config: BasicBootloaderExecutionConfig>(
+        initial_calldata_buffer: &mut [u8],
+        system: &mut System<S>,
+        system_functions: &mut HooksStorage<S, S::Allocator>,
+        memories: RunnerMemoryBuffers<'a>,
+        is_first_tx: bool,
+        tracer: &mut impl Tracer<S>,
+    ) -> Result<TxProcessingResult<'a>, TxError>
+    where
+        S: 'a,
+    {
+        let transaction = ZkSyncTransaction::try_from_slice(initial_calldata_buffer)
+            .map_err(|_| TxError::Validation(InvalidTransaction::InvalidEncoding))?;
+
+        // Safe to unwrap here, as this should have been validated in the
+        // previous call.
+        let tx_type = transaction.tx_type.read();
+
+        match tx_type {
+            ZkSyncTransaction::UPGRADE_TX_TYPE => {
+                if !is_first_tx {
+                    Err(Validation(InvalidTransaction::UpgradeTxNotFirst))
+                } else {
+                    Self::process_l1_transaction::<Config>(
+                        system,
+                        system_functions,
+                        memories,
+                        transaction,
+                        false,
+                        tracer,
+                    )
+                }
+            }
+            ZkSyncTransaction::L1_L2_TX_TYPE => Self::process_l1_transaction::<Config>(
+                system,
+                system_functions,
+                memories,
+                transaction,
+                true,
+                tracer,
+            ),
+            _ => Self::process_l2_transaction::<Config>(
+                system,
+                system_functions,
+                memories,
+                transaction,
+                tracer,
+            ),
+        }
+    }
+
+    fn process_l2_transaction<'a, Config: BasicBootloaderExecutionConfig>(
+        system: &mut System<S>,
+        system_functions: &mut HooksStorage<S, S::Allocator>,
+        memories: RunnerMemoryBuffers<'a>,
+        transaction: ZkSyncTransaction<'_>,
+        tracer: &mut impl Tracer<S>,
+    ) -> Result<TxProcessingResult<'a>, TxError>
+    where
+        S: 'a,
+    {
+        ZkTransactionFlowOnlyEOA::<S>::before_validation(&*system, &transaction, tracer)?;
+
+        // Here we will follow basic Ethereum EOA flow, but caller is responsible to manage frames
+
+        let validation_rollback_handle = system.start_global_frame()?;
+
+        let (mut tx_context, transaction) =
+            match ZkTransactionFlowOnlyEOA::<S>::validate_and_prepare_context::<Config>(
+                system,
+                transaction,
+                tracer,
+            ) {
+                Ok(v) => v,
+                Err(e) => {
+                    system.finish_global_frame(Some(&validation_rollback_handle))?;
+                    return Err(e);
+                }
+            };
+
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Transaction was validated and can be processed to collect fees\n"
+        ));
+
+        match ZkTransactionFlowOnlyEOA::<S>::precharge_fee::<Config>(
+            system,
+            &transaction,
+            &mut tx_context,
+            tracer,
+        ) {
+            Ok(_) => {
+                system.finish_global_frame(None)?;
+            }
+            Err(e) => {
+                system.finish_global_frame(Some(&validation_rollback_handle))?;
+                return Err(e);
+            }
+        };
+        drop(validation_rollback_handle);
+
+        let _ = system
+            .get_logger()
+            .write_fmt(format_args!("Fees were collected\n"));
+
+        ZkTransactionFlowOnlyEOA::<S>::before_execute_transaction_payload(
+            system,
+            &transaction,
+            &mut tx_context,
+            tracer,
+        )?;
+
+        let (execution_result, pubdata_info) =
+            ZkTransactionFlowOnlyEOA::<S>::create_frame_and_execute_transaction_payload::<Config>(
+                system,
+                system_functions,
+                memories,
+                &transaction,
+                &mut tx_context,
+                tracer,
+            )?;
+
+        ZkTransactionFlowOnlyEOA::<S>::before_refund::<Config>(
+            system,
+            &transaction,
+            &mut tx_context,
+            &execution_result,
+            pubdata_info,
+            tracer,
+        )?;
+
+        let _ = system
+            .get_logger()
+            .write_fmt(format_args!("Start of refund\n"));
+
+        let refund_rollback_handle = system.start_global_frame()?;
+
+        match ZkTransactionFlowOnlyEOA::<S>::refund_and_commit_fee::<Config>(
+            system,
+            &transaction,
+            &mut tx_context,
+            tracer,
+        ) {
+            Ok(_) => {
+                system.finish_global_frame(None)?;
+            }
+            Err(e) => {
+                let _ = system
+                    .get_logger()
+                    .write_fmt(format_args!("Error on refund {:?}\n", &e));
+                system.finish_global_frame(Some(&refund_rollback_handle))?;
+                return Err(wrap_error!(e).into());
+            }
+        }
+        drop(refund_rollback_handle);
+
+        use crate::bootloader::block_flow::NopTransactionDataKeeper;
+        Ok(ZkTransactionFlowOnlyEOA::<S>::after_execution::<Config>(
+            system,
+            transaction,
+            tx_context,
+            execution_result,
+            &mut NopTransactionDataKeeper,
+            tracer,
+        ))
     }
 }

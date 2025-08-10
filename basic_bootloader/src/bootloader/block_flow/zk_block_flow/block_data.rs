@@ -3,6 +3,10 @@ use crate::bootloader::zk::ZkTransactionFlowOnlyEOA;
 use crate::bootloader::BasicTransactionFlow;
 use crate::bootloader::ExecutionResult;
 use crypto::MiniDigest;
+use ruint::aliases::B160;
+use ruint::aliases::U256;
+use zk_ee::metadata_markers::basic_metadata::BasicMetadata;
+use zk_ee::metadata_markers::basic_metadata::ZkSpecificPricingMetadata;
 use zk_ee::system::*;
 use zk_ee::utils::Bytes32;
 
@@ -63,6 +67,8 @@ impl<S: EthereumLikeTypes> BlockTransactionsDataCollector<S, ZkTransactionFlowOn
     for ZKBasicTransactionDataKeeper
 where
     S::IO: IOSubsystemExt,
+    S::Metadata: ZkSpecificPricingMetadata,
+    <S::Metadata as BasicMetadata<S::IOTypes>>::TransactionMetadata: From<(B160, U256)>,
 {
     fn record_transaction_results(
         &mut self,

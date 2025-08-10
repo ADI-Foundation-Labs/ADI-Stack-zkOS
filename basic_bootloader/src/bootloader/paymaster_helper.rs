@@ -55,6 +55,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
     ) -> Result<CompletedExecution<'a, S>, BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt,
+        S: 'a,
     {
         let header_length = 4 + U256::BYTES * 3;
         let calldata_start = TX_OFFSET - header_length;

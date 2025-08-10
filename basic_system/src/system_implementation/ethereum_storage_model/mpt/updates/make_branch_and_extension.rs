@@ -84,14 +84,11 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                         self.branch_unreferenced_values.len(),
                     );
                     self.branch_unreferenced_values.push(new_unreferenced_value);
-                    // put it into cache - it's single exceptional case. It is also not different from just terminal value
-                    let key = interner.make_terminal_branch_value_key(
-                        LeafValue::RLPEnveloped {
-                            envelope: existing_extension.next_node_key,
-                        },
-                        hasher,
-                    )?;
-                    self.keys_cache.insert(new_unreferenced_value_node, key);
+                    // put it into cache - it's single exceptional case
+                    self.keys_cache.insert(
+                        new_unreferenced_value_node,
+                        existing_extension.next_node_key.full_encoding(),
+                    );
 
                     (new_unreferenced_value_node, branch_index)
                 } else {

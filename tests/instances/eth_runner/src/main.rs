@@ -5,7 +5,7 @@ use clap::{Parser, Subcommand};
 mod block;
 mod block_hashes;
 mod calltrace;
-mod dump_utils;
+pub(crate) mod dump_utils;
 mod live_run;
 mod native_model;
 mod post_check;
@@ -128,16 +128,27 @@ mod test {
     }
 
     const NODE_URL: &str = "";
+    const ACCOUNT_DIFFS_URL: &str = "";
+    const BEACON_CHAIN_URL: &str = "";
 
     #[test]
     fn run_dump() {
-        crate::dump_utils::dump_eth_block(23021144, NODE_URL, "blocks/23021144".to_string())
-            .expect("must dump block data");
+        let block_number = 23110007;
+        let _ = std::fs::create_dir(&format!("blocks/{}", block_number));
+        crate::dump_utils::dump_eth_block(
+            block_number,
+            NODE_URL,
+            Some(ACCOUNT_DIFFS_URL),
+            BEACON_CHAIN_URL,
+            format!("blocks/{}", block_number),
+        )
+        .expect("must dump block data");
     }
 
     #[test]
     fn invoke_single_eth_block() {
-        crate::single_run::single_eth_run("blocks/23021144".to_string(), Some(1))
+        let block_number = 23110007;
+        crate::single_run::single_eth_run(format!("blocks/{}", block_number), Some(1))
             .expect("must succeed");
     }
 }

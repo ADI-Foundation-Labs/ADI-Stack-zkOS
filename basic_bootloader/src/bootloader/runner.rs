@@ -26,7 +26,7 @@ use super::errors::BootloaderSubsystemError;
 
 /// Main execution loop.
 /// Expects the caller to start and close the entry frame.
-pub fn run_till_completion<'a, S: EthereumLikeTypes>(
+pub fn run_till_completion<'a, S: EthereumLikeTypes + 'a>(
     memories: RunnerMemoryBuffers<'a>,
     system: &mut System<S>,
     hooks: &mut HooksStorage<S, S::Allocator>,
@@ -171,7 +171,7 @@ macro_rules! handle_spawn {
     };
 }
 
-impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
+impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
     fn copy_into_return_memory<'a>(
         &mut self,
         return_values: ReturnValues<'a, S>,
@@ -189,8 +189,8 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
     fn handle_requested_external_call<const IS_ENTRY_FRAME: bool>(
         &mut self,
         ee_type: ExecutionEnvironmentType,
-        call_request: ExternalCallRequest<S>,
-        heap: SliceVec<u8>,
+        call_request: ExternalCallRequest<'_, S>,
+        heap: SliceVec<'_, u8>,
         tracer: &mut impl Tracer<S>,
     ) -> Result<(S::Resources, CallResult<'external, S>), BootloaderSubsystemError>
     where
@@ -328,7 +328,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
     #[inline(always)]
     fn check_if_external_call_returns_early<'a>(
         &mut self,
-        external_call_params: &mut ExecutionEnvironmentLaunchParams<S>,
+        external_call_params: &mut ExecutionEnvironmentLaunchParams<'_, S>,
         transfer_to_perform: &Option<TransferInfo>,
         ee_type: ExecutionEnvironmentType,
         is_call_to_special_address: bool,
@@ -416,8 +416,8 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
 
     fn call_execute_callee_frame(
         &mut self,
-        external_call_launch_params: ExecutionEnvironmentLaunchParams<S>,
-        heap: SliceVec<u8>,
+        external_call_launch_params: ExecutionEnvironmentLaunchParams<'_, S>,
+        heap: SliceVec<'_, u8>,
         next_ee_version: u8,
         rollback_handle: SystemFrameSnapshot<S>,
         tracer: &mut impl Tracer<S>,
@@ -487,7 +487,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
 
     fn call_to_special_address_execute_callee_frame(
         &mut self,
-        external_call_launch_params: ExecutionEnvironmentLaunchParams<S>,
+        external_call_launch_params: ExecutionEnvironmentLaunchParams<'_, S>,
         caller_ee_type: ExecutionEnvironmentType,
         rollback_handle: SystemFrameSnapshot<S>,
     ) -> Result<(S::Resources, CallResult<'external, S>), BootloaderSubsystemError>

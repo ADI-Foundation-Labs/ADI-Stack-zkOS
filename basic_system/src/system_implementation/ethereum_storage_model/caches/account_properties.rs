@@ -10,6 +10,8 @@ use zk_ee::{
     utils::Bytes32,
 };
 
+pub(crate) const ACCOUNT_LEAF_VALUE_PRE_ENCODING_MAX_LEN: usize = 128;
+
 #[derive(
     Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
 )]
@@ -100,7 +102,10 @@ impl EthereumAccountProperties {
         computed_is_unset: true,
     };
 
-    pub(crate) fn rlp_encode_for_leaf(&self, buffer: &mut [MaybeUninit<u8>; 128]) -> &[u8] {
+    pub(crate) fn rlp_encode_for_leaf(
+        &self,
+        buffer: &mut [MaybeUninit<u8>; ACCOUNT_LEAF_VALUE_PRE_ENCODING_MAX_LEN],
+    ) -> &[u8] {
         // We need to make (slice(list(elements))) ...
         // first compute total length of elements to encode
         let mut concatenation_length = 0usize;
@@ -144,7 +149,7 @@ impl EthereumAccountProperties {
 
         // so our encoding is always 0xb7 + 1, list_encoding_len as u8
         assert!(total_encoding_len > 55);
-        assert!(total_encoding_len <= 128);
+        assert!(total_encoding_len <= ACCOUNT_LEAF_VALUE_PRE_ENCODING_MAX_LEN);
 
         buffer[0].write(0xb7 + 1);
         buffer[1].write(list_encoding_len as u8);

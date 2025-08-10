@@ -72,6 +72,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
     ) -> Result<CompletedExecution<'a, S>, BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt,
+        S: 'a,
     {
         if DEBUG_OUTPUT {
             let _ = system

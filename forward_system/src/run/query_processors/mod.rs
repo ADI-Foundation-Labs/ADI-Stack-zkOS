@@ -5,6 +5,7 @@ use zk_ee::kv_markers::{UsizeDeserializable, UsizeSerializable};
 use zk_ee::system_io_oracle::dyn_usize_iterator::DynUsizeIterator;
 
 mod block_metadata;
+mod ethereum_cl;
 mod ethereum_header;
 mod ethereum_initial_account_state;
 mod ethereum_initial_storage_slot_value;
@@ -17,7 +18,8 @@ mod uart_print;
 mod zk_proof_data;
 
 pub use self::block_metadata::BlockMetadataResponder;
-pub use self::ethereum_header::EthereumHeaderLikeResponder;
+pub use self::ethereum_cl::EthereumCLResponder;
+pub use self::ethereum_header::EthereumTargetBlockHeaderResponder;
 pub use self::ethereum_initial_account_state::InMemoryEthereumInitialAccountStateResponder;
 pub use self::ethereum_initial_storage_slot_value::InMemoryEthereumInitialStorageSlotValueResponder;
 pub use self::generic_preimage::GenericPreimageResponder;

@@ -1,9 +1,11 @@
 use crate::run::TxResultCallback;
 use basic_bootloader::bootloader::block_header::BlockHeader;
 use basic_bootloader::bootloader::result_keeper::{ResultKeeperExt, TxProcessingOutput};
+use basic_system::system_implementation::cache_structs::BitsOrd160;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
 use std::alloc::Global;
+use std::collections::BTreeMap;
 use zk_ee::common_structs::{
     GenericEventContent, GenericEventContentWithTxRef, GenericLogContent,
     GenericLogContentWithTxRef, PreimageType,
@@ -37,6 +39,7 @@ pub struct ForwardRunningResultKeeper<TR: TxResultCallback> {
     >,
     pub new_preimages: Vec<(Bytes32, Vec<u8>, PreimageType)>,
     pub pubdata: Vec<u8>,
+    pub account_encodings: BTreeMap<BitsOrd160, Vec<u8>>,
 
     pub tx_result_callback: TR,
 }
@@ -52,6 +55,7 @@ impl<TR: TxResultCallback> ForwardRunningResultKeeper<TR> {
             tx_results: vec![],
             new_preimages: vec![],
             pubdata: vec![],
+            account_encodings: BTreeMap::new(),
             tx_result_callback,
         }
     }
@@ -104,6 +108,13 @@ impl<TR: TxResultCallback> IOResultKeeper<EthereumIOTypesConfig>
 
     fn pubdata(&mut self, value: &[u8]) {
         self.pubdata.extend_from_slice(value);
+    }
+
+    fn account_state_opaque_encoding(&mut self, address: &B160, encoding: &[u8]) {
+        let existing = self
+            .account_encodings
+            .insert(BitsOrd160::from(*address), encoding.to_vec());
+        assert!(existing.is_none());
     }
 }
 

@@ -43,20 +43,10 @@ impl<'a, P: RLPParsable<'a>> EIP2718PayloadParser<'a, P> {
             return Err(());
         }
         // recreate parser to parse internals
-        let start = parser.slice.as_ptr();
+        let start = unsafe { parser.pos() };
         let payload: P = RLPParsable::try_parse(&mut parser)?;
         // we consumed P, and are ready to compute the hash for signing
-        let inner_slice = {
-            let end = parser.slice.as_ptr();
-            let signed_payload_slice = unsafe {
-                // Safety: they belong to the same allocation, slice is borrowed at the top of the function,
-                // and parser only moves forward
-                core::slice::from_ptr_range(start..end)
-            };
-            debug_assert!(signed_payload_slice.len() <= u32::MAX as usize);
-
-            signed_payload_slice
-        };
+        let inner_slice = unsafe { parser.consumed_slice(start) };
 
         // now we can use the same parser and parse fixed "tail" of parity/r/s
         let sig_data: EIP2718SignatureData<'a> = RLPParsable::try_parse(&mut parser)?;

@@ -89,7 +89,7 @@ where
             | RootCause::Usage(_) => {
                 let _ = system
                     .get_logger()
-                    .write_fmt(format_args!("Out of gas during system hook\nError:{e:?}"));
+                    .write_fmt(format_args!("Out of gas during system hook\nError:{e:?}\n"));
                 resources.exhaust_ergs();
                 let (_, rest) = return_vec.destruct();
                 Ok((make_error_return_state(resources), rest))

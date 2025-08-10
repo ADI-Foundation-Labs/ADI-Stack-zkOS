@@ -42,7 +42,7 @@ where
         let gas_limit = system.get_gas_limit();
         // TODO: gas used shouldn't be zero
         let timestamp = system.get_timestamp();
-        let consensus_random = Bytes32::from_u256_be(&system.get_mix_hash());
+        let consensus_random = system.get_mix_hash();
         let base_fee_per_gas = system.get_eip1559_basefee();
         // TODO: add gas_per_pubdata and native price
 
@@ -52,7 +52,7 @@ where
         //     .try_into()
         //     .map_err(|_| internal_error!("base_fee_per_gas exceeds max u64"))?;
         let block_header = BlockHeader::new(
-            Bytes32::from(previous_block_hash.to_be_bytes::<32>()),
+            Bytes32::from(previous_block_hash),
             beneficiary,
             tx_rolling_hash,
             block_number,
@@ -108,7 +108,7 @@ where
 
         // // 3. Verify/apply reads and writes
         cycle_marker::wrap!("verify_and_apply_batch", {
-            io.update_commitment(None, &mut logger);
+            io.update_commitment(None, &mut logger, result_keeper);
         });
 
         ()

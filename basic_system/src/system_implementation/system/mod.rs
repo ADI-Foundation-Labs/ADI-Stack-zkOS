@@ -124,13 +124,14 @@ impl<R: Resources> StorageAccessPolicy<R, Bytes32> for EthereumLikeStorageAccess
     }
 
     /// Refund some resources if needed
+    #[allow(unused_variables)]
     fn refund_for_storage_write(
         &self,
         ee_type: ExecutionEnvironmentType,
         value_at_tx_start: &Bytes32,
         current_value: &Bytes32,
         new_value: &Bytes32,
-        _resources: &mut R,
+        resources: &mut R,
         refund_counter: &mut R,
     ) -> Result<(), SystemError> {
         if ee_type == ExecutionEnvironmentType::EVM {

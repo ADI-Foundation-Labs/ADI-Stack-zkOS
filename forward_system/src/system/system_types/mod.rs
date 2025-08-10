@@ -50,12 +50,15 @@ impl<O: IOOracle> SystemTypes for ForwardSystemTypes<O> {
     type SystemFunctionsExt = NoStdSystemFunctions;
     type Allocator = Global;
     type Logger = Logger;
+    type Metadata = zk_ee::system::metadata::Metadata;
 }
 
 impl<O: IOOracle> EthereumLikeTypes for ForwardSystemTypes<O> {}
 
 impl<O: IOOracle> BasicSTF for ForwardSystemTypes<O> {
     type BlockDataKeeper = ZKBasicTransactionDataKeeper;
+    type PostSystemInitOp = ZKHeaderPostInitOp;
+    type MetadataOp = zk_ee::system::metadata::Metadata;
     type PreTxLoopOp = ZKHeaderStructurePreTxOp;
     type TxLoopOp = ZKHeaderStructureTxLoop;
     type PostTxLoopOp = ZKHeaderStructurePostTxOp<false>;

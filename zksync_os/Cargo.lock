@@ -180,6 +180,7 @@ version = "0.1.0"
 dependencies = [
  "arrayvec",
  "basic_system",
+ "const-hex",
  "crypto",
  "cycle_marker",
  "evm_interpreter",
@@ -260,6 +261,16 @@ name = "cfg-if"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9555578bc9e57714c812a1f84e4fc5b4d21fcb063490c624de019f7464c91268"
+
+[[package]]
+name = "const-hex"
+version = "1.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83e22e0ed40b96a48d3db274f72fd365bd78f67af39b6bbd47e8a15e1c6207ff"
+dependencies = [
+ "cfg-if",
+ "cpufeatures",
+]
 
 [[package]]
 name = "const-oid"
@@ -875,6 +886,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-big-array"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "11fc7cc2c76d73e0f27ee52abbd64eec84d46f370c88371120433196934e4b7f"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.219"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1084,6 +1104,7 @@ dependencies = [
  "paste",
  "ruint",
  "serde",
+ "serde-big-array",
  "strum_macros",
 ]
 

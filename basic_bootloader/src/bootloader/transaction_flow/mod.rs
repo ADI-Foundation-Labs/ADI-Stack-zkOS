@@ -155,7 +155,9 @@ where
             Self::ExecutionBodyExtraData,
         ),
         BootloaderSubsystemError,
-    >;
+    >
+    where
+        S: 'a;
 
     fn after_execute_or_deploy<'a>(
         _system: &System<S>,

@@ -515,6 +515,7 @@ impl<
         state_commitment: Option<&mut Self::StorageCommitment>,
         oracle: &mut impl IOOracle,
         logger: &mut impl Logger,
+        _result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
     ) {
         if let Some(state_commitment) = state_commitment {
             use zk_ee::common_structs::state_root_view::StateRootView;
