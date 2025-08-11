@@ -51,6 +51,9 @@ use system_hooks::HooksStorage;
 use zk_ee::system::*;
 use zk_ee::utils::*;
 
+pub const MAX_HEAP_BUFFER_SIZE: usize = 1 << 27; // 128 MB
+pub const MAX_RETURN_BUFFER_SIZE: usize = 1 << 28; // 256 MB
+
 pub(crate) const EVM_EE_BYTE: u8 = ExecutionEnvironmentType::EVM_EE_BYTE;
 pub const DEBUG_OUTPUT: bool = false;
 
@@ -195,9 +198,6 @@ where
             &mut system,
             &mut system_functions,
         )?;
-
-        pub const MAX_HEAP_BUFFER_SIZE: usize = 1 << 27; // 128 MB
-        pub const MAX_RETURN_BUFFER_SIZE: usize = 1 << 28; // 256 MB
 
         let mut heaps = Box::new_uninit_slice_in(MAX_HEAP_BUFFER_SIZE, system.get_allocator());
         let mut return_data =
