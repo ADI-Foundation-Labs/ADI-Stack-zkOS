@@ -17,6 +17,8 @@ where
             BLAKE_HOOK_ADDRESS_LOW,
         );
 
+        system_hooks::eip_2537::initialize_eip_2537(system_functions);
+
         super::precompiles::blob_eval_precompile::BlobEvaluationPrecompile::initialize_as_hook(
             system,
             system_functions,

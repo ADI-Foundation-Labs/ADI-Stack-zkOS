@@ -13,8 +13,6 @@ use crate::bootloader::block_flow::ethereum_block_flow::{
 };
 use basic_system::system_implementation::ethereum_storage_model::EthereumStorageModel;
 use basic_system::system_implementation::ethereum_storage_model::EMPTY_ROOT_HASH;
-use zk_ee::system::errors::internal::InternalError;
-use zk_ee::system::logger::Logger;
 
 impl<
         A: Allocator + Clone + Default,

@@ -39,6 +39,7 @@ const SSZ_BYTES_PER_LENGTH_OFFSET: u32 = 4;
 // it's fully fixed
 const WITHDRAWAL_REQUEST_SSZ_SERIALIZATION_LEN: usize = 20 + 48 + 8;
 
+// NOTE: even though the spec says SSZ.encode (that is NOT a concatenation of element for the list), it actually appends nothing if there are no intercations
 pub fn eip7002_system_part<S: EthereumLikeTypes>(
     system: &mut System<S>,
     requests_hasher: &mut impl crypto::sha256::Digest,

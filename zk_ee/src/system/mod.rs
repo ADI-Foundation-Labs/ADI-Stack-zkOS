@@ -48,7 +48,8 @@ use crate::{
     utils::USIZE_SIZE,
 };
 
-pub trait SystemTypes {
+// NOTE: for now it's just a type-constructor, so it is static for all reasonable purposes
+pub trait SystemTypes: 'static {
     /// Handles all side effects and information from the outside world.
     type IO: IOSubsystem<IOTypes = Self::IOTypes, Resources = Self::Resources>;
 

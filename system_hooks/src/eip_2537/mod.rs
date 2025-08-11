@@ -20,12 +20,32 @@ use crypto::bls12_381::*;
 use zk_ee::define_subsystem;
 
 mod addition;
+mod addresses;
 mod mappings;
 mod msm;
 mod pairing;
 
 pub use self::addition::{Bls12381G1AdditionPrecompile, Bls12381G2AdditionPrecompile};
+pub use self::addresses::*;
+pub use self::mappings::{Bls12381G1MappingPrecompile, Bls12381G2MappingPrecompile};
 pub use self::msm::{Bls12381G1MSMPrecompile, Bls12381G2MSMPrecompile};
+pub use self::pairing::Bls12381PairingCheckPrecompile;
+
+pub fn initialize_eip_2537<S: EthereumLikeTypes>(hooks_storage: &mut HooksStorage<S, S::Allocator>)
+where
+    S::IO: IOSubsystemExt,
+{
+    hooks_storage.add_precompile_from_pure_invocation::<Bls12381G1AdditionPrecompile>(BLS12_G1ADD);
+    hooks_storage.add_precompile_from_pure_invocation::<Bls12381G2AdditionPrecompile>(BLS12_G2ADD);
+    hooks_storage.add_precompile_from_pure_invocation::<Bls12381G1MSMPrecompile>(BLS12_G1MSM);
+    hooks_storage.add_precompile_from_pure_invocation::<Bls12381G2MSMPrecompile>(BLS12_G2MSM);
+    hooks_storage
+        .add_precompile_from_pure_invocation::<Bls12381PairingCheckPrecompile>(BLS12_PAIRING_CHECK);
+    hooks_storage
+        .add_precompile_from_pure_invocation::<Bls12381G1MappingPrecompile>(BLS12_MAP_FP_TO_G1);
+    hooks_storage
+        .add_precompile_from_pure_invocation::<Bls12381G2MappingPrecompile>(BLS12_MAP_FP2_TO_G2);
+}
 
 const SCALAR_SERIALIZATION_LEN: usize = 32;
 const FIELD_ELEMENT_SERIALIZATION_LEN: usize = 64;

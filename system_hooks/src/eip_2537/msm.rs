@@ -1,6 +1,6 @@
-use crypto::ark_ec::CurveGroup;
-
 use super::*;
+use alloc::vec::Vec;
+use crypto::ark_ec::CurveGroup;
 
 pub const BLS12_381_G1_MSM_PER_POINT_GAS: u64 = 12000;
 pub const BLS12_381_G2_MSM_PER_POINT_GAS: u64 = 22500;
@@ -103,7 +103,7 @@ fn msm<G: CurveGroup, A: core::alloc::Allocator + Clone>(
         for i in 0..bases.len() {
             let bigint = &mut bigints[i];
             // get window
-            let scalar = bigint.as_ref()[0] % (1 << c);
+            let scalar: u64 = bigint.as_ref()[0] % (1 << c);
 
             use core::ops::ShrAssign;
             bigint.shr_assign(c as u32);
@@ -182,7 +182,7 @@ impl crate::PurePrecompileInvocation for Bls12381G1MSMPrecompile {
             )));
         }
 
-        let num_pairs = input.len() % G1_MSM_PAIR_LEN;
+        let num_pairs = input.len() / G1_MSM_PAIR_LEN;
         let mut scalars = Vec::with_capacity_in(num_pairs, allocator.clone());
         let mut points = Vec::with_capacity_in(num_pairs, allocator.clone());
 
@@ -250,7 +250,8 @@ impl crate::PurePrecompileInvocation for Bls12381G2MSMPrecompile {
             )));
         }
 
-        let num_pairs = input.len() % G2_MSM_PAIR_LEN;
+        let num_pairs = input.len() / G2_MSM_PAIR_LEN;
+
         let mut scalars = Vec::with_capacity_in(num_pairs, allocator.clone());
         let mut points = Vec::with_capacity_in(num_pairs, allocator.clone());
 
