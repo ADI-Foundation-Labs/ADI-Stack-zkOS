@@ -163,9 +163,9 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
     pub fn simulate_block(
         &mut self,
         transactions: Vec<Vec<u8>>,
-        batch_context: Option<BatchContext>,
+        block_context: Option<BlockContext>,
     ) -> BlockOutput {
-        let block_context = batch_context.unwrap_or_default();
+        let block_context = block_context.unwrap_or_default();
         let block_metadata = BlockMetadataFromOracle {
             chain_id: self.chain_id,
             block_number: self.block_number + 1,

@@ -46,7 +46,7 @@ fn run_tx(tx: Vec<u8>, basefee: u64, native_price: u64, should_succeed: bool, si
         ..Default::default()
     };
     let output = if simulation {
-        chain.simulate_block(transactions, Some(block_context))
+        chain.simulate_block(transactions, Some(block_context.into()))
     } else {
         chain.run_block(transactions, Some(block_context), None)
     };
