@@ -51,6 +51,9 @@ pub trait ZkSpecificPricingMetadata {
     fn native_price(&self) -> U256 {
         U256::ZERO
     }
+    fn get_pubdata_limit(&self) -> u64 {
+        0
+    }
 }
 
 pub trait BasicMetadata<IOTypes: SystemIOTypesConfig>:

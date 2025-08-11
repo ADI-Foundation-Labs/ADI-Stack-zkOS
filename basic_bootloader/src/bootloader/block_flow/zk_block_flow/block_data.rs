@@ -17,6 +17,8 @@ pub struct ZKBasicTransactionDataKeeper {
     pub enforced_transaction_hashes_accumulator: AccumulatingBlake2sHash,
     pub upgrade_tx_recorder: UpgradeTx,
     pub block_gas_used: u64,
+    pub block_pubdata_used: u64,
+    pub block_computational_native_used: u64,
 }
 
 impl ZKBasicTransactionDataKeeper {
@@ -34,32 +36,9 @@ impl ZKBasicTransactionDataKeeper {
                 inner: Bytes32::ZERO,
             },
             block_gas_used: 0,
+            block_pubdata_used: 0,
+            block_computational_native_used: 0,
         }
-    }
-
-    pub fn start_transaction(&mut self) {
-        // nothing
-    }
-
-    pub fn record_transaction_hash(&mut self, tx_hash: &Bytes32) {
-        self.transaction_hashes_accumulator.add_tx_hash(tx_hash);
-    }
-
-    pub fn record_enforced_transaction_hash(&mut self, tx_hash: &Bytes32) {
-        self.enforced_transaction_hashes_accumulator
-            .add_tx_hash(tx_hash);
-    }
-
-    pub fn record_upgrade_transaction_hash(&mut self, tx_hash: &Bytes32) {
-        self.upgrade_tx_recorder.add_upgrade_tx_hash(tx_hash);
-    }
-
-    pub fn record_gas_used_by_transaction(&mut self, gas: u64) {
-        self.block_gas_used += gas;
-    }
-
-    pub fn finish_transaction(&mut self) {
-        self.current_transaction_number += 1;
     }
 }
 
@@ -88,7 +67,7 @@ pub struct RollingKeccakHash {
 }
 
 impl RollingKeccakHash {
-    fn add_tx_hash(&mut self, tx_hash: &Bytes32) {
+    pub fn add_tx_hash(&mut self, tx_hash: &Bytes32) {
         if self.inner.is_zero() {
             self.inner = *tx_hash;
         } else {
@@ -111,7 +90,7 @@ pub struct AccumulatingBlake2sHash {
 }
 
 impl AccumulatingBlake2sHash {
-    fn add_tx_hash(&mut self, tx_hash: &Bytes32) {
+    pub fn add_tx_hash(&mut self, tx_hash: &Bytes32) {
         self.hasher.update(tx_hash.as_u8_array_ref());
     }
 
@@ -126,7 +105,7 @@ pub struct UpgradeTx {
 }
 
 impl UpgradeTx {
-    fn add_upgrade_tx_hash(&mut self, tx_hash: &Bytes32) {
+    pub fn add_upgrade_tx_hash(&mut self, tx_hash: &Bytes32) {
         if self.inner.is_zero() == false {
             panic!("duplicate upgrade tx");
         }

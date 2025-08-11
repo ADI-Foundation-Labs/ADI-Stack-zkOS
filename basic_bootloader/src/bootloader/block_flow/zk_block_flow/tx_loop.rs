@@ -5,7 +5,7 @@ use zk_ee::metadata_markers::basic_metadata::ZkSpecificPricingMetadata;
 
 impl<S: EthereumLikeTypes> TxLoopOp<S> for ZKHeaderStructureTxLoop
 where
-    S::IO: IOSubsystemExt,
+    S::IO: IOSubsystemExt + IOTeardown<EthereumIOTypesConfig>,
     S::Metadata: ZkSpecificPricingMetadata,
     <S::Metadata as BasicMetadata<S::IOTypes>>::TransactionMetadata: From<(B160, U256)>,
 {
@@ -59,6 +59,8 @@ where
 
             tracer.begin_tx(initial_calldata_buffer);
 
+            let pre_tx_rollback_handle = system.start_global_frame()?;
+
             // We will give the full buffer here, and internally we will use parts of it to give forward to EEs
             cycle_marker::start!("process_transaction");
 
@@ -80,12 +82,14 @@ where
                     let _ = system.get_logger().write_fmt(format_args!(
                         "Tx execution result: Internal error = {err:?}\n",
                     ));
+                    system.finish_global_frame(Some(&pre_tx_rollback_handle))?;
                     return Err(err);
                 }
                 Err(TxError::Validation(err)) => {
                     let _ = system.get_logger().write_fmt(format_args!(
                         "Tx execution result: Validation error = {err:?}\n",
                     ));
+                    system.finish_global_frame(Some(&pre_tx_rollback_handle))?;
                     result_keeper.tx_processed(Err(err));
                 }
                 Ok(tx_processing_result) => {
@@ -93,37 +97,65 @@ where
                         "Tx execution result = {:?}\n",
                         &tx_processing_result,
                     ));
-                    let (status, output, contract_address) = match tx_processing_result.result {
-                        ExecutionResult::Success { output } => match output {
-                            ExecutionOutput::Call(output) => (true, output, None),
-                            ExecutionOutput::Create(output, contract_address) => {
-                                (true, output, Some(contract_address))
-                            }
-                        },
-                        ExecutionResult::Revert { output } => (false, output, None),
-                    };
 
                     // it is concrete type here!
-                    block_data.start_transaction();
-                    block_data.record_gas_used_by_transaction(tx_processing_result.gas_used);
-                    block_data.record_transaction_hash(&tx_processing_result.tx_hash);
-                    if tx_processing_result.is_l1_tx {
-                        block_data.record_enforced_transaction_hash(&tx_processing_result.tx_hash);
-                    }
-                    if tx_processing_result.is_upgrade_tx {
-                        block_data.record_upgrade_transaction_hash(&tx_processing_result.tx_hash);
-                    }
-                    block_data.finish_transaction();
+                    block_data.block_gas_used += tx_processing_result.gas_used;
+                    block_data.block_computational_native_used +=
+                        tx_processing_result.computational_native_used;
+                    block_data.block_pubdata_used += tx_processing_result.pubdata_used;
+                    let block_logs_used = system.io.signals_iterator().len();
 
-                    result_keeper.tx_processed(Ok(TxProcessingOutput {
-                        status,
-                        output: &output,
-                        contract_address,
-                        gas_used: tx_processing_result.gas_used,
-                        gas_refunded: tx_processing_result.gas_refunded,
-                        computational_native_used: tx_processing_result.computational_native_used,
-                        pubdata_used: tx_processing_result.pubdata_used,
-                    }));
+                    // Check if the transaction made the block reach any of the limits
+                    // for gas, native, pubdata or logs.
+                    if let Err(err) = check_for_block_limits(
+                        system,
+                        block_data.block_gas_used,
+                        block_data.block_computational_native_used,
+                        block_data.block_pubdata_used,
+                        block_logs_used as u64,
+                    ) {
+                        // Revert to state before transaction
+                        system.finish_global_frame(Some(&pre_tx_rollback_handle))?;
+                        result_keeper.tx_processed(Err(err));
+                    } else {
+                        // Finish the frame opened before processing the tx
+                        system.finish_global_frame(None)?;
+
+                        let (status, output, contract_address) = match tx_processing_result.result {
+                            ExecutionResult::Success { output } => match output {
+                                ExecutionOutput::Call(output) => (true, output, None),
+                                ExecutionOutput::Create(output, contract_address) => {
+                                    (true, output, Some(contract_address))
+                                }
+                            },
+                            ExecutionResult::Revert { output } => (false, output, None),
+                        };
+
+                        block_data
+                            .transaction_hashes_accumulator
+                            .add_tx_hash(&tx_processing_result.tx_hash);
+                        if tx_processing_result.is_l1_tx {
+                            block_data
+                                .enforced_transaction_hashes_accumulator
+                                .add_tx_hash(&tx_processing_result.tx_hash);
+                        }
+                        if tx_processing_result.is_upgrade_tx {
+                            block_data
+                                .upgrade_tx_recorder
+                                .add_upgrade_tx_hash(&tx_processing_result.tx_hash);
+                        }
+
+                        result_keeper.tx_processed(Ok(TxProcessingOutput {
+                            status,
+                            output: &output,
+                            contract_address,
+                            gas_used: tx_processing_result.gas_used,
+                            gas_refunded: tx_processing_result.gas_refunded,
+                            computational_native_used: tx_processing_result
+                                .computational_native_used,
+                            pubdata_used: tx_processing_result.pubdata_used,
+                        }));
+                    }
                 }
             }
 

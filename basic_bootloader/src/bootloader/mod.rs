@@ -7,7 +7,7 @@ use crate::bootloader::stf::EthereumLikeBasicSTF;
 use crate::bootloader::transaction_flow::*;
 use alloc::vec::Vec;
 use constants::{MAX_TX_LEN_WORDS, TX_OFFSET_WORDS};
-use errors::BootloaderSubsystemError;
+use errors::{BootloaderSubsystemError, InvalidTransaction};
 use result_keeper::ResultKeeperExt;
 use ruint::aliases::*;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
@@ -197,7 +197,7 @@ where
         )?;
 
         pub const MAX_HEAP_BUFFER_SIZE: usize = 1 << 27; // 128 MB
-        pub const MAX_RETURN_BUFFER_SIZE: usize = 1 << 27; // 128 MB
+        pub const MAX_RETURN_BUFFER_SIZE: usize = 1 << 28; // 256 MB
 
         let mut heaps = Box::new_uninit_slice_in(MAX_HEAP_BUFFER_SIZE, system.get_allocator());
         let mut return_data =

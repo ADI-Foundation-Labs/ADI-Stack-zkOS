@@ -482,6 +482,9 @@ pub trait IOSubsystemExt: IOSubsystem {
 
     /// Adds some resources to refund at the end of transaction
     fn add_to_refund_counter(&mut self, refund: Self::Resources) -> Result<(), SystemError>;
+
+    // // Get number of logs emitted so far.
+    // fn logs_len(&self) -> u64;
 }
 
 pub trait EthereumLikeIOSubsystem: IOSubsystem<IOTypes = EthereumIOTypesConfig> {}

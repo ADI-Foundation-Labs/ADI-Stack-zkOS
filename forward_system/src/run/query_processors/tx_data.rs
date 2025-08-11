@@ -39,7 +39,7 @@ impl<TS: TxSource, M: MemorySource> OracleQueryProcessor<M> for TxDataResponder<
                     Some(next_tx) => next_tx.len(),
                     None => {
                         match self.tx_source.get_next_tx() {
-                            NextTxResponse::SealBatch => 0,
+                            NextTxResponse::SealBlock => 0,
                             NextTxResponse::Tx(next_tx) => {
                                 let next_tx_len = next_tx.len();
                                 // `0` interpreted as seal batch

@@ -162,6 +162,13 @@ impl<S: SystemTypes> System<S> {
         self.metadata.gas_per_pubdata()
     }
 
+    pub fn get_pubdata_limit(&self) -> u64
+    where
+        S::Metadata: ZkSpecificPricingMetadata,
+    {
+        self.metadata.get_pubdata_limit()
+    }
+
     pub fn get_gas_price(&self) -> ruint::aliases::U256 {
         self.metadata.tx_gas_price()
     }

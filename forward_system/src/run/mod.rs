@@ -264,7 +264,7 @@ pub fn run_batch_with_oracle_dump_ext<
     Ok(result_keeper.into())
 }
 
-pub fn run_batch_from_oracle_dump<
+pub fn run_block_from_oracle_dump<
     T: ReadStorageTree + Clone + serde::de::DeserializeOwned,
     PS: PreimageSource + Clone + serde::de::DeserializeOwned,
     TS: TxSource + Clone + serde::de::DeserializeOwned,
