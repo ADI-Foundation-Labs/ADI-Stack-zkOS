@@ -522,10 +522,10 @@ where
         let l2_to_l1_logs_hashes_hash = l2_to_l1_logs_hasher.finalize();
 
         blocks_hasher = Blake2s256::new();
-        for block_hash in block_metadata.block_hashes.0.iter().skip(1) {
+        blocks_hasher.update(current_block_hash.as_u8_ref());
+        for block_hash in block_metadata.block_hashes.0.iter().take(255) {
             blocks_hasher.update(&block_hash.to_be_bytes::<32>());
         }
-        blocks_hasher.update(current_block_hash.as_u8_ref());
 
         // validate that timestamp didn't decrease
         assert!(block_metadata.timestamp >= last_block_timestamp);
@@ -640,11 +640,10 @@ where
         let pubdata_hash = pubdata_hasher.finalize();
 
         blocks_hasher = Blake2s256::new();
-        for block_hash in block_metadata.block_hashes.0.iter().skip(1) {
+        blocks_hasher.update(current_block_hash.as_u8_ref());
+        for block_hash in block_metadata.block_hashes.0.iter().take(255) {
             blocks_hasher.update(&block_hash.to_be_bytes::<32>());
         }
-        blocks_hasher.update(current_block_hash.as_u8_ref());
-
         // validate that timestamp didn't decrease
         assert!(block_metadata.timestamp >= last_block_timestamp);
 
