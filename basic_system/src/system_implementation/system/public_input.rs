@@ -162,6 +162,7 @@ impl BatchOutput {
         hasher.update(self.priority_operations_hash.as_u8_ref());
         hasher.update(self.l2_logs_tree_root.as_u8_ref());
         hasher.update(self.upgrade_tx_hash.as_u8_ref());
+        hasher.update(self.interop_root_rolling_hash.as_u8_ref());
         hasher.finalize()
     }
 }
