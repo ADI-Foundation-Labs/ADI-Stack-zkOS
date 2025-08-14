@@ -31,6 +31,9 @@ pub const TX_CALLDATA_OFFSET: usize = 0x60;
 /// Maximum value of gas that can be represented as ergs in a u64.
 pub const MAX_BLOCK_GAS_LIMIT: u64 = u64::MAX / ERGS_PER_GAS;
 
+/// Maximum amount of gas a transaction can use.
+pub const MAX_TX_GAS_LIMIT: u64 = 1 << 24;
+
 // TODO: compute using solidity abi
 // 202bcce7
 pub const VALIDATE_SELECTOR: &[u8] = &[0x20, 0x2b, 0xcc, 0xe7];

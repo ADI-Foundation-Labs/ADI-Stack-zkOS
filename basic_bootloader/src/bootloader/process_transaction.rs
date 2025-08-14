@@ -529,6 +529,11 @@ where
             InvalidTransaction::CallerGasLimitMoreThanBlock,
             system
         )?;
+        require!(
+            tx_gas_limit <= MAX_BLOCK_GAS_LIMIT,
+            InvalidTransaction::CallerGasLimitTooHigh,
+            system
+        )?;
 
         let gas_per_pubdata = system.get_gas_per_pubdata();
         let native_price = system.get_native_price();
