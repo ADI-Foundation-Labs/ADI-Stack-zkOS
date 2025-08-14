@@ -19,6 +19,7 @@ use test_structure::TestStructure;
 
 use crate::summary::Summary;
 use crate::test::case::Case;
+use crate::vm::zk_os::ethereum_stf::ZKsyncOSEthereumSTF;
 use crate::Filters;
 use crate::ZKsyncOS;
 use alloy::primitives::*;
@@ -290,6 +291,41 @@ impl Test {
 
             let vm = ZKsyncOS::clone(vm.clone());
             case.run_zksync_os(
+                summary.clone(),
+                vm,
+                self.name.clone(),
+                self.group.clone(),
+                bench,
+            );
+        }
+    }
+
+    ///
+    /// Runs the test on ZKsync OS.
+    ///
+    pub fn run_zksync_os_ethereum_stf(
+        self,
+        summary: Arc<Mutex<Summary>>,
+        vm: Arc<ZKsyncOSEthereumSTF>,
+        bench: bool,
+    ) {
+        for case in self.cases {
+            if let Some(filter_calldata) = self.skipped_calldatas.as_ref() {
+                if filter_calldata.contains(&case.transaction.data) {
+                    Summary::ignored(summary.clone(), case.label);
+                    continue;
+                }
+            }
+
+            if let Some(filter_cases) = self.skipped_cases.as_ref() {
+                if filter_cases.contains(&case.label) {
+                    Summary::ignored(summary.clone(), case.label);
+                    continue;
+                }
+            }
+
+            let vm = ZKsyncOSEthereumSTF::clone(vm.clone());
+            case.run_zksync_os_ethereum_stf(
                 summary.clone(),
                 vm,
                 self.name.clone(),

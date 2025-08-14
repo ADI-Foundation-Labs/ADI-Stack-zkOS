@@ -7,8 +7,6 @@
 #![allow(clippy::upper_case_acronyms)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::type_complexity)]
-#![allow(incomplete_features)]
-#![feature(generic_const_exprs)]
 
 pub(crate) mod environment;
 pub(crate) mod filters;
@@ -16,7 +14,7 @@ pub(crate) mod summary;
 pub(crate) mod test;
 pub(crate) mod test_suits;
 pub(crate) mod utils;
-pub(crate) mod vm;
+pub mod vm;
 pub(crate) mod workflow;
 
 use std::path::Path;
@@ -34,6 +32,7 @@ pub use crate::summary::Summary;
 pub use crate::test_suits::ethereum_general_state::EthereumGeneralStateTestsDirectory;
 pub use crate::test_suits::Collection;
 pub use crate::vm::zk_ee::ZKsyncOS;
+use crate::vm::zk_os::ethereum_stf::ZKsyncOSEthereumSTF;
 pub use crate::workflow::Workflow;
 
 ///
@@ -113,10 +112,49 @@ impl EvmTester {
     }
 
     ///
+    /// Runs all tests on ZKsync OS.
+    ///
+    pub fn run_zksync_os_ethereum_stf(
+        self,
+        vm: ZKsyncOSEthereumSTF,
+        run_mutation_tests: bool,
+    ) -> anyhow::Result<()> {
+        let tests = self.all_tests(Environment::ZKsyncOS)?;
+        let vm = Arc::new(vm);
+        let _: Vec<()> = tests
+            .into_par_iter()
+            .map(|mut test| {
+                let mutants = test.mutants;
+                test.mutants = vec![];
+
+                // dbg!(&test.name);
+
+                test.run_zksync_os_ethereum_stf(
+                    self.summary.clone(),
+                    vm.clone(),
+                    matches!(self.workflow, Workflow::Bench),
+                );
+
+                if run_mutation_tests {
+                    for mutant in mutants {
+                        mutant.run_zksync_os_ethereum_stf(
+                            self.summary.clone(),
+                            vm.clone(),
+                            matches!(self.workflow, Workflow::Bench),
+                        );
+                    }
+                }
+            })
+            .collect();
+
+        Ok(())
+    }
+
+    ///
     /// Returns all tests from all directories.
     ///
     fn all_tests(&self, environment: Environment) -> anyhow::Result<Vec<Test>> {
-        let mut tests = Vec::with_capacity(16384);
+        let mut tests = Vec::with_capacity(1 << 15);
 
         tests.extend(self.directory::<EthereumGeneralStateTestsDirectory>(
             Self::GENERAL_STATE_TESTS,

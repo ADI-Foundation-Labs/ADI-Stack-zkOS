@@ -590,8 +590,6 @@ entries:
             enabled: true
       vmPerformance:
         enabled: true
-        # Disabled for Emulator
-        # comment: "TODO: can't handle"
         entries:
           loopExp.json:
             hash: '0xaaec56e90b8349037c06c3ee4d8da83c'

@@ -70,6 +70,8 @@ pub enum InvalidTransaction {
     InvalidChainId,
     /// Access list is not supported for blocks before the Berlin hardfork.
     AccessListNotSupported,
+    /// EIP-7702 transactions must have non-empty auth list.
+    AuthListIsEmpty,
     /// Access list is not supported for blocks before the Berlin hardfork.
     BlobElementIsNotSupported,
     /// Unacceptable gas per pubdata price.

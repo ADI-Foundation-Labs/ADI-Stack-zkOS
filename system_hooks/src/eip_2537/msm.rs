@@ -76,23 +76,50 @@ fn msm<G: CurveGroup, A: core::alloc::Allocator + Clone>(
     assert_eq!(bases.len(), bigints.len());
     let size = bases.len();
 
+    const NUM_BITS: usize = 256;
+
+    // let's special-case for "short" invocations
+    if size < 4 {
+        // it'll amortize largely over final projective -> affine, and doubling loop
+        let mut acc = G::ZERO;
+        for bit in (0..NUM_BITS).rev() {
+            let word_idx = bit / 64;
+            let bit_idx = bit % 64;
+            unsafe {
+                core::hint::assert_unchecked(bases.len() == bigints.len());
+            }
+
+            for i in 0..size {
+                if bigints[i].0[word_idx] & 1 << bit_idx > 0 {
+                    acc += &bases[i];
+                }
+            }
+            if bit > 0 {
+                acc.double_in_place();
+            }
+        }
+
+        return acc;
+    }
+
     let c = if size < 32 {
         3
     } else {
         ln_without_floats(size) + 2
     };
-
-    let num_bits = 256usize;
+    assert!(c < 64);
 
     let zero = G::zero();
     let mut window_start = 0;
-    let num_windows = num_bits.next_multiple_of(c) / c;
+    let num_windows = NUM_BITS.next_multiple_of(c) / c;
 
-    let mut resulable_buckets = Vec::with_capacity_in((1 << c) - 1, allocator.clone());
-    resulable_buckets.resize((1 << c) - 1, zero);
+    let mut reusable_buckets = Vec::with_capacity_in((1 << c) - 1, allocator.clone());
+    reusable_buckets.resize((1 << c) - 1, zero);
 
     let mut window_sums = Vec::with_capacity_in(num_windows, allocator);
     window_sums.resize(num_windows, zero);
+
+    let lowest_bits_mask = (1u64 << c) - 1;
 
     for window_idx in 0..num_windows {
         let last_window = window_idx == num_windows - 1;
@@ -103,27 +130,26 @@ fn msm<G: CurveGroup, A: core::alloc::Allocator + Clone>(
         for i in 0..bases.len() {
             let bigint = &mut bigints[i];
             // get window
-            let scalar: u64 = bigint.as_ref()[0] % (1 << c);
+            let scalar: u64 = bigint.as_ref()[0] & lowest_bits_mask;
 
             use core::ops::ShrAssign;
             bigint.shr_assign(c as u32);
 
             if scalar != 0 {
-                resulable_buckets[(scalar - 1) as usize] += &bases[i];
+                reusable_buckets[(scalar - 1) as usize] += &bases[i];
             }
         }
 
         // now sum over buckets
         let mut tmp = zero;
         let mut window_result = zero;
-        for el in resulable_buckets.iter_mut().rev() {
+        for el in reusable_buckets.iter_mut().rev() {
             tmp += &*el;
             window_result += &tmp;
-            if last_window {
+            if last_window == false {
                 *el = zero;
             }
         }
-
         window_sums[window_idx] = window_result;
 
         window_start += c;
@@ -265,7 +291,7 @@ impl crate::PurePrecompileInvocation for Bls12381G2MSMPrecompile {
             )?;
             let scalar = parse_integer(
                 pair_encoding
-                    [G2_SERIALIZATION_LEN..(G1_SERIALIZATION_LEN + SCALAR_SERIALIZATION_LEN)]
+                    [G2_SERIALIZATION_LEN..(G2_SERIALIZATION_LEN + SCALAR_SERIALIZATION_LEN)]
                     .try_into()
                     .unwrap(),
             );

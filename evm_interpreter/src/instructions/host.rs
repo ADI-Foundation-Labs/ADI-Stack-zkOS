@@ -171,8 +171,10 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
         if Self::PRINT_OPCODES {
             use core::fmt::Write;
             let _ = system.get_logger().write_fmt(format_args!(
-                " address {:?}, key {:?}, value {:?}",
-                &self.address, &index, &value
+                " address 0x{:040x}, key {:?}, value {:?}",
+                self.address.as_uint(),
+                &index,
+                &value
             ));
         }
 

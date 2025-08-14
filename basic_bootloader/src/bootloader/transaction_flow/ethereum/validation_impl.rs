@@ -255,6 +255,11 @@ where
     use crate::bootloader::transaction::ethereum_tx_format::AuthorizationEntry;
     let mut hasher = crypto::sha3::Keccak256::new();
 
+    let count = auth_list.count.expect("prevalidated list containts count");
+    if count == 0 {
+        return Err(TxError::Validation(InvalidTransaction::AuthListIsEmpty));
+    }
+
     for entry in auth_list.iter() {
         let AuthorizationEntry {
             chain_id,

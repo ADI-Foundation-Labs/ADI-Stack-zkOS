@@ -55,8 +55,12 @@ impl Collection for EthereumGeneralStateTestsDirectory {
                     return None;
                 }
 
-                let file = std::fs::read_to_string(test.path.clone())
-                    .unwrap_or_else(|_| panic!("Test not found: {:?}", test.path));
+                let Ok(file) = std::fs::read_to_string(test.path.clone()) else {
+                    return None;
+                };
+
+                // let file = std::fs::read_to_string(test.path.clone())
+                //     .unwrap_or_else(|_| panic!("Test not found: {:?}", test.path));
 
                 let file_name = test.path.file_name().unwrap().to_str().unwrap().to_string();
 

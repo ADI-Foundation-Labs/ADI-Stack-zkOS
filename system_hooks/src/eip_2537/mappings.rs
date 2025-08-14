@@ -36,18 +36,17 @@ impl crate::PurePrecompileInvocation for Bls12381G1MappingPrecompile {
 
         let field_element = parse_fq(input.try_into().unwrap())?;
         use crypto::ark_ec::hashing::map_to_curve_hasher::MapToCurve;
-        let Ok(result) = crypto::ark_ec::hashing::curve_maps::swu::SWUMap::<
-            crypto::bls12_381::FqToG1SwuIsoConfig,
-        >::map_to_curve(field_element) else {
+        let Ok(result) =
+            crypto::ark_ec::hashing::curve_maps::wb::WBMap::map_to_curve(field_element)
+        else {
             return Err(Bls12PrecompileSubsystemError::LeafUsage(interface_error!(
                 Bls12PrecompileInterfaceError::InvalidFieldElement
             )));
         };
-        // re-cast, as SWU config uses different AffinePoint definition from type perspective
-        let (x, y) = (result.x, result.y);
-        let point = G1Affine::new_unchecked(x, y);
+        let result: G1Affine = result;
+        let result = result.clear_cofactor();
 
-        write_g1(point, output);
+        write_g1(result, output);
 
         Ok(())
     }
@@ -85,18 +84,17 @@ impl crate::PurePrecompileInvocation for Bls12381G2MappingPrecompile {
         let field_element = parse_fq2(input.try_into().unwrap())?;
 
         use crypto::ark_ec::hashing::map_to_curve_hasher::MapToCurve;
-        let Ok(result) = crypto::ark_ec::hashing::curve_maps::swu::SWUMap::<
-            crypto::bls12_381::Fq2ToG2SwuIsoConfig,
-        >::map_to_curve(field_element) else {
+        let Ok(result) =
+            crypto::ark_ec::hashing::curve_maps::wb::WBMap::map_to_curve(field_element)
+        else {
             return Err(Bls12PrecompileSubsystemError::LeafUsage(interface_error!(
                 Bls12PrecompileInterfaceError::InvalidFieldElement
             )));
         };
-        // re-cast, as SWU config uses different AffinePoint definition from type perspective
-        let (x, y) = (result.x, result.y);
-        let point = G2Affine::new_unchecked(x, y);
+        let result: G2Affine = result;
+        let result = result.clear_cofactor();
 
-        write_g2(point, output);
+        write_g2(result, output);
 
         Ok(())
     }

@@ -6,6 +6,7 @@ use std::{
 pub mod post_state_for_case;
 pub mod transaction;
 
+use crate::vm::zk_os::ethereum_stf::ZKsyncOSEthereumSTF;
 use alloy::primitives::*;
 use itertools::Itertools;
 use post_state_for_case::PostStateForCase;
@@ -441,6 +442,248 @@ impl Case {
         self,
         summary: Arc<Mutex<Summary>>,
         mut vm: ZKsyncOS,
+        test_name: String,
+        test_group: Option<String>,
+        bench: bool,
+    ) {
+        let name = self.label;
+
+        // Populate prestate
+        for (address, state) in self.prestate {
+            vm.set_balance(address, state.balance);
+
+            vm.set_nonce(address, state.nonce);
+
+            if state.code.0.len() > 0 {
+                vm.set_predeployed_evm_contract(address, state.code, state.nonce);
+            }
+
+            state
+                .storage
+                .into_iter()
+                .for_each(|(storage_key, storage_value)| {
+                    vm.set_storage_slot(
+                        address,
+                        storage_key,
+                        B256::from(storage_value.to_be_bytes()),
+                    );
+                });
+        }
+
+        let mut system_context = ZKsyncOSEVMContext::default();
+
+        system_context.block_number = self.env.current_number.try_into().unwrap();
+        system_context.block_timestamp = self.env.current_timestamp.try_into().unwrap();
+        system_context.coinbase = self.env.current_coinbase;
+        system_context.block_gas_limit = self.env.current_gas_limit;
+        system_context.chain_id = 1; // Tests expect it to be 1
+
+        if let Some(gas_price) = self.transaction.gas_price {
+            system_context.gas_price = gas_price;
+        } else if let Some(base_fee) = self.env.current_base_fee {
+            let mut gas_price = base_fee;
+
+            if let Some(max_priority_fee) = self.transaction.max_priority_fee_per_gas {
+                gas_price += max_priority_fee;
+            }
+
+            system_context.gas_price = gas_price;
+        }
+
+        if let Some(base_fee) = self.env.current_base_fee {
+            system_context.base_fee = base_fee;
+        }
+
+        if let Some(current_difficulty) = self.env.current_difficulty {
+            system_context.block_difficulty = B256::from(current_difficulty.to_be_bytes());
+        }
+
+        if let Some(random) = self.env.current_random {
+            system_context.block_difficulty = B256::from(random.to_be_bytes());
+        }
+        let test_id = format!("{}-{}", test_name, name);
+        let run_result = vm.execute_transaction(&self.transaction, system_context, bench, test_id);
+
+        let mut check_successful = true;
+        let mut expected: Option<String> = None;
+        let mut actual: Option<String> = None;
+        // TODO merge with prestate!
+        for (address, filler_struct) in self.expected_state {
+            if filler_struct.balance.is_some() {
+                // We do not have equivalent gas refunds, so balances will be different
+                if address != self.transaction.sender.unwrap()
+                    && address != self.env.current_coinbase
+                {
+                    let expected_balance = filler_struct.balance.as_ref().unwrap();
+                    if let Some(expected_balance_value) = expected_balance.as_value() {
+                        if vm.get_balance(address) != expected_balance_value {
+                            expected = Some(format!(
+                                "Balance of {address:?}: {:?}",
+                                expected_balance_value
+                            ));
+                            actual = Some(vm.get_balance(address).to_string());
+                            check_successful = false;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if filler_struct.nonce.is_some() {
+                let expected_nonce = filler_struct.nonce.as_ref().unwrap();
+                if let Some(expected_nonce_value) = expected_nonce.as_value() {
+                    if vm.get_nonce(address) != expected_nonce_value {
+                        expected =
+                            Some(format!("Nonce of {address:?}: {:?}", expected_nonce_value));
+                        actual = Some(vm.get_nonce(address).to_string());
+                        check_successful = false;
+                        break;
+                    }
+                }
+            }
+
+            if filler_struct.code.is_some() {
+                let actual_code = vm.get_code(address).unwrap_or_default();
+
+                if actual_code != filler_struct.code.as_ref().unwrap().0 .0 {
+                    expected = Some(format!("Code of {address:?} is invalid"));
+                    actual = None;
+
+                    check_successful = false;
+                    break;
+                }
+            }
+
+            if filler_struct.storage.is_some() {
+                let mut has_storage_divergence = false;
+                let storage =
+                    AccountFillerStruct::parse_storage(filler_struct.storage.as_ref().unwrap());
+                for (key, _) in &storage {
+                    let key_u256 =
+                        U256::from_str_radix(&key.as_value().unwrap().to_string(), 10).unwrap();
+
+                    let expected_value =
+                        AccountFillerStruct::get_storage_value(&storage, key).unwrap();
+                    let actual_value = vm.get_storage_slot(address, key_u256);
+
+                    match expected_value {
+                        U256Parsed::Value(expected_u256) => {
+                            let unwrapped_actual_value = actual_value.unwrap_or_default();
+                            if unwrapped_actual_value.0 != expected_u256.to_be_bytes() {
+                                expected = Some(format!(
+                                    "Storage of {address:?}, {:?}: {:?}",
+                                    key.as_value().unwrap(),
+                                    expected_u256
+                                ));
+                                actual = Some(format!("{:?}", actual_value));
+
+                                has_storage_divergence = true;
+                                break;
+                            }
+                        }
+                        U256Parsed::Any => {
+                            if actual_value.is_none() {
+                                expected = Some(format!(
+                                    "Storage of {address:?}, {:?}: {:?}",
+                                    key.as_value().unwrap(),
+                                    "Any value"
+                                ));
+                                actual = Some("None".to_string());
+
+                                has_storage_divergence = true;
+                                break;
+                            }
+                        }
+                    };
+                }
+                if has_storage_divergence {
+                    check_successful = false;
+                    break;
+                }
+            }
+        }
+
+        if let Ok(res) = run_result {
+            // For the test to pass, we need:
+            // * successful state changes
+            // * expect_exception => exception
+            // Note that not all reverting tests have an expected
+            // exception declared.
+            if check_successful && (!self.expect_exception || res.exception) {
+                Summary::passed_runtime(
+                    summary,
+                    format!("{test_name}: {name}"),
+                    test_group,
+                    0,
+                    0,
+                    res.gas,
+                );
+            } else {
+                Summary::failed(
+                    summary,
+                    format!("{test_name}: {name}"),
+                    res.exception,
+                    expected,
+                    actual,
+                    self.transaction.data.to_vec(),
+                );
+            }
+            //}
+        } else {
+            // Test case was invalid, we check if this was expected
+            if self.expect_exception && check_successful {
+                Summary::passed_runtime(
+                    summary,
+                    format!("{test_name}: {name}"),
+                    test_group,
+                    0,
+                    0,
+                    U256::ZERO,
+                );
+            } else {
+                Summary::invalid(
+                    summary,
+                    format!("{test_name}: {name}"),
+                    run_result.err().unwrap(),
+                    self.transaction.data.to_vec(),
+                );
+            }
+        }
+    }
+
+    pub fn run_zksync_os_ethereum_stf(
+        self,
+        summary: Arc<Mutex<Summary>>,
+        vm: ZKsyncOSEthereumSTF,
+        test_name: String,
+        test_group: Option<String>,
+        bench: bool,
+    ) {
+        let calldata = self.transaction.data.0.clone();
+        let name = self.label.clone();
+        let result = std::panic::catch_unwind(|| {
+            self.run_zksync_os_ethereum_stf_inner(
+                summary.clone(),
+                vm,
+                test_name.clone(),
+                test_group,
+                bench,
+            )
+        });
+        if let Err(e) = result {
+            Summary::panicked(
+                summary,
+                format!("{test_name}: {name}"),
+                format!("{:?}", e),
+                calldata.to_vec(),
+            )
+        }
+    }
+
+    fn run_zksync_os_ethereum_stf_inner(
+        self,
+        summary: Arc<Mutex<Summary>>,
+        mut vm: ZKsyncOSEthereumSTF,
         test_name: String,
         test_group: Option<String>,
         bench: bool,

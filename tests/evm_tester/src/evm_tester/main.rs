@@ -71,8 +71,11 @@ fn main_inner(arguments: Arguments) -> anyhow::Result<()> {
 
     match environment {
         evm_tester::Environment::ZKsyncOS => {
-            let vm = evm_tester::ZKsyncOS::new();
-            evm_tester.run_zksync_os(vm, arguments.mutation)
+            // let vm = evm_tester::ZKsyncOS::new();
+            // evm_tester.run_zksync_os(vm, arguments.mutation)
+
+            let vm = evm_tester::vm::zk_os::ethereum_stf::ZKsyncOSEthereumSTF::new();
+            evm_tester.run_zksync_os_ethereum_stf(vm, arguments.mutation)
         }
     }?;
 
@@ -99,13 +102,15 @@ mod tests {
 
     #[test]
     fn test_manually() {
-        std::env::set_current_dir("..").expect("Change directory failed");
+        // std::env::set_current_dir("..").expect("Change directory failed");
 
         let arguments = Arguments {
             verbosity: false,
             quiet: false,
-            paths: vec!["tests/solidity/simple/default.sol".to_owned()],
-            names: vec![],
+            paths: vec!["ethereum-fixtures/state_tests".to_owned()],
+            // paths: vec![],
+            // names: vec![],
+            names: vec!["tests/prague/eip7702_set_code_tx/test_set_code_txs.py::test_empty_authorization_list[fork_Prague-state_test]".to_string()],
             groups: vec![],
             labels: vec![],
             threads: Some(1),
@@ -113,7 +118,7 @@ mod tests {
             workflow: evm_tester::Workflow::BuildAndRun,
             mutation: false,
             mutation_path: None,
-            run_ethereum_spec_tests: false,
+            run_ethereum_spec_tests: true,
         };
 
         crate::main_inner(arguments).expect("Manual testing failed");

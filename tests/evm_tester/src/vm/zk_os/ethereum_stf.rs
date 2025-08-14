@@ -1,84 +1,100 @@
-use std::alloc::Global;
 use std::cmp::min;
 use std::collections::HashMap;
-use std::str::FromStr;
 use std::sync::Arc;
 
 use crate::utils::*;
+use alloy::consensus::transaction::*;
+use alloy::consensus::*;
+use alloy::eips::Encodable2718;
+use alloy::network::TxSignerSync;
 use alloy::primitives::*;
+use alloy::rpc::types::TransactionRequest;
+use alloy::signers::local::PrivateKeySigner;
 use itertools::Itertools;
-use zk_ee::common_structs::derive_flat_storage_key;
-use zk_ee::system::metadata::BlockHashes;
+use std::collections::BTreeMap;
 use zk_ee::system::tracer::NopTracer;
 use zk_ee::utils::Bytes32;
+use zksync_os_basic_bootloader::bootloader::block_flow::ethereum_block_flow::PectraForkHeader;
 use zksync_os_basic_bootloader::bootloader::constants::MAX_BLOCK_GAS_LIMIT;
 use zksync_os_basic_bootloader::bootloader::errors::InvalidTransaction;
-use zksync_os_basic_system::system_implementation::flat_storage_model::address_into_special_storage_key;
-use zksync_os_basic_system::system_implementation::flat_storage_model::AccountProperties;
-use zksync_os_basic_system::system_implementation::flat_storage_model::TestingTree;
-use zksync_os_basic_system::system_implementation::flat_storage_model::ACCOUNT_PROPERTIES_STORAGE_ADDRESS;
+use zksync_os_basic_system::system_implementation::ethereum_storage_model::caches::EMPTY_STRING_KECCAK_HASH;
+use zksync_os_basic_system::system_implementation::ethereum_storage_model::EMPTY_ROOT_HASH;
 use zksync_os_forward_system::run::errors::ForwardSubsystemError;
 use zksync_os_forward_system::run::test_impl::{
-    InMemoryPreimageSource, InMemoryTree, NoopTxCallback, TxListSource,
+    InMemoryPreimageSource, NoopTxCallback, TxListSource,
 };
-use zksync_os_forward_system::run::{
-    run_batch_with_oracle_dump, BatchContext, BlockOutput, PreimageSource, StorageCommitment,
-    TxOutput,
-};
-use zksync_os_rig::zksync_os_api::helpers;
+use zksync_os_forward_system::run::*;
+use zksync_os_oracle_provider::*;
 
 use crate::test::case::transaction::AccessListItem;
 use crate::test::case::transaction::AuthorizationListItem;
 use crate::test::case::transaction::Transaction;
+use zksync_os_forward_system::run::result_keeper::ForwardRunningResultKeeper;
+use zksync_os_basic_system::system_implementation::ethereum_storage_model::caches::account_properties::EthereumAccountProperties;
+use crate::vm::zk_ee::ZKsyncOSEVMContext;
+use crate::vm::zk_ee::ZKsyncOSExecutionResult;
 
-// mod transaction;
-
-#[derive(Clone, Default)]
-pub struct ZKsyncOSEVMContext {
-    pub chain_id: u64,
-    pub coinbase: Address,
-    pub block_number: u128,
-    pub block_timestamp: u128,
-    pub block_gas_limit: U256,
-    pub block_difficulty: B256,
-    pub base_fee: U256,
-    pub gas_price: U256,
-    pub tx_origin: Address,
+///
+/// Sign and encode alloy transaction request using provided `wallet`.
+///
+pub fn sign_and_encode_transaction_request(
+    req: TransactionRequest,
+    wallet: &PrivateKeySigner,
+) -> Vec<u8> {
+    let typed_tx = req.build_typed_tx().expect("Failed to build typed tx");
+    match typed_tx {
+        TypedTransaction::Legacy(tx) => sign_alloy_tx(tx, wallet, false),
+        TypedTransaction::Eip1559(tx) => sign_alloy_tx(tx, wallet, true),
+        TypedTransaction::Eip7702(tx) => sign_alloy_tx(tx, wallet, true),
+        TypedTransaction::Eip2930(tx) => sign_alloy_tx(tx, wallet, true),
+        TypedTransaction::Eip4844(tx) => sign_alloy_tx(tx, wallet, true),
+    }
 }
 
 ///
-/// The VM execution result.
+/// Sign and encode alloy transaction using provided `wallet`.
 ///
-#[derive(Debug, Clone, Default)]
-pub struct ZKsyncOSExecutionResult {
-    /// The VM snapshot execution result.
-    pub return_data: Vec<u8>,
-    pub exception: bool,
-    /// The number of gas used.
-    pub gas: U256,
-    pub address_deployed: Option<Address>,
+#[allow(deprecated)]
+pub fn sign_alloy_tx<T: SignableTransaction<Signature>>(
+    mut tx: T,
+    wallet: &PrivateKeySigner,
+    encode_eip_2718: bool,
+) -> Vec<u8>
+where
+    T: RlpEcdsaEncodableTx,
+{
+    let signature = wallet.sign_transaction_sync(&mut tx).unwrap();
+
+    let tx = tx.into_signed(signature);
+
+    if encode_eip_2718 {
+        tx.encoded_2718()
+    } else {
+        let mut result = vec![];
+        tx.rlp_encode(&mut result);
+
+        result
+    }
 }
 
 ///
-/// The ZKsync OS interface.
+/// The ZKsync OS + Ethereum STF interface.
 ///
 #[derive(Clone)]
-pub struct ZKsyncOS {
-    tree: InMemoryTree,
+pub struct ZKsyncOSEthereumSTF {
+    account_properties: HashMap<ruint::aliases::B160, EthereumAccountProperties>,
+    cold_storage: HashMap<ruint::aliases::B160, HashMap<Bytes32, Bytes32>>,
     preimage_source: InMemoryPreimageSource,
 }
 
-impl ZKsyncOS {
+impl ZKsyncOSEthereumSTF {
     pub fn new() -> Self {
-        let tree = InMemoryTree {
-            storage_tree: TestingTree::new_in(Global),
-            cold_storage: HashMap::new(),
-        };
         let preimage_source = InMemoryPreimageSource {
             inner: Default::default(),
         };
         Self {
-            tree,
+            account_properties: HashMap::new(),
+            cold_storage: HashMap::new(),
             preimage_source,
         }
     }
@@ -119,7 +135,6 @@ impl ZKsyncOS {
             )
         });
 
-        #[allow(deprecated)]
         use alloy::primitives::Signature;
 
         let authorization_list = transaction.authorization_list.clone().map(|v| {
@@ -141,7 +156,6 @@ impl ZKsyncOS {
                         s.to_big_endian(&mut s_buf);
                         let y_parity = !y_parity.is_zero();
 
-                        #[allow(deprecated)]
                         let signature = Signature::from_scalars_and_parity(
                             alloy::primitives::FixedBytes::from_slice(&r_buf),
                             alloy::primitives::FixedBytes::from_slice(&s_buf),
@@ -202,7 +216,7 @@ impl ZKsyncOS {
             transaction.secret_key.as_slice(),
         )
         .unwrap();
-        let encoded_tx = helpers::sign_and_encode_transaction_request(request, &wallet);
+        let encoded_tx = sign_and_encode_transaction_request(request, &wallet);
 
         let tx_source = TxListSource {
             transactions: vec![encoded_tx].into(),
@@ -215,106 +229,150 @@ impl ZKsyncOS {
         // Override block gas limit
         let gas_limit = min(block_gas_limit, MAX_BLOCK_GAS_LIMIT);
 
-        let context = BatchContext {
-            //todo: gas
-            eip1559_basefee: ruint::Uint::from_str(&system_context.base_fee.to_string())
-                .expect("Invalid basefee"),
-            native_price: ruint::aliases::U256::from(1),
-            gas_per_pubdata: Default::default(),
-            block_number: system_context.block_number as u64,
+        // make header - Pectra header requires all optional fields to be Some
+        let target_block_header = alloy::consensus::Header {
+            parent_hash: Default::default(),
+            ommers_hash: Default::default(),
+            beneficiary: system_context.coinbase,
+            state_root: Default::default(),
+            transactions_root: Default::default(),
+            receipts_root: Default::default(),
+            logs_bloom: Default::default(),
+            difficulty: U256::ONE,
+            number: system_context.block_number as u64,
+            gas_limit: gas_limit,
+            gas_used: 0,
             timestamp: system_context.block_timestamp as u64,
-            chain_id: system_context.chain_id,
-            gas_limit,
-            pubdata_limit: u64::MAX,
-            coinbase: ruint::Bits::try_from_be_slice(system_context.coinbase.as_slice())
-                .expect("Invalid coinbase"),
-            block_hashes: BlockHashes::default(),
-            mix_hash: ruint::aliases::U256::from(1),
+            extra_data: Default::default(),
+            mix_hash: Default::default(),
+            nonce: Default::default(),
+            base_fee_per_gas: Some(system_context.base_fee.try_into().unwrap()),
+            withdrawals_root: Some(Default::default()),
+            blob_gas_used: Some(Default::default()),
+            excess_blob_gas: Some(Default::default()),
+            parent_beacon_block_root: Some(Default::default()),
+            requests_hash: Some(Default::default()),
         };
 
-        let storage_commitment = StorageCommitment {
-            root: self.tree.storage_tree.root().clone(),
-            next_free_slot: self.tree.storage_tree.next_free_slot,
-        };
-
-        let tree = self.tree.clone();
         let preimage_source = self.preimage_source.clone();
 
         // Output flamegraphs if on benchmarking mode
         if bench {
-            todo!();
-
-            // use zk_ee::common_structs::ProofData;
-            // use zk_ee::types_config::EthereumIOTypesConfig;
-            // use zksync_os_forward_system::run::ForwardRunningOracle;
-            // use zksync_os_oracle_provider::BasicZkEEOracleWrapper;
-            // use zksync_os_oracle_provider::ReadWitnessSource;
-            // use zksync_os_oracle_provider::ZkEENonDeterminismSource;
-
-            // let oracle: ForwardRunningOracle<InMemoryTree, InMemoryPreimageSource, TxListSource> =
-            //     ForwardRunningOracle {
-            //         proof_data: Some(ProofData {
-            //             state_root_view: storage_commitment,
-            //             last_block_timestamp: 0,
-            //         }),
-            //         block_metadata: context,
-            //         tree: tree.clone(),
-            //         preimage_source: preimage_source.clone(),
-            //         tx_source: tx_source.clone(),
-            //         next_tx: None,
-            //     };
-            // let oracle_wrapper =
-            //     BasicZkEEOracleWrapper::<EthereumIOTypesConfig, _>::new(oracle.clone());
-            // let mut non_determinism_source = ZkEENonDeterminismSource::default();
-            // non_determinism_source.add_external_processor(oracle_wrapper);
-            // let copy_source = ReadWitnessSource::new(non_determinism_source);
-            // let path = std::env::current_dir()
-            //     .unwrap()
-            //     .join(format!("{}.svg", test_id));
-            // let _output = zksync_os_runner::run_default_with_flamegraph_path(
-            //     1 << 25,
-            //     copy_source,
-            //     Some(path),
-            // );
+            unimplemented!();
         }
 
-        let result = run_batch_with_oracle_dump(
-            context,
-            tree,
-            preimage_source,
+        use alloy::rlp::Encodable;
+        let mut target_header_encoding = vec![];
+        target_block_header.encode(&mut target_header_encoding);
+
+        self.fix_storage();
+        self.fix_account_properties();
+
+        let target_header_reponsder = EthereumTargetBlockHeaderResponder {
+            target_header: target_block_header,
+            target_header_encoding,
+        };
+        let tx_data_responder = TxDataResponder {
             tx_source,
-            NoopTxCallback,
-            None,
-            &mut NopTracer::default(),
+            next_tx: None,
+        };
+        let preimage_responder = GenericPreimageResponder { preimage_source };
+        let initial_account_state_responder = InMemoryEthereumInitialAccountStateResponder {
+            source: self.account_properties.clone(),
+        };
+        let initial_values_responder = InMemoryInitialStorageSlotValueResponder {
+            values_map: self.cold_storage.clone(),
+        };
+
+        let mut blob_hashes = BTreeMap::new();
+        // for blob in blobs.into_iter() {
+        //     let versioned_hash = blob.to_kzg_versioned_hash();
+        //     let point =
+        //         crypto::bls12_381::G1Affine::deserialize_compressed(&blob.kzg_commitment.0[..])
+        //             .unwrap();
+
+        //     blob_hashes.insert(Bytes32::from_array(versioned_hash), point);
+        // }
+
+        let cl_responder = EthereumCLResponder {
+            withdrawals_list: vec![],
+            parent_headers_list: vec![],
+            parent_headers_encodings_list: vec![],
+            blob_hashes,
+        };
+
+        let mut oracle = ZkEENonDeterminismSource::default();
+        oracle.add_external_processor(target_header_reponsder);
+        oracle.add_external_processor(tx_data_responder);
+        oracle.add_external_processor(preimage_responder);
+        oracle.add_external_processor(initial_account_state_responder);
+        oracle.add_external_processor(initial_values_responder);
+        oracle.add_external_processor(cl_responder);
+        oracle.add_external_processor(UARTPrintReponsder);
+
+        use zksync_os_basic_bootloader::bootloader::config::BasicBootloaderForwardETHLikeConfig;
+        use zksync_os_basic_bootloader::bootloader::BasicBootloader;
+        use zksync_os_forward_system::run::result_keeper::ForwardRunningResultKeeper;
+        use zksync_os_forward_system::system::system_types::ethereum::*;
+        use zksync_os_oracle_provider::DummyMemorySource;
+
+        let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
+        let mut nop_tracer = NopTracer::default();
+        let res = BasicBootloader::<
+            EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>,
+        >::run::<BasicBootloaderForwardETHLikeConfig>(
+            oracle, &mut result_keeper, &mut nop_tracer
         );
 
-        self.apply_batch_execution_result(result)
+        match res {
+            Ok(_) => self.apply_batch_execution_result(Ok(result_keeper)),
+            Err(e) => {
+                panic!("System error {:?}", e);
+                // self.apply_batch_execution_result(Err(e))
+            }
+        }
     }
 
     fn apply_batch_execution_result(
         &mut self,
-        batch_execution_result: Result<BlockOutput, ForwardSubsystemError>,
+        batch_execution_result: Result<
+            ForwardRunningResultKeeper<NoopTxCallback, PectraForkHeader>,
+            ForwardSubsystemError,
+        >,
     ) -> anyhow::Result<ZKsyncOSExecutionResult, String> {
         match batch_execution_result {
             Ok(result) => {
                 for storage_write in result.storage_writes.iter() {
-                    self.tree
-                        .cold_storage
-                        .insert(storage_write.key, storage_write.value);
-                    self.tree
-                        .storage_tree
-                        .insert(&storage_write.key, &storage_write.value);
+                    self.set_storage_slot(
+                        Address::from(storage_write.0.to_be_bytes::<20>()),
+                        ruint::aliases::U256::from_be_bytes(storage_write.1.as_u8_array()),
+                        FixedBytes::<32>::from(storage_write.2.as_u8_array()),
+                    );
                 }
 
-                for (hash, preimage, _) in result.published_preimages.iter() {
+                for (hash, preimage, _) in result.new_preimages.iter() {
                     self.preimage_source.inner.insert(*hash, preimage.clone());
                 }
 
-                let tx_result = result
-                    .tx_results
-                    .get(0)
-                    .expect("Do not have tx output")
-                    .clone();
+                for (addr, props) in result.account_diffs.iter() {
+                    let props = EthereumAccountProperties {
+                        nonce: props.0,
+                        balance: props.1,
+                        storage_root: Bytes32::ZERO,
+                        bytecode_hash: props.2,
+                        computed_is_unset: false,
+                    };
+                    let addr = Address::from(addr.to_be_bytes::<20>());
+                    self.set_account_properties(addr, props);
+                }
+
+                self.fix_storage();
+                self.fix_account_properties();
+
+                use zksync_os_forward_system::run::output::map_tx_results;
+                let tx_results = map_tx_results(&result);
+
+                let tx_result = tx_results.get(0).expect("Do not have tx output").clone();
 
                 Self::get_transaction_execution_result(tx_result)
             }
@@ -359,43 +417,16 @@ impl ZKsyncOS {
         }
     }
 
-    fn get_account_properties(&mut self, address: Address) -> AccountProperties {
-        let key =
-            address_into_special_storage_key(&ruint::aliases::B160::from_be_bytes(address.0 .0));
-        let flat_key = derive_flat_storage_key(&ACCOUNT_PROPERTIES_STORAGE_ADDRESS, &key);
-        match self.tree.cold_storage.get(&flat_key) {
-            None => AccountProperties::default(),
-            Some(account_hash) => {
-                if account_hash.is_zero() {
-                    // Empty (default) account
-                    AccountProperties::default()
-                } else {
-                    // Get from preimage:
-                    let encoded = self
-                        .preimage_source
-                        .get_preimage(*account_hash)
-                        .unwrap_or_default();
-                    AccountProperties::decode(&encoded.try_into().unwrap())
-                }
-            }
+    fn get_account_properties(&mut self, address: Address) -> EthereumAccountProperties {
+        match self.account_properties.get(&address_to_b160(address)) {
+            None => EthereumAccountProperties::default(),
+            Some(account_hash) => account_hash.clone(),
         }
     }
 
-    fn set_account_properties(&mut self, address: Address, properties: AccountProperties) {
-        let encoding = properties.encoding();
-        let properties_hash = properties.compute_hash();
+    fn set_account_properties(&mut self, address: Address, properties: EthereumAccountProperties) {
         let address = address_to_b160(address);
-
-        // Save preimage
-        self.preimage_source
-            .inner
-            .insert(properties_hash, encoding.to_vec());
-
-        // Save account hash
-        let key = address_into_special_storage_key(&address);
-        let flat_key = derive_flat_storage_key(&ACCOUNT_PROPERTIES_STORAGE_ADDRESS, &key);
-        self.tree.cold_storage.insert(flat_key, properties_hash);
-        self.tree.storage_tree.insert(&flat_key, &properties_hash);
+        self.account_properties.insert(address, properties);
     }
 
     ///
@@ -403,7 +434,7 @@ impl ZKsyncOS {
     ///
     pub fn get_balance(&mut self, address: Address) -> U256 {
         let properties = self.get_account_properties(address);
-        helpers::get_balance(&properties)
+        properties.balance
     }
 
     ///
@@ -411,7 +442,7 @@ impl ZKsyncOS {
     ///
     pub fn set_balance(&mut self, address: Address, value: U256) {
         let mut properties = self.get_account_properties(address);
-        helpers::set_properties_balance(&mut properties, value);
+        properties.balance = value;
         self.set_account_properties(address, properties)
     }
 
@@ -420,7 +451,7 @@ impl ZKsyncOS {
     ///
     pub fn get_nonce(&mut self, address: Address) -> U256 {
         let properties = self.get_account_properties(address);
-        U256::from(helpers::get_nonce(&properties))
+        U256::from(properties.nonce)
     }
 
     ///
@@ -428,77 +459,92 @@ impl ZKsyncOS {
     ///
     pub fn set_nonce(&mut self, address: Address, value: U256) {
         let mut properties = self.get_account_properties(address);
-        helpers::set_properties_nonce(&mut properties, value.try_into().expect("nonce overflow"));
+        properties.nonce = value.try_into().expect("nonce overflow");
         self.set_account_properties(address, properties)
     }
 
     pub fn get_storage_slot(&mut self, address: Address, key: U256) -> Option<B256> {
         let address = address_to_b160(address);
         let key = u256_to_bytes32(key);
-        let flat_key = derive_flat_storage_key(&address, &key);
 
-        let value = self.tree.cold_storage.get(&flat_key);
-        if let Some(res) = value {
-            Some(bytes32_to_b256(*res))
-        } else {
-            None
-        }
+        let storage = self.cold_storage.get(&address)?;
+        let value = storage.get(&key)?;
+        Some(bytes32_to_b256(*value))
     }
 
     pub fn set_storage_slot(&mut self, address: Address, key: U256, value: B256) {
         let address = address_to_b160(address);
         let key = u256_to_bytes32(key);
-        let flat_key = derive_flat_storage_key(&address, &key);
 
         let value = b256_to_bytes32(value);
-        self.tree.cold_storage.insert(flat_key, value);
-        self.tree.storage_tree.insert(&flat_key, &value);
+        self.cold_storage
+            .entry(address)
+            .or_default()
+            .insert(key, value);
     }
 
     pub fn evm_bytecode_into_account_properties(
         &mut self,
         address: Address,
         bytecode: &[u8],
-    ) -> (AccountProperties, Vec<u8>) {
+    ) -> (EthereumAccountProperties, Vec<u8>) {
+        use zksync_os_crypto::MiniDigest;
         let mut result = self.get_account_properties(address);
-        let full_bytecode = helpers::set_properties_code(&mut result, bytecode);
+        let observable_bytecode_hash =
+            Bytes32::from_array(zksync_os_crypto::sha3::Keccak256::digest(bytecode));
+        result.bytecode_hash = observable_bytecode_hash;
 
-        (result, full_bytecode)
+        self.set_account_properties(address, result);
+        self.preimage_source
+            .inner
+            .insert(observable_bytecode_hash, bytecode.to_vec());
+
+        (result, bytecode.to_vec())
     }
 
     pub fn set_predeployed_evm_contract(&mut self, address: Address, bytecode: Bytes, nonce: U256) {
         let (mut account_data, bytecode) =
             self.evm_bytecode_into_account_properties(address, &bytecode);
         account_data.nonce = nonce.try_into().expect("nonce overflow");
-
-        // Now we have to do 2 things:
-        // * mark that this account has this bytecode hash deployed
-        // * update account state - to say that this is EVM bytecode and nonce is 0.
-
-        // We are updating both cold storage (hash map) and our storage tree.
-        let address = address_to_b160(address);
-        let key = address_into_special_storage_key(&address);
-
-        let data_hash = account_data.compute_hash();
-        let flat_key = derive_flat_storage_key(&ACCOUNT_PROPERTIES_STORAGE_ADDRESS, &key);
-        self.tree.cold_storage.insert(flat_key, data_hash);
-        self.tree.storage_tree.insert(&flat_key, &data_hash);
         self.preimage_source
             .inner
             .insert(account_data.bytecode_hash, bytecode.to_vec());
-        self.preimage_source
-            .inner
-            .insert(data_hash, account_data.encoding().to_vec());
     }
 
     pub fn get_code(&mut self, address: Address) -> Option<Vec<u8>> {
         let properties = self.get_account_properties(address);
         let bytecode_hash = properties.bytecode_hash;
 
-        if bytecode_hash == Bytes32::zero() {
+        if bytecode_hash == Bytes32::zero() || bytecode_hash == EMPTY_STRING_KECCAK_HASH {
             None
         } else {
-            Some(helpers::get_code(&mut self.preimage_source, &properties))
+            Some(
+                self.preimage_source
+                    .inner
+                    .get(&bytecode_hash)
+                    .unwrap()
+                    .to_vec(),
+            )
+        }
+    }
+
+    fn fix_storage(&mut self) {
+        for (_, storage) in self.cold_storage.iter_mut() {
+            storage.retain(|_, v| v.is_zero() == false);
+        }
+    }
+
+    fn fix_account_properties(&mut self) {
+        for (addr, props) in self.account_properties.iter_mut() {
+            let is_empty_storage = if let Some(storage) = self.cold_storage.get(addr) {
+                storage.is_empty()
+            } else {
+                true
+            };
+            if is_empty_storage {
+                props.storage_root = EMPTY_ROOT_HASH;
+            }
+            fix_account_properties(props, is_empty_storage);
         }
     }
 }
@@ -513,4 +559,16 @@ pub fn u256_to_bytes32(input: U256) -> Bytes32 {
 
 pub fn bytes32_to_b256(input: Bytes32) -> B256 {
     B256::from_slice(&input.as_u8_array())
+}
+
+pub fn fix_account_properties(props: &mut EthereumAccountProperties, storage_is_empty: bool) {
+    if props.balance.is_zero()
+        && props.nonce == 0
+        && props.bytecode_hash == EMPTY_STRING_KECCAK_HASH
+        && storage_is_empty
+    {
+        props.computed_is_unset = true;
+    } else {
+        props.computed_is_unset = false;
+    }
 }

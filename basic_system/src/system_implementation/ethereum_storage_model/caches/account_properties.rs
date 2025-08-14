@@ -20,7 +20,6 @@ pub struct EthereumAccountProperties {
     pub balance: U256,
     pub storage_root: Bytes32,
     pub bytecode_hash: Bytes32,
-    // pub final_root: Bytes32, // NOTE: this is computed and not actually persistent
     pub computed_is_unset: bool, // NOTE: this is computed and not actually persistent
 }
 
@@ -74,8 +73,9 @@ impl UsizeDeserializable for EthereumAccountProperties {
             computed_is_unset,
         };
         if computed_is_unset {
-            assert!(new.is_empty_modulo_balance());
-            assert_eq!(new.storage_root, EMPTY_ROOT_HASH);
+            assert!(new.is_empty());
+            // assert!(new.is_empty_modulo_balance());
+            // assert_eq!(new.storage_root, EMPTY_ROOT_HASH);
         }
 
         Ok(new)

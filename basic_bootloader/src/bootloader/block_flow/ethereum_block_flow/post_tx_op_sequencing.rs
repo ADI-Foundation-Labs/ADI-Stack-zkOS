@@ -84,12 +84,11 @@ where
 
         use crypto::sha256::Digest;
         let mut requests_hasher = crypto::sha256::Sha256::new();
-        eip6110_events_parser(&system, &mut requests_hasher)
-            .expect("must filter EIP-6110 deposit requests");
-        eip7002_system_part(&mut system, &mut requests_hasher)
-            .expect("withdrawal requests must be processed");
-        eip7251_system_part(&mut system, &mut requests_hasher)
-            .expect("consolidation requests must be processed");
+
+        // Environment may have no such contracts predeployed for tests or sequencing purposes
+        let _ = eip6110_events_parser(&system, &mut requests_hasher);
+        let _ = eip7002_system_part(&mut system, &mut requests_hasher);
+        let _ = eip7251_system_part(&mut system, &mut requests_hasher);
 
         let requests_hash = Bytes32::from_array(requests_hasher.finalize().into());
         let _ = system

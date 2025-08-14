@@ -1,0 +1,66 @@
+use std::collections::HashMap;
+
+use super::*;
+use basic_system::system_implementation::ethereum_storage_model::digits_from_key;
+use basic_system::system_implementation::ethereum_storage_model::BoxInterner;
+use basic_system::system_implementation::ethereum_storage_model::EthereumMPT;
+use basic_system::system_implementation::ethereum_storage_model::Path;
+use basic_system::system_implementation::ethereum_storage_model::RLPSlice;
+use basic_system::system_implementation::ethereum_storage_model::{
+    caches::account_properties::{bytes32_from_rlp_slice, EthereumAccountProperties},
+    EMPTY_ROOT_HASH,
+};
+use ruint::aliases::B160;
+use std::alloc::Global;
+use std::collections::BTreeMap;
+use zk_ee::{
+    kv_markers::{InitialStorageSlotData, StorageAddress},
+    system_io_oracle::{dyn_usize_iterator::DynUsizeIterator, INITIAL_STORAGE_SLOT_VALUE_QUERY_ID},
+};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InMemoryInitialStorageSlotValueResponder {
+    pub values_map: HashMap<B160, HashMap<Bytes32, Bytes32>>,
+}
+
+impl InMemoryInitialStorageSlotValueResponder {
+    const SUPPORTED_QUERY_IDS: &[u32] = &[INITIAL_STORAGE_SLOT_VALUE_QUERY_ID];
+}
+
+impl<M: MemorySource> OracleQueryProcessor<M> for InMemoryInitialStorageSlotValueResponder {
+    fn supported_query_ids(&self) -> Vec<u32> {
+        Self::SUPPORTED_QUERY_IDS.to_vec()
+    }
+
+    fn supports_query_id(&self, query_id: u32) -> bool {
+        Self::SUPPORTED_QUERY_IDS.contains(&query_id)
+    }
+
+    fn process_buffered_query(
+        &mut self,
+        query_id: u32,
+        query: Vec<usize>,
+        _memory: &M,
+    ) -> Box<dyn ExactSizeIterator<Item = usize> + 'static> {
+        assert!(Self::SUPPORTED_QUERY_IDS.contains(&query_id));
+
+        let address = StorageAddress::<EthereumIOTypesConfig>::from_iter(&mut query.into_iter())
+            .expect("must deserialize hash value");
+
+        let value = if let Some(storage) = self.values_map.get(&address.address) {
+            storage.get(&address.key).copied().unwrap_or(Bytes32::ZERO)
+        } else {
+            Bytes32::ZERO
+        };
+
+        let is_new = value.is_zero();
+        let initial_value = InitialStorageSlotData::<EthereumIOTypesConfig> {
+            is_new_storage_slot: is_new,
+            initial_value: value,
+        };
+
+        DynUsizeIterator::from_constructor(initial_value, |inner_ref| {
+            UsizeSerializable::iter(inner_ref)
+        })
+    }
+}
