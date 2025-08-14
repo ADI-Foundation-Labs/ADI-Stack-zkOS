@@ -530,7 +530,7 @@ where
             system
         )?;
         require!(
-            tx_gas_limit <= MAX_BLOCK_GAS_LIMIT,
+            tx_gas_limit <= MAX_TX_GAS_LIMIT,
             InvalidTransaction::CallerGasLimitTooHigh,
             system
         )?;
