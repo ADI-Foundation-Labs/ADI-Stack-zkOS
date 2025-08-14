@@ -1,7 +1,5 @@
 #![no_main]
 #![feature(allocator_api)]
-#![allow(incomplete_features)]
-#![feature(generic_const_exprs)]
 
 use arbitrary::{Arbitrary, Unstructured};
 use basic_bootloader::bootloader::supported_ees::SupportedEEVMState;
@@ -61,10 +59,8 @@ struct FuzzInput<'a> {
 fn fuzz(input: FuzzInput) {
     let selector = input.selector;
 
-    let mut system = System::<
-        ForwardRunningSystem<InMemoryTree, InMemoryPreimageSource, TxListSource>,
-    >::init_from_oracle(mock_oracle())
-    .expect("Failed to initialize the mock system");
+    let mut system = System::<ForwardRunningSystem>::init_from_oracle(mock_oracle())
+        .expect("Failed to initialize the mock system");
 
     pub const MAX_HEAP_BUFFER_SIZE: usize = 1 << 27;
     let mut heaps = Box::new_uninit_slice_in(MAX_HEAP_BUFFER_SIZE, system.get_allocator());
@@ -131,25 +127,24 @@ fn fuzz(input: FuzzInput) {
             let nominal_token_value = U256::from_be_bytes(input.amount);
 
             // Pack everything into ExecutionEnvironmentLaunchParams
-            let ee_launch_params: ExecutionEnvironmentLaunchParams<
-                ForwardRunningSystem<InMemoryTree, InMemoryPreimageSource, TxListSource>,
-            > = ExecutionEnvironmentLaunchParams {
-                environment_parameters: EnvironmentParameters {
-                    bytecode: zk_ee::system::Bytecode::Constructor(&bytecode),
-                    scratch_space_len: 0,
-                },
-                external_call: ExternalCallRequest {
-                    available_resources: inf_resources.clone(),
-                    ergs_to_pass: inf_resources.ergs(),
-                    callers_caller,
-                    caller,
-                    callee,
-                    modifier,
-                    calldata,
-                    call_scratch_space: None,
-                    nominal_token_value,
-                },
-            };
+            let ee_launch_params: ExecutionEnvironmentLaunchParams<ForwardRunningSystem> =
+                ExecutionEnvironmentLaunchParams {
+                    environment_parameters: EnvironmentParameters {
+                        bytecode: zk_ee::system::Bytecode::Constructor(&bytecode),
+                        scratch_space_len: 0,
+                    },
+                    external_call: ExternalCallRequest {
+                        available_resources: inf_resources.clone(),
+                        ergs_to_pass: inf_resources.ergs(),
+                        callers_caller,
+                        caller,
+                        callee,
+                        modifier,
+                        calldata,
+                        call_scratch_space: None,
+                        nominal_token_value,
+                    },
+                };
 
             let Ok(mut vm_state) =
                 SupportedEEVMState::create_initial(input.ee_version, &mut system)

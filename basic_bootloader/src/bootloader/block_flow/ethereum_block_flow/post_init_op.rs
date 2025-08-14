@@ -1,0 +1,23 @@
+use super::*;
+use zk_ee::system::errors::internal::InternalError;
+
+impl<S: EthereumLikeTypes> PostSystemInitOp<S> for EthereumPostInitOp
+where
+    S::IO: IOSubsystemExt,
+{
+    fn post_init_op<Config: BasicBootloaderExecutionConfig>(
+        system: &mut System<S>,
+        system_functions: &mut HooksStorage<S, <S as SystemTypes>::Allocator>,
+    ) -> Result<(), InternalError> {
+        system_functions.add_precompiles();
+
+        system_hooks::eip_2537::initialize_eip_2537(system_functions);
+
+        super::precompiles::blob_eval_precompile::BlobEvaluationPrecompile::initialize_as_hook(
+            system,
+            system_functions,
+        )?;
+
+        Ok(())
+    }
+}

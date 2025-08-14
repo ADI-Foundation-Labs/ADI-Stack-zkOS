@@ -1,8 +1,7 @@
 //! Mocked precompiles needed to pass some tests in the EVM test suite.
 //! Not to be used in production.
 #[allow(clippy::module_inception)]
-#[cfg(feature = "mock-unsupported-precompiles")]
-pub(crate) mod mock_precompiles {
+pub mod mock_precompiles {
     use zk_ee::{
         internal_error,
         system::{

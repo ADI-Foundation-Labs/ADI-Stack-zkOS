@@ -6,6 +6,7 @@ use arrayvec::ArrayVec;
 pub use basic_bootloader::bootloader::block_header::BlockHeader;
 use basic_bootloader::bootloader::errors::InvalidTransaction;
 use ruint::aliases::B160;
+use ruint::aliases::U256;
 use zk_ee::common_structs::GenericLogContent;
 use zk_ee::common_structs::{
     derive_flat_storage_key, GenericEventContent, L2ToL1Log, PreimageType,
@@ -129,6 +130,7 @@ pub struct BlockOutput {
     pub tx_results: Vec<TxResult>,
     // TODO: will be returned per tx later
     pub storage_writes: Vec<StorageWrite>,
+    pub account_diffs: Vec<(B160, (u64, U256, Bytes32))>,
     pub published_preimages: Vec<(Bytes32, Vec<u8>, PreimageType)>,
     pub pubdata: Vec<u8>,
 }
@@ -155,8 +157,66 @@ impl From<(B160, Bytes32, Bytes32)> for StorageWrite {
     }
 }
 
-impl<TR: TxResultCallback> From<ForwardRunningResultKeeper<TR>> for BlockOutput {
-    fn from(value: ForwardRunningResultKeeper<TR>) -> Self {
+pub fn map_tx_results<TR: TxResultCallback, T: 'static + Sized>(
+    result_keeper: &ForwardRunningResultKeeper<TR, T>,
+) -> Vec<TxResult> {
+    result_keeper
+        .tx_results
+        .iter()
+        .enumerate()
+        .map(|(tx_number, result)| {
+            result.clone().map(|output| {
+                let execution_result = if output.status {
+                    ExecutionResult::Success(if output.contract_address.is_some() {
+                        ExecutionOutput::Create(output.output, output.contract_address.unwrap())
+                    } else {
+                        ExecutionOutput::Call(output.output)
+                    })
+                } else {
+                    ExecutionResult::Revert(output.output)
+                };
+                TxOutput {
+                    gas_used: output.gas_used,
+                    gas_refunded: output.gas_refunded,
+
+                    computational_native_used: output.computational_native_used,
+
+                    pubdata_used: output.pubdata_used,
+                    contract_address: output.contract_address,
+                    logs: result_keeper
+                        .events
+                        .iter()
+                        .filter_map(|e| {
+                            if e.tx_number == tx_number as u32 {
+                                Some(e.into())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect(),
+                    l2_to_l1_logs: result_keeper
+                        .logs
+                        .iter()
+                        .filter_map(|m| {
+                            if m.tx_number == tx_number as u32 {
+                                Some(m.into())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect(),
+                    execution_result,
+                    storage_writes: vec![],
+                }
+            })
+        })
+        .collect()
+}
+
+impl<TR: TxResultCallback, T: 'static + Sized> From<ForwardRunningResultKeeper<TR, T>>
+    for BlockOutput
+{
+    fn from(value: ForwardRunningResultKeeper<TR, T>) -> Self {
         let ForwardRunningResultKeeper {
             block_header,
             events,
@@ -165,6 +225,7 @@ impl<TR: TxResultCallback> From<ForwardRunningResultKeeper<TR>> for BlockOutput 
             tx_results,
             new_preimages,
             pubdata,
+            account_diffs,
             ..
         } = value;
 
@@ -223,6 +284,7 @@ impl<TR: TxResultCallback> From<ForwardRunningResultKeeper<TR>> for BlockOutput 
             header: block_header.unwrap(),
             tx_results,
             storage_writes,
+            account_diffs,
             published_preimages: new_preimages,
             pubdata,
         }

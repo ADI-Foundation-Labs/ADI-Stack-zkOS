@@ -7,12 +7,16 @@ use core::marker::PhantomData;
 
 use super::errors::internal::InternalError;
 use super::errors::system::SystemError;
-use super::logger::Logger;
-use super::{IOResultKeeper, Resources};
+use super::Resources;
+use crate::common_structs::GenericEventContentRef;
+use crate::common_structs::GenericEventContentWithTxRef;
+use crate::common_structs::GenericLogContentWithTxRef;
 use crate::define_subsystem;
 use crate::execution_environment_type::ExecutionEnvironmentType;
+use crate::kv_markers::UsizeDeserializable;
 use crate::kv_markers::MAX_EVENT_TOPICS;
-use crate::system::metadata::BlockMetadataFromOracle;
+use crate::system::IOResultKeeper;
+use crate::system::Logger;
 use crate::system_io_oracle::IOOracle;
 use crate::types_config::{EthereumIOTypesConfig, SystemIOTypesConfig};
 use crate::utils::Bytes32;
@@ -27,7 +31,7 @@ use ruint::aliases::U256;
 pub trait IOSubsystem: Sized {
     type Resources: Resources;
     type IOTypes: SystemIOTypesConfig;
-    type StateSnapshot;
+    type StateSnapshot: core::fmt::Debug;
 
     /// Read value from storage at a given slot (address, key).
     fn storage_read<const TRANSIENT: bool>(
@@ -135,9 +139,7 @@ pub trait IOSubsystem: Sized {
         rollback_handle: Option<&<Self as IOSubsystem>::StateSnapshot>,
     ) -> Result<(), InternalError>;
 
-    #[cfg(feature = "evm_refunds")]
-    /// Get current gas refund counter
-    fn get_refund_counter(&self) -> u32;
+    fn get_refund_counter(&'_ self) -> Option<&'_ Self::Resources>;
 }
 
 pub trait Maybe<T> {
@@ -317,7 +319,6 @@ impl<A, B, C, D, E, F, G, H, I, J, K>
 ///
 pub trait IOSubsystemExt: IOSubsystem {
     type IOOracle: IOOracle;
-    type FinalData;
 
     fn init_from_oracle(oracle: Self::IOOracle) -> Result<Self, InternalError>;
 
@@ -460,16 +461,6 @@ pub trait IOSubsystemExt: IOSubsystem {
         delegate: &<Self::IOTypes as SystemIOTypesConfig>::Address,
     ) -> Result<(), SystemError>;
 
-    fn finish(
-        self,
-        block_metadata: BlockMetadataFromOracle,
-        current_block_hash: Bytes32,
-        l1_to_l2_txs_hash: Bytes32,
-        upgrade_tx_hash: Bytes32,
-        result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
-        logger: impl Logger,
-    ) -> Self::FinalData;
-
     /// Emit a log for a l1 -> l2 tx.
     fn emit_l1_l2_tx_log(
         &mut self,
@@ -489,15 +480,94 @@ pub trait IOSubsystemExt: IOSubsystem {
         should_subtract: bool,
     ) -> Result<U256, BalanceSubsystemError>;
 
-    // Get number of logs emitted so far.
-    fn logs_len(&self) -> u64;
+    /// Adds some resources to refund at the end of transaction
+    fn add_to_refund_counter(&mut self, refund: Self::Resources) -> Result<(), SystemError>;
 
-    // Add EVM refund to counter
-    #[cfg(feature = "evm_refunds")]
-    fn add_evm_refund(&mut self, refund: u32) -> Result<(), SystemError>;
+    // // Get number of logs emitted so far.
+    // fn logs_len(&self) -> u64;
 }
 
 pub trait EthereumLikeIOSubsystem: IOSubsystem<IOTypes = EthereumIOTypesConfig> {}
+
+#[allow(type_alias_bounds)]
+pub type BasicAccountDiff<IOTypes: SystemIOTypesConfig> =
+    (u64, IOTypes::NominalTokenValue, IOTypes::BytecodeHashValue);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+pub struct StorageDiff<IOTypes: SystemIOTypesConfig> {
+    pub initial_value: IOTypes::StorageValue,
+    pub current_value: IOTypes::StorageValue,
+    pub is_new_storage_slot: bool,
+    pub initial_value_used: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct StorageDiffRef<'a, IOTypes: SystemIOTypesConfig> {
+    pub initial_value: &'a IOTypes::StorageValue,
+    pub current_value: &'a IOTypes::StorageValue,
+    pub is_new_storage_slot: bool,
+    pub initial_value_used: bool,
+}
+
+// Proxy trait that allows one to get dumps of the final IO state. Largely it provides iterator-based accesses
+// to various elements of the IO:
+// - account and storages diffs
+// - logs
+// - l2 to l1 logs (if any)
+pub trait IOTeardown<IOTypes: SystemIOTypesConfig>: IOSubsystemExt<IOTypes = IOTypes> {
+    type IOStateCommittment: Clone + UsizeDeserializable + UsizeDeserializable + core::fmt::Debug;
+
+    fn flush_caches(&mut self, result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>);
+
+    fn report_new_preimages(
+        &mut self,
+        result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
+    );
+
+    type AccountAddress<'a>: 'a + Clone + Copy + PartialEq + Eq + core::fmt::Debug
+    where
+        Self: 'a;
+    type AccountDiff<'a>: 'a + Clone + Copy + PartialEq + Eq + core::fmt::Debug
+    where
+        Self: 'a;
+    fn get_account_diff<'a>(
+        &'a self,
+        address: Self::AccountAddress<'a>,
+    ) -> Option<Self::AccountDiff<'a>>;
+    fn accounts_diffs_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = (Self::AccountAddress<'a>, Self::AccountDiff<'a>)> + Clone;
+
+    type StorageKey<'a>: 'a + Clone + Copy + PartialEq + Eq + core::fmt::Debug
+    where
+        Self: 'a;
+    type StorageDiff<'a>: 'a + Clone + Copy + PartialEq + Eq + core::fmt::Debug
+    where
+        Self: 'a;
+    fn get_storage_diff<'a>(&'a self, key: Self::StorageKey<'a>) -> Option<Self::StorageDiff<'a>>;
+    fn storage_diffs_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = (Self::StorageKey<'a>, Self::StorageDiff<'a>)> + Clone;
+
+    fn events_in_this_tx_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = GenericEventContentRef<'a, { MAX_EVENT_TOPICS }, IOTypes>> + Clone;
+
+    fn events_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = GenericEventContentWithTxRef<'a, { MAX_EVENT_TOPICS }, IOTypes>>
+           + Clone;
+    fn signals_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = GenericLogContentWithTxRef<'a, IOTypes>> + Clone;
+
+    fn update_commitment(
+        &mut self,
+        state_commitment: Option<&mut Self::IOStateCommittment>,
+        logger: &mut impl Logger,
+        result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
+    );
+}
 
 define_subsystem!(Nonce,
 interface NonceError {

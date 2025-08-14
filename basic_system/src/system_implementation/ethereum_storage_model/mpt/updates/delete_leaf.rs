@@ -10,7 +10,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
     ) -> Result<(), ()> {
         // path is no longer known
-        self.keys_cache.remove(&node);
+        self.remove_from_cache(&node);
 
         path.seek_to_end();
         let existing_leaf = &self.leaf_nodes[node.index()];

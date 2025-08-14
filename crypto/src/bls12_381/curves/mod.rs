@@ -11,6 +11,9 @@ mod pairing_impl;
 mod g1_swu_iso;
 mod g2_swu_iso;
 
+pub use self::g1_swu_iso::SwuIsoConfig as FqToG1SwuIsoConfig;
+pub use self::g2_swu_iso::SwuIsoConfig as Fq2ToG2SwuIsoConfig;
+
 pub use self::{
     g1::{G1Affine, G1Projective},
     g2::{G2Affine, G2Projective},

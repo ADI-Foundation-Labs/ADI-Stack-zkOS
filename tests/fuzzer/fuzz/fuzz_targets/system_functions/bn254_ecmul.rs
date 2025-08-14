@@ -5,9 +5,9 @@ use arbitrary::Unstructured;
 use basic_system::system_functions::bn254_ecmul::Bn254MulImpl;
 use libfuzzer_sys::fuzz_target;
 use zk_ee::reference_implementations::BaseResources;
-use zk_ee::system::SystemFunction;
-use zk_ee::system::Resource;
 use zk_ee::reference_implementations::DecreasingNative;
+use zk_ee::system::Resource;
+use zk_ee::system::SystemFunction;
 
 const BN254_ECMUL_SRC_REQUIRED_LENGTH: usize = 96;
 const BN254_ECMUL_DST_MIN_LENGTH: usize = 64;

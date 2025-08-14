@@ -42,7 +42,7 @@ where
         CallModifier::Constructor => {
             return Err(
                 internal_error!("Contract deployer hook called with constructor modifier").into(),
-            )
+            );
         }
         CallModifier::Delegate
         | CallModifier::DelegateStatic
@@ -87,7 +87,7 @@ where
                 make_error_return_state(resources)
             }
             Err(e @ SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(_))) => {
-                return Err(e)
+                return Err(e);
             }
             Err(SystemError::LeafDefect(e)) => return Err(e.into()),
         },
@@ -160,9 +160,11 @@ where
 
             let bytecode_length: u32 = match U256::from_be_slice(&calldata[64..96]).try_into() {
                 Ok(length) => length,
-                Err(_) => return Ok(Err(
-                    "Contract deployer failure: setBytecodeDetailsEVM called with invalid calldata",
-                )),
+                Err(_) => {
+                    return Ok(Err(
+                        "Contract deployer failure: setBytecodeDetailsEVM called with invalid calldata",
+                    ));
+                }
             };
 
             let observable_bytecode_hash =

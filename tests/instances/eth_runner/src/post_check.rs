@@ -1,12 +1,17 @@
 use crate::prestate::*;
 use crate::receipts::TransactionReceipt;
 use alloy::hex;
+use alloy_rpc_types_eth::Withdrawal;
+use forward_system::run::StorageWrite;
+use forward_system::run::TxResult;
 use rig::forward_system::run::BlockOutput;
 use rig::log::{error, info};
 use ruint::aliases::{B160, B256, U256};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
+use zk_ee::common_structs::PreimageType;
 use zk_ee::utils::u256_to_usize_saturated;
+use zk_ee::utils::Bytes32;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[allow(dead_code)]
@@ -118,12 +123,20 @@ impl DiffTrace {
 
     pub fn check_storage_writes(
         self,
-        output: BlockOutput,
+        account_diffs: Vec<(B160, (u64, U256, Bytes32))>,
+        storage_writes: Vec<StorageWrite>,
+        published_preimages: Vec<(Bytes32, Vec<u8>, PreimageType)>,
         prestate_cache: Cache,
         miner: B160,
+        withdrawals: &[Withdrawal],
     ) -> Result<(), PostCheckError> {
         let diffs = self.collect_diffs(&prestate_cache, miner);
-        let zksync_os_diffs = zksync_os_output_into_account_state(output, &prestate_cache)?;
+        let zksync_os_diffs = zksync_os_output_into_account_state(
+            account_diffs,
+            storage_writes,
+            published_preimages,
+            &prestate_cache,
+        )?;
 
         // Reference => ZKsync OS check:
         for (address, account) in diffs.iter() {
@@ -177,7 +190,7 @@ impl DiffTrace {
                         Some(v) => v,
                         None => {
                             error!(
-                                "Should have value for slot {} at address {}",
+                                "Should have {:x} at address {}",
                                 key,
                                 hex::encode(address.to_be_bytes_vec())
                             );
@@ -186,10 +199,12 @@ impl DiffTrace {
                     };
                     if value != zksync_os_value {
                         error!(
-                          "Value for slot {} at address {} differed. ZKsync OS: {:?}, reference: {:?}",
-                          key,
-                          hex::encode(address.to_be_bytes_vec()),
-                          zksync_os_value, value);
+                            "Value for slot 0x{:x} at address 0x{} differed. ZKsync OS: 0x{:x}, reference: 0x{:x}",
+                            key,
+                            hex::encode(address.to_be_bytes_vec()),
+                            zksync_os_value.as_uint(),
+                            value.as_uint()
+                        );
                         return Err(PostCheckError::Internal);
                     }
                 }
@@ -220,6 +235,7 @@ impl DiffTrace {
                             address,
                             acc,
                             &prestate_cache,
+                            withdrawals,
                         ) {
                             error!(
                                 "Reference must have write for account {} {:?}",
@@ -240,6 +256,7 @@ fn zksync_os_diff_consistent_with_selfdestruct(
     address: &B160,
     acc: &AccountState,
     prestate_cache: &Cache,
+    _withdrawals: &[Withdrawal],
 ) -> bool {
     let diff_is_empty = acc.balance.is_none_or(|b| b.is_zero())
         && acc.nonce.is_none_or(|n| n == 0)
@@ -253,22 +270,38 @@ fn zksync_os_diff_consistent_with_selfdestruct(
                 && pre.nonce.is_none_or(|n| n == 0)
         })
     };
+
     diff_is_empty && prestate_can_be_deployed()
 }
 
 fn zksync_os_output_into_account_state(
-    output: BlockOutput,
+    account_diffs: Vec<(B160, (u64, U256, Bytes32))>,
+    storage_writes: Vec<StorageWrite>,
+    published_preimages: Vec<(Bytes32, Vec<u8>, PreimageType)>,
     prestate_cache: &Cache,
 ) -> Result<HashMap<B160, AccountState>, PostCheckError> {
     use basic_system::system_implementation::flat_storage_model::AccountProperties;
     let mut updates: HashMap<B160, AccountState> = HashMap::new();
     let preimages: HashMap<[u8; 32], Vec<u8>> = HashMap::from_iter(
-        output
-            .published_preimages
+        published_preimages
             .into_iter()
             .map(|(key, value, _)| (key.as_u8_array(), value)),
     );
-    for w in output.storage_writes {
+    for (address, (nonce, balance, bytecode_hash)) in account_diffs {
+        let mut state = AccountState {
+            balance: Some(balance),
+            nonce: Some(nonce),
+            code: None,
+            storage: Some(BTreeMap::new()),
+        };
+        if let Some(bytecode) = preimages.get(&bytecode_hash.as_u8_array()) {
+            let owned: Vec<u8> = bytecode.to_owned();
+            state.code = Some(owned.into());
+        }
+        let existing = updates.insert(address, state);
+        assert!(existing.is_none());
+    }
+    for w in storage_writes {
         if rig::chain::is_account_properties_address(&w.account) {
             // populate account
             let address: [u8; 20] = w.account_key.as_u8_array()[12..].try_into().unwrap();
@@ -287,6 +320,7 @@ fn zksync_os_output_into_account_state(
                     };
                     AccountProperties::decode(&encoded.try_into().unwrap())
                 };
+                assert!(updates.contains_key(&address) == false);
                 let entry = updates.entry(address).or_default();
                 entry.balance = Some(props.balance);
                 entry.nonce = Some(props.nonce);
@@ -338,8 +372,48 @@ pub fn post_check(
     diff_trace: DiffTrace,
     prestate_cache: Cache,
     miner: B160,
+    withdrawals: &[Withdrawal],
 ) -> Result<(), PostCheckError> {
-    for (res, receipt) in output.tx_results.iter().zip(receipts.iter()) {
+    let BlockOutput {
+        header,
+        tx_results,
+        storage_writes,
+        account_diffs,
+        published_preimages,
+        pubdata,
+    } = output;
+
+    post_check_ext(
+        tx_results,
+        receipts,
+        account_diffs,
+        storage_writes,
+        published_preimages,
+        diff_trace,
+        prestate_cache,
+        miner,
+        withdrawals,
+    )
+}
+
+pub fn post_check_ext(
+    tx_results: Vec<TxResult>,
+    receipts: Vec<TransactionReceipt>,
+    account_diffs: Vec<(B160, (u64, U256, Bytes32))>,
+    storage_writes: Vec<StorageWrite>,
+    published_preimages: Vec<(Bytes32, Vec<u8>, PreimageType)>,
+    diff_trace: DiffTrace,
+    prestate_cache: Cache,
+    miner: B160,
+    withdrawals: &[Withdrawal],
+) -> Result<(), PostCheckError> {
+    assert_eq!(receipts.len(), tx_results.len());
+
+    for (res, receipt) in tx_results.iter().zip(receipts.iter()) {
+        // info!(
+        //     "Checking transaction {} for consistency",
+        //     receipt.transaction_index,
+        // );
         let res = match res {
             Ok(res) => res,
             Err(e) => {
@@ -368,19 +442,6 @@ pub fn post_check(
                 receipt.transaction_index
             );
             return Err(PostCheckError::TxShouldHaveFailed {
-                id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
-            });
-        }
-        let gas_difference =
-            zk_ee::utils::u256_to_u64_saturated(&receipt.gas_used).abs_diff(res.gas_used);
-        // Check gas used
-        if res.gas_used != zk_ee::utils::u256_to_u64_saturated(&receipt.gas_used) {
-            error!(
-                    "Transaction {} has a gas mismatch: ZKsync OS used {}, reference: {}\n  Difference:{}",
-                    receipt.transaction_index, res.gas_used, receipt.gas_used,
-                    gas_difference,
-                );
-            return Err(PostCheckError::GasMismatch {
                 id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
             });
         }
@@ -413,9 +474,29 @@ pub fn post_check(
                 });
             }
         }
+        let gas_difference =
+            zk_ee::utils::u256_to_u64_saturated(&receipt.gas_used).abs_diff(res.gas_used);
+        // Check gas used
+        if res.gas_used != zk_ee::utils::u256_to_u64_saturated(&receipt.gas_used) {
+            error!(
+                    "Transaction {} has a gas mismatch: ZKsync OS used {}, reference: {}\n  Difference:{}",
+                    receipt.transaction_index, res.gas_used, receipt.gas_used,
+                    gas_difference,
+                );
+            return Err(PostCheckError::GasMismatch {
+                id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
+            });
+        }
     }
 
-    diff_trace.check_storage_writes(output, prestate_cache, miner)?;
+    diff_trace.check_storage_writes(
+        account_diffs,
+        storage_writes,
+        published_preimages,
+        prestate_cache,
+        miner,
+        withdrawals,
+    )?;
 
     info!("All good!");
     Ok(())

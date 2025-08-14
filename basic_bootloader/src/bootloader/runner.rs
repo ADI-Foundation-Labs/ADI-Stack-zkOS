@@ -27,7 +27,7 @@ use super::errors::BootloaderSubsystemError;
 
 /// Main execution loop.
 /// Expects the caller to start and close the entry frame.
-pub fn run_till_completion<'a, S: EthereumLikeTypes>(
+pub fn run_till_completion<'a, S: EthereumLikeTypes + 'a>(
     memories: RunnerMemoryBuffers<'a>,
     system: &mut System<S>,
     hooks: &mut HooksStorage<S, S::Allocator>,
@@ -172,7 +172,7 @@ macro_rules! handle_spawn {
     };
 }
 
-impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
+impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
     fn copy_into_return_memory<'a>(
         &mut self,
         return_values: ReturnValues<'a, S>,
@@ -193,26 +193,22 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
     fn handle_requested_external_call<const IS_ENTRY_FRAME: bool>(
         &mut self,
         ee_type: ExecutionEnvironmentType,
-        call_request: ExternalCallRequest<S>,
-        heap: SliceVec<u8>,
+        call_request: ExternalCallRequest<'_, S>,
+        heap: SliceVec<'_, u8>,
         tracer: &mut impl Tracer<S>,
     ) -> Result<(S::Resources, CallResult<'external, S>), BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt,
     {
-        // TODO: debug implementation for ruint types uses global alloc, which panics in ZKsync OS
-        #[cfg(not(target_arch = "riscv32"))]
-        {
-            let _ = self
-                .system
-                .get_logger()
-                .write_fmt(format_args!("External call to {:?}\n", call_request.callee));
+        let _ = self.system.get_logger().write_fmt(format_args!(
+            "External call to 0x{:040x}\n",
+            call_request.callee.as_uint()
+        ));
 
-            let _ = self.system.get_logger().write_fmt(format_args!(
-                "External call with parameters:\n{:?}\n",
-                &call_request,
-            ));
-        }
+        let _ = self.system.get_logger().write_fmt(format_args!(
+            "External call with parameters:\n{:?}\n",
+            &call_request,
+        ));
 
         // By default, code execution is disabled for calls in kernel space
         // (< SPECIAL_ADDRESS_BOUND). These calls will either be handled by
@@ -336,7 +332,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
     #[inline(always)]
     fn check_if_external_call_returns_early<'a>(
         &mut self,
-        external_call_params: &mut ExecutionEnvironmentLaunchParams<S>,
+        external_call_params: &mut ExecutionEnvironmentLaunchParams<'_, S>,
         transfer_to_perform: &Option<TransferInfo>,
         ee_type: ExecutionEnvironmentType,
         is_call_to_special_address: bool,
@@ -368,7 +364,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                                 ExecutionEnvironmentType::NoEE => {
                                     return Err(interface_error!(
                                         BootloaderInterfaceError::TopLevelInsufficientBalance
-                                    ))
+                                    ));
                                 }
                                 ExecutionEnvironmentType::EVM => {
                                     // Following EVM, a call with insufficient balance is not a revert,
@@ -383,7 +379,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                         SubsystemError::LeafRuntime(ref runtime_error) => match runtime_error {
                             RuntimeError::OutOfNativeResources(_) => return Err(wrap_error!(e)),
                             RuntimeError::OutOfErgs(_) => {
-                                return Err(internal_error!("Out of ergs on infinite ergs").into())
+                                return Err(internal_error!("Out of ergs on infinite ergs").into());
                             }
                         },
                         SubsystemError::Cascaded(cascaded_error) => match cascaded_error {},
@@ -424,8 +420,8 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
 
     fn call_execute_callee_frame(
         &mut self,
-        external_call_launch_params: ExecutionEnvironmentLaunchParams<S>,
-        heap: SliceVec<u8>,
+        external_call_launch_params: ExecutionEnvironmentLaunchParams<'_, S>,
+        heap: SliceVec<'_, u8>,
         next_ee_version: u8,
         rollback_handle: SystemFrameSnapshot<S>,
         tracer: &mut impl Tracer<S>,
@@ -495,7 +491,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
 
     fn call_to_special_address_execute_callee_frame(
         &mut self,
-        external_call_launch_params: ExecutionEnvironmentLaunchParams<S>,
+        external_call_launch_params: ExecutionEnvironmentLaunchParams<'_, S>,
         caller_ee_type: ExecutionEnvironmentType,
         rollback_handle: SystemFrameSnapshot<S>,
     ) -> Result<(S::Resources, CallResult<'external, S>), BootloaderSubsystemError>
@@ -600,7 +596,7 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                             return_values: ReturnValues::empty(),
                             execution_reverted: false,
                         },
-                    })
+                    });
                 }
                 Err(e) => {
                     return Err(wrap_error!(e));
@@ -797,8 +793,6 @@ impl<'external, S: EthereumLikeTypes> Run<'_, 'external, S> {
                             return_values: ReturnValues::empty(),
                             deployed_at,
                         };
-                        // TODO: debug implementation for Bits uses global alloc, which panics in ZKsync OS
-                        #[cfg(not(target_arch = "riscv32"))]
                         let _ = self.system.get_logger().write_fmt(format_args!(
                             "Successfully deployed contract at {deployed_at:?} \n"
                         ));
@@ -1011,6 +1005,8 @@ where
                 use crate::bootloader::transaction::parse_delegation;
                 // Resolve delegation following EIP-7702 (only one level
                 // of delegation is allowed).
+
+                // NOTE: we should warm it by normal rules
                 let delegation = &account_properties.bytecode.0
                     [..account_properties.unpadded_code_len.0 as usize];
                 let address = parse_delegation(delegation)?;

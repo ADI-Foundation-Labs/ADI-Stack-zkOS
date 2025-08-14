@@ -1,5 +1,4 @@
 #![cfg_attr(not(test), no_std)]
-#![feature(array_chunks)]
 #![allow(static_mut_refs)]
 #![allow(clippy::uninit_assumed_init)]
 #![allow(clippy::new_without_default)]
@@ -36,6 +35,20 @@ pub mod secp256k1;
 pub mod secp256r1;
 pub mod sha256;
 pub mod sha3;
+
+#[cfg(any(
+    all(target_arch = "riscv32", feature = "bigint_ops"),
+    feature = "proving",
+    test
+))]
+pub use self::ark_ff_delegation::{BigInt, BigInteger};
+
+#[cfg(not(any(
+    all(target_arch = "riscv32", feature = "bigint_ops"),
+    feature = "proving",
+    test
+)))]
+pub use self::ark_ff::{BigInt, BigInteger};
 
 #[cfg(any(
     all(target_arch = "riscv32", feature = "bigint_ops"),

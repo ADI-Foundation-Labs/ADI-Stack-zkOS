@@ -3,19 +3,22 @@
 //! See [ZkSyncTransaction] for more details on encoding format.
 //!
 
+use core::fmt::Write;
+
 use crate::bootloader::rlp;
 use crate::bootloader::transaction::reserved_dynamic_parser::{
     parse_address, parse_u256, parse_u32, parse_u64, parse_u8,
 };
 use crate::bootloader::BootloaderSubsystemError;
+use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::{B160, U256};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::memory::ArrayBuilder;
 use zk_ee::system::errors::interface::InterfaceError;
 use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::errors::system::SystemError;
-use zk_ee::system::NonceError;
 use zk_ee::system::{AccountDataRequest, EthereumLikeTypes, IOSubsystemExt, Resources, System};
+use zk_ee::system::{NonceError, Resource};
 use zk_ee::{internal_error, wrap_error};
 
 use super::TxError;
@@ -108,9 +111,6 @@ impl<'a> Iterator for AuthorizationListIter<'a> {
     }
 }
 
-// Magic byte from EIP-7702
-const MAGIC: u8 = 0x05;
-
 impl AuthorizationListItem {
     /// Validate and apply an authorization list item, following EIP-7702:
     /// 1. Verify the chain ID is 0 or the ID of the current chain.
@@ -137,6 +137,15 @@ impl AuthorizationListItem {
     where
         S::IO: IOSubsystemExt,
     {
+        use zk_ee::system::Ergs;
+
+        // pre-charge
+        resources.charge(&S::Resources::from_ergs_and_native(
+            Ergs(evm_interpreter::gas_constants::NEWACCOUNT * ERGS_PER_GAS),
+                <<S::Resources as Resources>::Native as zk_ee::system::Computational>::from_computational(crate::bootloader::constants::PER_AUTH_INTRINSIC_COST)
+            )
+        )?;
+
         let chain_id = system.get_chain_id();
         // 1. Check chain id
         if !self.chain_id.is_zero() && self.chain_id != U256::from(chain_id) {
@@ -151,13 +160,14 @@ impl AuthorizationListItem {
         if self.s > U256::from_be_bytes(crypto::secp256k1::SECP256K1N_HALF) {
             return Ok(false);
         }
-        let msg = self.compute_message::<S>(resources)?;
-        let Some(authority) = self.recover(system, resources, msg)? else {
+        let msg = resources.with_infinite_ergs(|inf_ergs| self.compute_message::<S>(inf_ergs))?;
+        let Some(authority) =
+            resources.with_infinite_ergs(|inf_ergs| self.recover(system, inf_ergs, msg))?
+        else {
             return Ok(false);
         };
 
         // 4. Read authority account
-        // Gas already charged in intrinsic
         let account_properties = resources.with_infinite_ergs(|inf_ergs| {
             system.io.read_account_properties(
                 ExecutionEnvironmentType::NoEE,
@@ -186,18 +196,29 @@ impl AuthorizationListItem {
                 && account_properties.unpadded_code_len.0 == 0
                 && account_properties.nominal_token_balance.0.is_zero();
             if !is_empty {
-                system.io.add_evm_refund(
-                    (evm_interpreter::gas_constants::NEWACCOUNT
-                        - evm_interpreter::gas_constants::PER_AUTH_BASE_COST)
-                        as u32,
-                )?
+                system
+                    .io
+                    .add_to_refund_counter(S::Resources::from_ergs(Ergs(
+                        (evm_interpreter::gas_constants::NEWACCOUNT
+                            - evm_interpreter::gas_constants::PER_AUTH_BASE_COST)
+                            * ERGS_PER_GAS,
+                    )))?;
             }
         }
+
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Will delegate address 0x{:040x} -> 0x{:040x}\n",
+            authority.as_uint(),
+            self.address.as_uint()
+        ));
+
         // 8. Set code for authority, system function
         //    will handle the two cases (unsetting).
-        system
-            .io
-            .set_delegation(resources, &authority, &self.address)?;
+        resources.with_infinite_ergs(|inf_ergs| {
+            system
+                .io
+                .set_delegation(inf_ergs, &authority, &self.address)
+        })?;
         // 9.Bump nonce
         resources
             .with_infinite_ergs(|inf_ergs| {
@@ -220,6 +241,7 @@ impl AuthorizationListItem {
         &self,
         resources: &mut S::Resources,
     ) -> Result<[u8; 32], TxError> {
+        use crate::bootloader::transaction::EIP7702_MAGIC;
         use crypto::sha3::Keccak256;
         use crypto::MiniDigest;
 
@@ -231,7 +253,7 @@ impl AuthorizationListItem {
         let encoding_len = 1 + total_list_len;
         crate::bootloader::transaction::charge_keccak(encoding_len, resources)?;
         let mut hasher = Keccak256::new();
-        hasher.update([MAGIC]);
+        hasher.update([EIP7702_MAGIC]);
         rlp::apply_list_length_encoding_to_hash(list_payload_len, &mut hasher);
         rlp::apply_number_encoding_to_hash(&self.chain_id.to_be_bytes::<32>(), &mut hasher);
         rlp::apply_bytes_encoding_to_hash(

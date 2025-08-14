@@ -1,21 +1,9 @@
 #![cfg_attr(not(feature = "testing"), no_std)]
-#![allow(incomplete_features)]
-#![feature(generic_const_exprs)]
-#![feature(const_type_id)]
 #![feature(allocator_api)]
-#![feature(array_chunks)]
-#![feature(associated_type_defaults)]
-#![feature(get_mut_unchecked)]
-#![feature(array_windows)]
-#![feature(vec_push_within_capacity)]
-#![feature(slice_from_ptr_range)]
-#![feature(never_type)]
 #![feature(box_into_inner)]
 #![feature(btreemap_alloc)]
-#![feature(iter_array_chunks)]
-#![feature(pointer_is_aligned_to)]
-#![feature(const_trait_impl)]
-#![feature(btree_cursors)]
+#![feature(array_try_from_fn)]
+#![feature(maybe_uninit_write_slice)]
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::result_unit_err)]
 #![allow(clippy::needless_lifetimes)]
@@ -38,11 +26,13 @@
 
 extern crate alloc;
 
+pub mod basic_queries;
 pub mod common_structs;
 pub mod common_traits;
 pub mod execution_environment_type;
 pub mod kv_markers;
 pub mod memory;
+pub mod metadata_markers;
 pub mod oracle;
 pub mod reference_implementations;
 pub mod system;

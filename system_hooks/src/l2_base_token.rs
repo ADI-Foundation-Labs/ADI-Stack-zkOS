@@ -43,7 +43,7 @@ where
         CallModifier::Constructor => {
             return Err(
                 internal_error!("L2 base token hook called with constructor modifier").into(),
-            )
+            );
         }
         CallModifier::Delegate
         | CallModifier::DelegateStatic
@@ -219,46 +219,50 @@ where
                     "L2 base token failure: withdrawWithMessage called with invalid calldata",
                 ));
             }
-            let message_offset: u32 =
-                match U256::from_be_slice(&calldata[36..68]).try_into() {
-                    Ok(offset) => offset,
-                    Err(_) => return Ok(Err(
+            let message_offset: u32 = match U256::from_be_slice(&calldata[36..68]).try_into() {
+                Ok(offset) => offset,
+                Err(_) => {
+                    return Ok(Err(
                         "L2 base token failure: withdrawWithMessage called with invalid calldata",
-                    )),
-                };
+                    ));
+                }
+            };
             // length located at 4+message_offset..4+message_offset+32
             // we want to check that 4+message_offset+32 will not overflow u32
-            let length_encoding_end =
-                match message_offset.checked_add(36) {
-                    Some(length_encoding_end) => length_encoding_end,
-                    None => return Ok(Err(
+            let length_encoding_end = match message_offset.checked_add(36) {
+                Some(length_encoding_end) => length_encoding_end,
+                None => {
+                    return Ok(Err(
                         "L2 base token failure: withdrawWithMessage called with invalid calldata",
-                    )),
-                };
+                    ));
+                }
+            };
             if calldata_len < length_encoding_end {
                 return Ok(Err(
                     "L2 base token failure: withdrawWithMessage called with invalid calldata",
                 ));
             }
-            let length: u32 =
-                match U256::from_be_slice(
-                    &calldata[(length_encoding_end as usize) - 32..length_encoding_end as usize],
-                )
-                .try_into()
-                {
-                    Ok(length) => length,
-                    Err(_) => return Ok(Err(
+            let length: u32 = match U256::from_be_slice(
+                &calldata[(length_encoding_end as usize) - 32..length_encoding_end as usize],
+            )
+            .try_into()
+            {
+                Ok(length) => length,
+                Err(_) => {
+                    return Ok(Err(
                         "L2 base token failure: withdrawWithMessage called with invalid calldata",
-                    )),
-                };
+                    ));
+                }
+            };
             // to check that it will not overflow
-            let message_end =
-                match length_encoding_end.checked_add(length) {
-                    Some(message_end) => message_end,
-                    None => return Ok(Err(
+            let message_end = match length_encoding_end.checked_add(length) {
+                Some(message_end) => message_end,
+                None => {
+                    return Ok(Err(
                         "L2 base token failure: withdrawWithMessage called with invalid calldata",
-                    )),
-                };
+                    ));
+                }
+            };
             if calldata_len < message_end {
                 return Ok(Err(
                     "L2 base token failure: withdrawWithMessage called with invalid calldata",
@@ -274,7 +278,7 @@ where
             }
 
             // Burn nominal_token_value
-            match system.io.update_account_nominal_token_balance(
+            let _ = match system.io.update_account_nominal_token_balance(
                 ExecutionEnvironmentType::parse_ee_version_byte(caller_ee)
                     .map_err(SystemError::LeafDefect)?,
                 resources,

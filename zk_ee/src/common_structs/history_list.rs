@@ -1,25 +1,16 @@
 use alloc::alloc::{Allocator, Global};
 use core::marker::PhantomData;
 
-use crate::memory::stack_trait::{Stack, StackCtor, StackCtorConst};
+use crate::memory::stack_trait::{Stack, StackCtor};
 
-pub struct HistoryList<
-    V,
-    M: Clone,
-    SC: StackCtor<SCC>,
-    SCC: const StackCtorConst,
-    A: Allocator + Clone = Global,
-> where
-    [(); SCC::extra_const_param::<(V, M), A>()]:,
+pub struct HistoryList<V, M: Clone, SC: StackCtor<N>, const N: usize, A: Allocator + Clone = Global>
 {
-    list: SC::Stack<(V, M), { SCC::extra_const_param::<(V, M), A>() }, A>,
+    list: SC::Stack<(V, M), N, A>,
     _phantom: PhantomData<A>,
 }
 
-impl<V, M: Clone, SC: StackCtor<SCC>, SCC: const StackCtorConst, A: Allocator + Clone>
-    HistoryList<V, M, SC, SCC, A>
-where
-    [(); SCC::extra_const_param::<(V, M), A>()]:,
+impl<V, M: Clone, SC: StackCtor<N>, const N: usize, A: Allocator + Clone>
+    HistoryList<V, M, SC, N, A>
 {
     pub fn new(alloc: A) -> Self {
         Self {
@@ -48,8 +39,12 @@ where
         self.list.top_mut().map(|(v, m)| (v, m))
     }
 
-    pub fn iter(&self) -> impl ExactSizeIterator<Item = &V> {
+    pub fn iter(&self) -> impl ExactSizeIterator<Item = &V> + Clone {
         self.list.iter().map(|(v, _)| v)
+    }
+
+    pub fn iter_skip_n(&self, n: usize) -> impl ExactSizeIterator<Item = &V> + Clone {
+        self.list.iter_skip_n(n).map(|(v, _)| v)
     }
 
     pub fn len(&self) -> usize {

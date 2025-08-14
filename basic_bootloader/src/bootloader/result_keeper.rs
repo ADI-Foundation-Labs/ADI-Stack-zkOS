@@ -10,8 +10,9 @@ use crate::bootloader::block_header::BlockHeader;
 use crate::bootloader::errors::InvalidTransaction;
 use ruint::aliases::B160;
 use zk_ee::system::{IOResultKeeper, NopResultKeeper};
-use zk_ee::types_config::EthereumIOTypesConfig;
+use zk_ee::types_config::SystemIOTypesConfig;
 
+#[derive(Debug, Clone, Copy)]
 pub struct TxProcessingOutput<'a> {
     pub status: bool,
     pub output: &'a [u8],
@@ -22,14 +23,21 @@ pub struct TxProcessingOutput<'a> {
     pub pubdata_used: u64,
 }
 
-pub trait ResultKeeperExt: IOResultKeeper<EthereumIOTypesConfig> {
+pub trait ResultKeeperExt<IOTypes: SystemIOTypesConfig>: IOResultKeeper<IOTypes> {
     fn tx_processed(&mut self, _tx_result: Result<TxProcessingOutput<'_>, InvalidTransaction>) {}
 
     fn block_sealed(&mut self, _block_header: BlockHeader) {}
+
+    type BlockHeader: 'static + Sized;
+    fn record_sealed_block(&mut self, _header: Self::BlockHeader) {}
 
     fn get_gas_used(&self) -> u64 {
         0u64
     }
 }
 
-impl ResultKeeperExt for NopResultKeeper {}
+impl<T: 'static + Sized, IOTypes: SystemIOTypesConfig> ResultKeeperExt<IOTypes>
+    for NopResultKeeper<T>
+{
+    type BlockHeader = T;
+}

@@ -1,52 +1,115 @@
 use super::{
     errors::internal::InternalError,
     kv_markers::{ExactSizeChain, UsizeDeserializable, UsizeSerializable},
-    types_config::SystemIOTypesConfig,
 };
+use crate::metadata_markers::basic_metadata::{
+    BasicBlockMetadata, BasicMetadata, BasicTransactionMetadata, ZkSpecificPricingMetadata,
+};
+use crate::types_config::EthereumIOTypesConfig;
+use crate::utils::Bytes32;
 use ruint::aliases::{B160, U256};
 
 #[derive(Clone, Copy, Debug, Default)]
-pub struct Metadata<IOTypes: SystemIOTypesConfig> {
-    pub chain_id: u64,
-    pub tx_origin: IOTypes::Address,
+pub struct Metadata {
+    pub tx_origin: B160,
     pub tx_gas_price: U256,
     pub block_level_metadata: BlockMetadataFromOracle,
+}
+
+impl BasicBlockMetadata<EthereumIOTypesConfig> for Metadata {
+    fn chain_id(&self) -> u64 {
+        self.block_level_metadata.chain_id
+    }
+    fn block_number(&self) -> u64 {
+        self.block_level_metadata.block_number
+    }
+    fn block_historical_hash(&self, depth: u64) -> Option<Bytes32> {
+        if depth < 256 {
+            Some(Bytes32::from_array(
+                self.block_level_metadata.block_hashes.0[depth as usize].to_be_bytes::<32>(),
+            ))
+        } else {
+            None
+        }
+    }
+    fn block_timestamp(&self) -> u64 {
+        self.block_level_metadata.timestamp
+    }
+    fn block_randomness(&self) -> Option<Bytes32> {
+        Some(Bytes32::from_array(
+            self.block_level_metadata.mix_hash.to_be_bytes::<32>(),
+        ))
+    }
+    fn coinbase(&self) -> B160 {
+        self.block_level_metadata.coinbase
+    }
+    fn block_gas_limit(&self) -> u64 {
+        self.block_level_metadata.gas_limit
+    }
+    fn individual_tx_gas_limit(&self) -> u64 {
+        self.block_level_metadata.gas_limit
+    }
+    fn eip1559_basefee(&self) -> U256 {
+        self.block_level_metadata.eip1559_basefee
+    }
+    fn max_blobs(&self) -> usize {
+        0
+    }
+    fn blobs_gas_limit(&self) -> u64 {
+        0
+    }
+    fn blob_base_fee_per_gas(&self) -> U256 {
+        U256::MAX
+    }
+}
+
+impl BasicTransactionMetadata<EthereumIOTypesConfig> for Metadata {
+    fn tx_origin(&self) -> B160 {
+        self.tx_origin
+    }
+    fn tx_gas_price(&self) -> U256 {
+        self.tx_gas_price
+    }
+    // fn tx_gas_limit(&self) -> u64;
+    fn num_blobs(&self) -> usize {
+        0
+    }
+    fn get_blob_hash(&self, _idx: usize) -> Option<Bytes32> {
+        None
+    }
+}
+
+impl BasicMetadata<EthereumIOTypesConfig> for Metadata {
+    type TransactionMetadata = (B160, U256);
+    fn set_transaction_metadata(&mut self, tx_level_metadata: Self::TransactionMetadata) {
+        let (tx_origin, tx_gas_price) = tx_level_metadata;
+        self.tx_origin = tx_origin;
+        self.tx_gas_price = tx_gas_price;
+    }
+}
+
+impl ZkSpecificPricingMetadata for Metadata {
+    fn gas_per_pubdata(&self) -> U256 {
+        self.block_level_metadata.gas_per_pubdata
+    }
+    fn native_price(&self) -> U256 {
+        self.block_level_metadata.native_price
+    }
+    fn get_pubdata_limit(&self) -> u64 {
+        self.block_level_metadata.pubdata_limit
+    }
 }
 
 /// Array of previous block hashes.
 /// Hash for block number N will be at index [current_block_number - N - 1]
 /// (most recent will be at the start) if N is one of the most recent
 /// 256 blocks.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct BlockHashes(pub [U256; 256]);
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct BlockHashes(#[serde(with = "serde_big_array::BigArray")] pub [U256; 256]);
 
 impl Default for BlockHashes {
     fn default() -> Self {
         Self([U256::ZERO; 256])
-    }
-}
-
-#[cfg(feature = "testing")]
-impl serde::Serialize for BlockHashes {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.0.to_vec().serialize(serializer)
-    }
-}
-
-#[cfg(feature = "testing")]
-impl<'de> serde::Deserialize<'de> for BlockHashes {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let vec: Vec<U256> = Vec::deserialize(deserializer)?;
-        let array: [U256; 256] = vec
-            .try_into()
-            .map_err(|_| serde::de::Error::custom("Expected array of length 256"))?;
-        Ok(Self(array))
     }
 }
 
@@ -65,9 +128,7 @@ impl UsizeDeserializable for BlockHashes {
     const USIZE_LEN: usize = <U256 as UsizeDeserializable>::USIZE_LEN * 256;
 
     fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
-        Ok(Self(core::array::from_fn(|_| {
-            U256::from_iter(src).unwrap_or_default()
-        })))
+        Ok(Self(core::array::try_from_fn(|_| U256::from_iter(src))?))
     }
 }
 
@@ -75,8 +136,7 @@ impl UsizeDeserializable for BlockHashes {
 // those that define "block", like uniform fee for block,
 // block number, etc
 
-#[cfg_attr(feature = "testing", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BlockMetadataFromOracle {
     // Chain id is temporarily also added here (so that it can be easily passed from the oracle)
     // long term, we have to decide whether we want to keep it here, or add a separate oracle

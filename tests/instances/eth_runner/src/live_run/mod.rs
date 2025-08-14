@@ -2,7 +2,7 @@ use alloy::primitives::U256;
 use anyhow::{anyhow, Context, Ok, Result};
 use db::{BlockStatus, BlockTraces, Database};
 mod db;
-mod rpc;
+pub(crate) mod rpc;
 use rig::log::{debug, error, info};
 use rig::Chain;
 
@@ -111,6 +111,8 @@ fn run_block(
 
     let miner = block.result.header.beneficiary;
     let block_context = block.get_block_context();
+    // let withdrawals = block.result.withdrawals.clone().map(|el| el.0).unwrap_or_default();
+    let withdrawals = vec![];
     let (transactions, skipped) = block.get_transactions(&call);
     info!("Transactions to run: {}", transactions.len());
 
@@ -185,6 +187,7 @@ fn run_block(
         diff_trace,
         prestate_cache,
         ruint::aliases::B160::from_be_bytes(miner.into()),
+        &withdrawals,
     ) {
         core::result::Result::Ok(()) => {
             db.set_block_status(block_number, db::BlockStatus::Success)?;

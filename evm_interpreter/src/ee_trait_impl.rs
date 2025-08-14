@@ -103,6 +103,14 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
         } = frame_state;
         assert!(call_scratch_space.is_none());
 
+        system
+            .get_logger()
+            .write_fmt(format_args!(
+                "Will begin execution with {} gas\n",
+                available_resources.ergs().0 / ERGS_PER_GAS
+            ))
+            .unwrap();
+
         let EnvironmentParameters {
             bytecode,
             scratch_space_len: _,
@@ -148,7 +156,7 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
             a => {
                 return Err(interface_error!(EvmInterfaceError::UnexpectedModifier {
                     modifier: a
-                }))
+                }));
             }
         }
 

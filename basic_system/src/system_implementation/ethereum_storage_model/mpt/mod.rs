@@ -1,3 +1,4 @@
+mod lazy_leaf_value;
 mod nodes;
 mod parse_node;
 mod preimages;
@@ -11,11 +12,15 @@ use core::mem::MaybeUninit;
 use crypto::MiniDigest;
 use zk_ee::utils::Bytes32;
 
+pub(crate) use self::lazy_leaf_value::*;
 pub(crate) use self::nodes::*;
 pub(crate) use self::parse_node::*;
 pub(crate) use self::rlp::*;
 pub(crate) use self::trie::*;
 
+pub use self::lazy_leaf_value::{LazyEncodable, LazyLeafValue, LeafValue};
+pub use self::nodes::Path;
+pub use self::parse_node::RLPSlice;
 pub use self::preimages::*;
 pub use self::trie::EthereumMPT;
 
@@ -85,6 +90,8 @@ pub trait InterningBuffer<'a>: ByteBuffer {
 }
 
 pub trait InterningWordBuffer<'a>: WordBuffer {
+    fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<usize>];
+    unsafe fn set_word_len(&mut self, len: usize);
     fn flush(self) -> &'a [usize];
     fn flush_as_bytes(self, byte_len: usize) -> &'a [u8];
 }
@@ -99,6 +106,12 @@ impl WordBuffer for () {
 }
 
 impl<'a> InterningWordBuffer<'a> for () {
+    fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<usize>] {
+        &mut []
+    }
+
+    unsafe fn set_word_len(&mut self, _len: usize) {}
+
     fn flush(self) -> &'a [usize] {
         unreachable!()
     }
@@ -165,6 +178,15 @@ impl<'a> WordBuffer for MaybeUninitWordBuffer<'a> {
 }
 
 impl<'a> InterningWordBuffer<'a> for MaybeUninitWordBuffer<'a> {
+    fn spare_capacity_mut(&mut self) -> &mut [MaybeUninit<usize>] {
+        &mut self.buffer[self.num_written..]
+    }
+
+    unsafe fn set_word_len(&mut self, len: usize) {
+        assert!(len <= self.buffer.len());
+        self.num_written = len;
+    }
+
     fn flush_as_bytes(self, byte_len: usize) -> &'a [u8] {
         assert!(byte_len <= self.num_written * core::mem::size_of::<usize>());
         unsafe { core::slice::from_raw_parts(self.buffer.as_ptr().cast(), byte_len) }
@@ -344,11 +366,11 @@ pub trait ETHMPTInternerExt<'a>: Interner<'a> {
         let nibbles_encoding_len = num_bytes_to_encode_nibbles + rlp_prefix_len;
         let mut total_list_concatenated_len = nibbles_encoding_len;
         total_list_concatenated_len += pre_encoded_value.len();
-        // total_list_concatenated_len += slice_encoding_prefix_len(pre_encoded_value);
         let total_len =
             total_list_concatenated_len + list_encoding_prefix_len(total_list_concatenated_len);
 
         if total_len < 32 {
+            // we need RLP of RLP
             let mut buffer = self.get_buffer(1 + total_len)?;
             let writer = &mut buffer;
             // we need to RLP it on top - it is short
@@ -372,6 +394,68 @@ pub trait ETHMPTInternerExt<'a>: Interner<'a> {
             write_nibbles(writer, true, path_for_nibbles);
             writer.write_slice(pre_encoded_value);
             // encode_slice_into_buffer(writer, pre_encoded_value);
+            let key = writer.finalize_reset();
+
+            let mut buffer = self.get_buffer(33)?;
+            buffer.write_byte(0x80 + 32);
+            buffer.write_slice(key.as_ref());
+
+            Ok(buffer.flush())
+        }
+    }
+
+    // will return key
+    fn make_leaf_key_for_value(
+        &mut self,
+        path_for_nibbles: &[u8],
+        mut leaf_value: LeafValue<'_>,
+        hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
+    ) -> Result<&'a [u8], ()> {
+        // we need to make an RLP of the leaf and intern a new key (we are not interested in value actually)
+        let num_nibbles = path_for_nibbles.len();
+        let num_bytes_to_encode_nibbles = if num_nibbles % 2 == 1 {
+            (num_nibbles + 1) / 2
+        } else {
+            (num_nibbles / 2) + 1
+        };
+        debug_assert!(num_bytes_to_encode_nibbles >= 1);
+
+        let rlp_prefix_len = if num_nibbles <= 1 {
+            // only possible values are 0x3X or 0x20
+            0
+        } else {
+            1
+        };
+        let nibbles_encoding_len = num_bytes_to_encode_nibbles + rlp_prefix_len;
+        let mut total_list_concatenated_len = nibbles_encoding_len;
+        total_list_concatenated_len += leaf_value.rlp_encoding_length();
+        let total_len =
+            total_list_concatenated_len + list_encoding_prefix_len(total_list_concatenated_len);
+
+        if total_len < 32 {
+            // we need RLP of RLP
+            let mut buffer = self.get_buffer(1 + total_len)?;
+            let writer = &mut buffer;
+            // we need to RLP it on top - it is short
+            writer.write_byte(0x80 + (total_len as u8));
+
+            encode_list_len_into_buffer(writer, total_list_concatenated_len);
+            if rlp_prefix_len > 0 {
+                writer.write_byte(0x80 + (num_bytes_to_encode_nibbles as u8));
+            }
+            write_nibbles(writer, true, path_for_nibbles);
+            leaf_value.rlp_encode_into(&mut buffer);
+            let result = buffer.flush();
+
+            Ok(result)
+        } else {
+            let writer = hasher;
+            encode_list_len_into_buffer(writer, total_list_concatenated_len);
+            if rlp_prefix_len > 0 {
+                writer.write_byte(0x80 + (num_bytes_to_encode_nibbles as u8));
+            }
+            write_nibbles(writer, true, path_for_nibbles);
+            leaf_value.rlp_encode_into(writer);
             let key = writer.finalize_reset();
 
             let mut buffer = self.get_buffer(33)?;
@@ -498,8 +582,16 @@ pub trait ETHMPTInternerExt<'a>: Interner<'a> {
         }
     }
 
-    // will return key
+    // This is terminal value IN the branch node ~= leaf with empty nibbles
     fn make_terminal_branch_value_key(
+        &mut self,
+        value: LeafValue<'_>,
+        hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
+    ) -> Result<&'a [u8], ()> {
+        self.make_leaf_key_for_value(&[], value, hasher)
+    }
+
+    fn make_unreferenced_branch_value_key(
         &mut self,
         pre_encoded_value: &[u8],
         hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,

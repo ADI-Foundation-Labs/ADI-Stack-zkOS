@@ -169,6 +169,10 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
             match crate::opcodes::OpCode::try_from_u8(opcode) {
                 Some(op) => {
                     if Self::PRINT_OPCODES {
+                        let _ = system.get_logger().write_fmt(format_args!(
+                            "Gas before execution is {}\n",
+                            self.gas.resources.ergs().0 / ERGS_PER_GAS
+                        ));
                         let _ = system
                             .get_logger()
                             .write_fmt(format_args!("Executing {op}"));

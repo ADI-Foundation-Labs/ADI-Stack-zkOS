@@ -13,7 +13,10 @@
 // - Inserts somewhere near the leaf - convert to branch, but types of nodes do not change
 // - Inserts somewhere near the extension - convert to branch too, potentially eliminating extension itself
 
-use crate::system_implementation::ethereum_storage_model::{mpt::RLPSlice, ByteBuffer};
+use crate::system_implementation::ethereum_storage_model::{
+    mpt::{LeafValue, RLPSlice},
+    ByteBuffer,
+};
 
 // Stable index. We assume that number of nodes is small enough
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -248,12 +251,15 @@ impl<'a> Path<'a> {
 
 // One of the hard topics is how to easily identify nodes. We need to define some types that
 // would be unique enough, to guarantee that even if we somehow encounter
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+
+// #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug)]
 pub(crate) struct LeafNode<'a> {
     pub(crate) path_segment: &'a [u8],
     pub(crate) parent_node: NodeType,
     pub(crate) raw_nibbles_encoding: &'a [u8], // RLP, not even internals. Handy for updates
-    pub(crate) value: RLPSlice<'a>,
+    // pub(crate) value: RLPSlice<'a>,
+    pub(crate) value: LeafValue<'a>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -265,11 +271,12 @@ pub(crate) struct ExtensionNode<'a> {
     pub(crate) next_node_key: RLPSlice<'a>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+// #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug)]
 pub(crate) struct OpaqueValue<'a> {
     pub(crate) parent_node: NodeType,
     pub(crate) branch_index: usize,
-    pub(crate) encoding: RLPSlice<'a>,
+    pub(crate) value: LeafValue<'a>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -302,6 +309,12 @@ impl<'a> BranchNode<'a> {
 }
 
 pub(crate) fn write_nibbles(buffer: &mut impl ByteBuffer, is_leaf: bool, path: &[u8]) {
+    if path.is_empty() {
+        assert!(is_leaf);
+        buffer.write_byte(0x20);
+        return;
+    }
+
     let num_nibbles = path.len();
     let (mut byte, mut write_high) = if num_nibbles % 2 == 1 {
         if is_leaf {

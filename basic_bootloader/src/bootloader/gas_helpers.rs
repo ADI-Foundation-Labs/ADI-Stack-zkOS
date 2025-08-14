@@ -19,6 +19,20 @@ pub struct ResourcesForTx<S: EthereumLikeTypes> {
     pub intrinsic_computational_native_charged: u64,
 }
 
+impl<S: EthereumLikeTypes> core::fmt::Debug for ResourcesForTx<S> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("ResourcesForTx")
+            .field("gas", &(self.main_resources.ergs().0 / ERGS_PER_GAS))
+            .field("main_resources", &self.main_resources)
+            .field("withheld", &self.withheld)
+            .field(
+                "intrinsic_computational_native_charged",
+                &self.intrinsic_computational_native_charged,
+            )
+            .finish()
+    }
+}
+
 pub fn get_resources_for_tx<S: EthereumLikeTypes>(
     gas_limit: u64,
     native_per_pubdata: U256,
@@ -158,7 +172,7 @@ pub fn get_resources_to_charge_for_pubdata<S: EthereumLikeTypes>(
     let native_per_pubdata = u256_to_u64_saturated(&native_per_pubdata);
     let native = current_pubdata_spent
         .checked_mul(native_per_pubdata)
-        .ok_or(internal_error!("cps*epp"))?;
+        .ok_or(internal_error!("pubdata spent by native cost of pubdata"))?;
     let native = <S::Resources as zk_ee::system::Resources>::Native::from_computational(native);
     Ok((current_pubdata_spent, S::Resources::from_native(native)))
 }

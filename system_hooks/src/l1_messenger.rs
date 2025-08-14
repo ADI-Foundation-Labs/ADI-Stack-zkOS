@@ -48,7 +48,7 @@ where
         CallModifier::Constructor => {
             return Err(
                 internal_error!("L1 messenger hook called with constructor modifier").into(),
-            )
+            );
         }
         CallModifier::Delegate
         | CallModifier::DelegateStatic

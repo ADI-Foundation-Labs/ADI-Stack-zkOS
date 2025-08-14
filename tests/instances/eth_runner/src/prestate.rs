@@ -88,7 +88,7 @@ impl AccountState {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Cache(pub HashMap<B160, AccountState>);
 
 impl Cache {

@@ -1,6 +1,5 @@
 #![no_main]
 #![feature(allocator_api)]
-#![feature(generic_const_exprs)]
 
 use basic_bootloader::bootloader::transaction::ZkSyncTransaction;
 use common::{mutate_transaction, serialize_zksync_transaction};

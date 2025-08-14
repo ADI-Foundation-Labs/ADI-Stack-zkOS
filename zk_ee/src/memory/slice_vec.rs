@@ -26,7 +26,7 @@ impl<'a, T> SliceVec<'a, T> {
     }
 
     /// Returns the current contents as a slice and a new empty `SliceVec` that uses the rest of the backing slice.
-    pub fn freeze(&mut self) -> (&mut [T], SliceVec<T>) {
+    pub fn freeze(&'_ mut self) -> (&'_ mut [T], SliceVec<'_, T>) {
         unsafe {
             let (locked, free) = self.memory.split_at_mut_unchecked(self.length);
             let locked = &mut *(locked as *mut [MaybeUninit<T>] as *mut [T]);
@@ -67,6 +67,15 @@ impl<'a, T> SliceVec<'a, T> {
         } else {
             Some(unsafe { self.memory[self.length - 1].assume_init_mut() })
         }
+    }
+
+    #[inline]
+    pub fn extend_from_slice(&mut self, source: &[T])
+    where
+        T: Copy,
+    {
+        self.memory[self.length..][..source.len()].write_copy_of_slice(source);
+        self.length += source.len();
     }
 }
 

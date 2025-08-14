@@ -1,4 +1,7 @@
 pub mod dyn_usize_iterator;
+use crate::utils::UsizeAlignedByteBox;
+use crate::{system::errors::internal::InternalError, utils::Bytes32};
+use core::alloc::Allocator;
 ///
 /// Oracle is an abstraction boundary on how OS (System trait) gets IO information and eventually
 /// updates state and/or sends messages to one more layer above
@@ -7,208 +10,115 @@ pub mod dyn_usize_iterator;
 /// so e.g. if one asks for preimage it gives SOME data, but validity of this data
 /// versus image (that depends on which hash is used) it beyond the scope of this trait
 ///
-use core::num::NonZeroU32;
+use core::{mem::MaybeUninit, num::NonZeroU32};
 
-use super::kv_markers::{ExactSizeChain, StorageAddress, UsizeDeserializable, UsizeSerializable};
-use super::types_config::SystemIOTypesConfig;
-use crate::system::errors::internal::InternalError;
-use crate::utils::Bytes32;
+use super::kv_markers::{UsizeDeserializable, UsizeSerializable};
 
-///
-/// Oracle iterator type marker, used to specify oracle query type.
-///
-pub trait OracleIteratorTypeMarker: 'static + Sized {
-    const ID: u32;
-    type Params: UsizeSerializable + UsizeDeserializable;
-}
+// We will define few aux constants to easier management of query IDs. Note that we do not really
+// care if those IDs are unique on the caller side. Oracle input is non-deterministic in any case,
+// so any response MUST be either treated as bag of bytes, or checked to satisfy additional constraints either
+// during deserialization, or usage later on.
 
-///
-/// Next transaction size query type.
-///
-/// Note: `0` size means that there are no more transactions to process.
-///
-pub struct NextTxSize;
-impl OracleIteratorTypeMarker for NextTxSize {
-    const ID: u32 = 0;
-    type Params = ();
-}
+pub const RESERVED_SUBSPACE_MASK: u32 = 0x80_00_00_00;
+pub const UART_QUERY_ID: u32 = 0xffffffff;
+pub const BASIC_SUBSPACE_MASK: u32 = 0x40_00_00_00;
+pub const GENERIC_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x00_01_00_00;
+pub const PREIMAGE_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x00_02_00_00;
+pub const ACCOUNT_AND_STORAGE_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x00_03_00_00;
+pub const STATE_AND_MERKLE_PATHS_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x00_04_00_00;
+pub const ADVISE_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x00_05_00_00;
 
-///
-/// New transaction content query type.
-///
-pub struct NewTxContentIterator;
-impl OracleIteratorTypeMarker for NewTxContentIterator {
-    const ID: u32 = 1;
-    type Params = ();
-}
+#[allow(clippy::identity_op)]
+pub const NEXT_TX_SIZE_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 0;
+pub const DISCONNECT_ORACLE_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 1;
+pub const BLOCK_METADATA_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 2;
+pub const TX_DATA_WORDS_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 3;
+pub const ZK_PROOF_DATA_INIT_QUERY_ID: u32 = GENERIC_SUBSPACE_MASK | 4;
 
-///
-/// Proof data query type.
-///
-pub struct ProofDataIterator;
-impl OracleIteratorTypeMarker for ProofDataIterator {
-    const ID: u32 = 2;
-    type Params = ();
-}
+#[allow(clippy::identity_op)]
+pub const GENERIC_PREIMAGE_QUERY_ID: u32 = PREIMAGE_SUBSPACE_MASK | 0;
+
+#[allow(clippy::identity_op)]
+pub const INITIAL_STORAGE_SLOT_VALUE_QUERY_ID: u32 = ACCOUNT_AND_STORAGE_SUBSPACE_MASK | 0;
+
+#[allow(clippy::identity_op)]
+pub const INITIAL_STATE_COMMITTMENT_QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | 0;
+
+#[allow(clippy::identity_op)]
+pub const HISTORICAL_BLOCK_HASH_QUERY_ID: u32 = ADVISE_SUBSPACE_MASK | 0;
 
 ///
-/// Block level metadata query type.
+/// Convenience trait to define all expected types under one umbrella.
 ///
-pub struct BlockLevelMetadataIterator;
+pub trait SimpleOracleQuery: Sized {
+    const QUERY_ID: u32;
+    type Input: UsizeSerializable + UsizeDeserializable;
+    type Output: UsizeDeserializable;
 
-impl OracleIteratorTypeMarker for BlockLevelMetadataIterator {
-    const ID: u32 = 3;
-    type Params = ();
-}
-
-///
-/// Initial storage slot data query type.
-///
-pub struct InitialStorageSlotDataIterator<IOTypes: SystemIOTypesConfig> {
-    _marker: core::marker::PhantomData<IOTypes>,
-}
-
-impl<IOTypes: SystemIOTypesConfig> Default for InitialStorageSlotDataIterator<IOTypes> {
-    fn default() -> Self {
-        Self {
-            _marker: core::marker::PhantomData,
-        }
+    fn get<O: IOOracle>(
+        oracle: &mut O,
+        input: &Self::Input,
+    ) -> Result<Self::Output, InternalError> {
+        oracle.query_serializable(Self::QUERY_ID, input)
     }
-}
 
-impl<IOTypes: SystemIOTypesConfig> OracleIteratorTypeMarker
-    for InitialStorageSlotDataIterator<IOTypes>
-{
-    const ID: u32 = 4;
-    type Params = StorageAddress<IOTypes>;
-}
-
-///
-/// Preimage content query type.
-///
-pub struct PreimageContentWordsIterator;
-
-impl OracleIteratorTypeMarker for PreimageContentWordsIterator {
-    const ID: u32 = 5;
-    type Params = Bytes32;
-}
-
-///
-/// Disconnect from oracle query type.
-///
-pub struct DisconnectOracleFormalIterator;
-
-impl OracleIteratorTypeMarker for DisconnectOracleFormalIterator {
-    const ID: u32 = 6;
-    type Params = ();
-}
-
-// Next 3 queries used for proving tree update.
-
-///
-/// Proof for index query type.
-///
-pub struct ProofForIndexIterator;
-
-impl OracleIteratorTypeMarker for ProofForIndexIterator {
-    const ID: u32 = 7;
-    type Params = u64;
-}
-
-///
-/// Previous index query type.
-///
-pub struct PrevIndexIterator;
-
-impl OracleIteratorTypeMarker for PrevIndexIterator {
-    const ID: u32 = 8;
-    type Params = Bytes32;
-}
-
-///
-/// Exact index query type.
-///
-pub struct ExactIndexIterator;
-
-impl OracleIteratorTypeMarker for ExactIndexIterator {
-    const ID: u32 = 9;
-    type Params = Bytes32;
-}
-
-pub struct Arithmetics;
-
-impl OracleIteratorTypeMarker for Arithmetics {
-    const ID: u32 = 0x101;
-    type Params = u32;
-}
-
-///
-/// UART access query type.
-///
-/// This type is not called on the oracle directly.
-///
-pub struct UARTAccessMarker;
-
-impl OracleIteratorTypeMarker for UARTAccessMarker {
-    const ID: u32 = u32::MAX;
-    type Params = ();
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct InitialStorageSlotData<IOTypes: SystemIOTypesConfig> {
-    // we need to know what was a value of the storage slot,
-    // and whether it existed in the state or has to be created
-    // (so additional information is needed to reconstruct creation location)
-    pub is_new_storage_slot: bool,
-    pub initial_value: IOTypes::StorageValue,
-}
-
-impl<IOTypes: SystemIOTypesConfig> Default for InitialStorageSlotData<IOTypes> {
-    fn default() -> Self {
-        Self {
-            is_new_storage_slot: false,
-            initial_value: IOTypes::StorageValue::default(),
-        }
+    /// # Safety
+    /// Callee must have apriori way to assume type equality
+    unsafe fn transmute_input_ref_unchecked<'a, T: Sized + 'a>(val: &'a T) -> &'a Self::Input
+    where
+        Self::Input: 'a,
+    {
+        core::mem::transmute(val)
     }
-}
 
-impl<IOTypes: SystemIOTypesConfig> UsizeSerializable for InitialStorageSlotData<IOTypes> {
-    const USIZE_LEN: usize = <bool as UsizeSerializable>::USIZE_LEN
-        + <u8 as UsizeSerializable>::USIZE_LEN
-        + <IOTypes::StorageValue as UsizeSerializable>::USIZE_LEN;
-    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
-        ExactSizeChain::new(
-            UsizeSerializable::iter(&self.is_new_storage_slot),
-            UsizeSerializable::iter(&self.initial_value),
-        )
+    /// # Safety
+    /// Callee must have apriori way to assume type equality. Will check type IDs inside just in case
+    unsafe fn transmute_input_ref<'a, T: 'static + Sized>(val: &'a T) -> &'a Self::Input
+    where
+        Self::Input: 'static,
+    {
+        assert_eq!(
+            core::any::TypeId::of::<T>(),
+            core::any::TypeId::of::<Self::Input>()
+        );
+        core::mem::transmute(val)
     }
-}
 
-impl<IOTypes: SystemIOTypesConfig> UsizeDeserializable for InitialStorageSlotData<IOTypes> {
-    const USIZE_LEN: usize = <Self as UsizeSerializable>::USIZE_LEN;
-
-    fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
-        let is_new_storage_slot = UsizeDeserializable::from_iter(src)?;
-        let initial_value = UsizeDeserializable::from_iter(src)?;
-
-        let new = Self {
-            is_new_storage_slot,
-            initial_value,
-        };
-
-        Ok(new)
+    // Copy == no Drop for now
+    /// # Safety
+    /// Callee must have apriori way to assume type equality. Will check type IDs inside just in case
+    unsafe fn transmute_input<T: 'static + Sized + Copy>(val: T) -> Self::Input
+    where
+        Self::Input: 'static,
+    {
+        assert!(core::mem::needs_drop::<T>() == false);
+        assert_eq!(
+            core::any::TypeId::of::<T>(),
+            core::any::TypeId::of::<Self::Input>()
+        );
+        core::ptr::read((&val as *const T).cast::<Self::Input>())
     }
-}
 
-#[repr(C)]
-pub struct ArithmeticsParam {
-    pub op: u32,
-    pub a_ptr: u32,
-    pub a_len: u32,
-    pub b_ptr: u32,
-    pub b_len: u32,
-    pub modulus_ptr: u32,
-    pub modulus_len: u32,
+    /// # Safety
+    /// Callee must have apriori way to assume type equality. Will check type IDs inside just in case
+    unsafe fn transmute_output<T: 'static + Sized>(val: Self::Output) -> T
+    where
+        Self::Output: 'static,
+    {
+        assert!(core::mem::needs_drop::<Self::Output>() == false);
+        assert_eq!(
+            core::any::TypeId::of::<T>(),
+            core::any::TypeId::of::<Self::Output>()
+        );
+        core::ptr::read((&val as *const Self::Output).cast::<T>())
+    }
+
+    /// # Safety
+    /// Callee must have apriori way to assume type equality
+    unsafe fn transmute_output_unchecked<T: Sized>(val: Self::Output) -> T {
+        assert!(core::mem::needs_drop::<Self::Output>() == false);
+        core::ptr::read((&val as *const Self::Output).cast::<T>())
+    }
 }
 
 ///
@@ -216,43 +126,137 @@ pub struct ArithmeticsParam {
 ///
 pub trait IOOracle: 'static + Sized {
     /// Iterator type that oracle returns.
-    type MarkerTiedIterator<'a>: ExactSizeIterator<Item = usize>;
+    type RawIterator<'a>: ExactSizeIterator<Item = usize>;
 
     ///
-    /// Main oracle method.
-    /// Returns iterator for generic type marker.
+    /// Main method to query oracle.
+    /// Returns raw iterator.
     ///
-    fn create_oracle_access_iterator<'a, M: OracleIteratorTypeMarker>(
+    fn raw_query<'a, I: UsizeSerializable + UsizeDeserializable>(
         &'a mut self,
-        init_value: M::Params,
-    ) -> Result<Self::MarkerTiedIterator<'a>, InternalError>;
+        query_type: u32,
+        input: &I,
+    ) -> Result<Self::RawIterator<'a>, InternalError>;
+
+    ///
+    /// Main method to query oracle.
+    /// Returns raw iterator.
+    ///
+    fn raw_query_with_empty_input<'a>(
+        &'a mut self,
+        query_type: u32,
+    ) -> Result<Self::RawIterator<'a>, InternalError> {
+        self.raw_query(query_type, &())
+    }
+
+    ///
+    /// Convenience method to query oracle.
+    /// Returns deserialized output.
+    ///
+    fn query_serializable<I: UsizeSerializable + UsizeDeserializable, O: UsizeDeserializable>(
+        &mut self,
+        query_type: u32,
+        input: &I,
+    ) -> Result<O, InternalError> {
+        let mut it = self.raw_query(query_type, input)?;
+        let result: O = UsizeDeserializable::from_iter(&mut it).expect("must initialize");
+        assert!(it.next().is_none());
+
+        Ok(result)
+    }
 
     // Few wrappers that return output in convenient types
+
+    ///
+    /// Returns the requested type. Expects that such query type has trivial input parameters.
+    ///
+    fn query_with_empty_input<T: UsizeDeserializable>(
+        &mut self,
+        query_type: u32,
+    ) -> Result<T, InternalError> {
+        self.query_serializable::<_, T>(query_type, &())
+    }
+
     ///
     /// Returns the byte length of the next transaction.
     ///
     /// If there are no more transactions returns `None`.
     /// Note: length can't be 0, as 0 interpreted as no more transactions.
     ///
-    fn try_begin_next_tx(&mut self) -> Option<NonZeroU32> {
-        // go via query
-        let mut it = self
-            .create_oracle_access_iterator::<NextTxSize>(())
-            .expect("must make an iterator");
-        let size: u32 = UsizeDeserializable::from_iter(&mut it).expect("must initialize");
-        assert!(it.next().is_none());
+    fn try_begin_next_tx(&mut self) -> Result<Option<NonZeroU32>, InternalError> {
+        let size = self.query_with_empty_input::<u32>(NEXT_TX_SIZE_QUERY_ID)?;
 
-        NonZeroU32::new(size)
+        Ok(NonZeroU32::new(size))
     }
 
-    fn get_block_level_metadata<T: UsizeDeserializable>(&mut self) -> T {
-        // go via query
+    ///
+    /// Convenience to expose preimage into the preallocated buffer of bounded size
+    ///
+    fn expose_preimage(
+        &mut self,
+        query_type: u32,
+        hash: &Bytes32,
+        destination: &mut [MaybeUninit<usize>],
+    ) -> Result<usize, InternalError> {
         let mut it = self
-            .create_oracle_access_iterator::<BlockLevelMetadataIterator>(())
-            .expect("must make an iterator");
-        let result: T = UsizeDeserializable::from_iter(&mut it).expect("must initialize");
-        assert!(it.next().is_none());
+            .raw_query(query_type, hash)
+            .expect("must make an iterator for preimage");
+        assert!(it.len() <= destination.len());
+        let words_written = it.len();
+        for i in 0..it.len() {
+            unsafe {
+                // Contract of ExactSizeIterator
+                destination[i].write(it.next().unwrap_unchecked());
+            }
+        }
 
-        result
+        Ok(words_written)
     }
+
+    fn get_bytes_from_query<A: Allocator, I: UsizeSerializable + UsizeDeserializable>(
+        &mut self,
+        length_query_id: u32, // must return number of bytes
+        body_query_id: u32,   // must return
+        input: &I,
+        allocator: A,
+    ) -> Result<Option<UsizeAlignedByteBox<A>>, InternalError> {
+        use crate::internal_error;
+        use crate::utils::USIZE_SIZE;
+
+        let size = self.query_serializable::<I, u32>(length_query_id, input)?;
+        if size == 0 {
+            return Ok(None);
+        }
+        let num_bytes = size as usize;
+        let num_words = num_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE;
+        let body_query_it = self.raw_query(body_query_id, input)?;
+        let body_it_len = body_query_it.len();
+        // Some slack to account for 32/64 bit arch differences
+        if body_it_len.next_multiple_of(2) != num_words.next_multiple_of(2) {
+            return Err(internal_error!("iterator len is inconsistent"));
+        }
+        // create buffer
+        let mut buffer = UsizeAlignedByteBox::from_usize_iterator_in(body_query_it, allocator);
+        buffer.truncated_to_byte_length(num_bytes);
+
+        Ok(Some(buffer))
+    }
+}
+
+/// Extended interface to allow to define supported query types. Only to be used on the other
+/// end of the wire, but placed here for consistency
+pub trait IOResponder {
+    fn supports_query_id(&self, query_type: u32) -> bool;
+
+    // type QueryIDsIterator<'a>: ExactSizeIterator<Item = u32> where Self: 'a;
+    fn all_supported_query_ids<'a>(&'a self) -> impl ExactSizeIterator<Item = u32> + 'a;
+
+    fn query_serializable_static<
+        I: 'static + UsizeSerializable + UsizeDeserializable,
+        O: 'static + UsizeDeserializable,
+    >(
+        &mut self,
+        query_type: u32,
+        input: &I,
+    ) -> Result<O, InternalError>;
 }

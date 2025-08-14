@@ -16,25 +16,26 @@ pub use self::account_cache_entry::*;
 pub use self::preimage_cache::*;
 pub use self::simple_growable_storage::*;
 pub use self::storage_cache::*;
+use crate::system_implementation::cache_structs::storage_values::GenericPubdataAwareStorageValuesCache;
+use crate::system_implementation::cache_structs::storage_values::StorageAccessPolicy;
+use crate::system_implementation::cache_structs::storage_values::StorageSnapshotId;
 use core::alloc::Allocator;
 use crypto::MiniDigest;
 use ruint::aliases::B160;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
+use storage_models::common_structs::SpecialAccountProperty;
 use storage_models::common_structs::StorageCacheModel;
 use storage_models::common_structs::StorageModel;
-use zk_ee::common_structs::{derive_flat_storage_key_with_hasher, ValueDiffCompressionStrategy};
-use zk_ee::internal_error;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::system::BalanceSubsystemError;
 use zk_ee::system::DeconstructionSubsystemError;
 use zk_ee::system::NonceSubsystemError;
 use zk_ee::system::Resources;
+use zk_ee::system::*;
 use zk_ee::{
-    common_structs::{
-        history_map::CacheSnapshotId, state_root_view::StateRootView, WarmStorageKey,
-    },
+    common_structs::{history_map::CacheSnapshotId, WarmStorageKey},
     execution_environment_type::ExecutionEnvironmentType,
-    memory::stack_trait::{StackCtor, StackCtorConst},
+    memory::stack_trait::StackCtor,
     system::{
         errors::system::SystemError, logger::Logger, AccountData, AccountDataRequest,
         IOResultKeeper, Maybe,
@@ -44,8 +45,6 @@ use zk_ee::{
     utils::Bytes32,
 };
 
-use super::system::ExtraCheck;
-
 pub fn address_into_special_storage_key(address: &B160) -> Bytes32 {
     let mut key = Bytes32::zero();
     key.as_u8_array_mut()[12..].copy_from_slice(&address.to_be_bytes::<{ B160::BYTES }>());
@@ -53,7 +52,16 @@ pub fn address_into_special_storage_key(address: &B160) -> Bytes32 {
     key
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct AccountAggregateDataHash;
+
+impl SpecialAccountProperty for AccountAggregateDataHash {
+    type Value = Bytes32;
+}
+
 pub const TREE_HEIGHT: usize = 64;
+
+pub const FLAT_STORAGE_SUBSPACE_MASK: u32 = 0x00_00_f0_00;
 
 // This model only touches storage related things, even though preimages cache can be reused
 // by "signals" in theory, but we do not expect that in practice
@@ -62,18 +70,17 @@ pub struct FlatTreeWithAccountsUnderHashesStorageModel<
     A: Allocator + Clone,
     R: Resources,
     P: StorageAccessPolicy<R, Bytes32>,
-    SC: StackCtor<SCC>,
-    SCC: const StackCtorConst,
+    SC: StackCtor<N>,
+    const N: usize,
     const PROOF_ENV: bool,
-> where
-    ExtraCheck<SCC, A>:,
-{
-    pub(crate) storage_cache: NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
-    pub(crate) preimages_cache: BytecodeAndAccountDataPreimagesStorage<R, A>,
-    pub(crate) account_data_cache: NewModelAccountCache<A, R, P, SC, SCC>,
+> {
+    pub storage_cache: NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
+    pub preimages_cache: BytecodeAndAccountDataPreimagesStorage<R, A>,
+    pub account_data_cache: NewModelAccountCache<A, R, P, SC, N>,
     pub(crate) allocator: A,
 }
 
+#[derive(Debug)]
 pub struct FlatTreeWithAccountsUnderHashesStorageModelStateSnapshot {
     storage: StorageSnapshotId,
     account_data: CacheSnapshotId,
@@ -84,12 +91,10 @@ impl<
         A: Allocator + Clone + Default,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32>,
-        SC: StackCtor<SCC>,
-        SCC: const StackCtorConst,
+        SC: StackCtor<N>,
+        const N: usize,
         const PROOF_ENV: bool,
-    > StorageModel for FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, SCC, PROOF_ENV>
-where
-    ExtraCheck<SCC, A>:,
+    > StorageModel for FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, N, PROOF_ENV>
 {
     type Allocator = A;
     type Resources = R;
@@ -104,13 +109,16 @@ where
 
     fn construct(init_data: Self::InitData, allocator: Self::Allocator) -> Self {
         let resources_policy = init_data;
-        let storage_cache = NewStorageWithAccountPropertiesUnderHash::<A, SC, SCC, R, P>(
-            GenericPubdataAwarePlainStorage::new_from_parts(allocator.clone(), resources_policy),
+        let storage_cache = NewStorageWithAccountPropertiesUnderHash::<A, SC, N, R, P>(
+            GenericPubdataAwareStorageValuesCache::new_from_parts(
+                allocator.clone(),
+                resources_policy,
+            ),
         );
         let preimages_cache =
             BytecodeAndAccountDataPreimagesStorage::<R, A>::new_from_parts(allocator.clone());
         let account_data_cache =
-            NewModelAccountCache::<A, R, P, SC, SCC>::new_from_parts(allocator.clone());
+            NewModelAccountCache::<A, R, P, SC, N>::new_from_parts(allocator.clone());
 
         Self {
             storage_cache,
@@ -123,99 +131,6 @@ where
     fn pubdata_used_by_tx(&self) -> u32 {
         self.account_data_cache.calculate_pubdata_used_by_tx()
             + self.storage_cache.calculate_pubdata_used_by_tx()
-    }
-
-    fn finish(
-        self,
-        oracle: &mut impl IOOracle,
-        state_commitment: Option<&mut Self::StorageCommitment>,
-        pubdata_hasher: &mut impl MiniDigest,
-        result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
-        logger: &mut impl Logger,
-    ) -> Result<(), InternalError> {
-        let Self {
-            mut storage_cache,
-            mut preimages_cache,
-            mut account_data_cache,
-            allocator,
-        } = self;
-        // flush accounts into storage
-        account_data_cache
-            .persist_changes(
-                &mut storage_cache,
-                &mut preimages_cache,
-                oracle,
-                result_keeper,
-            )
-            .expect("must persist changes from account cache");
-
-        // 1. Return uncompressed state diffs for sequencer
-        result_keeper.storage_diffs(storage_cache.net_diffs_iter().map(|(k, v)| {
-            let WarmStorageKey { address, key } = k;
-            let value = v.current_value;
-            (address, key, value)
-        }));
-        preimages_cache.report_new_preimages(result_keeper)?;
-
-        // 2. Commit to/return compressed pubdata
-        let encdoded_state_diffs_count =
-            (storage_cache.net_diffs_iter().count() as u32).to_be_bytes();
-        pubdata_hasher.update(&encdoded_state_diffs_count);
-        result_keeper.pubdata(&encdoded_state_diffs_count);
-
-        let mut hasher = crypto::blake2s::Blake2s256::new();
-        storage_cache
-            .0
-            .cache
-            .apply_to_all_updated_elements::<_, ()>(|l, r, k| {
-                // TODO(EVM-1074): use tree index instead of key for repeated writes
-                let derived_key =
-                    derive_flat_storage_key_with_hasher(&k.address, &k.key, &mut hasher);
-                pubdata_hasher.update(derived_key.as_u8_ref());
-                result_keeper.pubdata(derived_key.as_u8_ref());
-
-                if l.value() == r.value() {
-                    return Ok(());
-                }
-                // we publish preimages for account details
-                if k.address == ACCOUNT_PROPERTIES_STORAGE_ADDRESS {
-                    let account_address = B160::try_from_be_slice(&k.key.as_u8_ref()[12..])
-                        .unwrap()
-                        .into();
-                    let cache_item = account_data_cache.cache.get(&account_address).ok_or(())?;
-                    let (l, r) = cache_item.get_initial_and_last_values().ok_or(())?;
-                    AccountProperties::diff_compression::<PROOF_ENV, _, _>(
-                        l.value(),
-                        r.value(),
-                        r.metadata().not_publish_bytecode,
-                        pubdata_hasher,
-                        result_keeper,
-                        &mut preimages_cache,
-                        oracle,
-                    )
-                    .map_err(|_| ())?;
-                } else {
-                    ValueDiffCompressionStrategy::optimal_compression(
-                        l.value(),
-                        r.value(),
-                        pubdata_hasher,
-                        result_keeper,
-                    );
-                }
-                Ok(())
-            })
-            .map_err(|_| internal_error!("Failed to compute pubdata"))?;
-
-        // 3. Verify/apply reads and writes
-        cycle_marker::wrap!("verify_and_apply_batch", {
-            if let Some(state_commitment) = state_commitment {
-                let it = storage_cache.net_accesses_iter();
-                state_commitment.verify_and_apply_batch(oracle, it, allocator, logger)
-            } else {
-                Ok(())
-            }
-        })?;
-        Ok(())
     }
 
     fn storage_read(
@@ -395,8 +310,8 @@ where
     fn set_delegation(
         &mut self,
         resources: &mut R,
-        at_address: &B160,
-        delegate: &B160,
+        at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
+        delegate: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         oracle: &mut impl IOOracle,
     ) -> Result<(), SystemError> {
         self.account_data_cache.set_delegation::<PROOF_ENV>(
@@ -498,29 +413,117 @@ where
             )
     }
 
-    #[cfg(feature = "evm_refunds")]
-    fn get_refund_counter(&self) -> u32 {
-        *self
-            .storage_cache
-            .0
-            .evm_refunds_counter
-            .value()
-            .unwrap_or(&0)
+    fn get_refund_counter(&'_ self) -> Option<&'_ Self::Resources> {
+        self.storage_cache.0.get_refund_counter_impl()
     }
 
-    // Add EVM refund to counter
-    #[cfg(feature = "evm_refunds")]
-    fn add_evm_refund(&mut self, refund: u32) -> Result<(), SystemError> {
-        let mut gas_refunds = self
-            .storage_cache
-            .0
-            .evm_refunds_counter
-            .value()
-            .copied()
-            .unwrap_or_default();
-        gas_refunds += refund;
-        self.storage_cache.0.evm_refunds_counter.update(gas_refunds);
-        Ok(())
+    fn add_to_refund_counter(&mut self, refund: Self::Resources) -> Result<(), SystemError> {
+        self.storage_cache.0.add_to_refund_counter_impl(refund)
+    }
+
+    fn persist_caches(
+        &mut self,
+        oracle: &mut impl IOOracle,
+        result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
+    ) {
+        self.account_data_cache
+            .persist_changes(
+                &mut self.storage_cache,
+                &mut self.preimages_cache,
+                oracle,
+                result_keeper,
+            )
+            .expect("must persist caches");
+    }
+
+    fn report_new_preimages(&mut self, result_keeper: &mut impl IOResultKeeper<Self::IOTypes>) {
+        self.preimages_cache
+            .report_new_preimages(result_keeper)
+            .expect("must report preimages");
+    }
+
+    type AccountAddress<'a>
+        = &'a B160
+    where
+        Self: 'a;
+    type AccountDiff<'a>
+        = BasicAccountDiff<Self::IOTypes>
+    where
+        Self: 'a;
+
+    fn get_account_diff<'a>(
+        &'a self,
+        _address: Self::AccountAddress<'a>,
+    ) -> Option<Self::AccountDiff<'a>> {
+        None
+    }
+    fn accounts_diffs_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = (Self::AccountAddress<'a>, Self::AccountDiff<'a>)> + Clone
+    {
+        [].into_iter()
+    }
+
+    type StorageKey<'a>
+        = &'a WarmStorageKey
+    where
+        Self: 'a;
+    type StorageDiff<'a>
+        = StorageDiff<Self::IOTypes>
+    where
+        Self: 'a;
+    fn get_storage_diff<'a>(&'a self, key: Self::StorageKey<'a>) -> Option<Self::StorageDiff<'a>> {
+        use zk_ee::common_structs::cache_record::Appearance;
+
+        self.storage_cache.0.cache.get(key).map(|item| {
+            let current_record = item.current();
+            let initial_record = item.initial();
+
+            // TODO: so far we copy, but can try to remove it eventually
+            StorageDiff {
+                initial_value: *initial_record.value(),
+                current_value: *current_record.value(),
+                is_new_storage_slot: initial_record.appearance() == Appearance::Unset,
+                initial_value_used: true,
+            }
+        })
+    }
+
+    fn storage_diffs_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = (Self::StorageKey<'a>, Self::StorageDiff<'a>)> + Clone {
+        use zk_ee::common_structs::cache_record::Appearance;
+
+        self.storage_cache.0.cache.iter().map(|item| {
+            let current_record = item.current();
+            let initial_record = item.initial();
+            (
+                item.key(),
+                // TODO: so far we copy, but can try to remove it eventually
+                StorageDiff {
+                    initial_value: *initial_record.value(),
+                    current_value: *current_record.value(),
+                    is_new_storage_slot: initial_record.appearance() == Appearance::Unset,
+                    initial_value_used: true,
+                },
+            )
+        })
+    }
+
+    fn update_commitment(
+        &mut self,
+        state_commitment: Option<&mut Self::StorageCommitment>,
+        oracle: &mut impl IOOracle,
+        logger: &mut impl Logger,
+        _result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
+    ) {
+        if let Some(state_commitment) = state_commitment {
+            use zk_ee::common_structs::state_root_view::StateRootView;
+            let it = self.storage_cache.net_accesses_iter();
+            state_commitment
+                .verify_and_apply_batch(oracle, it, self.allocator.clone(), logger)
+                .expect("must persist changes to state");
+        }
     }
 }
 
@@ -528,12 +531,10 @@ impl<
         A: Allocator + Clone + Default,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32>,
-        SC: StackCtor<SCC>,
-        SCC: const StackCtorConst,
+        SC: StackCtor<N>,
+        const N: usize,
         const PROOF_ENV: bool,
-    > SnapshottableIo for FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, SCC, PROOF_ENV>
-where
-    ExtraCheck<SCC, A>:,
+    > SnapshottableIo for FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, N, PROOF_ENV>
 {
     type StateSnapshot = FlatTreeWithAccountsUnderHashesStorageModelStateSnapshot;
 
@@ -567,5 +568,81 @@ where
             .finish_frame(rollback_handle.map(|x| &x.account_data))?;
 
         Ok(())
+    }
+}
+
+impl<
+        A: Allocator + Clone + Default,
+        R: Resources,
+        P: StorageAccessPolicy<R, Bytes32>,
+        SC: StackCtor<N>,
+        const N: usize,
+        const PROOF_ENV: bool,
+    > FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, N, PROOF_ENV>
+{
+    pub fn apply_storage_diffs_pubdata(
+        &mut self,
+        result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
+        pubdata_hasher: &mut impl MiniDigest,
+        oracle: &mut impl IOOracle,
+    ) {
+        use zk_ee::common_structs::*;
+
+        let mut flat_storage_key_hasher = crypto::blake2s::Blake2s256::new();
+
+        let encoded_state_diffs_count =
+            (self.storage_cache.net_diffs_iter().count() as u32).to_be_bytes();
+        pubdata_hasher.update(&encoded_state_diffs_count);
+        result_keeper.pubdata(&encoded_state_diffs_count);
+
+        self.storage_cache
+            .0
+            .cache
+            .apply_to_all_updated_elements::<_, ()>(|l, r, k| {
+                // TODO(EVM-1074): use tree index instead of key for repeated writes
+                let derived_key = derive_flat_storage_key_with_hasher(
+                    &k.address,
+                    &k.key,
+                    &mut flat_storage_key_hasher,
+                );
+                pubdata_hasher.update(derived_key.as_u8_ref());
+                result_keeper.pubdata(derived_key.as_u8_ref());
+
+                if l.value() == r.value() {
+                    return Ok(());
+                }
+
+                // we publish preimages for account details
+                if k.address == ACCOUNT_PROPERTIES_STORAGE_ADDRESS {
+                    let account_address = B160::try_from_be_slice(&k.key.as_u8_ref()[12..])
+                        .unwrap()
+                        .into();
+                    let cache_item = self
+                        .account_data_cache
+                        .cache
+                        .get(&account_address)
+                        .ok_or(())?;
+                    let (l, r) = cache_item.get_initial_and_last_values().ok_or(())?;
+                    AccountProperties::diff_compression::<PROOF_ENV, _, _>(
+                        l.value(),
+                        r.value(),
+                        r.metadata().not_publish_bytecode,
+                        pubdata_hasher,
+                        result_keeper,
+                        &mut self.preimages_cache,
+                        oracle,
+                    )
+                    .map_err(|_| ())?;
+                } else {
+                    ValueDiffCompressionStrategy::optimal_compression(
+                        l.value(),
+                        r.value(),
+                        pubdata_hasher,
+                        result_keeper,
+                    );
+                }
+                Ok(())
+            })
+            .expect("must compute pubdata");
     }
 }

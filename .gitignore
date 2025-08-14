@@ -18,5 +18,9 @@ tests/contracts_sol/*/node_modules
 tests/instances/*/*.svg
 tests/instances/**/*.bench
 
+tests/instances/db/*
+
 .DS_Store
 .idea
+
+tools.sh

@@ -19,7 +19,7 @@ pub trait ReadonlyKVMarker: 'static {
 
     type Key: UsizeSerializable;
     type Value: UsizeDeserializable;
-    type AccessStatsBitmask: bitflags::Flags<Bits = u32> = EmptyBitflags;
+    type AccessStatsBitmask: bitflags::Flags<Bits = u32>;
 }
 
 pub trait ReadWriteKVMarker: ReadonlyKVMarker
@@ -33,6 +33,17 @@ pub trait UsizeSerializable {
     const USIZE_LEN: usize;
 
     fn iter(&self) -> impl ExactSizeIterator<Item = usize>;
+}
+
+// Only serializable will have default impl
+impl<T: UsizeSerializable, const N: usize> UsizeSerializable for [T; N] {
+    const USIZE_LEN: usize = <T as UsizeSerializable>::USIZE_LEN * N;
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        ExactSizeChainN::<_, _, N>::new(
+            core::iter::empty::<usize>(),
+            core::array::from_fn(|i| Some(UsizeSerializable::iter(&self[i]))),
+        )
+    }
 }
 
 pub trait UsizeDeserializable: Sized {
@@ -86,6 +97,51 @@ impl<IOTypes: SystemIOTypesConfig> UsizeDeserializable for StorageAddress<IOType
         let key = UsizeDeserializable::from_iter(src)?;
 
         let new = Self { address, key };
+
+        Ok(new)
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct InitialStorageSlotData<IOTypes: SystemIOTypesConfig> {
+    // we need to know what was a value of the storage slot,
+    // and whether it existed in the state or has to be created
+    // (so additional information is needed to reconstruct creation location)
+    pub is_new_storage_slot: bool,
+    pub initial_value: IOTypes::StorageValue,
+}
+
+impl<IOTypes: SystemIOTypesConfig> Default for InitialStorageSlotData<IOTypes> {
+    fn default() -> Self {
+        Self {
+            is_new_storage_slot: false,
+            initial_value: IOTypes::StorageValue::default(),
+        }
+    }
+}
+
+impl<IOTypes: SystemIOTypesConfig> UsizeSerializable for InitialStorageSlotData<IOTypes> {
+    const USIZE_LEN: usize = <bool as UsizeSerializable>::USIZE_LEN
+        + <IOTypes::StorageValue as UsizeSerializable>::USIZE_LEN;
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        ExactSizeChain::new(
+            UsizeSerializable::iter(&self.is_new_storage_slot),
+            UsizeSerializable::iter(&self.initial_value),
+        )
+    }
+}
+
+impl<IOTypes: SystemIOTypesConfig> UsizeDeserializable for InitialStorageSlotData<IOTypes> {
+    const USIZE_LEN: usize = <Self as UsizeSerializable>::USIZE_LEN;
+
+    fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
+        let is_new_storage_slot = UsizeDeserializable::from_iter(src)?;
+        let initial_value = UsizeDeserializable::from_iter(src)?;
+
+        let new = Self {
+            is_new_storage_slot,
+            initial_value,
+        };
 
         Ok(new)
     }

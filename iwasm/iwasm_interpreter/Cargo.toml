@@ -19,7 +19,7 @@ wasmer = "*"
 hex = "*"
 serde = {version = "*", features = ["derive"]}
 serde_json = "*"
-ruint = "*"
+ruint = { version = "1.16", default-features = false }
 
 [features]
 testing = []

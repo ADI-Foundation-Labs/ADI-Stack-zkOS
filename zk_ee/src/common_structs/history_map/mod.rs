@@ -14,6 +14,16 @@ use element_with_history::ElementWithHistory;
 
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
+pub struct NopSnapshotId;
+
+impl NopSnapshotId {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
+#[repr(transparent)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
 pub struct CacheSnapshotId(usize);
 
 impl CacheSnapshotId {
@@ -67,7 +77,7 @@ where
     }
 
     /// Get history of an element by key
-    pub fn get<'s>(&'s mut self, key: &'s K) -> Option<HistoryMapItemRef<'s, K, V, A>> {
+    pub fn get<'s>(&'s self, key: &'s K) -> Option<HistoryMapItemRef<'s, K, V, A>> {
         self.btree
             .get(key)
             .map(|ec| HistoryMapItemRef { key, history: ec })
@@ -217,7 +227,7 @@ where
     }
 
     /// Iterate over all elements in map
-    pub fn iter(&self) -> impl Iterator<Item = HistoryMapItemRef<'_, K, V, A>> + Clone {
+    pub fn iter(&'_ self) -> impl ExactSizeIterator<Item = HistoryMapItemRef<'_, K, V, A>> + Clone {
         self.btree
             .iter()
             .map(|(k, v)| HistoryMapItemRef { key: k, history: v })
@@ -225,7 +235,7 @@ where
 
     /// Iterate over all elements that changed since last commit
     pub fn iter_altered_since_commit(
-        &self,
+        &'_ self,
     ) -> impl Iterator<Item = HistoryMapItemRef<'_, K, V, A>> {
         self.state
             .pending_updated_elements
@@ -267,19 +277,19 @@ where
     A: Allocator + Clone,
 {
     pub fn key(&self) -> &'a K {
-        &self.key
+        self.key
     }
 
-    pub fn current(&self) -> &V {
+    pub fn current(&self) -> &'a V {
         unsafe { &self.history.head.as_ref().value }
     }
 
-    pub fn initial(&self) -> &V {
+    pub fn initial(&self) -> &'a V {
         unsafe { &self.history.initial.as_ref().value }
     }
 
     /// Returns (initial_value, current_value) if any
-    pub fn get_initial_and_last_values(&self) -> Option<(&V, &V)> {
+    pub fn get_initial_and_last_values(&self) -> Option<(&'a V, &'a V)> {
         self.history.get_initial_and_last_values()
     }
 }

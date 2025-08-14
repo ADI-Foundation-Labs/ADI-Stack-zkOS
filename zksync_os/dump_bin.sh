@@ -13,7 +13,7 @@ while [ "$#" -gt 0 ]; do
       ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: $0 [--type default|server|server-logging-enabled|evm-replay|benchmarking|evm-replay-benchmarking|debug-in-simulator|pectra]"
+      echo "Usage: $0 [--type default|server|server-logging-enabled|evm-replay|benchmarking|evm-replay-benchmarking|evm-replay-with-logs|debug-in-simulator|pectra]"
       exit 1
       ;;
   esac
@@ -56,6 +56,12 @@ case "$TYPE" in
     BIN_NAME="evm_replay.bin"
     ELF_NAME="evm_replay.elf"
     TEXT_NAME="evm_replay.text"
+    ;;
+  evm-replay-with-logs)
+    FEATURES="$FEATURES,proof_running_system/unlimited_native,proof_running_system/disable_system_contracts,proof_running_system/prevrandao,print_debug_info"
+    BIN_NAME="evm_replay_with_logs.bin"
+    ELF_NAME="evm_replay_with_logs.elf"
+    TEXT_NAME="evm_replay_with_logs.text"
     ;;
   evm-replay-benchmarking)
     FEATURES="$FEATURES,proof_running_system/unlimited_native,proof_running_system/disable_system_contracts,proof_running_system/cycle_marker,proof_running_system/prevrandao,proof_running_system/evm_refunds"

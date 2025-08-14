@@ -1,8 +1,5 @@
 #![cfg_attr(not(feature = "testing"), no_std)]
 #![feature(allocator_api)]
-#![feature(iter_advance_by)]
-#![allow(incomplete_features)]
-#![feature(generic_const_exprs)]
 #![feature(str_from_raw_parts)]
 #![allow(clippy::bool_comparison)]
 #![allow(clippy::type_complexity)]

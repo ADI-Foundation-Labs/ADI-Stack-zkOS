@@ -1,13 +1,14 @@
 use basic_bootloader::bootloader::constants::TX_OFFSET;
-use basic_bootloader::bootloader::transaction::ParsedValue;
 use basic_bootloader::bootloader::transaction::ZkSyncTransaction;
 use basic_system::system_implementation::flat_storage_model::AccountProperties;
 use basic_system::system_implementation::flat_storage_model::ACCOUNT_PROPERTIES_STORAGE_ADDRESS;
 use basic_system::system_implementation::flat_storage_model::{
     FlatStorageCommitment, TestingTree, TESTING_TREE_HEIGHT,
 };
+use forward_system::run::io_implementer_init_data;
 use forward_system::run::test_impl::{InMemoryPreimageSource, InMemoryTree, TxListSource};
-use forward_system::run::ForwardRunningOracle;
+use oracle_provider::DummyMemorySource;
+use oracle_provider::ZkEENonDeterminismSource;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use rig::ruint::aliases::{B160, U256};
 use secp256k1::{Message, Secp256k1, SecretKey};
@@ -173,39 +174,39 @@ pub fn address_into_special_storage_key(address: &B160) -> Bytes32 {
 }
 
 #[allow(unused)]
-pub fn mock_oracle() -> ForwardRunningOracle<InMemoryTree, InMemoryPreimageSource, TxListSource> {
-    let tree = InMemoryTree {
+pub fn mock_oracle() -> ZkEENonDeterminismSource<DummyMemorySource> {
+    let tree = InMemoryTree::<false> {
         storage_tree: TestingTree::new_in(Global),
         cold_storage: HashMap::new(),
     };
-    ForwardRunningOracle {
-        proof_data: Some(ProofData {
-            state_root_view: FlatStorageCommitment::<
-                { TESTING_TREE_HEIGHT },
-            > {
-                root: *tree.storage_tree.root(),
-                next_free_slot: tree.storage_tree.next_free_slot,
-            },
-            last_block_timestamp: 0,
-        }),
-        preimage_source: InMemoryPreimageSource {
+    let init_data = Some(ProofData {
+        state_root_view: FlatStorageCommitment::<
+            { TESTING_TREE_HEIGHT },
+        > {
+            root: *tree.storage_tree.root(),
+            next_free_slot: tree.storage_tree.next_free_slot,
+        },
+        last_block_timestamp: 0,
+    });
+    forward_system::run::make_oracle_for_proofs_and_dumps_for_init_data(
+        BlockMetadataFromOracle::new_for_test(),
+        tree,
+        InMemoryPreimageSource {
             inner: HashMap::new(),
         },
-        tree,
-        block_metadata: BlockMetadataFromOracle::new_for_test(),
-        next_tx: None,
-        tx_source: TxListSource {
+        TxListSource {
             transactions: VecDeque::new(),
         },
-    }
+        init_data,
+    )
 }
 
 #[allow(unused)]
 pub fn mock_oracle_balance(
     address: B160,
     balance: U256,
-) -> ForwardRunningOracle<InMemoryTree, InMemoryPreimageSource, TxListSource> {
-    let mut tree = InMemoryTree {
+) -> ZkEENonDeterminismSource<DummyMemorySource> {
+    let mut tree = InMemoryTree::<false> {
         storage_tree: TestingTree::new_in(Global),
         cold_storage: HashMap::new(),
     };
@@ -227,24 +228,24 @@ pub fn mock_oracle_balance(
         .inner
         .insert(properties_hash, encoding.to_vec());
 
-    ForwardRunningOracle {
-        proof_data: Some(ProofData {
-            state_root_view: FlatStorageCommitment::<
-                { TESTING_TREE_HEIGHT },
-            > {
-                root: *tree.storage_tree.root(),
-                next_free_slot: tree.storage_tree.next_free_slot,
-            },
-            last_block_timestamp: 0,
-        }),
-        preimage_source,
+    let init_data = Some(ProofData {
+        state_root_view: FlatStorageCommitment::<
+            { TESTING_TREE_HEIGHT },
+        > {
+            root: *tree.storage_tree.root(),
+            next_free_slot: tree.storage_tree.next_free_slot,
+        },
+        last_block_timestamp: 0,
+    });
+    forward_system::run::make_oracle_for_proofs_and_dumps_for_init_data(
+        BlockMetadataFromOracle::new_for_test(),
         tree,
-        block_metadata: BlockMetadataFromOracle::new_for_test(),
-        next_tx: None,
-        tx_source: TxListSource {
+        preimage_source,
+        TxListSource {
             transactions: VecDeque::new(),
         },
-    }
+        init_data,
+    )
 }
 
 // TODO: currently internal rust error if uncommented

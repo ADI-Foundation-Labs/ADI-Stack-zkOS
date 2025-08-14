@@ -1,9 +1,7 @@
-#![allow(incomplete_features)]
 #![cfg_attr(all(not(test)), no_std)]
 #![feature(alloc_layout_extra)]
 #![feature(allocator_api)]
 #![feature(clone_to_uninit)]
-#![feature(generic_const_exprs)]
 #![feature(maybe_uninit_write_slice)]
 
 extern crate alloc;

@@ -1,7 +1,5 @@
 #![no_main]
 #![feature(allocator_api)]
-#![allow(incomplete_features)]
-#![feature(generic_const_exprs)]
 
 use basic_bootloader::bootloader::config::BasicBootloaderForwardSimulationConfig;
 use basic_bootloader::bootloader::constants::TX_OFFSET;
@@ -39,10 +37,8 @@ fn fuzz(data: &[u8]) {
     let mut system =
         System::init_from_oracle(oracle).expect("Failed to initialize the mock system");
 
-    let mut system_functions: HooksStorage<
-        ForwardRunningSystem<InMemoryTree, InMemoryPreimageSource, TxListSource>,
-        _,
-    > = HooksStorage::new_in(system.get_allocator());
+    let mut system_functions: HooksStorage<ForwardRunningSystem, _> =
+        HooksStorage::new_in(system.get_allocator());
     pub const MAX_HEAP_BUFFER_SIZE: usize = 1 << 27; // 128 MB
     pub const MAX_RETURN_BUFFER_SIZE: usize = 1 << 27; // 128 MB
 

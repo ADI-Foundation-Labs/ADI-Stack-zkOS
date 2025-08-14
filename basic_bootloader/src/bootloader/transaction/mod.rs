@@ -16,6 +16,11 @@ use ruint::aliases::U256;
 use zk_ee::internal_error;
 use zk_ee::system::errors::{internal::InternalError, runtime::RuntimeError, system::SystemError};
 
+pub mod ethereum_tx_format;
+
+// Magic byte from EIP-7702
+pub const EIP7702_MAGIC: u8 = 0x05;
+
 mod abi_utils;
 pub mod access_list_parser;
 #[cfg(feature = "pectra")]
@@ -37,7 +42,7 @@ use super::{
 ///
 pub struct ZkSyncTransaction<'a> {
     underlying_buffer: &'a mut [u8],
-    // field below are parsed
+    // fields below are parsed
     /// The type of the transaction.
     pub tx_type: ParsedValue<u8>,
     /// The caller.
@@ -427,6 +432,11 @@ impl<'a> ZkSyncTransaction<'a> {
         }
     }
 
+    pub fn is_deployment(&self) -> bool {
+        !self.reserved[1].read().is_zero()
+            || self.to.read() == crate::bootloader::constants::SPECIAL_ADDRESS_TO_WASM_DEPLOY
+    }
+
     pub fn paymaster_input(&self) -> &[u8] {
         unsafe {
             self.underlying_buffer
@@ -718,24 +728,57 @@ impl<'a> ZkSyncTransaction<'a> {
     where
         S::IO: IOSubsystemExt,
     {
+        use evm_interpreter::ERGS_PER_GAS;
+        use zk_ee::system::Ergs;
+
         let iter = self
             .reserved_dynamic
             .access_list_iter(&self.underlying_buffer)
             .map_err(|()| InvalidTransaction::InvalidStructure)?;
         for res in iter {
+            // per-address charge
+            resources.charge(&S::Resources::from_ergs_and_native(
+                Ergs(evm_interpreter::gas_constants::ACCESS_LIST_ADDRESS * ERGS_PER_GAS),
+                    <<S::Resources as Resources>::Native as zk_ee::system::Computational>::from_computational(crate::bootloader::constants::PER_ADDRESS_ACCESS_LIST_INTRINSIC_COST)
+                )
+            )?;
+
             let (address, keys) = res.map_err(|()| InvalidTransaction::InvalidStructure)?;
-            system
-                .io
-                .touch_account(ExecutionEnvironmentType::NoEE, resources, &address, true)?;
+
+            let _ = system.get_logger().write_fmt(format_args!(
+                "Will touch address 0x{:040x} as warm\n",
+                address.as_uint()
+            ));
+
+            resources.with_infinite_ergs(|resources| {
+                system
+                    .io
+                    .touch_account(ExecutionEnvironmentType::NoEE, resources, &address, true)
+            })?;
             for key in keys {
-                let key = key.map_err(|()| InvalidTransaction::InvalidStructure)?;
-                system.io.storage_touch(
-                    ExecutionEnvironmentType::NoEE,
-                    resources,
-                    &address,
-                    &key,
-                    true,
+                // per-slot charge
+                resources.charge(&S::Resources::from_ergs_and_native(
+                    Ergs(evm_interpreter::gas_constants::ACCESS_LIST_STORAGE_KEY * ERGS_PER_GAS),
+                        <<S::Resources as Resources>::Native as zk_ee::system::Computational>::from_computational(crate::bootloader::constants::PER_SLOT_ACCESS_LIST_INTRINSIC_COST)
+                    )
                 )?;
+                let key = key.map_err(|()| InvalidTransaction::InvalidStructure)?;
+
+                let _ = system.get_logger().write_fmt(format_args!(
+                    "Will touch address 0x{:040x}, slot {:?} as warm\n",
+                    address.as_uint(),
+                    &key,
+                ));
+
+                resources.with_infinite_ergs(|resources| {
+                    system.io.storage_touch(
+                        ExecutionEnvironmentType::NoEE,
+                        resources,
+                        &address,
+                        &key,
+                        true,
+                    )
+                })?;
             }
         }
         Ok(())
@@ -1468,7 +1511,7 @@ impl<'a> Parser<'a> {
     }
 }
 
-fn charge_keccak<R: Resources>(len: usize, resources: &mut R) -> Result<(), TxError> {
+pub fn charge_keccak<R: Resources>(len: usize, resources: &mut R) -> Result<(), TxError> {
     let native_cost = basic_system::system_functions::keccak256::keccak256_native_cost::<R>(len);
     resources
         .charge(&R::from_native(native_cost))

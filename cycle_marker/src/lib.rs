@@ -127,6 +127,7 @@ macro_rules! wrap_with_resources {
     ($label:expr, $resources:expr, $code:block) => {{
         #[cfg(not(target_arch = "riscv32"))]
         {
+            use alloc::format;
             let resources_before = $resources.clone();
             $crate::start!($label);
             let __result = (|| $code)();
@@ -169,7 +170,12 @@ pub fn print_cycle_markers() -> Option<u64> {
     let labels = LABELS.with(|l| std::mem::take(&mut *l.borrow_mut()));
     use std::collections::HashMap;
 
-    assert_eq!(cm.markers.len(), labels.len());
+    assert_eq!(
+        cm.markers.len(),
+        labels.len(),
+        "failed to get matching marker for label {:?}",
+        &cm
+    );
 
     let mut label_nonces: HashMap<&'static str, u64> = HashMap::new();
     let mut marker_map: HashMap<(&'static str, u64), (Mark, Mark)> = HashMap::new();

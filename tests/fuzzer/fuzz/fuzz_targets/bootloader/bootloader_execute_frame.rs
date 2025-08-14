@@ -1,7 +1,5 @@
 #![no_main]
 #![feature(allocator_api)]
-#![allow(incomplete_features)]
-#![feature(generic_const_exprs)]
 
 use arbitrary::Arbitrary;
 use basic_bootloader::bootloader::supported_ees::SupportedEEVMState;
@@ -44,7 +42,7 @@ struct FuzzInput<'a> {
 }
 
 fn fuzz(input: FuzzInput) {
-    let mut system = System::<ForwardRunningSystem<_, _, _>>::init_from_oracle(mock_oracle())
+    let mut system = System::<ForwardRunningSystem>::init_from_oracle(mock_oracle())
         .expect("Failed to initialize the mock system");
 
     // wrap calldata
@@ -75,25 +73,24 @@ fn fuzz(input: FuzzInput) {
     let nominal_token_value = U256::from_be_bytes(input.amount);
 
     // Pack everything into ExecutionEnvironmentLaunchParams
-    let ee_launch_params: ExecutionEnvironmentLaunchParams<
-        ForwardRunningSystem<InMemoryTree, InMemoryPreimageSource, TxListSource>,
-    > = ExecutionEnvironmentLaunchParams {
-        environment_parameters: EnvironmentParameters {
-            bytecode: zk_ee::system::Bytecode::Constructor(&bytecode),
-            scratch_space_len: 0,
-        },
-        external_call: ExternalCallRequest {
-            available_resources: inf_resources.clone(),
-            ergs_to_pass: inf_resources.ergs(),
-            callers_caller,
-            caller,
-            callee,
-            modifier: CallModifier::NoModifier,
-            calldata,
-            call_scratch_space: None,
-            nominal_token_value,
-        },
-    };
+    let ee_launch_params: ExecutionEnvironmentLaunchParams<ForwardRunningSystem> =
+        ExecutionEnvironmentLaunchParams {
+            environment_parameters: EnvironmentParameters {
+                bytecode: zk_ee::system::Bytecode::Constructor(&bytecode),
+                scratch_space_len: 0,
+            },
+            external_call: ExternalCallRequest {
+                available_resources: inf_resources.clone(),
+                ergs_to_pass: inf_resources.ergs(),
+                callers_caller,
+                caller,
+                callee,
+                modifier: CallModifier::NoModifier,
+                calldata,
+                call_scratch_space: None,
+                nominal_token_value,
+            },
+        };
 
     pub const MAX_HEAP_BUFFER_SIZE: usize = 1 << 27;
     let mut heaps = Box::new_uninit_slice_in(MAX_HEAP_BUFFER_SIZE, system.get_allocator());

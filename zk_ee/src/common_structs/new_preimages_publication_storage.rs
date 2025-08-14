@@ -9,8 +9,7 @@ use super::{
 };
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "testing", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum PreimageType {
     Bytecode = 0,
     AccountData = 1,
@@ -107,8 +106,8 @@ impl<A: Allocator + Clone> NewPreimagesPublicationStorage<A> {
     }
 
     pub fn net_diffs_iter(
-        &self,
-    ) -> impl Iterator<Item = HistoryMapItemRef<Bytes32, CacheRecord<Elem, ()>, A>> {
+        &'_ self,
+    ) -> impl Iterator<Item = HistoryMapItemRef<'_, Bytes32, CacheRecord<Elem, ()>, A>> {
         self.cache.iter()
     }
 }

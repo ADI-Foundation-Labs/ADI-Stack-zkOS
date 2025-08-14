@@ -2,7 +2,7 @@ use zk_ee::system::errors::internal::InternalError;
 
 /// TODO
 pub trait SnapshottableIo {
-    type StateSnapshot;
+    type StateSnapshot: core::fmt::Debug;
 
     fn begin_new_tx(&mut self);
 

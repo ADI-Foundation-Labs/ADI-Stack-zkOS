@@ -1,9 +1,6 @@
 //! Implementation of the system interface.
-use crate::system_implementation::flat_storage_model::FlatTreeWithAccountsUnderHashesStorageModel;
+use crate::system_implementation::cache_structs::storage_values::StorageAccessPolicy;
 use crate::system_implementation::flat_storage_model::*;
-use crate::system_implementation::system::public_input::{
-    BlocksOutput, BlocksPublicInput, ChainStateCommitment,
-};
 use core::alloc::Allocator;
 use errors::system::SystemError;
 use evm_interpreter::gas_constants::COLD_SLOAD_COST;
@@ -13,25 +10,21 @@ use evm_interpreter::gas_constants::WARM_STORAGE_READ_COST;
 use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::U256;
 use zk_ee::common_structs::history_map::CacheSnapshotId;
-use zk_ee::common_structs::EventContent;
-use zk_ee::common_structs::LogContent;
 use zk_ee::common_structs::WarmStorageKey;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::utils::Bytes32;
-use zk_ee::utils::NopHasher;
 use zk_ee::{
     kv_markers::MAX_EVENT_TOPICS,
-    memory::stack_trait::{StackCtor, StackCtorConst},
+    memory::stack_trait::StackCtor,
     system::{errors::internal::InternalError, logger::Logger, Resources, *},
     system_io_oracle::IOOracle,
 };
 
-mod io_subsystem;
-mod public_input;
+mod basic_storage_model;
+pub mod public_input;
 
-pub use self::io_subsystem::*;
-pub use self::public_input::BatchOutput;
-pub use self::public_input::BatchPublicInput;
+pub use self::basic_storage_model::*;
+pub use self::public_input::*;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct EthereumLikeStorageAccessCostModel;
@@ -129,12 +122,54 @@ impl<R: Resources> StorageAccessPolicy<R, Bytes32> for EthereumLikeStorageAccess
         };
         resources.charge(&R::from_ergs_and_native(ergs, native))
     }
-}
 
-pub type ExtraCheck<SCC: const StackCtorConst, A: Allocator> =
-    [[[[[[[[(); SCC::extra_const_param::<(u32, ()), A>()];
-        SCC::extra_const_param::<(EventContent<MAX_EVENT_TOPICS, A>, ()), A>()];
-        SCC::extra_const_param::<(LogContent<A>, u32), A>()];
-        SCC::extra_const_param::<usize, A>()]; SCC::extra_const_param::<(usize, i32), A>()];
-        SCC::extra_const_param::<StorageSnapshotId, A>()];
-        SCC::extra_const_param::<Bytes32, A>()]; SCC::extra_const_param::<BitsOrd160, A>()];
+    /// Refund some resources if needed
+    #[allow(unused_variables)]
+    fn refund_for_storage_write(
+        &self,
+        ee_type: ExecutionEnvironmentType,
+        value_at_tx_start: &Bytes32,
+        current_value: &Bytes32,
+        new_value: &Bytes32,
+        resources: &mut R,
+        refund_counter: &mut R,
+    ) -> Result<(), SystemError> {
+        if ee_type == ExecutionEnvironmentType::EVM {
+            // EVM specific refunds calculation
+            #[cfg(feature = "evm_refunds")]
+            {
+                if current_value != new_value {
+                    if current_value == value_at_tx_start {
+                        if !value_at_tx_start.is_zero() && new_value.is_zero() {
+                            refund_counter.add_ergs(Ergs(4800 * ERGS_PER_GAS));
+                        }
+                    } else {
+                        if !value_at_tx_start.is_zero() {
+                            if current_value.is_zero() {
+                                refund_counter.charge(&R::from_ergs(Ergs(4800 * ERGS_PER_GAS)))?;
+                            } else if new_value.is_zero() {
+                                refund_counter.add_ergs(Ergs(4800 * ERGS_PER_GAS));
+                            }
+                        }
+                        if new_value == value_at_tx_start {
+                            if value_at_tx_start.is_zero() {
+                                refund_counter.add_ergs(Ergs((20000 - 100) * ERGS_PER_GAS));
+                            } else {
+                                refund_counter.add_ergs(Ergs((5000 - 2100 - 100) * ERGS_PER_GAS));
+                            }
+                        }
+                    }
+                }
+
+                Ok(())
+            }
+
+            #[cfg(not(feature = "evm_refunds"))]
+            {
+                Ok(())
+            }
+        } else {
+            Ok(())
+        }
+    }
+}

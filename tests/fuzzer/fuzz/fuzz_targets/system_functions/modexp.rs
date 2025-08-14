@@ -6,9 +6,8 @@ use basic_system::system_functions::modexp::ModExpImpl;
 use libfuzzer_sys::fuzz_target;
 use std::convert::TryInto;
 use zk_ee::reference_implementations::BaseResources;
-use zk_ee::system::SystemFunction;
-use zk_ee::system::Resource;
 use zk_ee::reference_implementations::DecreasingNative;
+use zk_ee::system::Resource;
 use zk_ee::system::SystemFunctionExt;
 
 #[derive(Debug)]

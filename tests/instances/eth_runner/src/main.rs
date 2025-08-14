@@ -5,6 +5,7 @@ use clap::{Parser, Subcommand};
 mod block;
 mod block_hashes;
 mod calltrace;
+pub(crate) mod dump_utils;
 mod live_run;
 mod native_model;
 mod post_check;
@@ -115,5 +116,39 @@ fn main() -> anyhow::Result<()> {
         ),
         Command::ExportRatios { db, path } => live_run::export_block_ratios(db, path),
         Command::ShowStatus { db } => live_run::show_status(db),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn invoke_single_block() {
+        crate::single_run::single_run("blocks/19299001".to_string(), None, false, None, Some(1))
+            .expect("must succeed");
+    }
+
+    const NODE_URL: &str = "";
+    const ACCOUNT_DIFFS_URL: &str = "";
+    const BEACON_CHAIN_URL: &str = "";
+
+    #[test]
+    fn run_dump() {
+        let block_number = 23110007;
+        let _ = std::fs::create_dir(&format!("blocks/{}", block_number));
+        crate::dump_utils::dump_eth_block(
+            block_number,
+            NODE_URL,
+            Some(ACCOUNT_DIFFS_URL),
+            BEACON_CHAIN_URL,
+            format!("blocks/{}", block_number),
+        )
+        .expect("must dump block data");
+    }
+
+    #[test]
+    fn invoke_single_eth_block() {
+        let block_number = 23110007;
+        crate::single_run::single_eth_run::<true>(format!("blocks/{}", block_number), Some(1))
+            .expect("must succeed");
     }
 }

@@ -32,13 +32,13 @@ pub fn compute_from_entropy(entropy: &[u8; 64]) -> HashToPrimeData {
 
     let step_0_prime = S1BigInt::from(step_0_prime as u64);
     let (step_1_data, step_1_prime): (PocklingtonStepData<64, 1>, S1BigInt) =
-        pocklington_step(&step_0_prime, &mut entropy_it, 1);
+        pocklington_step::<64, 1, 128, 2, 8, 64, 1>(&step_0_prime, &mut entropy_it, 1);
     let (step_2_data, step_2_prime): (PocklingtonStepData<128, 2>, S2BigInt) =
-        pocklington_step(&step_1_prime, &mut entropy_it, 2);
+        pocklington_step::<128, 2, 256, 4, 16, 64, 1>(&step_1_prime, &mut entropy_it, 2);
     let (step_3_data, step_3_prime): (PocklingtonStepData<256, 4>, S3BigInt) =
-        pocklington_step(&step_2_prime, &mut entropy_it, 3);
+        pocklington_step::<256, 4, 512, 8, 32, 128, 2>(&step_2_prime, &mut entropy_it, 3);
     let (step_4_data, step_4_prime): (PocklingtonStepData<384, 6>, S4BigInt) =
-        pocklington_step(&step_3_prime, &mut entropy_it, 4);
+        pocklington_step::<384, 6, 768, 12, 48, 256, 4>(&step_3_prime, &mut entropy_it, 4);
 
     HashToPrimeData {
         first_step_n: initial_n,
@@ -53,18 +53,16 @@ pub fn compute_from_entropy(entropy: &[u8; 64]) -> HashToPrimeData {
 fn pocklington_step<
     const BITS: usize,
     const LIMBS: usize,
+    const DBITS: usize,
+    const DLIMBS: usize,
+    const MLIMBS: usize,
     const PBITS: usize,
     const PLIMBS: usize,
 >(
     previous_prime: &Uint<PBITS, PLIMBS>,
     entropy_it: &mut impl Iterator<Item = u8>,
     step_index: usize,
-) -> (PocklingtonStepData<BITS, LIMBS>, Uint<BITS, LIMBS>)
-where
-    [(); LIMBS * 8]:,
-    [(); BITS * 2]:,
-    [(); LIMBS * 2]:,
-{
+) -> (PocklingtonStepData<BITS, LIMBS>, Uint<BITS, LIMBS>) {
     let mut previous = Uint::<BITS, LIMBS>::ZERO;
     unsafe {
         previous.as_limbs_mut()[..previous_prime.as_limbs().len()]
@@ -72,7 +70,7 @@ where
     }
     let (entropy_bits, low_bits) = GENERATION_STEPS[step_index];
     let take_bytes = entropy_bits.next_multiple_of(8) / 8;
-    let mut repr = [0u8; LIMBS * 8];
+    let mut repr = [0u8; MLIMBS];
     write_entropy_le(&mut repr[..take_bytes as usize], entropy_it, entropy_bits);
     let high_part: Uint<BITS, LIMBS> = bigint_from_le_bytes(&repr);
     let mut candidate = high_part << low_bits;
@@ -81,7 +79,7 @@ where
     let mut n = 0;
     for _i in 0..(1 << (low_bits - 1)) {
         if let Some((witness, next_prime)) =
-            try_pocklington_witness::<BITS, LIMBS>(&candidate, &previous)
+            try_pocklington_witness::<BITS, LIMBS, DBITS, DLIMBS>(&candidate, &previous)
         {
             let mut witness = witness;
             witness.n = n;

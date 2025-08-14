@@ -1,24 +1,34 @@
 use crate::{colors, init_logger};
+use alloy::consensus::Header;
+use alloy::eips::eip4844::BlobTransactionSidecarItem;
 use alloy::signers::local::PrivateKeySigner;
+use alloy_rlp::Decodable;
+use alloy_rlp::Encodable;
+use basic_bootloader::bootloader::block_flow::ethereum_block_flow::PectraForkHeader;
 use basic_bootloader::bootloader::config::BasicBootloaderCallSimulationConfig;
 use basic_bootloader::bootloader::config::BasicBootloaderForwardSimulationConfig;
 use basic_bootloader::bootloader::constants::MAX_BLOCK_GAS_LIMIT;
+use basic_bootloader::bootloader::BasicBootloader;
+use basic_system::system_implementation::ethereum_storage_model::caches::account_properties::EthereumAccountProperties;
+use basic_system::system_implementation::ethereum_storage_model::EthereumMPT;
 use basic_system::system_implementation::flat_storage_model::FlatStorageCommitment;
 use basic_system::system_implementation::flat_storage_model::{
     address_into_special_storage_key, AccountProperties, ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
     TREE_HEIGHT,
 };
+use crypto::ark_serialize::CanonicalDeserialize;
 use ethers::signers::LocalWallet;
 use forward_system::run::result_keeper::ForwardRunningResultKeeper;
 use forward_system::run::test_impl::{
     InMemoryPreimageSource, InMemoryTree, NoopTxCallback, TxListSource,
 };
-use forward_system::run::{BlockOutput, ForwardRunningOracle};
-use forward_system::system::bootloader::run_forward;
+use forward_system::run::*;
 use log::{debug, info, trace};
-use oracle_provider::{BasicZkEEOracleWrapper, ReadWitnessSource, ZkEENonDeterminismSource};
+use oracle_provider::{ReadWitnessSource, ZkEENonDeterminismSource};
+use risc_v_simulator::abstractions::memory::VectorMemoryImpl;
 use risc_v_simulator::sim::{DiagnosticsConfig, ProfilerConfig};
 use ruint::aliases::{B160, B256, U256};
+use std::alloc::Global;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
@@ -26,7 +36,6 @@ use std::path::PathBuf;
 use zk_ee::common_structs::{derive_flat_storage_key, ProofData};
 use zk_ee::system::metadata::{BlockHashes, BlockMetadataFromOracle};
 use zk_ee::system::tracer::NopTracer;
-use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::utils::Bytes32;
 
 ///
@@ -128,31 +137,15 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         self.block_hashes = block_hashes
     }
 
-    /// TODO: duplicated from API, unify.
+    /// TODO: duplicated from API, unify. That is also buggy as it doesn't account for ROM in the machine
     /// Runs a batch in riscV - using zksync_os binary - and returns the
     /// witness that can be passed to the prover subsystem.
     pub fn run_batch_generate_witness(
-        oracle: ForwardRunningOracle<
-            InMemoryTree<RANDOMIZED_TREE>,
-            InMemoryPreimageSource,
-            TxListSource,
-        >,
+        oracle: ZkEENonDeterminismSource<VectorMemoryImpl>,
         app: &Option<String>,
     ) -> Vec<u32> {
-        let oracle_wrapper =
-            BasicZkEEOracleWrapper::<EthereumIOTypesConfig, _>::new(oracle.clone());
-
-        let mut non_determinism_source = ZkEENonDeterminismSource::default();
-
-        non_determinism_source.add_external_processor(oracle_wrapper);
-        non_determinism_source.add_external_processor(
-            callable_oracles::arithmetic::ArithmeticQuery {
-                marker: std::marker::PhantomData,
-            },
-        );
-
         // We'll wrap the source, to collect all the reads.
-        let copy_source = ReadWitnessSource::new(non_determinism_source);
+        let copy_source = ReadWitnessSource::new(oracle);
         let items = copy_source.get_read_items();
         // By default - enable diagnostics is false (which makes the test run faster).
         let path = get_zksync_os_img_path(app);
@@ -191,35 +184,25 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             transactions: transactions.into(),
         };
 
-        let oracle = ForwardRunningOracle {
-            proof_data: None,
-            preimage_source: self.preimage_source.clone(),
-            tree: self.state_tree.clone(),
-            block_metadata,
-            next_tx: None,
-            tx_source: tx_source.clone(),
-        };
-
-        // dump oracle if env variable set
-        if let Ok(path) = std::env::var("ORACLE_DUMP_FILE") {
-            let serialized_oracle = bincode::serialize(&oracle).expect("should serialize");
-            let mut file = File::create(&path).expect("should create file");
-            file.write_all(&serialized_oracle)
-                .expect("should write to file");
-            info!("Successfully wrote oracle dump to: {path}");
-        }
-
-        // forward run
-        let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
         let mut nop_tracer = NopTracer::default();
 
-        run_forward::<BasicBootloaderCallSimulationConfig, _, _, _>(
-            oracle.clone(),
-            &mut result_keeper,
+        let block_output: BlockOutput = forward_system::run::run_batch_with_oracle_dump_ext::<
+            _,
+            _,
+            _,
+            _,
+            BasicBootloaderCallSimulationConfig,
+        >(
+            block_metadata,
+            self.state_tree.clone(),
+            self.preimage_source.clone(),
+            tx_source.clone(),
+            NoopTxCallback,
+            None,
             &mut nop_tracer,
-        );
+        )
+        .unwrap();
 
-        let block_output: BlockOutput = result_keeper.into();
         trace!(
             "{}Block output:{} \n{:#?}",
             colors::MAGENTA,
@@ -279,35 +262,45 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             transactions: transactions.into(),
         };
 
-        let oracle = ForwardRunningOracle {
-            proof_data: Some(proof_data),
-            preimage_source: self.preimage_source.clone(),
-            tree: self.state_tree.clone(),
+        let oracle = forward_system::run::make_oracle_for_proofs_and_dumps(
             block_metadata,
-            next_tx: None,
-            tx_source: tx_source.clone(),
-        };
-
-        // dump oracle if env variable set
-        if let Ok(path) = std::env::var("ORACLE_DUMP_FILE") {
-            let serialized_oracle = bincode::serialize(&oracle).expect("should serialize");
-            let mut file = File::create(&path).expect("should create file");
-            file.write_all(&serialized_oracle)
-                .expect("should write to file");
-            info!("Successfully wrote oracle dumo to: {path}");
-        }
-
-        // forward run
-        let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
-        let mut nop_tracer = NopTracer::default();
-
-        run_forward::<BasicBootloaderForwardSimulationConfig, _, _, _>(
-            oracle.clone(),
-            &mut result_keeper,
-            &mut nop_tracer,
+            self.state_tree.clone(),
+            self.preimage_source.clone(),
+            tx_source.clone(),
+            Some(proof_data),
+            true,
         );
 
-        let block_output: BlockOutput = result_keeper.into();
+        #[cfg(feature = "simulate_witness_gen")]
+        let source_for_witness_bench = {
+            forward_system::run::make_oracle_for_proofs_and_dumps(
+                block_metadata,
+                self.state_tree.clone(),
+                self.preimage_source.clone(),
+                tx_source.clone(),
+                Some(proof_data),
+                false,
+            )
+        };
+
+        let mut nop_tracer = NopTracer::default();
+
+        let block_output: BlockOutput = forward_system::run::run_batch_with_oracle_dump_ext::<
+            _,
+            _,
+            _,
+            _,
+            BasicBootloaderForwardSimulationConfig,
+        >(
+            block_metadata,
+            self.state_tree.clone(),
+            self.preimage_source.clone(),
+            tx_source.clone(),
+            NoopTxCallback,
+            Some(proof_data),
+            &mut nop_tracer,
+        )
+        .unwrap();
         trace!(
             "{}Block output:{} \n{:#?}",
             colors::MAGENTA,
@@ -334,7 +327,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         }
 
         if let Some(path) = witness_output_file {
-            let result = Self::run_batch_generate_witness(oracle.clone(), &app);
+            let result = Self::run_batch_generate_witness(oracle, &app);
             let mut file = File::create(&path).expect("should create file");
             let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
             let hex = hex::encode(witness);
@@ -342,30 +335,9 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
                 .expect("should write to file");
         } else {
             // proof run
-            let oracle_wrapper = BasicZkEEOracleWrapper::<EthereumIOTypesConfig, _>::new(oracle);
 
-            #[cfg(feature = "simulate_witness_gen")]
-            let source_for_witness_bench = {
-                let mut non_determinism_source = ZkEENonDeterminismSource::default();
-                non_determinism_source.add_external_processor(oracle_wrapper.clone());
-                non_determinism_source.add_external_processor(
-                    callable_oracles::arithmetic::ArithmeticQuery {
-                        marker: std::marker::PhantomData,
-                    },
-                );
-
-                non_determinism_source
-            };
-
-            let mut non_determinism_source = ZkEENonDeterminismSource::default();
-            non_determinism_source.add_external_processor(oracle_wrapper);
-            non_determinism_source.add_external_processor(
-                callable_oracles::arithmetic::ArithmeticQuery {
-                    marker: std::marker::PhantomData,
-                },
-            );
             // We'll wrap the source, to collect all the reads.
-            let copy_source = ReadWitnessSource::new(non_determinism_source);
+            let copy_source = ReadWitnessSource::new(oracle);
             let items = copy_source.get_read_items();
 
             let diagnostics_config = profiler_config.map(|cfg| {
@@ -449,6 +421,157 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
                 }
             }
         }
+    }
+
+    pub fn run_eth_block<const PROOF_ENV: bool>(
+        &mut self,
+        transactions: Vec<Vec<u8>>,
+        witness: alloy_rpc_types_debug::ExecutionWitness,
+        block_header: Header,
+        withdrawals: Vec<u8>,
+        blobs: Vec<BlobTransactionSidecarItem>,
+    ) -> ForwardRunningResultKeeper<NoopTxCallback, PectraForkHeader> {
+        use crypto::MiniDigest;
+        use std::collections::BTreeMap;
+
+        let headers: Vec<Header> = witness
+            .headers
+            .iter()
+            .map(|el| {
+                let mut slice: &[u8] = &el.0;
+                Header::decode(&mut slice).unwrap()
+            })
+            .collect();
+
+        assert!(headers.len() > 0);
+        assert_eq!(headers.len(), witness.headers.len());
+
+        let initial_root = headers[0].state_root;
+
+        let mut preimage_source = InMemoryPreimageSource::default();
+        let mut oracle: BTreeMap<Bytes32, Vec<u8>> = BTreeMap::new();
+
+        // make an oracle
+        for el in witness.state.iter() {
+            let hash = crypto::sha3::Keccak256::digest(el);
+            oracle.insert(Bytes32::from_array(hash), el.to_vec());
+            preimage_source
+                .inner
+                .insert(Bytes32::from_array(hash), el.to_vec());
+        }
+
+        for el in witness.codes.iter() {
+            let hash = crypto::sha3::Keccak256::digest(el);
+            oracle.insert(Bytes32::from_array(hash), el.to_vec());
+            preimage_source
+                .inner
+                .insert(Bytes32::from_array(hash), el.to_vec());
+        }
+
+        // we will do some really bad heuristics here
+        use basic_system::system_implementation::ethereum_storage_model::digits_from_key;
+        use basic_system::system_implementation::ethereum_storage_model::BoxInterner;
+        use basic_system::system_implementation::ethereum_storage_model::Path;
+
+        let mut interner = BoxInterner::with_capacity_in(1 << 26, Global);
+        let mut hasher = crypto::sha3::Keccak256::new();
+        let mut accounts_mpt = EthereumMPT::new_in(initial_root.0, &mut interner, Global).unwrap();
+        let mut account_properties = HashMap::<B160, EthereumAccountProperties>::new();
+        for el in witness.keys.iter() {
+            if el.len() == 20 {
+                let hash = crypto::sha3::Keccak256::digest(el);
+                let digits = digits_from_key(&hash);
+                let path = Path::new(&digits);
+                let props = accounts_mpt
+                    .get(path, &mut oracle, &mut interner, &mut hasher)
+                    .unwrap();
+                let props = EthereumAccountProperties::parse_from_rlp_bytes(props)
+                    .expect("must parse account data");
+                let key = B160::from_be_bytes::<20>(el[..].try_into().unwrap());
+                account_properties.insert(key, props);
+            }
+        }
+
+        println!("Will try to run {} transactions", transactions.len());
+
+        let tx_source = TxListSource {
+            transactions: transactions.into(),
+        };
+
+        let mut target_header_encoding = vec![];
+        block_header.encode(&mut target_header_encoding);
+
+        let target_header_reponsder = EthereumTargetBlockHeaderResponder {
+            target_header: block_header,
+            target_header_encoding,
+        };
+        let tx_data_responder = TxDataResponder {
+            tx_source,
+            next_tx: None,
+        };
+        let preimage_responder = GenericPreimageResponder { preimage_source };
+        let initial_account_state_responder = InMemoryEthereumInitialAccountStateResponder {
+            source: account_properties.clone(),
+        };
+        let initial_values_responder = InMemoryEthereumInitialStorageSlotValueResponder {
+            source: account_properties,
+            preimages_oracle: oracle,
+        };
+
+        let mut blob_hashes = BTreeMap::new();
+        for blob in blobs.into_iter() {
+            let versioned_hash = blob.to_kzg_versioned_hash();
+            let point =
+                crypto::bls12_381::G1Affine::deserialize_compressed(&blob.kzg_commitment.0[..])
+                    .unwrap();
+
+            blob_hashes.insert(Bytes32::from_array(versioned_hash), point);
+        }
+
+        let cl_responder = EthereumCLResponder {
+            withdrawals_list: withdrawals,
+            parent_headers_list: headers,
+            parent_headers_encodings_list: witness.headers.iter().map(|el| el.0.to_vec()).collect(),
+            blob_hashes,
+        };
+
+        let mut oracle = ZkEENonDeterminismSource::default();
+        oracle.add_external_processor(target_header_reponsder);
+        oracle.add_external_processor(tx_data_responder);
+        oracle.add_external_processor(preimage_responder);
+        oracle.add_external_processor(initial_account_state_responder);
+        oracle.add_external_processor(initial_values_responder);
+        oracle.add_external_processor(cl_responder);
+        oracle.add_external_processor(UARTPrintReponsder);
+
+        use crate::forward_system::system::system_types::ethereum::*;
+        use basic_bootloader::bootloader::config::BasicBootloaderForwardETHLikeConfig;
+        use forward_system::run::result_keeper::ForwardRunningResultKeeper;
+        use oracle_provider::DummyMemorySource;
+
+        let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
+        let mut nop_tracer = NopTracer::default();
+        if PROOF_ENV {
+            BasicBootloader::<
+                EthereumStorageSystemTypesWithPostOps<ZkEENonDeterminismSource<DummyMemorySource>>,
+            >::run::<BasicBootloaderForwardETHLikeConfig>(
+                oracle,
+                &mut result_keeper,
+                &mut nop_tracer,
+            )
+            .expect("must succeed");
+        } else {
+            BasicBootloader::<
+                EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>,
+            >::run::<BasicBootloaderForwardETHLikeConfig>(
+                oracle,
+                &mut result_keeper,
+                &mut nop_tracer,
+            )
+            .expect("must succeed");
+        }
+
+        result_keeper
     }
 
     ///
@@ -630,7 +753,7 @@ fn run_prover(csr_reads: &[u32]) {
     let mut buffer = vec![];
     file.read_to_end(&mut buffer).expect("must read the file");
     let mut binary = vec![];
-    for el in buffer.array_chunks::<4>() {
+    for el in buffer.as_chunks::<4>().0 {
         binary.push(u32::from_le_bytes(*el));
     }
 

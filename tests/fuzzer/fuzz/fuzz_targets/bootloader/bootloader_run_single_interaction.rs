@@ -1,7 +1,5 @@
 #![no_main]
 #![feature(allocator_api)]
-#![allow(incomplete_features)]
-#![feature(generic_const_exprs)]
 
 use arbitrary::{Arbitrary, Result, Unstructured};
 use basic_bootloader::bootloader::runner::RunnerMemoryBuffers;
@@ -74,10 +72,9 @@ fn fuzz(input: FuzzInput) {
     let amount = U256::from_be_bytes(input.amount);
     let selector = input.selector;
 
-    let mut system = System::<
-        ForwardRunningSystem<InMemoryTree, InMemoryPreimageSource, TxListSource>,
-    >::init_from_oracle(mock_oracle_balance(from, amount))
-    .expect("Failed to initialize the mock system");
+    let mut system =
+        System::<ForwardRunningSystem>::init_from_oracle(mock_oracle_balance(from, amount))
+            .expect("Failed to initialize the mock system");
     let mut system_functions = HooksStorage::new_in(system.get_allocator());
     let mut inf_resources = <BaseResources<DecreasingNative> as Resource>::FORMAL_INFINITE;
     pub const MAX_HEAP_BUFFER_SIZE: usize = 1 << 27; // 128 MB

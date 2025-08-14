@@ -107,6 +107,15 @@ pub trait SafeUsizeWritable: UsizeWriteable {
     }
 }
 
+pub trait AsUsizeWritable: Sized {
+    type Writable<'a>: SafeUsizeWritable
+    where
+        Self: 'a;
+    fn as_writable<'a>(&'a mut self) -> Self::Writable<'a>
+    where
+        Self: 'a;
+}
+
 pub struct WriteIterWrapper<'a, T: 'static + Clone + Copy, I: Iterator<Item = &'a mut T>> {
     inner: I,
 }

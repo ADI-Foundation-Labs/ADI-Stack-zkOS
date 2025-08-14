@@ -1,13 +1,13 @@
 use super::*;
 use crate::io_oracle::NonDeterminismCSRSourceImplementation;
-use alloc::alloc::{GlobalAlloc, Layout};
+use alloc::alloc::GlobalAlloc;
 use basic_bootloader::bootloader::config::BasicBootloaderProvingExecutionConfig;
 use core::alloc::Allocator;
 use core::mem::MaybeUninit;
 use zk_ee::memory::ZSTAllocator;
 use zk_ee::system::tracer::NopTracer;
 use zk_ee::system::{logger::Logger, NopResultKeeper};
-use zk_ee::system_io_oracle::{DisconnectOracleFormalIterator, IOOracle};
+use zk_ee::system_io_oracle::{IOOracle, DISCONNECT_ORACLE_QUERY_ID};
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ProxyAllocator;
@@ -109,14 +109,14 @@ pub struct OptionalGlobalAllocator;
 
 #[cfg(feature = "global-alloc")]
 unsafe impl GlobalAlloc for OptionalGlobalAllocator {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+    unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
         BootloaderAllocator::default()
             .allocate(layout)
             .expect("Global allocactor: alloc")
             .as_mut_ptr()
     }
 
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
         BootloaderAllocator::default().deallocate(
             core::ptr::NonNull::new(ptr).expect("Global allocator: dealloc"),
             layout,
@@ -126,14 +126,30 @@ unsafe impl GlobalAlloc for OptionalGlobalAllocator {
 
 #[cfg(not(feature = "global-alloc"))]
 unsafe impl GlobalAlloc for OptionalGlobalAllocator {
-    unsafe fn alloc(&self, _layout: Layout) -> *mut u8 {
-        panic!("global alloc not allowed")
+    unsafe fn alloc(&self, _layout: core::alloc::Layout) -> *mut u8 {
+        panic!("global alloc not allowed");
     }
-
-    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
+    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: core::alloc::Layout) {
         panic!("global alloc not allowed");
     }
 }
+
+// // TODO: eventually we can check it like so at link-time
+// #[cfg(not(feature = "global-alloc"))]
+// unsafe impl GlobalAlloc for OptionalGlobalAllocator {
+//     unsafe fn alloc(&self, layout: core::alloc::Layout) -> *mut u8 {
+//         extern "Rust" {
+//             fn fake_alloc_this_doesnt_exist(layout: core::alloc::Layout) -> *mut u8;
+//         }
+//         fake_alloc_this_doesnt_exist(layout)
+//     }
+//     unsafe fn dealloc(&self, ptr: *mut u8, layout: core::alloc::Layout) {
+//         extern "Rust" {
+//             fn fake_dealloc_this_doesnt_exist(ptr: *mut u8, layout: core::alloc::Layout);
+//         }
+//         fake_dealloc_this_doesnt_exist(ptr, layout)
+//     }
+// }
 
 ///
 /// main zksync_os program, that is responsible for running the proving flow.
@@ -177,17 +193,19 @@ pub fn run_proving_inner<
     let _ = L::default().write_fmt(format_args!("IO implementer init is complete"));
 
     // Load all transactions from oracle and apply them.
-    let (mut oracle, public_input) = ProvingBootloader::<O, L>::run_prepared::<
-        BasicBootloaderProvingExecutionConfig,
-    >(oracle, &mut NopResultKeeper, &mut NopTracer::default())
-    .expect("Tried to prove a failing batch");
+    let (mut oracle, public_input) =
+        ProvingBootloader::<O, L>::run::<BasicBootloaderProvingExecutionConfig>(
+            oracle,
+            &mut NopResultKeeper::default(),
+            &mut NopTracer::default(),
+        )
+        .expect("Tried to prove a failing batch");
 
-    // disconnect oracle before returning
-    // TODO: check this is the intended behaviour (ignoring the result)
+    // disconnect oracle before returning, if some other post-logic is needed that doesn't use Oracle trait
     #[allow(unused_must_use)]
     oracle
-        .create_oracle_access_iterator::<DisconnectOracleFormalIterator>(())
+        .raw_query_with_empty_input(DISCONNECT_ORACLE_QUERY_ID)
         .expect("must disconnect an oracle before performing arbitrary CSR access");
 
-    public_input.as_u32_array()
+    unsafe { core::mem::transmute(public_input) }
 }

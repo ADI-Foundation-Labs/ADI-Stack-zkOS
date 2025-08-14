@@ -48,17 +48,18 @@ pub fn mac_with_carry(a: u64, b: u64, c: u64, carry: &mut u64) -> u64 {
 }
 
 #[inline]
-pub fn bigint_mont_mul<const BITS: usize, const LIMBS: usize>(
+pub fn bigint_mont_mul<
+    const BITS: usize,
+    const LIMBS: usize,
+    const DBITS: usize,
+    const DLIMBS: usize,
+>(
     a: &Uint<BITS, LIMBS>,
     b: &Uint<BITS, LIMBS>,
     modulus: &Uint<BITS, LIMBS>,
     mont_inv: u64,
-) -> Uint<BITS, LIMBS>
-where
-    [(); BITS * 2]:,
-    [(); LIMBS * 2]:,
-{
-    let mut tmp = a.widening_mul::<BITS, LIMBS, { BITS * 2 }, { LIMBS * 2 }>(*b);
+) -> Uint<BITS, LIMBS> {
+    let mut tmp = a.widening_mul::<BITS, LIMBS, DBITS, DLIMBS>(*b);
     let result = unsafe {
         for i in 0..LIMBS {
             let limb = *tmp.as_limbs().get_unchecked(i);
@@ -99,16 +100,17 @@ where
 }
 
 #[inline]
-pub fn bigint_mont_square<const BITS: usize, const LIMBS: usize>(
+pub fn bigint_mont_square<
+    const BITS: usize,
+    const LIMBS: usize,
+    const DBITS: usize,
+    const DLIMBS: usize,
+>(
     a: &Uint<BITS, LIMBS>,
     modulus: &Uint<BITS, LIMBS>,
     mont_inv: u64,
-) -> Uint<BITS, LIMBS>
-where
-    [(); BITS * 2]:,
-    [(); LIMBS * 2]:,
-{
-    bigint_mont_mul(a, &*a, modulus, mont_inv)
+) -> Uint<BITS, LIMBS> {
+    bigint_mont_mul::<BITS, LIMBS, DBITS, DLIMBS>(a, &*a, modulus, mont_inv)
 }
 
 pub fn bigint_from_le_bytes<const BITS: usize, const LIMBS: usize>(
@@ -203,7 +205,7 @@ pub fn create_entropy(source: &[u8]) -> [u8; 64] {
     use crypto::blake2s::Blake2s256;
     assert!(MAX_ENTROPY_BYTES <= 64);
     let mut entropy = [0u8; 64];
-    for (idx, dst) in entropy.array_chunks_mut::<32>().enumerate() {
+    for (idx, dst) in entropy.as_chunks_mut::<32>().0.iter_mut().enumerate() {
         let mut hasher = Blake2s256::new();
         hasher.update(&(idx as u32).to_le_bytes());
         hasher.update(&source);
@@ -234,20 +236,21 @@ pub fn write_entropy_le(dst: &mut [u8], src: &mut impl Iterator<Item = u8>, entr
     }
 }
 
-pub fn compute_mont_params<const BITS: usize, const LIMBS: usize>(
+pub fn compute_mont_params<
+    const BITS: usize,
+    const LIMBS: usize,
+    const DBITS: usize,
+    const DLIMBS: usize,
+>(
     modulus: &Uint<BITS, LIMBS>,
-) -> (Uint<BITS, LIMBS>, Uint<BITS, LIMBS>, u64)
-where
-    [(); BITS * 2]:,
-    [(); LIMBS * 2]:,
-{
+) -> (Uint<BITS, LIMBS>, Uint<BITS, LIMBS>, u64) {
     use ruint::algorithms::*;
     let (_, mut almost_mont_r) = Uint::<BITS, LIMBS>::MAX.div_rem(*modulus);
     let _ = unsafe { add_nx1(almost_mont_r.as_limbs_mut(), 1) };
     debug_assert!(&almost_mont_r != modulus);
     let mont_r = almost_mont_r;
 
-    let mut a = Uint::<{ BITS * 2 }, { LIMBS * 2 }>::MAX.into_limbs();
+    let mut a = Uint::<DBITS, DLIMBS>::MAX.into_limbs();
     let mut b = *modulus;
     unsafe { div(&mut a, b.as_limbs_mut()) };
     let _ = unsafe { add_nx1(b.as_limbs_mut(), 1) };
@@ -268,14 +271,15 @@ where
     (mont_r, mont_r2, inv)
 }
 
-pub fn try_pocklington_witness<const BITS: usize, const LIMBS: usize>(
+pub fn try_pocklington_witness<
+    const BITS: usize,
+    const LIMBS: usize,
+    const DBITS: usize,
+    const DLIMBS: usize,
+>(
     candidate_factor: &Uint<BITS, LIMBS>,
     previous_prime: &Uint<BITS, LIMBS>,
-) -> Option<(PocklingtonStepData<BITS, LIMBS>, Uint<BITS, LIMBS>)>
-where
-    [(); BITS * 2]:,
-    [(); LIMBS * 2]:,
-{
+) -> Option<(PocklingtonStepData<BITS, LIMBS>, Uint<BITS, LIMBS>)> {
     let mut candidate = candidate_factor * previous_prime;
     debug_assert!(candidate.as_limbs()[0] & 1 == 0);
     let first_pow = *previous_prime;
@@ -285,7 +289,7 @@ where
     // check for some a that a^{candidate-1} == 1 mod candidate,
     // and gcd with lower pow of {candidate-1}/previous_prime, so we save the results
 
-    let (mont_r, mont_r2, mont_inv) = compute_mont_params(&candidate);
+    let (mont_r, mont_r2, mont_inv) = compute_mont_params::<BITS, LIMBS, DBITS, DLIMBS>(&candidate);
     let one = Uint::<BITS, LIMBS>::from(1u64);
 
     let mut result = PocklingtonStepData {
@@ -295,7 +299,7 @@ where
     };
 
     for maybe_witness in 2..=u32::MAX {
-        let Some(intermediate_pow) = little_fermat(
+        let Some(intermediate_pow) = little_fermat::<BITS, LIMBS, DBITS, DLIMBS>(
             maybe_witness,
             &candidate,
             &mont_r,
@@ -311,7 +315,12 @@ where
         // now we should do GCD
 
         // go out of montgomery form
-        let intermediate_pow = bigint_mont_mul(&intermediate_pow, &one, &candidate, mont_inv);
+        let intermediate_pow = bigint_mont_mul::<BITS, LIMBS, DBITS, DLIMBS>(
+            &intermediate_pow,
+            &one,
+            &candidate,
+            mont_inv,
+        );
         if let Some(inverse_witness) = inv_mod(intermediate_pow, candidate) {
             result.witness = maybe_witness;
             // keep in montgomery form
@@ -325,30 +334,31 @@ where
     Some((result, candidate))
 }
 
-fn mont_pow<const BITS: usize, const LIMBS: usize>(
+fn mont_pow<const BITS: usize, const LIMBS: usize, const DBITS: usize, const DLIMBS: usize>(
     a: &Uint<BITS, LIMBS>,
     modulus: &Uint<BITS, LIMBS>,
     mont_inv: u64,
     pow: &Uint<BITS, LIMBS>,
-) -> Uint<BITS, LIMBS>
-where
-    [(); BITS * 2]:,
-    [(); LIMBS * 2]:,
-{
+) -> Uint<BITS, LIMBS> {
     // top bit it always set
     let mut result = *a;
     let bits = BITS - pow.leading_zeros() - 1;
     for i in (0..bits).rev() {
-        result = bigint_mont_square(&result, modulus, mont_inv);
+        result = bigint_mont_square::<BITS, LIMBS, DBITS, DLIMBS>(&result, modulus, mont_inv);
         if pow.bit(i) {
-            result = bigint_mont_mul(&result, a, modulus, mont_inv);
+            result = bigint_mont_mul::<BITS, LIMBS, DBITS, DLIMBS>(&result, a, modulus, mont_inv);
         }
     }
 
     result
 }
 
-pub fn little_fermat<const BITS: usize, const LIMBS: usize>(
+pub fn little_fermat<
+    const BITS: usize,
+    const LIMBS: usize,
+    const DBITS: usize,
+    const DLIMBS: usize,
+>(
     witness_candidate: u32,
     candidate: &Uint<BITS, LIMBS>,
     mont_r: &Uint<BITS, LIMBS>,
@@ -356,20 +366,23 @@ pub fn little_fermat<const BITS: usize, const LIMBS: usize>(
     mont_inv: u64,
     first_pow: &Uint<BITS, LIMBS>,
     next_pow: &Uint<BITS, LIMBS>,
-) -> Option<Uint<BITS, LIMBS>>
-where
-    [(); BITS * 2]:,
-    [(); LIMBS * 2]:,
-{
+) -> Option<Uint<BITS, LIMBS>> {
     // first move witness into montgomery form
     let witness_candidate = Uint::<BITS, LIMBS>::from(witness_candidate);
-    let witness_candidate = bigint_mont_mul(&witness_candidate, &mont_r2, &candidate, mont_inv);
+    let witness_candidate = bigint_mont_mul::<BITS, LIMBS, DBITS, DLIMBS>(
+        &witness_candidate,
+        &mont_r2,
+        &candidate,
+        mont_inv,
+    );
 
     // check for some a that a^{candidate-1} == 1 mod candidate,
 
-    let first_pow_result = mont_pow(&witness_candidate, candidate, mont_inv, first_pow);
+    let first_pow_result =
+        mont_pow::<BITS, LIMBS, DBITS, DLIMBS>(&witness_candidate, candidate, mont_inv, first_pow);
 
-    let full_pow_result = mont_pow(&first_pow_result, candidate, mont_inv, next_pow);
+    let full_pow_result =
+        mont_pow::<BITS, LIMBS, DBITS, DLIMBS>(&first_pow_result, candidate, mont_inv, next_pow);
 
     if &full_pow_result != mont_r {
         // definitely not prime

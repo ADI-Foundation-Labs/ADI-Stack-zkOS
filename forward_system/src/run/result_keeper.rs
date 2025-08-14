@@ -1,8 +1,11 @@
 use crate::run::TxResultCallback;
 use basic_bootloader::bootloader::block_header::BlockHeader;
 use basic_bootloader::bootloader::result_keeper::{ResultKeeperExt, TxProcessingOutput};
+use basic_system::system_implementation::cache_structs::BitsOrd160;
 use ruint::aliases::B160;
+use ruint::aliases::U256;
 use std::alloc::Global;
+use std::collections::BTreeMap;
 use zk_ee::common_structs::{
     GenericEventContent, GenericEventContentWithTxRef, GenericLogContent,
     GenericLogContentWithTxRef, PreimageType,
@@ -25,37 +28,43 @@ pub struct TxProcessingOutputOwned {
     pub pubdata_used: u64,
 }
 
-pub struct ForwardRunningResultKeeper<TR: TxResultCallback> {
+pub struct ForwardRunningResultKeeper<TR: TxResultCallback, T: 'static + Sized = ()> {
     pub block_header: Option<BlockHeader>,
+    pub block_header_t: Option<T>,
     pub events: Vec<GenericEventContent<MAX_EVENT_TOPICS, EthereumIOTypesConfig>>,
     pub logs: Vec<GenericLogContent<EthereumIOTypesConfig>>,
     pub storage_writes: Vec<(B160, Bytes32, Bytes32)>,
+    pub account_diffs: Vec<(B160, (u64, U256, Bytes32))>,
     pub tx_results: Vec<
         Result<TxProcessingOutputOwned, basic_bootloader::bootloader::errors::InvalidTransaction>,
     >,
     pub new_preimages: Vec<(Bytes32, Vec<u8>, PreimageType)>,
     pub pubdata: Vec<u8>,
+    pub account_encodings: BTreeMap<BitsOrd160, Vec<u8>>,
 
     pub tx_result_callback: TR,
 }
 
-impl<TR: TxResultCallback> ForwardRunningResultKeeper<TR> {
+impl<TR: TxResultCallback, T: 'static + Sized> ForwardRunningResultKeeper<TR, T> {
     pub fn new(tx_result_callback: TR) -> Self {
         Self {
             block_header: None,
+            block_header_t: None,
             events: vec![],
             logs: vec![],
             storage_writes: vec![],
+            account_diffs: vec![],
             tx_results: vec![],
             new_preimages: vec![],
             pubdata: vec![],
+            account_encodings: BTreeMap::new(),
             tx_result_callback,
         }
     }
 }
 
-impl<TR: TxResultCallback> IOResultKeeper<EthereumIOTypesConfig>
-    for ForwardRunningResultKeeper<TR>
+impl<TR: TxResultCallback, T: 'static + Sized> IOResultKeeper<EthereumIOTypesConfig>
+    for ForwardRunningResultKeeper<TR, T>
 {
     fn events<'a>(
         &mut self,
@@ -86,6 +95,10 @@ impl<TR: TxResultCallback> IOResultKeeper<EthereumIOTypesConfig>
         self.storage_writes = iter.collect();
     }
 
+    fn basic_account_diffs(&mut self, iter: impl Iterator<Item = (B160, (u64, U256, Bytes32))>) {
+        self.account_diffs = iter.collect();
+    }
+
     fn new_preimages<'a>(
         &mut self,
         iter: impl Iterator<Item = (&'a Bytes32, &'a [u8], PreimageType)>,
@@ -98,9 +111,18 @@ impl<TR: TxResultCallback> IOResultKeeper<EthereumIOTypesConfig>
     fn pubdata(&mut self, value: &[u8]) {
         self.pubdata.extend_from_slice(value);
     }
+
+    fn account_state_opaque_encoding(&mut self, address: &B160, encoding: &[u8]) {
+        let existing = self
+            .account_encodings
+            .insert(BitsOrd160::from(*address), encoding.to_vec());
+        assert!(existing.is_none());
+    }
 }
 
-impl<TR: TxResultCallback> ResultKeeperExt for ForwardRunningResultKeeper<TR> {
+impl<TR: TxResultCallback, T: 'static + Sized> ResultKeeperExt<EthereumIOTypesConfig>
+    for ForwardRunningResultKeeper<TR, T>
+{
     fn tx_processed(
         &mut self,
         tx_result: Result<
@@ -132,5 +154,10 @@ impl<TR: TxResultCallback> ResultKeeperExt for ForwardRunningResultKeeper<TR> {
             .iter()
             .map(|r| r.as_ref().map_or(0, |r| r.gas_used))
             .sum()
+    }
+
+    type BlockHeader = T;
+    fn record_sealed_block(&mut self, header: Self::BlockHeader) {
+        self.block_header_t = Some(header);
     }
 }

@@ -29,6 +29,85 @@ use zk_ee::{
     utils::cheap_clone::CheapCloneRiscV as _,
 };
 
+pub trait PurePrecompileInvocation: 'static {
+    type Subsystem: Subsystem;
+
+    fn invoke<'a, R: Resources, A: core::alloc::Allocator + Clone>(
+        input: &[u8],
+        caller_ee: u8,
+        output: &mut SliceVec<'a, u8>,
+        resources: &mut R,
+        allocator: A,
+    ) -> Result<(), SubsystemError<Self::Subsystem>>;
+}
+
+///
+/// Generic system function hook implementation.
+/// It parses call request, calls system function, and creates execution result.
+///
+/// NOTE: "pure" here means that we do not expect to trigger any state changes (and calling with static flag is ok),
+/// so for all the purposes we remain in the callee frame in terms of memory for efficiency
+///
+pub fn precompile_hook_impl<'a, S, P: PurePrecompileInvocation>(
+    request: ExternalCallRequest<S>,
+    caller_ee: u8,
+    system: &mut System<S>,
+    return_memory: &'a mut [MaybeUninit<u8>],
+) -> Result<(CompletedExecution<'a, S>, &'a mut [MaybeUninit<u8>]), SystemError>
+where
+    S: EthereumLikeTypes,
+    S::IO: IOSubsystemExt,
+{
+    let ExternalCallRequest {
+        available_resources,
+        calldata,
+        modifier,
+        ..
+    } = request;
+
+    // We allow static calls as we are "pure" hook
+    if modifier == CallModifier::Constructor {
+        return Err(internal_error!("precompile called with constructor modifier").into());
+    }
+
+    let mut resources = available_resources;
+    let allocator = system.get_allocator();
+
+    let mut return_vec = SliceVec::new(return_memory);
+    let result = P::invoke(
+        &calldata,
+        caller_ee,
+        &mut return_vec,
+        &mut resources,
+        allocator,
+    );
+
+    match result {
+        Ok(()) => {
+            let (returndata, rest) = return_vec.destruct();
+            Ok((
+                make_return_state_from_returndata_region(resources, returndata),
+                rest,
+            ))
+        }
+        Err(e) => match e.root_cause() {
+            RootCause::Runtime(RuntimeError::OutOfErgs(_))
+            | RootCause::Internal(_)
+            | RootCause::Usage(_) => {
+                let _ = system
+                    .get_logger()
+                    .write_fmt(format_args!("Out of gas during system hook\nError:{e:?}\n"));
+                resources.exhaust_ergs();
+                let (_, rest) = return_vec.destruct();
+                Ok((make_error_return_state(resources), rest))
+            }
+            RootCause::Runtime(e @ RuntimeError::OutOfNativeResources(_)) => {
+                Err(Into::<SystemError>::into(e.clone_or_copy()))
+            }
+        },
+    }
+}
+
 ///
 /// Generic system function hook implementation.
 /// It parses call request, calls system function, and creates execution result.
@@ -89,7 +168,7 @@ where
             | RootCause::Usage(_) => {
                 let _ = system
                     .get_logger()
-                    .write_fmt(format_args!("Out of gas during system hook\nError:{e:?}"));
+                    .write_fmt(format_args!("Out of gas during system hook\nError:{e:?}\n"));
                 resources.exhaust_ergs();
                 let (_, rest) = return_vec.destruct();
                 Ok((make_error_return_state(resources), rest))

@@ -16,6 +16,22 @@ use zk_ee::{
     },
 };
 
+use zk_ee::system_io_oracle::ADVISE_SUBSPACE_MASK;
+
+pub const MODEXP_ADVISE_QUERY_ID: u32 = ADVISE_SUBSPACE_MASK | 0x10;
+
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct ModExpAdviseParams {
+    pub op: u32,
+    pub a_ptr: u32,
+    pub a_len: u32,
+    pub b_ptr: u32,
+    pub b_len: u32,
+    pub modulus_ptr: u32,
+    pub modulus_len: u32,
+}
+
 #[cfg(any(all(target_arch = "riscv32", feature = "proving"), test))]
 mod delegation;
 
@@ -55,8 +71,9 @@ impl<R: Resources> SystemFunctionExt<R, ModExpErrors> for ModExpImpl {
 
 /// Get resources from ergs, with native being ergs * constant
 fn resources_from_ergs<R: Resources>(ergs: Ergs) -> R {
-    let native =
-        <R::Native as Computational>::from_computational(ergs.0 * MODEXP_WORST_CASE_NATIVE_PER_GAS);
+    let native = <R::Native as Computational>::from_computational(
+        ergs.0.saturating_mul(MODEXP_WORST_CASE_NATIVE_PER_GAS),
+    );
     R::from_ergs_and_native(ergs, native)
 }
 

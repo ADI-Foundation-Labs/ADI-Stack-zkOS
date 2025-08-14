@@ -31,7 +31,7 @@ pub fn verify_hash_to_prime(entropy: &[u8; 64], certificate: &HashToPrimeData) -
     let step_0_prime = S1BigInt::from(step_0_prime as u64);
     // println!("0x{:x} is prime", step_0_prime);
 
-    let Ok(step_1_prime) = pocklington_step_verify(
+    let Ok(step_1_prime) = pocklington_step_verify::<64, 1, 128, 2, 8, 64, 1>(
         &step_0_prime,
         &mut entropy_it,
         1,
@@ -40,7 +40,7 @@ pub fn verify_hash_to_prime(entropy: &[u8; 64], certificate: &HashToPrimeData) -
         return false;
     };
     // println!("0x{:x} is prime", step_1_prime);
-    let Ok(step_2_prime) = pocklington_step_verify(
+    let Ok(step_2_prime) = pocklington_step_verify::<128, 2, 256, 4, 16, 64, 1>(
         &step_1_prime,
         &mut entropy_it,
         2,
@@ -49,7 +49,7 @@ pub fn verify_hash_to_prime(entropy: &[u8; 64], certificate: &HashToPrimeData) -
         return false;
     };
     // println!("0x{:x} is prime", step_2_prime);
-    let Ok(step_3_prime) = pocklington_step_verify(
+    let Ok(step_3_prime) = pocklington_step_verify::<256, 4, 512, 8, 32, 128, 2>(
         &step_2_prime,
         &mut entropy_it,
         3,
@@ -58,7 +58,7 @@ pub fn verify_hash_to_prime(entropy: &[u8; 64], certificate: &HashToPrimeData) -
         return false;
     };
     // println!("0x{:x} is prime", step_3_prime);
-    let Ok(step_4_prime) = pocklington_step_verify(
+    let Ok(step_4_prime) = pocklington_step_verify::<384, 6, 768, 12, 48, 256, 4>(
         &step_3_prime,
         &mut entropy_it,
         4,
@@ -78,6 +78,9 @@ pub fn verify_hash_to_prime(entropy: &[u8; 64], certificate: &HashToPrimeData) -
 fn pocklington_step_verify<
     const BITS: usize,
     const LIMBS: usize,
+    const DBITS: usize,
+    const DLIMBS: usize,
+    const MLIMBS: usize,
     const PBITS: usize,
     const PLIMBS: usize,
 >(
@@ -85,12 +88,7 @@ fn pocklington_step_verify<
     entropy_it: &mut impl Iterator<Item = u8>,
     step_index: usize,
     witness: &PocklingtonStepData<BITS, LIMBS>,
-) -> Result<Uint<BITS, LIMBS>, ()>
-where
-    [(); LIMBS * 8]:,
-    [(); BITS * 2]:,
-    [(); LIMBS * 2]:,
-{
+) -> Result<Uint<BITS, LIMBS>, ()> {
     let mut previous = Uint::<BITS, LIMBS>::ZERO;
     unsafe {
         previous.as_limbs_mut()[..previous_prime.as_limbs().len()]
@@ -98,7 +96,7 @@ where
     }
     let (entropy_bits, low_bits) = GENERATION_STEPS[step_index];
     let take_bytes = entropy_bits.next_multiple_of(8) / 8;
-    let mut repr = [0u8; LIMBS * 8];
+    let mut repr = [0u8; MLIMBS];
     write_entropy_le(&mut repr[..take_bytes as usize], entropy_it, entropy_bits);
     let high_part: Uint<BITS, LIMBS> = bigint_from_le_bytes(&repr);
     let mut candidate_factor = high_part << low_bits;
@@ -123,9 +121,9 @@ where
     // check for some a that a^{candidate-1} == 1 mod candidate,
     // and gcd with lower pow of {candidate-1}/previous_prime, so we save the results
 
-    let (mont_r, mont_r2, mont_inv) = compute_mont_params(&candidate);
+    let (mont_r, mont_r2, mont_inv) = compute_mont_params::<BITS, LIMBS, DBITS, DLIMBS>(&candidate);
 
-    let Some(intermediate_pow) = little_fermat(
+    let Some(intermediate_pow) = little_fermat::<BITS, LIMBS, DBITS, DLIMBS>(
         base,
         &candidate,
         &mont_r,
@@ -138,7 +136,7 @@ where
         return Err(());
     };
 
-    let maybe_one = bigint_mont_mul(
+    let maybe_one = bigint_mont_mul::<BITS, LIMBS, DBITS, DLIMBS>(
         &intermediate_pow,
         &witness.inverse_witness,
         &candidate,

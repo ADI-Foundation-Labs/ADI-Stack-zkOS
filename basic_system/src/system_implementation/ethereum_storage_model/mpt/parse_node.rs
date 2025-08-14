@@ -1,13 +1,16 @@
 use super::*;
 
+// NOTE: we can consider this slice as potentially "lazy" for storage purposes, so it's possible to avoid
+// asking caller to make RLP slice envelope on top of whatever is encoded inside (opaque bytes)
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub(crate) struct RLPSlice<'a> {
+pub struct RLPSlice<'a> {
     full_encoding: &'a [u8],
     raw_data_offset: usize,
 }
 
 impl<'a> RLPSlice<'a> {
-    pub(crate) const fn empty() -> Self {
+    pub const fn empty() -> Self {
         Self {
             full_encoding: EMPTY_SLICE_ENCODING,
             raw_data_offset: 1,
@@ -17,17 +20,27 @@ impl<'a> RLPSlice<'a> {
         self.full_encoding
     }
 
-    pub(crate) fn data(&self) -> &'a [u8] {
+    pub fn data(&self) -> &'a [u8] {
         // we pre-validated
         unsafe { self.full_encoding.get_unchecked(self.raw_data_offset..) }
     }
 
-    pub(crate) const fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.raw_data_offset == self.full_encoding.len()
     }
 
     #[track_caller]
-    pub(crate) fn parse(data: &mut &'a [u8]) -> Result<Self, ()> {
+    pub fn from_slice(mut data: &'a [u8]) -> Result<Self, ()> {
+        let new = Self::parse(&mut data)?;
+        if data.is_empty() == false {
+            return Err(());
+        } else {
+            Ok(new)
+        }
+    }
+
+    #[track_caller]
+    pub fn parse(data: &mut &'a [u8]) -> Result<Self, ()> {
         let data_start = data.as_ptr();
         let b0 = consume(data, 1)?;
         let bb0 = b0[0];
@@ -171,13 +184,12 @@ pub(crate) fn parse_node_from_bytes<'a>(
             Ok((ParsedNode::Extension(extension_node), pieces))
         } else {
             let leaf_node = LeafNode {
-                // key: key,
-                // prefix,
                 path_segment,
                 raw_nibbles_encoding: nibbles_encoding.full_encoding(),
                 parent_node: NodeType::unlinked(),
-                // raw_encoding,
-                value: pieces[1],
+                value: LeafValue::RLPEnveloped {
+                    envelope: pieces[1],
+                },
             };
 
             Ok((ParsedNode::Leaf(leaf_node), pieces))
@@ -196,29 +208,14 @@ pub(crate) fn parse_node_from_bytes<'a>(
         // verify well-formedness of branches too much, just to the extend that they are short enough
 
         let child_nodes = [NodeType::unlinked(); 16];
-        // let mut child_encoding_lengths = [0u8; 16];
         for branch_value in pieces[..16].iter() {
             if branch_value.data().len() > 32 {
                 return Err(());
             }
         }
-        // for (idx, branch_value) in pieces[..16].iter().enumerate() {
-        //     if branch_value.data().len() > 32 {
-        //         return Err(());
-        //     }
-        //     child_encoding_lengths[idx] = branch_value.full_encoding().len() as u8;
-        //     if branch_value.is_empty() {
-        //         child_nodes[idx] = NodeType::empty();
-        //     }
-        // }
         let branch_node = BranchNode {
-            // key,
-            // prefix: branch_prefix_as_path,
             parent_node: NodeType::unlinked(),
             child_nodes,
-            // branches_encodings_concatenation,
-            // child_encoding_lengths,
-            // raw_encoding,
             _marker: core::marker::PhantomData,
         };
 

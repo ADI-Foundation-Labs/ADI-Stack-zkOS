@@ -1,21 +1,11 @@
 #![cfg_attr(target_arch = "riscv32", no_std)]
 #![feature(allocator_api)]
-#![feature(array_chunks)]
-#![feature(get_mut_unchecked)]
-#![feature(const_type_id)]
-#![feature(vec_push_within_capacity)]
-#![feature(ptr_alignment_type)]
 #![feature(btreemap_alloc)]
-#![feature(maybe_uninit_array_assume_init)]
-#![feature(ptr_metadata)]
-#![allow(incomplete_features)]
-#![feature(generic_const_exprs)]
-#![feature(alloc_layout_extra)]
-#![feature(array_windows)]
 #![allow(clippy::needless_borrow)]
 #![allow(clippy::needless_borrows_for_generic_args)]
 #![allow(clippy::result_unit_err)]
 #![allow(clippy::type_complexity)]
+// TODO: We use final type constants for many cost constants, but we could use smaller ones to reduce binary size
 
 //!
 //! This crate contains system hooks implementation.
@@ -32,6 +22,8 @@ use crate::addresses_constants::*;
 use crate::contract_deployer::contract_deployer_hook;
 use crate::l1_messenger::l1_messenger_hook;
 use crate::l2_base_token::l2_base_token_hook;
+use crate::precompiles::precompile_hook_impl;
+use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use core::marker::PhantomData;
 use core::{alloc::Allocator, mem::MaybeUninit};
@@ -42,9 +34,8 @@ use zk_ee::{
     memory::slice_vec::SliceVec,
     system::{
         base_system_functions::{
-            Bn254AddErrors, Bn254MulErrors, Bn254PairingCheckErrors, MissingSystemFunctionErrors,
-            ModExpErrors, P256VerifyErrors, RipeMd160Errors, Secp256k1ECRecoverErrors,
-            Sha256Errors,
+            Bn254AddErrors, Bn254MulErrors, Bn254PairingCheckErrors, ModExpErrors,
+            P256VerifyErrors, RipeMd160Errors, Secp256k1ECRecoverErrors, Sha256Errors,
         },
         errors::subsystem::Subsystem,
         EthereumLikeTypes, System, SystemTypes, *,
@@ -52,15 +43,20 @@ use zk_ee::{
 };
 
 pub mod addresses_constants;
-#[cfg(feature = "mock-unsupported-precompiles")]
-mod mock_precompiles;
+pub mod mock_precompiles;
 
 // Temporarily disabled, only used for AA.
 // pub mod nonce_holder;
 mod contract_deployer;
+pub mod eip_152;
+pub mod eip_2537;
 mod l1_messenger;
 mod l2_base_token;
 mod precompiles;
+
+pub use self::eip_2537::*;
+
+pub use self::precompiles::PurePrecompileInvocation;
 
 /// System hooks process the given call request.
 ///
@@ -69,11 +65,43 @@ mod precompiles;
 /// - caller ee(logic may depend on it some cases)
 /// - system
 /// - output buffer
-pub struct SystemHook<S: SystemTypes>(
+pub enum SystemHook<S: SystemTypes> {
+    Stateless(SystemStatelessHook<S>),
+    StatefulImmutable(Box<dyn StatefulImmutableSystemHook<S>, S::Allocator>),
+}
+
+pub trait StatefulImmutableSystemHookImpl<'a, S: SystemTypes> {
+    fn invoke(
+        &'_ self,
+        request: ExternalCallRequest<'_, S>,
+        caller_ee: u8,
+        system: &'_ mut System<S>,
+        return_memory: &'a mut [MaybeUninit<u8>],
+    ) -> Result<(CompletedExecution<'a, S>, &'a mut [MaybeUninit<u8>]), SystemError>;
+}
+
+pub trait StatefulImmutableSystemHook<S: SystemTypes>:
+    for<'a> StatefulImmutableSystemHookImpl<'a, S>
+{
+    fn invoke<'a>(
+        &'_ self,
+        request: ExternalCallRequest<'_, S>,
+        caller_ee: u8,
+        system: &'_ mut System<S>,
+        return_memory: &'a mut [MaybeUninit<u8>],
+    ) -> Result<(CompletedExecution<'a, S>, &'a mut [MaybeUninit<u8>]), SystemError>
+    where
+        System<S>: 'a,
+    {
+        StatefulImmutableSystemHookImpl::invoke(self, request, caller_ee, system, return_memory)
+    }
+}
+
+pub struct SystemStatelessHook<S: SystemTypes>(
     for<'a> fn(
-        ExternalCallRequest<S>,
+        ExternalCallRequest<'_, S>,
         u8,
-        &mut System<S>,
+        &'_ mut System<S>,
         &'a mut [MaybeUninit<u8>],
     ) -> Result<(CompletedExecution<'a, S>, &'a mut [MaybeUninit<u8>]), SystemError>,
 );
@@ -159,6 +187,7 @@ impl<S: SystemTypes, A: Allocator + Clone> HooksStorage<S, A> {
     /// Adds a new hook into a given address.
     /// Fails if there was another hook registered there before.
     ///
+    #[track_caller]
     pub fn add_hook(&mut self, for_address_low: u16, hook: SystemHook<S>) {
         let existing = self.inner.insert(for_address_low, hook);
         // TODO: internal error?
@@ -171,17 +200,29 @@ impl<S: SystemTypes, A: Allocator + Clone> HooksStorage<S, A> {
     /// Always return unused return_memory.
     ///
     pub fn try_intercept<'a>(
-        &mut self,
+        &'_ mut self,
         address_low: u16,
-        request: ExternalCallRequest<S>,
+        request: ExternalCallRequest<'_, S>,
         caller_ee: u8,
-        system: &mut System<S>,
+        system: &'_ mut System<S>,
         return_memory: &'a mut [MaybeUninit<u8>],
-    ) -> Result<(Option<CompletedExecution<'a, S>>, &'a mut [MaybeUninit<u8>]), SystemError> {
+    ) -> Result<(Option<CompletedExecution<'a, S>>, &'a mut [MaybeUninit<u8>]), SystemError>
+    where
+        S: 'a,
+    {
         let Some(hook) = self.inner.get(&address_low) else {
             return Ok((None, return_memory));
         };
-        let (res, remaining_memory) = hook.0(request, caller_ee, system, return_memory)?;
+        let (res, remaining_memory) = match hook {
+            SystemHook::Stateless(hook) => hook.0(request, caller_ee, system, return_memory)?,
+            SystemHook::StatefulImmutable(hook) => StatefulImmutableSystemHook::invoke(
+                hook.as_ref(),
+                request,
+                caller_ee,
+                system,
+                return_memory,
+            )?,
+        };
 
         Ok((Some(res), remaining_memory))
     }
@@ -224,11 +265,14 @@ where
         self.add_precompile::<<S::SystemFunctions as SystemFunctions<_>>::Bn254PairingCheck, Bn254PairingCheckErrors>(
             ECPAIRING_HOOK_ADDRESS_LOW,
         );
+        self.add_precompile_from_pure_invocation::<crate::eip_152::Blake2FPrecompile>(
+            BLAKE_HOOK_ADDRESS_LOW,
+        );
+
         #[cfg(feature = "mock-unsupported-precompiles")]
         {
-            self.add_precompile::<crate::mock_precompiles::mock_precompiles::Blake, MissingSystemFunctionErrors>(
-                BLAKE_HOOK_ADDRESS_LOW,
-            );
+            use zk_ee::system::base_system_functions::MissingSystemFunctionErrors;
+
             self.add_precompile::<crate::mock_precompiles::mock_precompiles::PointEval, MissingSystemFunctionErrors>(
                 POINT_EVAL_HOOK_ADDRESS_LOW,
             );
@@ -243,42 +287,58 @@ where
     }
 
     pub fn add_l1_messenger(&mut self) {
-        self.add_hook(L1_MESSENGER_ADDRESS_LOW, SystemHook(l1_messenger_hook))
+        self.add_hook(
+            L1_MESSENGER_ADDRESS_LOW,
+            SystemHook::Stateless(SystemStatelessHook(l1_messenger_hook)),
+        )
     }
 
     pub fn add_l2_base_token(&mut self) {
-        self.add_hook(L2_BASE_TOKEN_ADDRESS_LOW, SystemHook(l2_base_token_hook))
+        self.add_hook(
+            L2_BASE_TOKEN_ADDRESS_LOW,
+            SystemHook::Stateless(SystemStatelessHook(l2_base_token_hook)),
+        )
     }
 
     pub fn add_contract_deployer(&mut self) {
         self.add_hook(
             CONTRACT_DEPLOYER_ADDRESS_LOW,
-            SystemHook(contract_deployer_hook),
+            SystemHook::Stateless(SystemStatelessHook(contract_deployer_hook)),
         )
     }
 
-    fn add_precompile<P, E>(&mut self, address_low: u16)
+    pub fn add_precompile<P, E>(&mut self, address_low: u16)
     where
         P: SystemFunction<S::Resources, E>,
         E: Subsystem,
     {
         self.add_hook(
             address_low,
-            SystemHook(
+            SystemHook::Stateless(SystemStatelessHook(
                 pure_system_function_hook_impl::<SystemFunctionInvocationUser<S, E, P>, E, S>,
-            ),
+            )),
         )
     }
 
-    fn add_precompile_ext<P: SystemFunctionExt<S::Resources, E>, E: Subsystem>(
+    pub fn add_precompile_ext<P: SystemFunctionExt<S::Resources, E>, E: Subsystem>(
         &mut self,
         address_low: u16,
     ) {
         self.add_hook(
             address_low,
-            SystemHook(
+            SystemHook::Stateless(SystemStatelessHook(
                 pure_system_function_hook_impl::<SystemFunctionInvocationExt<S, E, P>, E, S>,
-            ),
+            )),
+        )
+    }
+
+    pub fn add_precompile_from_pure_invocation<P>(&mut self, address_low: u16)
+    where
+        P: PurePrecompileInvocation,
+    {
+        self.add_hook(
+            address_low,
+            SystemHook::Stateless(SystemStatelessHook(precompile_hook_impl::<S, P>)),
         )
     }
 
@@ -293,7 +353,7 @@ where
 ///
 /// Utility function to create empty revert state.
 ///
-fn make_error_return_state<'a, S: SystemTypes>(
+pub fn make_error_return_state<'a, S: SystemTypes>(
     remaining_resources: S::Resources,
 ) -> CompletedExecution<'a, S> {
     CompletedExecution {
@@ -306,10 +366,10 @@ fn make_error_return_state<'a, S: SystemTypes>(
 ///
 /// Utility function to create return state with returndata region reference.
 ///
-fn make_return_state_from_returndata_region<S: SystemTypes>(
+pub fn make_return_state_from_returndata_region<S: SystemTypes>(
     remaining_resources: S::Resources,
-    returndata: &[u8],
-) -> CompletedExecution<S> {
+    returndata: &'_ [u8],
+) -> CompletedExecution<'_, S> {
     let return_values = ReturnValues {
         returndata,
         return_scratch_space: None,

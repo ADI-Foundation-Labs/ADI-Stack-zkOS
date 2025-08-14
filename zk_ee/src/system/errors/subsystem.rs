@@ -3,14 +3,13 @@ use super::{
     interface::{InterfaceError, InterfaceErrorKind},
     internal::InternalError,
     location::ErrorLocation,
-    no_errors::NoErrors,
     runtime::RuntimeError,
 };
 
 pub trait Subsystem: core::fmt::Debug {
     const SUBSYSTEM_NAME: &'static str;
-    type Interface: InterfaceErrorKind = NoErrors;
-    type Cascaded: ICascadedInner = NoErrors;
+    type Interface: InterfaceErrorKind;
+    type Cascaded: ICascadedInner;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -83,7 +82,7 @@ macro_rules! define_cascade_error {
         )*
 
         impl $crate::system::errors::root_cause::GetRootCause for $name {
-            fn root_cause(&self) -> $crate::system::errors::root_cause::RootCause {
+            fn root_cause(&'_ self) -> $crate::system::errors::root_cause::RootCause<'_> {
                 match self {
                     $(
                         Self::$variant(e) => e.root_cause(),

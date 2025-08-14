@@ -100,7 +100,7 @@ unsafe impl core::alloc::Allocator for TalcWrapper {
         }
 
         let ptr = unsafe { self.quasi_lock().malloc(layout).map_err(|_| AllocError) }?;
-        assert!(
+        debug_assert!(
             ptr.is_aligned_to(layout.align()),
             "allocated ptr {ptr:?} with non-matching layout {layout:?}"
         );
@@ -110,7 +110,7 @@ unsafe impl core::alloc::Allocator for TalcWrapper {
 
     unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: Layout) {
         if layout.size() != 0 {
-            assert!(
+            debug_assert!(
                 ptr.is_aligned_to(layout.align()),
                 "trying to deallocate ptr {ptr:?} with non-matching layout {layout:?}"
             );
