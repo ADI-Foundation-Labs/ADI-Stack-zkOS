@@ -53,6 +53,19 @@ pub trait IOResultKeeper<IOTypes: SystemIOTypesConfig> {
     fn account_state_opaque_encoding(&mut self, _address: &IOTypes::Address, _encoding: &[u8]) {}
 }
 
-pub struct NopResultKeeper;
+pub struct NopResultKeeper<T: 'static + Sized = ()> {
+    _marker: core::marker::PhantomData<T>,
+}
 
-impl<IOTypes: SystemIOTypesConfig> IOResultKeeper<IOTypes> for NopResultKeeper {}
+impl<T: 'static + Sized> Default for NopResultKeeper<T> {
+    fn default() -> Self {
+        Self {
+            _marker: core::marker::PhantomData,
+        }
+    }
+}
+
+impl<T: 'static + Sized, IOTypes: SystemIOTypesConfig> IOResultKeeper<IOTypes>
+    for NopResultKeeper<T>
+{
+}

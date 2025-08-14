@@ -57,6 +57,7 @@ impl<O: IOOracle> EthereumLikeTypes for ForwardSystemTypes<O> {}
 
 impl<O: IOOracle> BasicSTF for ForwardSystemTypes<O> {
     type BlockDataKeeper = ZKBasicTransactionDataKeeper;
+    type BlockHeader = basic_bootloader::bootloader::block_header::BlockHeader;
     type PostSystemInitOp = ZKHeaderPostInitOp;
     type MetadataOp = zk_ee::system::metadata::Metadata;
     type PreTxLoopOp = ZKHeaderStructurePreTxOp;

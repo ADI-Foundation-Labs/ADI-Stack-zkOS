@@ -3,7 +3,7 @@ use crate::block_hashes::BlockHashes;
 use crate::calltrace::CallTrace;
 use crate::dump_utils::AccountStateDiffs;
 use crate::native_model::compute_ratio;
-use crate::post_check::post_check;
+use crate::post_check::{post_check, post_check_ext};
 use crate::prestate::{populate_prestate, DiffTrace, PrestateTrace};
 use crate::receipts::{BlockReceipts, TransactionReceipt};
 use alloy::consensus::Header;
@@ -11,6 +11,7 @@ use alloy::eips::eip4844::BlobTransactionSidecarItem;
 use alloy_primitives::U256;
 use alloy_rlp::Encodable;
 use alloy_rpc_types_eth::Withdrawal;
+use forward_system::run::output::map_tx_results;
 use rig::log::info;
 use rig::*;
 use std::fs::{self, File};
@@ -75,7 +76,7 @@ fn run<const RANDOMIZED: bool>(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn eth_run(
+fn eth_run<const PROOF_ENV: bool>(
     mut chain: Chain<false>,
     header: Header,
     block_number: u64,
@@ -98,54 +99,69 @@ fn eth_run(
 
     let prestate_cache = populate_prestate(&mut chain, ps_trace, &calltrace);
 
-    let mut result_keeper =
-        chain.run_eth_block(transactions, witness, header, withdrawals_encoding, blobs);
+    let mut result_keeper = chain.run_eth_block::<PROOF_ENV>(
+        transactions,
+        witness,
+        header,
+        withdrawals_encoding,
+        blobs,
+    );
 
-    for el in account_diffs.into_iter() {
-        use ruint::aliases::B160;
-        // use crate::prestate::BitsOrd160;
-        use basic_system::system_implementation::cache_structs::BitsOrd160;
-        let address = B160::from_be_bytes(el.address.0 .0);
-        let Some(output) = result_keeper
-            .account_encodings
-            .remove(&BitsOrd160::from(address))
-        else {
-            use crate::single_run::log::error;
-            error!(
-                "No account leaf encoding for 0x{}",
-                hex::encode(el.address.0 .0)
-            );
-            // panic!("No account leaf encoding for {}", &el.address);
-            continue;
-        };
-        if hex::decode(&el.post_leaf_encoding[2..])
-            .unwrap()
-            .ends_with(&output)
-            == false
-        {
-            use crate::single_run::log::error;
-            error!(
-                "Expected leaf encoding for 0x{} is\n{}\nbut output contains\n0x{}",
-                hex::encode(el.address.0 .0),
-                &el.post_leaf_encoding,
-                hex::encode(&output),
-            );
-            // panic!(
-            //     "Expected leaf encoding for 0x{} is\n{}\nbut output contains\n0x{}",
-            //     hex::encode(el.address.0.0),
-            //     &el.post_leaf_encoding,
-            //     hex::encode(&output),
-            // );
-        } else {
-            use crate::single_run::log::info;
-            info!("Account leaf data matches for {}", &el.address);
+    if PROOF_ENV {
+        for el in account_diffs.into_iter() {
+            use basic_system::system_implementation::cache_structs::BitsOrd160;
+            use ruint::aliases::B160;
+            let address = B160::from_be_bytes(el.address.0 .0);
+            let Some(output) = result_keeper
+                .account_encodings
+                .remove(&BitsOrd160::from(address))
+            else {
+                use crate::single_run::log::error;
+                error!(
+                    "No account leaf encoding for 0x{}",
+                    hex::encode(el.address.0 .0)
+                );
+                // panic!("No account leaf encoding for {}", &el.address);
+                continue;
+            };
+            if hex::decode(&el.post_leaf_encoding[2..])
+                .unwrap()
+                .ends_with(&output)
+                == false
+            {
+                use crate::single_run::log::error;
+                error!(
+                    "Expected leaf encoding for 0x{} is\n{}\nbut output contains\n0x{}",
+                    hex::encode(el.address.0 .0),
+                    &el.post_leaf_encoding,
+                    hex::encode(&output),
+                );
+                // panic!(
+                //     "Expected leaf encoding for 0x{} is\n{}\nbut output contains\n0x{}",
+                //     hex::encode(el.address.0.0),
+                //     &el.post_leaf_encoding,
+                //     hex::encode(&output),
+                // );
+            } else {
+                use crate::single_run::log::info;
+                info!("Account leaf data matches for {}", &el.address);
+            }
         }
     }
 
-    let output = result_keeper.into();
-    post_check(
-        output,
+    let tx_results = map_tx_results(&result_keeper);
+    let storage_writes = result_keeper
+        .storage_writes
+        .iter()
+        .map(|s| (*s).into())
+        .collect();
+
+    post_check_ext(
+        tx_results,
         receipts,
+        result_keeper.account_diffs,
+        storage_writes,
+        result_keeper.new_preimages,
         diff_trace,
         prestate_cache,
         ruint::aliases::B160::from_be_bytes(miner.into()),
@@ -270,7 +286,10 @@ struct BlobTransactionQuasiSidecarItem {
     pub kzg_proof: alloy_primitives::FixedBytes<48>,
 }
 
-pub fn single_eth_run(block_dir: String, chain_id: Option<u64>) -> anyhow::Result<()> {
+pub fn single_eth_run<const PROOF_ENV: bool>(
+    block_dir: String,
+    chain_id: Option<u64>,
+) -> anyhow::Result<()> {
     use crate::live_run::rpc::JsonResponse;
     use alloy_primitives::U256;
 
@@ -376,7 +395,7 @@ pub fn single_eth_run(block_dir: String, chain_id: Option<u64>) -> anyhow::Resul
     };
 
     let chain = Chain::empty(chain_id);
-    eth_run(
+    eth_run::<PROOF_ENV>(
         chain,
         header,
         block_number,

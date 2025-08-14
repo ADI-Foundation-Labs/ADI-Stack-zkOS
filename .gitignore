@@ -22,3 +22,5 @@ tests/instances/db/*
 
 .DS_Store
 .idea
+
+tools.sh

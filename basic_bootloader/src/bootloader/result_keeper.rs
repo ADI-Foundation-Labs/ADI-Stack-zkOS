@@ -28,9 +28,16 @@ pub trait ResultKeeperExt<IOTypes: SystemIOTypesConfig>: IOResultKeeper<IOTypes>
 
     fn block_sealed(&mut self, _block_header: BlockHeader) {}
 
+    type BlockHeader: 'static + Sized;
+    fn record_sealed_block(&mut self, _header: Self::BlockHeader) {}
+
     fn get_gas_used(&self) -> u64 {
         0u64
     }
 }
 
-impl<IOTypes: SystemIOTypesConfig> ResultKeeperExt<IOTypes> for NopResultKeeper {}
+impl<T: 'static + Sized, IOTypes: SystemIOTypesConfig> ResultKeeperExt<IOTypes>
+    for NopResultKeeper<T>
+{
+    type BlockHeader = T;
+}

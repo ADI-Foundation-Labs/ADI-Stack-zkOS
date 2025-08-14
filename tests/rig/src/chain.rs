@@ -4,6 +4,7 @@ use alloy::eips::eip4844::BlobTransactionSidecarItem;
 use alloy::signers::local::PrivateKeySigner;
 use alloy_rlp::Decodable;
 use alloy_rlp::Encodable;
+use basic_bootloader::bootloader::block_flow::ethereum_block_flow::PectraForkHeader;
 use basic_bootloader::bootloader::config::BasicBootloaderCallSimulationConfig;
 use basic_bootloader::bootloader::config::BasicBootloaderForwardSimulationConfig;
 use basic_bootloader::bootloader::constants::MAX_BLOCK_GAS_LIMIT;
@@ -422,14 +423,14 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         }
     }
 
-    pub fn run_eth_block(
+    pub fn run_eth_block<const PROOF_ENV: bool>(
         &mut self,
         transactions: Vec<Vec<u8>>,
         witness: alloy_rpc_types_debug::ExecutionWitness,
         block_header: Header,
         withdrawals: Vec<u8>,
         blobs: Vec<BlobTransactionSidecarItem>,
-    ) -> ForwardRunningResultKeeper<NoopTxCallback> {
+    ) -> ForwardRunningResultKeeper<NoopTxCallback, PectraForkHeader> {
         use crypto::MiniDigest;
         use std::collections::BTreeMap;
 
@@ -543,14 +544,32 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         oracle.add_external_processor(cl_responder);
         oracle.add_external_processor(UARTPrintReponsder);
 
-        use crate::forward_system::system::system_types::ethereum::EthereumStorageSystemTypes;
+        use crate::forward_system::system::system_types::ethereum::*;
         use basic_bootloader::bootloader::config::BasicBootloaderForwardETHLikeConfig;
         use forward_system::run::result_keeper::ForwardRunningResultKeeper;
         use oracle_provider::DummyMemorySource;
 
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
         let mut nop_tracer = NopTracer::default();
-        BasicBootloader::<EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>>::run::<BasicBootloaderForwardETHLikeConfig>(oracle, &mut result_keeper, &mut nop_tracer).expect("must succeed");
+        if PROOF_ENV {
+            BasicBootloader::<
+                EthereumStorageSystemTypesWithPostOps<ZkEENonDeterminismSource<DummyMemorySource>>,
+            >::run::<BasicBootloaderForwardETHLikeConfig>(
+                oracle,
+                &mut result_keeper,
+                &mut nop_tracer,
+            )
+            .expect("must succeed");
+        } else {
+            BasicBootloader::<
+                EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>,
+            >::run::<BasicBootloaderForwardETHLikeConfig>(
+                oracle,
+                &mut result_keeper,
+                &mut nop_tracer,
+            )
+            .expect("must succeed");
+        }
 
         result_keeper
     }

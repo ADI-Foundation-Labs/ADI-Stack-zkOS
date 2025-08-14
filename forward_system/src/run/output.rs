@@ -157,8 +157,66 @@ impl From<(B160, Bytes32, Bytes32)> for StorageWrite {
     }
 }
 
-impl<TR: TxResultCallback> From<ForwardRunningResultKeeper<TR>> for BlockOutput {
-    fn from(value: ForwardRunningResultKeeper<TR>) -> Self {
+pub fn map_tx_results<TR: TxResultCallback, T: 'static + Sized>(
+    result_keeper: &ForwardRunningResultKeeper<TR, T>,
+) -> Vec<TxResult> {
+    result_keeper
+        .tx_results
+        .iter()
+        .enumerate()
+        .map(|(tx_number, result)| {
+            result.clone().map(|output| {
+                let execution_result = if output.status {
+                    ExecutionResult::Success(if output.contract_address.is_some() {
+                        ExecutionOutput::Create(output.output, output.contract_address.unwrap())
+                    } else {
+                        ExecutionOutput::Call(output.output)
+                    })
+                } else {
+                    ExecutionResult::Revert(output.output)
+                };
+                TxOutput {
+                    gas_used: output.gas_used,
+                    gas_refunded: output.gas_refunded,
+
+                    computational_native_used: output.computational_native_used,
+
+                    pubdata_used: output.pubdata_used,
+                    contract_address: output.contract_address,
+                    logs: result_keeper
+                        .events
+                        .iter()
+                        .filter_map(|e| {
+                            if e.tx_number == tx_number as u32 {
+                                Some(e.into())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect(),
+                    l2_to_l1_logs: result_keeper
+                        .logs
+                        .iter()
+                        .filter_map(|m| {
+                            if m.tx_number == tx_number as u32 {
+                                Some(m.into())
+                            } else {
+                                None
+                            }
+                        })
+                        .collect(),
+                    execution_result,
+                    storage_writes: vec![],
+                }
+            })
+        })
+        .collect()
+}
+
+impl<TR: TxResultCallback, T: 'static + Sized> From<ForwardRunningResultKeeper<TR, T>>
+    for BlockOutput
+{
+    fn from(value: ForwardRunningResultKeeper<TR, T>) -> Self {
         let ForwardRunningResultKeeper {
             block_header,
             events,

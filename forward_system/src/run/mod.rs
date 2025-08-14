@@ -43,7 +43,7 @@ pub use self::output::ExecutionResult;
 pub use self::output::Log;
 pub use self::output::StorageWrite;
 pub use self::output::TxOutput;
-use crate::run::output::TxResult;
+pub use self::output::TxResult;
 use crate::run::test_impl::{NoopTxCallback, TxListSource};
 pub use basic_bootloader::bootloader::errors::InvalidTransaction;
 use basic_system::system_implementation::flat_storage_model::*;

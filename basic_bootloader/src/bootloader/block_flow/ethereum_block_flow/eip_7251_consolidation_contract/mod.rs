@@ -1,9 +1,4 @@
-// NOTE: we implement 7002 contract as non-solidity/non-EMV contract as:
-// - there is no GAS opcode in the reference bytecode
-// - whatever will be the gas supplied to the frame - it'll be sufficient to pop as up to upper bound of elements
-// - and to be honest, putting bytecode into execution client is so-so idea, and instead consensus can be instead reached on implementation
-// Bytecode for this contract will anyway exist for requests creation in transactions themselves
-
+use super::SSZ_BYTES_PER_LENGTH_OFFSET;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
@@ -17,30 +12,29 @@ use zk_ee::system::{errors::internal::InternalError, System};
 use zk_ee::system::{EthereumLikeTypes, IOSubsystem};
 use zk_ee::utils::{u256_to_usize_saturated, Bytes32};
 
-pub const WITHDRAWAL_REQUEST_EIP_7685_TYPE: u8 = 0x01;
+pub const CONSOLIDATION_REQUEST_EIP_7685_TYPE: u8 = 0x02;
 
-pub const WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS: B160 =
-    B160::from_limbs([0xd83579A64c007002, 0xEf480Eb55e80D19a, 0x00000961]);
+pub const CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS: B160 =
+    B160::from_limbs([0x8B00f3a590007251, 0xc7CE488642fb579F, 0x0000BBdD]);
 
-// const EXCESS_WITHDRAWAL_REQUESTS_STORAGE_SLOT: Bytes32 = Bytes32::from_hex("0000000000000000000000000000000000000000000000000000000000000000");
-// const WITHDRAWAL_REQUEST_COUNT_STORAGE_SLOT: Bytes32 = Bytes32::from_hex("0000000000000000000000000000000000000000000000000000000000000001");
-// const TARGET_WITHDRAWAL_REQUESTS_PER_BLOCK: usize = 2;
-
-const WITHDRAWAL_REQUEST_QUEUE_HEAD_STORAGE_SLOT: Bytes32 =
+const EXCESS_CONSOLIDATION_REQUESTS_STORAGE_SLOT: Bytes32 = Bytes32::ZERO;
+const CONSOLIDATION_REQUEST_COUNT_STORAGE_SLOT: Bytes32 =
+    Bytes32::from_hex("0000000000000000000000000000000000000000000000000000000000000001");
+const CONSOLIDATION_REQUEST_QUEUE_HEAD_STORAGE_SLOT: Bytes32 =
     Bytes32::from_hex("0000000000000000000000000000000000000000000000000000000000000002");
-const WITHDRAWAL_REQUEST_QUEUE_TAIL_STORAGE_SLOT: Bytes32 =
+const CONSOLIDATION_REQUEST_QUEUE_TAIL_STORAGE_SLOT: Bytes32 =
     Bytes32::from_hex("0000000000000000000000000000000000000000000000000000000000000003");
-const WITHDRAWAL_REQUEST_QUEUE_STORAGE_OFFSET: U256 = U256::from_limbs([4, 0, 0, 0]);
-const SLOTS_PER_REQUEST: U256 = U256::from_limbs([3, 0, 0, 0]);
+const CONSOLIDATION_REQUEST_QUEUE_STORAGE_OFFSET: U256 = U256::from_limbs([4, 0, 0, 0]);
+const SLOTS_PER_REQUEST: U256 = U256::from_limbs([4, 0, 0, 0]);
 
-const MAX_WITHDRAWAL_REQUESTS_PER_BLOCK: usize = 16;
-const SSZ_BYTES_PER_LENGTH_OFFSET: u32 = 4;
+const TARGET_CONSOLIDATION_REQUESTS_PER_BLOCK: usize = 1;
+const MAX_CONSOLIDATION_REQUESTS_PER_BLOCK: usize = 2;
 
 // it's fully fixed
-const WITHDRAWAL_REQUEST_SSZ_SERIALIZATION_LEN: usize = 20 + 48 + 8;
+const CONSOLIDATION_REQUEST_SSZ_SERIALIZATION_LEN: usize = 20 + 48 + 48;
 
 // NOTE: even though the spec says SSZ.encode (that is NOT a concatenation of element for the list), it actually appends nothing if there are no intercations
-pub fn eip7002_system_part<S: EthereumLikeTypes>(
+pub fn eip7251_system_part<S: EthereumLikeTypes>(
     system: &mut System<S>,
     requests_hasher: &mut impl crypto::sha256::Digest,
     // requests_hasher: &mut impl MiniDigest,
@@ -56,7 +50,7 @@ where
         system.io.read_account_properties(
             ExecutionEnvironmentType::NoEE,
             resources,
-            &WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+            &CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
             AccountDataRequest::empty()
                 .with_nonce()
                 .with_observable_bytecode_len(),
@@ -74,8 +68,8 @@ where
         system.io.storage_read::<false>(
             ExecutionEnvironmentType::NoEE,
             resources,
-            &WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
-            &WITHDRAWAL_REQUEST_QUEUE_HEAD_STORAGE_SLOT,
+            &CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+            &CONSOLIDATION_REQUEST_QUEUE_HEAD_STORAGE_SLOT,
         )
     })?;
 
@@ -83,8 +77,8 @@ where
         system.io.storage_read::<false>(
             ExecutionEnvironmentType::NoEE,
             resources,
-            &WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
-            &WITHDRAWAL_REQUEST_QUEUE_TAIL_STORAGE_SLOT,
+            &CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+            &CONSOLIDATION_REQUEST_QUEUE_TAIL_STORAGE_SLOT,
         )
     })?;
 
@@ -94,20 +88,21 @@ where
     let num_in_queue = queue_tail_index - queue_head_index;
     let num_dequeued = core::cmp::min(
         u256_to_usize_saturated(&num_in_queue),
-        MAX_WITHDRAWAL_REQUESTS_PER_BLOCK,
+        MAX_CONSOLIDATION_REQUESTS_PER_BLOCK,
     );
 
     if num_dequeued == 0 {
         // we do not even need to reset the queue poitners as it's a hard invariant
         assert!(queue_head_index.is_zero());
         assert!(queue_tail_index.is_zero());
+        update_excess_consolidation_requests_and_reset_count(system)?;
         return Ok(());
     }
 
     // SSZ doesn't encode number of items in list (why make new format and avoid useful hints again?)
 
     requests_hasher.update([
-        WITHDRAWAL_REQUEST_EIP_7685_TYPE,
+        CONSOLIDATION_REQUEST_EIP_7685_TYPE,
         SSZ_BYTES_PER_LENGTH_OFFSET as u8,
         0,
         0,
@@ -115,17 +110,18 @@ where
     ]);
 
     for i in 0..num_dequeued {
-        let queue_storage_slot = WITHDRAWAL_REQUEST_QUEUE_STORAGE_OFFSET
+        let queue_storage_slot = CONSOLIDATION_REQUEST_QUEUE_STORAGE_OFFSET
             + ((queue_head_index + U256::from(i as u64)) * SLOTS_PER_REQUEST);
         let slot_0 = Bytes32::from_array(queue_storage_slot.to_be_bytes::<32>());
         let slot_1 = Bytes32::from_array((queue_storage_slot + U256::from(1)).to_be_bytes::<32>());
         let slot_2 = Bytes32::from_array((queue_storage_slot + U256::from(2)).to_be_bytes::<32>());
+        let slot_3 = Bytes32::from_array((queue_storage_slot + U256::from(2)).to_be_bytes::<32>());
 
         let slot_0 = resources.with_infinite_ergs(|resources| {
             system.io.storage_read::<false>(
                 ExecutionEnvironmentType::NoEE,
                 resources,
-                &WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+                &CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
                 &slot_0,
             )
         })?;
@@ -133,7 +129,7 @@ where
             system.io.storage_read::<false>(
                 ExecutionEnvironmentType::NoEE,
                 resources,
-                &WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+                &CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
                 &slot_1,
             )
         })?;
@@ -141,13 +137,23 @@ where
             system.io.storage_read::<false>(
                 ExecutionEnvironmentType::NoEE,
                 resources,
-                &WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
+                &CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
                 &slot_2,
             )
         })?;
+        let slot_3 = resources.with_infinite_ergs(|resources| {
+            system.io.storage_read::<false>(
+                ExecutionEnvironmentType::NoEE,
+                resources,
+                &CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+                &slot_3,
+            )
+        })?;
+
         requests_hasher.update(&slot_0.as_u8_array_ref()[12..]);
         requests_hasher.update(slot_1.as_u8_array_ref());
-        requests_hasher.update(&slot_2.as_u8_array_ref()[..(16 + 8)]);
+        requests_hasher.update(slot_2.as_u8_array_ref());
+        requests_hasher.update(slot_3.as_u8_array_ref());
     }
 
     let new_queue_head_index = queue_head_index + U256::from(num_dequeued as u64);
@@ -156,8 +162,8 @@ where
             system.io.storage_write::<false>(
                 ExecutionEnvironmentType::NoEE,
                 resources,
-                &WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
-                &WITHDRAWAL_REQUEST_QUEUE_HEAD_STORAGE_SLOT,
+                &CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+                &CONSOLIDATION_REQUEST_QUEUE_HEAD_STORAGE_SLOT,
                 &Bytes32::ZERO,
             )
         })?;
@@ -166,8 +172,8 @@ where
             system.io.storage_write::<false>(
                 ExecutionEnvironmentType::NoEE,
                 resources,
-                &WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
-                &WITHDRAWAL_REQUEST_QUEUE_TAIL_STORAGE_SLOT,
+                &CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+                &CONSOLIDATION_REQUEST_QUEUE_TAIL_STORAGE_SLOT,
                 &Bytes32::ZERO,
             )
         })?;
@@ -177,12 +183,80 @@ where
             system.io.storage_write::<false>(
                 ExecutionEnvironmentType::NoEE,
                 resources,
-                &WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS,
-                &WITHDRAWAL_REQUEST_QUEUE_HEAD_STORAGE_SLOT,
+                &CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+                &CONSOLIDATION_REQUEST_QUEUE_HEAD_STORAGE_SLOT,
                 &value,
             )
         })?;
     }
+
+    update_excess_consolidation_requests_and_reset_count(system)?;
+
+    Ok(())
+}
+
+fn update_excess_consolidation_requests_and_reset_count<S: EthereumLikeTypes>(
+    system: &mut System<S>,
+) -> Result<(), SystemError>
+where
+    S::IO: IOSubsystemExt,
+{
+    let mut resources = S::Resources::from_native(
+        <S::Resources as Resources>::Native::from_computational(u64::MAX),
+    );
+
+    let mut previous_excess = resources.with_infinite_ergs(|resources| {
+        system.io.storage_read::<false>(
+            ExecutionEnvironmentType::NoEE,
+            resources,
+            &CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+            &EXCESS_CONSOLIDATION_REQUESTS_STORAGE_SLOT,
+        )
+    })?;
+
+    if previous_excess == Bytes32::MAX {
+        previous_excess = Bytes32::ZERO;
+    }
+
+    let count = resources.with_infinite_ergs(|resources| {
+        system.io.storage_read::<false>(
+            ExecutionEnvironmentType::NoEE,
+            resources,
+            &CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+            &CONSOLIDATION_REQUEST_COUNT_STORAGE_SLOT,
+        )
+    })?;
+
+    let base_count = U256::from_be_bytes(previous_excess.as_u8_array())
+        + U256::from_be_bytes(count.as_u8_array());
+
+    let (mut maybe_new_excess, uf) =
+        base_count.overflowing_sub(U256::from(TARGET_CONSOLIDATION_REQUESTS_PER_BLOCK as u64));
+    if uf {
+        maybe_new_excess = U256::ZERO;
+    }
+
+    let new_excess = Bytes32::from_array(maybe_new_excess.to_be_bytes::<32>());
+    let _ = resources.with_infinite_ergs(|resources| {
+        system.io.storage_write::<false>(
+            ExecutionEnvironmentType::NoEE,
+            resources,
+            &CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+            &EXCESS_CONSOLIDATION_REQUESTS_STORAGE_SLOT,
+            &new_excess,
+        )
+    })?;
+
+    // reset count
+    let _ = resources.with_infinite_ergs(|resources| {
+        system.io.storage_write::<false>(
+            ExecutionEnvironmentType::NoEE,
+            resources,
+            &CONSOLIDATION_REQUEST_PREDEPLOY_ADDRESS,
+            &CONSOLIDATION_REQUEST_COUNT_STORAGE_SLOT,
+            &Bytes32::ZERO,
+        )
+    })?;
 
     Ok(())
 }

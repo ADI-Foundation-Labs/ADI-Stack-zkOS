@@ -48,6 +48,7 @@ pub mod mock_precompiles;
 // Temporarily disabled, only used for AA.
 // pub mod nonce_holder;
 mod contract_deployer;
+pub mod eip_152;
 pub mod eip_2537;
 mod l1_messenger;
 mod l2_base_token;
@@ -186,6 +187,7 @@ impl<S: SystemTypes, A: Allocator + Clone> HooksStorage<S, A> {
     /// Adds a new hook into a given address.
     /// Fails if there was another hook registered there before.
     ///
+    #[track_caller]
     pub fn add_hook(&mut self, for_address_low: u16, hook: SystemHook<S>) {
         let existing = self.inner.insert(for_address_low, hook);
         // TODO: internal error?
@@ -263,14 +265,14 @@ where
         self.add_precompile::<<S::SystemFunctions as SystemFunctions<_>>::Bn254PairingCheck, Bn254PairingCheckErrors>(
             ECPAIRING_HOOK_ADDRESS_LOW,
         );
+        self.add_precompile_from_pure_invocation::<crate::eip_152::Blake2FPrecompile>(
+            BLAKE_HOOK_ADDRESS_LOW,
+        );
 
         #[cfg(feature = "mock-unsupported-precompiles")]
         {
             use zk_ee::system::base_system_functions::MissingSystemFunctionErrors;
 
-            self.add_precompile::<crate::mock_precompiles::mock_precompiles::Blake, MissingSystemFunctionErrors>(
-                BLAKE_HOOK_ADDRESS_LOW,
-            );
             self.add_precompile::<crate::mock_precompiles::mock_precompiles::PointEval, MissingSystemFunctionErrors>(
                 POINT_EVAL_HOOK_ADDRESS_LOW,
             );

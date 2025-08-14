@@ -2,12 +2,16 @@ use crate::prestate::*;
 use crate::receipts::TransactionReceipt;
 use alloy::hex;
 use alloy_rpc_types_eth::Withdrawal;
+use forward_system::run::StorageWrite;
+use forward_system::run::TxResult;
 use rig::forward_system::run::BlockOutput;
 use rig::log::{error, info};
 use ruint::aliases::{B160, B256, U256};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
+use zk_ee::common_structs::PreimageType;
 use zk_ee::utils::u256_to_usize_saturated;
+use zk_ee::utils::Bytes32;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[allow(dead_code)]
@@ -119,13 +123,20 @@ impl DiffTrace {
 
     pub fn check_storage_writes(
         self,
-        output: BlockOutput,
+        account_diffs: Vec<(B160, (u64, U256, Bytes32))>,
+        storage_writes: Vec<StorageWrite>,
+        published_preimages: Vec<(Bytes32, Vec<u8>, PreimageType)>,
         prestate_cache: Cache,
         miner: B160,
         withdrawals: &[Withdrawal],
     ) -> Result<(), PostCheckError> {
         let diffs = self.collect_diffs(&prestate_cache, miner);
-        let zksync_os_diffs = zksync_os_output_into_account_state(output, &prestate_cache)?;
+        let zksync_os_diffs = zksync_os_output_into_account_state(
+            account_diffs,
+            storage_writes,
+            published_preimages,
+            &prestate_cache,
+        )?;
 
         // Reference => ZKsync OS check:
         for (address, account) in diffs.iter() {
@@ -264,18 +275,19 @@ fn zksync_os_diff_consistent_with_selfdestruct(
 }
 
 fn zksync_os_output_into_account_state(
-    output: BlockOutput,
+    account_diffs: Vec<(B160, (u64, U256, Bytes32))>,
+    storage_writes: Vec<StorageWrite>,
+    published_preimages: Vec<(Bytes32, Vec<u8>, PreimageType)>,
     prestate_cache: &Cache,
 ) -> Result<HashMap<B160, AccountState>, PostCheckError> {
     use basic_system::system_implementation::flat_storage_model::AccountProperties;
     let mut updates: HashMap<B160, AccountState> = HashMap::new();
     let preimages: HashMap<[u8; 32], Vec<u8>> = HashMap::from_iter(
-        output
-            .published_preimages
+        published_preimages
             .into_iter()
             .map(|(key, value, _)| (key.as_u8_array(), value)),
     );
-    for (address, (nonce, balance, bytecode_hash)) in output.account_diffs {
+    for (address, (nonce, balance, bytecode_hash)) in account_diffs {
         let mut state = AccountState {
             balance: Some(balance),
             nonce: Some(nonce),
@@ -289,7 +301,7 @@ fn zksync_os_output_into_account_state(
         let existing = updates.insert(address, state);
         assert!(existing.is_none());
     }
-    for w in output.storage_writes {
+    for w in storage_writes {
         if rig::chain::is_account_properties_address(&w.account) {
             // populate account
             let address: [u8; 20] = w.account_key.as_u8_array()[12..].try_into().unwrap();
@@ -362,9 +374,42 @@ pub fn post_check(
     miner: B160,
     withdrawals: &[Withdrawal],
 ) -> Result<(), PostCheckError> {
-    assert_eq!(receipts.len(), output.tx_results.len());
+    let BlockOutput {
+        header,
+        tx_results,
+        storage_writes,
+        account_diffs,
+        published_preimages,
+        pubdata,
+    } = output;
 
-    for (res, receipt) in output.tx_results.iter().zip(receipts.iter()) {
+    post_check_ext(
+        tx_results,
+        receipts,
+        account_diffs,
+        storage_writes,
+        published_preimages,
+        diff_trace,
+        prestate_cache,
+        miner,
+        withdrawals,
+    )
+}
+
+pub fn post_check_ext(
+    tx_results: Vec<TxResult>,
+    receipts: Vec<TransactionReceipt>,
+    account_diffs: Vec<(B160, (u64, U256, Bytes32))>,
+    storage_writes: Vec<StorageWrite>,
+    published_preimages: Vec<(Bytes32, Vec<u8>, PreimageType)>,
+    diff_trace: DiffTrace,
+    prestate_cache: Cache,
+    miner: B160,
+    withdrawals: &[Withdrawal],
+) -> Result<(), PostCheckError> {
+    assert_eq!(receipts.len(), tx_results.len());
+
+    for (res, receipt) in tx_results.iter().zip(receipts.iter()) {
         // info!(
         //     "Checking transaction {} for consistency",
         //     receipt.transaction_index,
@@ -444,7 +489,14 @@ pub fn post_check(
         }
     }
 
-    diff_trace.check_storage_writes(output, prestate_cache, miner, withdrawals)?;
+    diff_trace.check_storage_writes(
+        account_diffs,
+        storage_writes,
+        published_preimages,
+        prestate_cache,
+        miner,
+        withdrawals,
+    )?;
 
     info!("All good!");
     Ok(())

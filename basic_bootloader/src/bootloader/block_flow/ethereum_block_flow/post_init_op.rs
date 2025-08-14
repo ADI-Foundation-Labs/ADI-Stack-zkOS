@@ -11,12 +11,6 @@ where
     ) -> Result<(), InternalError> {
         system_functions.add_precompiles();
 
-        use system_hooks::addresses_constants::BLAKE_HOOK_ADDRESS_LOW;
-
-        system_functions.add_precompile::<system_hooks::mock_precompiles::mock_precompiles::Blake, MissingSystemFunctionErrors>(
-            BLAKE_HOOK_ADDRESS_LOW,
-        );
-
         system_hooks::eip_2537::initialize_eip_2537(system_functions);
 
         super::precompiles::blob_eval_precompile::BlobEvaluationPrecompile::initialize_as_hook(

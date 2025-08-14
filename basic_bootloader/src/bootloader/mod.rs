@@ -177,7 +177,7 @@ where
     /// Run STF to completion assuming that STF has simple structure
     pub fn run<Config: BasicBootloaderExecutionConfig>(
         mut oracle: <S::IO as IOSubsystemExt>::IOOracle,
-        result_keeper: &mut impl ResultKeeperExt<S::IOTypes>,
+        result_keeper: &mut impl ResultKeeperExt<S::IOTypes, BlockHeader = S::BlockHeader>,
         tracer: &mut impl Tracer<S>,
     ) -> Result<<S::PostTxLoopOp as PostTxLoopOp<S>>::PostTxLoopOpResult, BootloaderSubsystemError>
     where

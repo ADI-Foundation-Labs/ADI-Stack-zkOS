@@ -1,4 +1,5 @@
 use crate::system::system::*;
+use basic_bootloader::bootloader;
 use basic_bootloader::bootloader::config::BasicBootloaderExecutionConfig;
 use basic_bootloader::bootloader::result_keeper::ResultKeeperExt;
 use oracle_provider::DummyMemorySource;
@@ -12,7 +13,10 @@ use zk_ee::types_config::EthereumIOTypesConfig;
 ///
 pub fn run_forward<Config: BasicBootloaderExecutionConfig>(
     oracle: ZkEENonDeterminismSource<DummyMemorySource>,
-    result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig>,
+    result_keeper: &mut impl ResultKeeperExt<
+        EthereumIOTypesConfig,
+        BlockHeader = bootloader::block_header::BlockHeader,
+    >,
     tracer: &mut impl Tracer<ForwardRunningSystem>,
 ) {
     if let Err(err) = ForwardBootloader::run::<Config>(oracle, result_keeper, tracer) {

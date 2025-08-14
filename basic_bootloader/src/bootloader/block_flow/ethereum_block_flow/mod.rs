@@ -14,6 +14,8 @@ pub const MAX_BLOBS_IN_TX: usize = 6;
 pub const VERSIONED_HASH_VERSION_KZG: u8 = 0x01;
 pub const GAS_PER_BLOB: u64 = 1 << 17;
 
+pub(crate) const SSZ_BYTES_PER_LENGTH_OFFSET: u32 = 4;
+
 pub struct EthereumMetadataOp;
 pub struct EthereumPostInitOp;
 pub struct EthereumPreOp;
@@ -25,7 +27,8 @@ mod block_header;
 pub mod eip_2935_historical_block_hash;
 pub mod eip_4788_historical_beacon_root;
 pub mod eip_6110_deposit_events_parser;
-pub mod eip_7002_pseudo_contract;
+pub mod eip_7002_withdrawal_contract;
+pub mod eip_7251_consolidation_contract;
 mod loop_op;
 mod metadata_op;
 pub mod oracle_queries;
@@ -39,12 +42,13 @@ mod utils;
 pub(crate) mod withdrawals;
 
 pub use self::block_data::*;
+pub use self::block_header::PectraForkHeader;
 pub use self::metadata_op::EthereumBlockMetadata;
 
 pub use eip_2935_historical_block_hash::HISTORY_STORAGE_ADDRESS;
 pub use eip_4788_historical_beacon_root::BEACON_ROOTS_ADDRESS;
 pub use eip_6110_deposit_events_parser::DEPOSIT_CONTRACT_ADDRESS;
-pub use eip_7002_pseudo_contract::WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS;
+pub use eip_7002_withdrawal_contract::WITHDRAWAL_REQUEST_PREDEPLOY_ADDRESS;
 
 pub(crate) fn rlp_ordering_and_key_for_index(index: u32) -> (u32, ([u8; 4], usize)) {
     if index == 0 {

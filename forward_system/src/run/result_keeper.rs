@@ -28,8 +28,9 @@ pub struct TxProcessingOutputOwned {
     pub pubdata_used: u64,
 }
 
-pub struct ForwardRunningResultKeeper<TR: TxResultCallback> {
+pub struct ForwardRunningResultKeeper<TR: TxResultCallback, T: 'static + Sized = ()> {
     pub block_header: Option<BlockHeader>,
+    pub block_header_t: Option<T>,
     pub events: Vec<GenericEventContent<MAX_EVENT_TOPICS, EthereumIOTypesConfig>>,
     pub logs: Vec<GenericLogContent<EthereumIOTypesConfig>>,
     pub storage_writes: Vec<(B160, Bytes32, Bytes32)>,
@@ -44,10 +45,11 @@ pub struct ForwardRunningResultKeeper<TR: TxResultCallback> {
     pub tx_result_callback: TR,
 }
 
-impl<TR: TxResultCallback> ForwardRunningResultKeeper<TR> {
+impl<TR: TxResultCallback, T: 'static + Sized> ForwardRunningResultKeeper<TR, T> {
     pub fn new(tx_result_callback: TR) -> Self {
         Self {
             block_header: None,
+            block_header_t: None,
             events: vec![],
             logs: vec![],
             storage_writes: vec![],
@@ -61,8 +63,8 @@ impl<TR: TxResultCallback> ForwardRunningResultKeeper<TR> {
     }
 }
 
-impl<TR: TxResultCallback> IOResultKeeper<EthereumIOTypesConfig>
-    for ForwardRunningResultKeeper<TR>
+impl<TR: TxResultCallback, T: 'static + Sized> IOResultKeeper<EthereumIOTypesConfig>
+    for ForwardRunningResultKeeper<TR, T>
 {
     fn events<'a>(
         &mut self,
@@ -118,8 +120,8 @@ impl<TR: TxResultCallback> IOResultKeeper<EthereumIOTypesConfig>
     }
 }
 
-impl<TR: TxResultCallback> ResultKeeperExt<EthereumIOTypesConfig>
-    for ForwardRunningResultKeeper<TR>
+impl<TR: TxResultCallback, T: 'static + Sized> ResultKeeperExt<EthereumIOTypesConfig>
+    for ForwardRunningResultKeeper<TR, T>
 {
     fn tx_processed(
         &mut self,
@@ -152,5 +154,10 @@ impl<TR: TxResultCallback> ResultKeeperExt<EthereumIOTypesConfig>
             .iter()
             .map(|r| r.as_ref().map_or(0, |r| r.gas_used))
             .sum()
+    }
+
+    type BlockHeader = T;
+    fn record_sealed_block(&mut self, header: Self::BlockHeader) {
+        self.block_header_t = Some(header);
     }
 }

@@ -193,10 +193,13 @@ pub fn run_proving_inner<
     let _ = L::default().write_fmt(format_args!("IO implementer init is complete"));
 
     // Load all transactions from oracle and apply them.
-    let (mut oracle, public_input) = ProvingBootloader::<O, L>::run::<
-        BasicBootloaderProvingExecutionConfig,
-    >(oracle, &mut NopResultKeeper, &mut NopTracer::default())
-    .expect("Tried to prove a failing batch");
+    let (mut oracle, public_input) =
+        ProvingBootloader::<O, L>::run::<BasicBootloaderProvingExecutionConfig>(
+            oracle,
+            &mut NopResultKeeper::default(),
+            &mut NopTracer::default(),
+        )
+        .expect("Tried to prove a failing batch");
 
     // disconnect oracle before returning, if some other post-logic is needed that doesn't use Oracle trait
     #[allow(unused_must_use)]

@@ -25,11 +25,12 @@ where
 {
     type BlockData = ZKBasicTransactionDataKeeper;
     type PostTxLoopOpResult = ();
+    type BlockHeader = crate::bootloader::block_header::BlockHeader;
 
     fn post_op(
         system: System<S>,
         block_data: Self::BlockData,
-        result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig>,
+        result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig, BlockHeader = Self::BlockHeader>,
     ) -> Self::PostTxLoopOpResult {
         // form block header
         let tx_rolling_hash = block_data.transaction_hashes_accumulator.finish();
