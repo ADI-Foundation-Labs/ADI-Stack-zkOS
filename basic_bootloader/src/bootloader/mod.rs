@@ -3,9 +3,8 @@ use constants::{MAX_TX_LEN_WORDS, TX_OFFSET_WORDS};
 use errors::{BootloaderSubsystemError, InvalidTransaction};
 use result_keeper::ResultKeeperExt;
 use ruint::aliases::*;
-use system_hooks::addresses_constants::{
-    BOOTLOADER_FORMAL_ADDRESS, L2_INTEROP_ROOT_STORAGE_ADDRESS,
-};
+use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
+
 use zk_ee::common_structs::MAX_NUMBER_OF_LOGS;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::memory::slice_vec::SliceVec;
@@ -499,6 +498,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
     where
         S::IO: IOSubsystemExt,
     {
+        use system_hooks::addresses_constants::L2_INTEROP_ROOT_STORAGE_ADDRESS;
         let mut interop_root_hasher = crypto::sha3::Keccak256::new();
 
         // Block of code needed for interop.
