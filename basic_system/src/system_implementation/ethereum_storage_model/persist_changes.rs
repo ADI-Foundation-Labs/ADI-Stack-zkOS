@@ -505,15 +505,6 @@ impl EthereumStoragePersister {
             let initial = record.initial();
             let current = record.current();
 
-            if addr.0 == system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS {
-                // skip it
-                assert_eq!(initial.appearance(), Appearance::Unset);
-                assert_eq!(current.value().storage_root, EMPTY_ROOT_HASH);
-                assert_eq!(current.value().nonce, 0);
-                assert!(current.value().balance.is_zero());
-                continue;
-            }
-
             let digits = Self::cache_address_as_digits(addr, &mut key_cache, &mut hasher);
             let path = Path::new(digits);
             let initial_expected_value = mpt
@@ -536,10 +527,10 @@ impl EthereumStoragePersister {
                 assert!(initial_expected_value.is_empty());
             } else {
                 // parse it and compare
-                assert!(initial.value().computed_is_unset == false);
                 let parsed =
                     EthereumAccountProperties::parse_from_rlp_bytes(initial_expected_value)
                         .map_err(|_| internal_error!("failed to parse initial account value"))?;
+                assert!(initial.value().bytecode_hash.is_zero() == false);
                 assert_eq!(initial.value().nonce, parsed.nonce);
                 assert_eq!(initial.value().balance, parsed.balance);
                 assert_eq!(initial.value().bytecode_hash, parsed.bytecode_hash);
@@ -551,7 +542,6 @@ impl EthereumStoragePersister {
                     assert_eq!(initial.appearance(), Appearance::Unset);
                     assert_eq!(initial.value().storage_root, current.value().storage_root);
                     assert_eq!(initial.value().storage_root, EMPTY_ROOT_HASH);
-                    assert!(initial.value().is_empty());
                     assert!(initial.value().is_empty());
 
                     result_keeper.account_state_opaque_encoding(&addr.0, initial_expected_value);

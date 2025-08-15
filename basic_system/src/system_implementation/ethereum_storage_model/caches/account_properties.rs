@@ -20,12 +20,11 @@ pub struct EthereumAccountProperties {
     pub balance: U256,
     pub storage_root: Bytes32,
     pub bytecode_hash: Bytes32,
-    pub computed_is_unset: bool, // NOTE: this is computed and not actually persistent
 }
 
 impl Default for EthereumAccountProperties {
     fn default() -> Self {
-        Self::TRIVIAL_VALUE
+        Self::EMPTY_ACCOUNT
     }
 }
 
@@ -42,10 +41,7 @@ impl UsizeSerializable for EthereumAccountProperties {
                 UsizeSerializable::iter(&self.balance),
                 ExactSizeChain::new(
                     UsizeSerializable::iter(&self.storage_root),
-                    ExactSizeChain::new(
-                        UsizeSerializable::iter(&self.bytecode_hash),
-                        UsizeSerializable::iter(&self.computed_is_unset),
-                    ),
+                    UsizeSerializable::iter(&self.bytecode_hash),
                 ),
             ),
         )
@@ -62,7 +58,6 @@ impl UsizeDeserializable for EthereumAccountProperties {
         let balance = UsizeDeserializable::from_iter(src)?;
         let storage_root = UsizeDeserializable::from_iter(src)?;
         let bytecode_hash = UsizeDeserializable::from_iter(src)?;
-        let computed_is_unset = UsizeDeserializable::from_iter(src)?;
 
         // NOTE: we verify basic computed property
         let new = Self {
@@ -70,13 +65,7 @@ impl UsizeDeserializable for EthereumAccountProperties {
             balance,
             bytecode_hash,
             storage_root,
-            computed_is_unset,
         };
-        if computed_is_unset {
-            assert!(new.is_empty());
-            // assert!(new.is_empty_modulo_balance());
-            // assert_eq!(new.storage_root, EMPTY_ROOT_HASH);
-        }
 
         Ok(new)
     }
@@ -93,13 +82,18 @@ impl SimpleOracleQuery for EthereumAccountPropertiesQuery {
 }
 
 impl EthereumAccountProperties {
-    pub const TRIVIAL_VALUE: Self = Self {
+    pub const EMPTY_BUT_EXISTING_ACCOUNT: Self = Self {
         nonce: 0,
         balance: U256::ZERO,
         bytecode_hash: EMPTY_STRING_KECCAK_HASH,
         storage_root: EMPTY_ROOT_HASH,
-        // computed_bytecode_len: 0,
-        computed_is_unset: true,
+    };
+
+    pub const EMPTY_ACCOUNT: Self = Self {
+        nonce: 0,
+        balance: U256::ZERO,
+        bytecode_hash: Bytes32::ZERO, // Convention
+        storage_root: EMPTY_ROOT_HASH,
     };
 
     pub(crate) fn rlp_encode_for_leaf(
@@ -206,15 +200,15 @@ impl EthereumAccountProperties {
     }
 
     pub fn is_empty(&self) -> bool {
-        self == &Self::TRIVIAL_VALUE
+        self == &Self::EMPTY_ACCOUNT
     }
 
     pub fn is_empty_modulo_balance(&self) -> bool {
         // NOTE: storage hash is not needed here:
         // - eithere it was code with 0 length, but then nonce is 1
         // - or storage slots of it can not be set
-        self.nonce == Self::TRIVIAL_VALUE.nonce
-            && self.bytecode_hash == Self::TRIVIAL_VALUE.bytecode_hash
+        self.nonce == Self::EMPTY_ACCOUNT.nonce
+            && self.bytecode_hash == Self::EMPTY_ACCOUNT.bytecode_hash
     }
 
     pub fn parse_from_rlp_bytes(raw_encoding: &[u8]) -> Result<Self, ()> {
@@ -225,7 +219,7 @@ impl EthereumAccountProperties {
         // So we can not skip internal branch
         use crate::system_implementation::ethereum_storage_model::mpt::*;
         if raw_encoding.is_empty() {
-            return Ok(Self::TRIVIAL_VALUE);
+            return Ok(Self::EMPTY_ACCOUNT);
         }
 
         // we try to insert node encoding and see if it exists
@@ -287,7 +281,6 @@ impl EthereumAccountProperties {
             balance,
             bytecode_hash,
             storage_root,
-            computed_is_unset: false,
         };
 
         Ok(new)

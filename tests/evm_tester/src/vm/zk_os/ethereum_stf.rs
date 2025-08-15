@@ -360,7 +360,6 @@ impl ZKsyncOSEthereumSTF {
                         balance: props.1,
                         storage_root: Bytes32::ZERO,
                         bytecode_hash: props.2,
-                        computed_is_unset: false,
                     };
                     let addr = Address::from(addr.to_be_bytes::<20>());
                     self.set_account_properties(addr, props);
@@ -419,14 +418,20 @@ impl ZKsyncOSEthereumSTF {
 
     fn get_account_properties(&mut self, address: Address) -> EthereumAccountProperties {
         match self.account_properties.get(&address_to_b160(address)) {
-            None => EthereumAccountProperties::default(),
+            None => EthereumAccountProperties::EMPTY_ACCOUNT,
             Some(account_hash) => account_hash.clone(),
         }
     }
 
-    fn set_account_properties(&mut self, address: Address, properties: EthereumAccountProperties) {
+    fn set_account_properties(&mut self, address: Address, mut properties: EthereumAccountProperties) {
         let address = address_to_b160(address);
-        self.account_properties.insert(address, properties);
+        if properties.is_empty() == false {
+            if properties.bytecode_hash.is_zero() {
+                properties.bytecode_hash = EthereumAccountProperties::EMPTY_BUT_EXISTING_ACCOUNT.bytecode_hash;
+            }
+            self.account_properties.insert(address, properties);
+        }
+        
     }
 
     ///
@@ -515,7 +520,7 @@ impl ZKsyncOSEthereumSTF {
         let properties = self.get_account_properties(address);
         let bytecode_hash = properties.bytecode_hash;
 
-        if bytecode_hash == Bytes32::zero() || bytecode_hash == EMPTY_STRING_KECCAK_HASH {
+        if bytecode_hash.is_zero() || bytecode_hash == EMPTY_STRING_KECCAK_HASH {
             None
         } else {
             Some(
@@ -535,6 +540,14 @@ impl ZKsyncOSEthereumSTF {
     }
 
     fn fix_account_properties(&mut self) {
+        for (addr, props) in self.account_properties.iter() {
+            assert!(
+                props.bytecode_hash.is_zero() == false,
+                "address 0x{:040x} is present in cache, but has zeroes bytecode hash",
+                addr.as_uint()
+            );
+        }
+
         for (addr, props) in self.account_properties.iter_mut() {
             let is_empty_storage = if let Some(storage) = self.cold_storage.get(addr) {
                 storage.is_empty()
@@ -544,7 +557,14 @@ impl ZKsyncOSEthereumSTF {
             if is_empty_storage {
                 props.storage_root = EMPTY_ROOT_HASH;
             }
-            fix_account_properties(props, is_empty_storage);
+        }
+
+        for (addr, props) in self.account_properties.iter() {
+            assert!(
+                props.bytecode_hash.is_zero() == false,
+                "address 0x{:040x} is present in cache, but has zeroes bytecode hash",
+                addr.as_uint()
+            );
         }
     }
 }
@@ -559,16 +579,4 @@ pub fn u256_to_bytes32(input: U256) -> Bytes32 {
 
 pub fn bytes32_to_b256(input: Bytes32) -> B256 {
     B256::from_slice(&input.as_u8_array())
-}
-
-pub fn fix_account_properties(props: &mut EthereumAccountProperties, storage_is_empty: bool) {
-    if props.balance.is_zero()
-        && props.nonce == 0
-        && props.bytecode_hash == EMPTY_STRING_KECCAK_HASH
-        && storage_is_empty
-    {
-        props.computed_is_unset = true;
-    } else {
-        props.computed_is_unset = false;
-    }
 }

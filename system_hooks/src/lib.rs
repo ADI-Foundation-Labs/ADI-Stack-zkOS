@@ -233,6 +233,10 @@ impl<S: SystemTypes, A: Allocator + Clone> HooksStorage<S, A> {
     pub fn has_hook_for(&mut self, address_low: u16) -> bool {
         self.inner.contains_key(&address_low)
     }
+
+    pub fn all_hooked_addresses_iter(&'_ self) -> impl Iterator<Item = u16> + '_ {
+        self.inner.keys().copied()
+    }
 }
 
 impl<S: EthereumLikeTypes, A: Allocator + Clone> HooksStorage<S, A>

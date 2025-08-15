@@ -285,6 +285,10 @@ impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
                 ee_type,
                 is_call_to_special_address,
             )? {
+            let _ = self.system.get_logger().write_fmt(format_args!(
+                "External call is trivial and will return immediatelly\n",
+            ));
+
             // Call finished before VM started
             let failure = !matches!(call_result, CallResult::Successful { .. });
             self.system
@@ -296,6 +300,11 @@ impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
 
             Ok((resources_to_return, call_result))
         } else if is_call_to_special_address {
+            let _ = self
+                .system
+                .get_logger()
+                .write_fmt(format_args!("External call to system special address\n",));
+
             // The call is targeting the "system contract" space.
             self.call_to_special_address_execute_callee_frame(
                 external_call_launch_params,
@@ -303,6 +312,10 @@ impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
                 rollback_handle,
             )
         } else {
+            let _ = self.system.get_logger().write_fmt(format_args!(
+                "External call is non-trivial and will trigger EE execution\n",
+            ));
+
             self.call_execute_callee_frame(
                 external_call_launch_params,
                 heap,
@@ -794,7 +807,8 @@ impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
                             deployed_at,
                         };
                         let _ = self.system.get_logger().write_fmt(format_args!(
-                            "Successfully deployed contract at {deployed_at:?} \n"
+                            "Successfully deployed contract at 0x{:040x}\n",
+                            deployed_at.as_uint()
                         ));
                         (true, deployment_result)
                     }

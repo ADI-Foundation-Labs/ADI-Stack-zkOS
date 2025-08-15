@@ -39,6 +39,22 @@ where
                 )
                 .expect("must heat coinbase");
         }
+        // all precompiles must be formally warm
+        {
+            for address_low in system_functions.all_hooked_addresses_iter() {
+                let address = B160::from_limbs([address_low as u64, 0, 0]);
+                let mut inf_resources = S::Resources::FORMAL_INFINITE;
+                system
+                    .io
+                    .read_account_properties(
+                        ExecutionEnvironmentType::NoEE,
+                        &mut inf_resources,
+                        &address,
+                        AccountDataRequest::empty(),
+                    )
+                    .expect("must warm up precompile");
+            }
+        }
 
         let mut logger: <S as SystemTypes>::Logger = system.get_logger();
         let _ = logger.write_fmt(format_args!("====================================\n"));

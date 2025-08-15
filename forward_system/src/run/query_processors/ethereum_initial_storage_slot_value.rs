@@ -43,24 +43,19 @@ impl<M: MemorySource> OracleQueryProcessor<M> for InMemoryEthereumInitialStorage
         query: Vec<usize>,
         _memory: &M,
     ) -> Box<dyn ExactSizeIterator<Item = usize> + 'static> {
-        use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
         assert!(Self::SUPPORTED_QUERY_IDS.contains(&query_id));
 
         let address = StorageAddress::<EthereumIOTypesConfig>::from_iter(&mut query.into_iter())
             .expect("must deserialize hash value");
 
-        let data = if address.address == BOOTLOADER_FORMAL_ADDRESS {
-            // special handling
-            EthereumAccountProperties::TRIVIAL_VALUE
-        } else {
-            self.source
-                .get(&address.address)
-                .copied()
-                .unwrap_or(EthereumAccountProperties::TRIVIAL_VALUE)
-        };
+        let data = self
+            .source
+            .get(&address.address)
+            .copied()
+            .unwrap_or(EthereumAccountProperties::EMPTY_ACCOUNT);
         let initial_root = data.storage_root;
         let mut value = Bytes32::ZERO;
-        if initial_root != EMPTY_ROOT_HASH {
+        if data.is_empty() == false && initial_root != EMPTY_ROOT_HASH {
             use crypto::MiniDigest;
             let hash = crypto::sha3::Keccak256::digest(address.key.as_u8_array_ref());
             let digits = digits_from_key(&hash);

@@ -1,5 +1,3 @@
-use crypto::ark_ec::CurveGroup;
-
 use super::*;
 
 pub const BLS12_381_FIELD_TO_G1_GAS: u64 = 5500;

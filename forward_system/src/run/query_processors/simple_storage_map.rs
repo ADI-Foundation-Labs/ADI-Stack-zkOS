@@ -1,18 +1,7 @@
 use std::collections::HashMap;
 
 use super::*;
-use basic_system::system_implementation::ethereum_storage_model::digits_from_key;
-use basic_system::system_implementation::ethereum_storage_model::BoxInterner;
-use basic_system::system_implementation::ethereum_storage_model::EthereumMPT;
-use basic_system::system_implementation::ethereum_storage_model::Path;
-use basic_system::system_implementation::ethereum_storage_model::RLPSlice;
-use basic_system::system_implementation::ethereum_storage_model::{
-    caches::account_properties::{bytes32_from_rlp_slice, EthereumAccountProperties},
-    EMPTY_ROOT_HASH,
-};
 use ruint::aliases::B160;
-use std::alloc::Global;
-use std::collections::BTreeMap;
 use zk_ee::{
     kv_markers::{InitialStorageSlotData, StorageAddress},
     system_io_oracle::{dyn_usize_iterator::DynUsizeIterator, INITIAL_STORAGE_SLOT_VALUE_QUERY_ID},

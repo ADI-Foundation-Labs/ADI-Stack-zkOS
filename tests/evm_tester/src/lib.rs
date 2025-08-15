@@ -127,8 +127,6 @@ impl EvmTester {
                 let mutants = test.mutants;
                 test.mutants = vec![];
 
-                // dbg!(&test.name);
-
                 test.run_zksync_os_ethereum_stf(
                     self.summary.clone(),
                     vm.clone(),

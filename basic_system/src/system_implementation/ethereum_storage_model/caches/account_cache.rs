@@ -144,9 +144,8 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                 }
 
                 // we just ask the oracle for properties
-
                 let acc_data = EthereumAccountPropertiesQuery::get(oracle, address)?;
-                let appearance = if acc_data.computed_is_unset {
+                let appearance = if acc_data.is_empty() {
                     Appearance::Unset
                 } else {
                     Appearance::Retrieved
@@ -273,47 +272,6 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
 
         Ok(())
     }
-
-    // // special method, not part of the trait as it's not overly generic
-    // pub fn persist_changes(
-    //     &self,
-    //     storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
-    //     preimages_cache: &mut BytecodeKeccakPreimagesStorage<R, A>,
-    //     oracle: &mut impl IOOracle,
-    //     _result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
-    // ) -> Result<(), SystemError> {
-    //     self.cache.apply_to_all_updated_elements(|l, r, addr| {
-    //         if l.value() == r.value() {
-    //             return Ok(());
-    //         }
-    //         // We don't care of the left side, since we're storing the entire snapshot.
-    //         let encoding = r.value().encoding();
-    //         let properties_hash = r.value().compute_hash();
-
-    //         // Not part of a transaction, should be included in other costs.
-    //         let mut inf_resources = R::FORMAL_INFINITE;
-
-    //         let _ = preimages_cache.record_preimage::<false>(
-    //             ExecutionEnvironmentType::NoEE,
-    //             &(PreimageRequestForUnknownLength {
-    //                 hash: properties_hash,
-    //                 preimage_type: PreimageType::AccountData,
-    //             }),
-    //             &mut inf_resources,
-    //             &[&encoding],
-    //         )?;
-
-    //         storage.write_special_account_property::<AccountAggregateDataHash>(
-    //             ExecutionEnvironmentType::NoEE,
-    //             &mut inf_resources,
-    //             &addr.0,
-    //             &properties_hash,
-    //             oracle,
-    //         )?;
-
-    //         Ok(())
-    //     })
-    // }
 
     pub fn calculate_pubdata_used_by_tx(&self) -> u32 {
         0
@@ -442,9 +400,18 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         // NOTE: we didn't yet decommit the bytecode, BUT charged for it (all properties are warm at
         // once or not), so if we do not access it ever we will not need to pollute preimages cache
 
+        let bytecode_hash_is_zero = full_data.bytecode_hash.is_zero();
+        let current_appearance = account_data.current().appearance();
+
+        // NOTE: deconstruction happens at the end of the TX, so even deconstructed accounts would NOT
+        // respond with empty bytecode (well, WTF)
         let bytecode = {
-            // we charged for "cold" behavior already, so we just ask for preimage
-            if full_data.bytecode_hash == EMPTY_STRING_KECCAK_HASH {
+            if current_appearance == Appearance::Unset {
+                // NOTE: Unset means that initial oracle query responded with 0 bytecode hash
+                let res: &'static [u8] = &[];
+
+                res
+            } else if full_data.bytecode_hash == EMPTY_STRING_KECCAK_HASH {
                 let res: &'static [u8] = &[];
 
                 res
@@ -463,6 +430,16 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             }
         };
 
+        let bytecode_hash = if current_appearance == Appearance::Unset {
+            // we will not bother to re-adjust it in other update functions, but will return depending on the appearance
+            Bytes32::ZERO
+        } else if bytecode_hash_is_zero {
+            // but appearance is not unset/deconstructed, so it is existing, but no-code account
+            EthereumAccountProperties::EMPTY_BUT_EXISTING_ACCOUNT.bytecode_hash
+        } else {
+            full_data.bytecode_hash
+        };
+
         let code_length = bytecode.len() as u32;
 
         let is_delegated = if code_length == 3 + 20 {
@@ -473,10 +450,10 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
 
         Ok(AccountData {
             ee_version: Maybe::construct(|| ExecutionEnvironmentType::EVM as u8),
-            observable_bytecode_hash: Maybe::construct(|| full_data.bytecode_hash),
+            observable_bytecode_hash: Maybe::construct(|| bytecode_hash),
             observable_bytecode_len: Maybe::construct(|| code_length),
             nonce: Maybe::construct(|| full_data.nonce),
-            bytecode_hash: Maybe::construct(|| full_data.bytecode_hash),
+            bytecode_hash: Maybe::construct(|| bytecode_hash),
             unpadded_code_len: Maybe::construct(|| code_length),
             artifacts_len: Maybe::construct(|| 0),
             nominal_token_balance: Maybe::construct(|| full_data.balance),
@@ -599,15 +576,6 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                 false,
             )
         })?;
-        // match account_data.current().appearance() {
-        //     Appearance::Unset | Appearance::Retrieved => {}
-        //     Appearance::Updated => {
-        //         panic!("Trying to deploy into non-empty account")
-        //     }
-        //     Appearance::Deconstructed => {
-        //         todo!();
-        //     }
-        // }
 
         let (deployed_code, bytecode_hash) = match from_ee {
             ExecutionEnvironmentType::NoEE => {
@@ -803,7 +771,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             .apply_to_last_record_of_pending_changes(|key, head_history_record| {
                 if head_history_record.value.appearance() == Appearance::Deconstructed {
                     head_history_record.value.update(|x, _| {
-                        *x = EthereumAccountProperties::TRIVIAL_VALUE;
+                        *x = EthereumAccountProperties::EMPTY_ACCOUNT;
                         Ok(())
                     })?;
                     storage

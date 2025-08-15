@@ -571,7 +571,7 @@ impl Case {
                             let unwrapped_actual_value = actual_value.unwrap_or_default();
                             if unwrapped_actual_value.0 != expected_u256.to_be_bytes() {
                                 expected = Some(format!(
-                                    "Storage of {address:?}, {:?}: {:?}",
+                                    "Storage of {address:?}, {:?}: 0x{:064x}",
                                     key.as_value().unwrap(),
                                     expected_u256
                                 ));
@@ -676,7 +676,7 @@ impl Case {
                 format!("{test_name}: {name}"),
                 format!("{:?}", e),
                 calldata.to_vec(),
-            )
+            );
         }
     }
 
@@ -813,7 +813,7 @@ impl Case {
                             let unwrapped_actual_value = actual_value.unwrap_or_default();
                             if unwrapped_actual_value.0 != expected_u256.to_be_bytes() {
                                 expected = Some(format!(
-                                    "Storage of {address:?}, {:?}: {:?}",
+                                    "Storage of {address:?}, {:?}: 0x{:064x}",
                                     key.as_value().unwrap(),
                                     expected_u256
                                 ));

@@ -107,10 +107,10 @@ mod tests {
         let arguments = Arguments {
             verbosity: false,
             quiet: false,
-            paths: vec!["ethereum-fixtures/state_tests".to_owned()],
-            // paths: vec![],
+            // paths: vec!["ethereum-fixtures/state_tests".to_owned()],
+            paths: vec![],
             // names: vec![],
-            names: vec!["tests/prague/eip7702_set_code_tx/test_set_code_txs.py::test_empty_authorization_list[fork_Prague-state_test]".to_string()],
+            names: vec!["precompsEIP2929Cancun".to_string()],
             groups: vec![],
             labels: vec![],
             threads: Some(1),

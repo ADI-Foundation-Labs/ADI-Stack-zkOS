@@ -30,20 +30,15 @@ impl<M: MemorySource> OracleQueryProcessor<M> for InMemoryEthereumInitialAccount
         query: Vec<usize>,
         _memory: &M,
     ) -> Box<dyn ExactSizeIterator<Item = usize> + 'static> {
-        use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
         assert!(Self::SUPPORTED_QUERY_IDS.contains(&query_id));
 
         let address = B160::from_iter(&mut query.into_iter()).expect("must deserialize hash value");
 
-        let data = if address == BOOTLOADER_FORMAL_ADDRESS {
-            // Special handling
-            EthereumAccountProperties::TRIVIAL_VALUE
-        } else {
-            self.source
-                .get(&address)
-                .copied()
-                .unwrap_or(EthereumAccountProperties::TRIVIAL_VALUE)
-        };
+        let data = self
+            .source
+            .get(&address)
+            .copied()
+            .unwrap_or(EthereumAccountProperties::EMPTY_ACCOUNT);
 
         DynUsizeIterator::from_constructor(data, |inner_ref| UsizeSerializable::iter(inner_ref))
     }
