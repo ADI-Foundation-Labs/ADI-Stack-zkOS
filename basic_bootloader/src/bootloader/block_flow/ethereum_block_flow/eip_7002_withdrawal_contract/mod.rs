@@ -14,7 +14,7 @@ use zk_ee::system::AccountDataRequest;
 use zk_ee::system::Computational;
 use zk_ee::system::IOSubsystemExt;
 use zk_ee::system::Resources;
-use zk_ee::system::{errors::internal::InternalError, System};
+use zk_ee::system::System;
 use zk_ee::system::{EthereumLikeTypes, IOSubsystem};
 use zk_ee::utils::{u256_to_usize_saturated, Bytes32};
 

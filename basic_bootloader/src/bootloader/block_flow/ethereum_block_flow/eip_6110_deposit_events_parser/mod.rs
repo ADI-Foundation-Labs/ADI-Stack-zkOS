@@ -3,8 +3,8 @@ use zk_ee::common_structs::GenericEventContentWithTxRef;
 use zk_ee::kv_markers::MAX_EVENT_TOPICS;
 use zk_ee::system::errors::system::SystemError;
 use zk_ee::system::IOSubsystemExt;
-use zk_ee::system::{errors::internal::InternalError, System};
-use zk_ee::system::{EthereumLikeTypes, IOSubsystem, IOTeardown};
+use zk_ee::system::System;
+use zk_ee::system::{EthereumLikeTypes, IOTeardown};
 use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::utils::Bytes32;
 

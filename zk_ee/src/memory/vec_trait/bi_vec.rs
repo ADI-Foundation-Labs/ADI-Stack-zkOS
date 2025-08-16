@@ -1,6 +1,7 @@
 // Quasi-vector implementation that descends into same sized allocated chunks
 
 use core::{alloc::Allocator, mem::MaybeUninit};
+use alloc::boxed::Box;
 
 // Backing capacity will not implement any notable traits itself. It is also dynamic, so whoever uses it
 // will be able to decide on allocation strategy

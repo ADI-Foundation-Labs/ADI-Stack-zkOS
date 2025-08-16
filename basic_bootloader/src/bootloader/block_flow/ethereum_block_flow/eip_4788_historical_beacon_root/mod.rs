@@ -7,13 +7,12 @@
 use core::fmt::Write;
 use ruint::aliases::B160;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::internal_error;
 use zk_ee::system::errors::system::SystemError;
 use zk_ee::system::AccountDataRequest;
 use zk_ee::system::Computational;
 use zk_ee::system::IOSubsystemExt;
 use zk_ee::system::Resources;
-use zk_ee::system::{errors::internal::InternalError, System};
+use zk_ee::system::System;
 use zk_ee::system::{EthereumLikeTypes, IOSubsystem};
 use zk_ee::utils::Bytes32;
 

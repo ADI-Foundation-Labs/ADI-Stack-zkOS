@@ -2,9 +2,9 @@ use basic_system::system_implementation::ethereum_storage_model::ETHEREUM_QUERIE
 use zk_ee::internal_error;
 use zk_ee::kv_markers::UsizeDeserializable;
 use zk_ee::system::errors::internal::InternalError;
-use zk_ee::system_io_oracle::{IOOracle, HISTORICAL_BLOCK_HASH_QUERY_ID};
+use zk_ee::system_io_oracle::IOOracle;
 use zk_ee::{
-    system_io_oracle::{SimpleOracleQuery, GENERIC_SUBSPACE_MASK, PREIMAGE_SUBSPACE_MASK},
+    system_io_oracle::{GENERIC_SUBSPACE_MASK, PREIMAGE_SUBSPACE_MASK},
     utils::Bytes32,
 };
 
