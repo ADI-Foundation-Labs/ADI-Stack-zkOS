@@ -1,9 +1,12 @@
 use super::GAS_PER_BLOB;
 use crate::bootloader::block_flow::ethereum_block_flow::oracle_queries::ETHEREUM_TARGET_HEADER_BUFFER_DATA_QUERY_ID;
 use crate::bootloader::block_flow::ethereum_block_flow::oracle_queries::ETHEREUM_TARGET_HEADER_BUFFER_LEN_QUERY_ID;
+use crate::bootloader::block_flow::ChainChecker;
+use crate::bootloader::errors::BootloaderSubsystemError;
 use crate::bootloader::ethereum::LogsBloom;
 use crate::bootloader::transaction::ethereum_tx_format::Parser;
 use crate::bootloader::transaction::ethereum_tx_format::RLPParsable;
+use core::alloc::Allocator;
 use crypto::MiniDigest;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
@@ -18,8 +21,16 @@ use zk_ee::utils::Bytes32;
 
 pub const MIN_BASE_FEE_PER_BLOB_GAS: u64 = 1;
 pub const BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE: u64 = 5007716;
-// pub const BLOB_BASE_FEE_UPDATE_FRACTION: u64 = 3338477;
 pub const BLOB_BASE_FEE_UPDATE_FRACTION: u64 = BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE;
+
+const TARGET_BLOBS_PER_BLOCK: u64 = 6;
+const TARGET_BLOB_GAS_PER_BLOCK: u64 = GAS_PER_BLOB * TARGET_BLOBS_PER_BLOCK;
+
+const PECTRA_EL_FORK_BLOCK_NUMBER: u64 = 22431084;
+
+const EIP_1559_BASE_FEE_MAX_CHANGE_DENOMINATOR: u64 = 8;
+const EIP_1559_ELASTICITY_MULTIPLIER: u64 = 2;
+const EIP_1559_MIN_GAS_LIMIT: u64 = 5000;
 
 #[derive(Clone, Copy, Debug)]
 pub struct PectraForkHeader {
@@ -229,7 +240,7 @@ pub struct PectraForkHeaderReflection<'a> {
     pub gas_limit: u64,
     pub gas_used: u64,
     pub timestamp: u64,
-    // 32 bytes or less, but variable lenth
+    // 32 bytes or less, but variable length
     pub extra_data: &'a [u8],
     pub mix_hash: &'a [u8; 32],
     // fixed length
@@ -315,4 +326,107 @@ impl<'a> RLPParsable<'a> for PectraForkHeaderReflection<'a> {
     }
 }
 
-// pub type PectraForkHeader<'a> = ListEncapsulated<'a, PectraForkHeaderReflection<'a>>;
+impl ChainChecker for PectraForkHeader {
+    type ExtraData = BlockHashesCache;
+    type Output = Bytes32;
+
+    fn verify_chain<A: Allocator + Clone>(
+        &self,
+        current_block_number: u64,
+        verification_depth: usize,
+        oracle: &mut impl IOOracle,
+        extra_data: &Self::ExtraData,
+        allocator: A,
+    ) -> Result<Self::Output, BootloaderSubsystemError> {
+        use crate::bootloader::block_flow::ethereum_block_flow::oracle_queries::ETHEREUM_HISTORICAL_HEADER_BUFFER_DATA_QUERY_ID;
+        use crate::bootloader::block_flow::ethereum_block_flow::oracle_queries::ETHEREUM_HISTORICAL_HEADER_BUFFER_LEN_QUERY_ID;
+
+        let history_cache = extra_data;
+        assert!(verification_depth > 0);
+        assert_eq!(self.number, current_block_number);
+        assert!(current_block_number >= verification_depth as u64); // Do not want underflows anywhere beloe
+
+        let mut block_headers_hasher = <crypto::sha3::Keccak256 as crypto::MiniDigest>::new();
+        let mut initial_state_commitment = Bytes32::ZERO;
+        let mut parent_to_expect = self.parent_hash;
+
+        for depth in 0..verification_depth {
+            let block_number = current_block_number - 1 - (depth as u64);
+            // we do not expect to have any practical implementation that go across header formats,
+            // so we assert here
+            assert!(block_number >= PECTRA_EL_FORK_BLOCK_NUMBER);
+
+            use crate::bootloader::transaction::ethereum_tx_format::RLPParsable;
+
+            let buffer = oracle
+                .get_bytes_from_query(
+                    ETHEREUM_HISTORICAL_HEADER_BUFFER_LEN_QUERY_ID,
+                    ETHEREUM_HISTORICAL_HEADER_BUFFER_DATA_QUERY_ID,
+                    &(depth as u32),
+                    allocator.clone(),
+                )
+                .expect("must get buffer for historical header")
+                .expect("buffer for historical header is not empty");
+            let historical_header =
+                PectraForkHeaderReflection::try_parse_slice_in_full(buffer.as_slice())
+                    .expect("must parse historical header");
+            crypto::MiniDigest::update(&mut block_headers_hasher, buffer.as_slice());
+            let computed_header_hash: Bytes32 =
+                crypto::MiniDigest::finalize_reset(&mut block_headers_hasher).into();
+            assert_eq!(history_cache.cache_entry(depth), &computed_header_hash,);
+            assert_eq!(&parent_to_expect, &computed_header_hash);
+            if depth == 0 {
+                initial_state_commitment = Bytes32::from_array(*historical_header.state_root);
+
+                // we should check cross-blocks pricing invariants, so EIP-1559 for gas price,
+                // and check excess blob gas
+
+                // EIP-1559
+                {
+                    assert_eq!(EIP_1559_ELASTICITY_MULTIPLIER, 2);
+                    let parent_gas_limit = historical_header.gas_limit;
+                    let parent_gas_target = parent_gas_limit >> 1; // EIP_1559_ELASTICITY_MULTIPLIER == 2
+
+                    let parent_base_fee_per_gas = historical_header.base_fee_per_gas;
+                    let parent_gas_used = historical_header.gas_used;
+
+                    let slack = parent_gas_limit >> 10;
+                    assert!(self.gas_limit < parent_gas_limit + slack);
+                    assert!(self.gas_limit > parent_gas_limit - slack);
+
+                    assert!(self.gas_limit >= EIP_1559_MIN_GAS_LIMIT);
+
+                    let expected_base_fee_per_gas = if parent_gas_used == parent_gas_target {
+                        parent_base_fee_per_gas
+                    } else if parent_gas_used > parent_gas_target {
+                        let gas_used_delta = parent_gas_used - parent_gas_target;
+                        let base_fee_per_gas_delta = core::cmp::max(
+                            parent_base_fee_per_gas * gas_used_delta
+                                / parent_gas_target
+                                / EIP_1559_BASE_FEE_MAX_CHANGE_DENOMINATOR,
+                            1,
+                        );
+                        parent_base_fee_per_gas + base_fee_per_gas_delta
+                    } else {
+                        let gas_used_delta = parent_gas_target - parent_gas_used;
+                        let base_fee_per_gas_delta = parent_base_fee_per_gas * gas_used_delta
+                            / parent_gas_target
+                            / EIP_1559_BASE_FEE_MAX_CHANGE_DENOMINATOR;
+                        parent_base_fee_per_gas - base_fee_per_gas_delta
+                    };
+                    assert_eq!(expected_base_fee_per_gas, self.base_fee_per_gas);
+                }
+
+                // EIP-4844
+                {
+                    let t = historical_header.excess_blob_gas + historical_header.blob_gas_used;
+                    let excess_blob_gas = t.saturating_sub(TARGET_BLOB_GAS_PER_BLOCK);
+                    assert_eq!(self.excess_blob_gas, excess_blob_gas);
+                }
+            }
+            parent_to_expect = Bytes32::from_array(*historical_header.parent_hash);
+        }
+
+        Ok(initial_state_commitment)
+    }
+}

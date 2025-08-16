@@ -12,8 +12,6 @@ use alloc::collections::BTreeMap;
 use basic_system::system_implementation::ethereum_storage_model::BoxInterner;
 use basic_system::system_implementation::ethereum_storage_model::ByteBuffer;
 use basic_system::system_implementation::ethereum_storage_model::EthereumMPT;
-use basic_system::system_implementation::ethereum_storage_model::Interner;
-use basic_system::system_implementation::ethereum_storage_model::InterningBuffer;
 use basic_system::system_implementation::ethereum_storage_model::LazyEncodable;
 use basic_system::system_implementation::ethereum_storage_model::LazyLeafValue;
 use basic_system::system_implementation::ethereum_storage_model::LeafValue;

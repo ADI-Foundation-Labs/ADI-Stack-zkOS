@@ -1,11 +1,8 @@
 use super::*;
 use crate::bootloader::block_flow::ethereum_block_flow::block_header::PectraForkHeader;
-use crate::bootloader::block_flow::ethereum_block_flow::block_header::PectraForkHeaderReflection;
 use crate::bootloader::block_flow::ethereum_block_flow::eip_6110_deposit_events_parser::eip6110_events_parser;
 use crate::bootloader::block_flow::ethereum_block_flow::eip_7002_withdrawal_contract::eip7002_system_part;
 use crate::bootloader::block_flow::ethereum_block_flow::eip_7251_consolidation_contract::eip7251_system_part;
-use crate::bootloader::block_flow::ethereum_block_flow::oracle_queries::ETHEREUM_HISTORICAL_HEADER_BUFFER_DATA_QUERY_ID;
-use crate::bootloader::block_flow::ethereum_block_flow::oracle_queries::ETHEREUM_HISTORICAL_HEADER_BUFFER_LEN_QUERY_ID;
 use crate::bootloader::block_flow::ethereum_block_flow::withdrawals::process_withdrawals_list;
 use crate::bootloader::block_flow::ethereum_block_flow::{
     oracle_queries::{
@@ -146,45 +143,15 @@ where
         };
         let num_to_verify = core::cmp::max(num_to_verify_from_history_cache, 1);
 
-        let mut block_headers_hasher = <crypto::sha3::Keccak256 as crypto::MiniDigest>::new();
-        let mut initial_state_commitment = Bytes32::ZERO;
-        let mut parent_to_expect = metadata.block_level.header.parent_hash;
-        for depth in 0..num_to_verify {
-            use crate::bootloader::transaction::ethereum_tx_format::RLPParsable;
-
-            let buffer = io
-                .oracle()
-                .get_bytes_from_query(
-                    ETHEREUM_HISTORICAL_HEADER_BUFFER_LEN_QUERY_ID,
-                    ETHEREUM_HISTORICAL_HEADER_BUFFER_DATA_QUERY_ID,
-                    &(depth as u32),
-                    allocator.clone(),
-                )
-                .expect("must get buffer for historical header")
-                .expect("buffer for historical header is not empty");
-            let historical_header =
-                PectraForkHeaderReflection::try_parse_slice_in_full(buffer.as_slice())
-                    .expect("must parse historical header");
-            crypto::MiniDigest::update(&mut block_headers_hasher, buffer.as_slice());
-            let computed_header_hash: Bytes32 =
-                crypto::MiniDigest::finalize_reset(&mut block_headers_hasher).into();
-            assert_eq!(
-                unsafe {
-                    metadata
-                        .block_level
-                        .history_cache
-                        .as_ref_unchecked()
-                        .cache_entry(depth)
-                },
-                &computed_header_hash,
-            );
-            assert_eq!(&parent_to_expect, &computed_header_hash,);
-            if depth == 0 {
-                initial_state_commitment = Bytes32::from_array(*historical_header.state_root);
-                // TODO: check excess blobs gas and potentially EIP-1559
-            }
-            parent_to_expect = Bytes32::from_array(*historical_header.parent_hash);
-        }
+        let initial_state_commitment = ChainChecker::verify_chain(
+            &metadata.block_level.header,
+            metadata.block_level.header.number,
+            num_to_verify,
+            io.oracle(),
+            unsafe { metadata.block_level.history_cache.as_ref_unchecked() },
+            allocator.clone(),
+        )
+        .expect("chain must be consistent");
 
         // Storage
 
