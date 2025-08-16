@@ -11,6 +11,7 @@ use basic_system::system_implementation::ethereum_storage_model::{
     EMPTY_ROOT_HASH,
 };
 use ruint::aliases::B160;
+use zk_ee::memory::vec_trait::VecCtor;
 use std::alloc::Global;
 use std::collections::BTreeMap;
 use zk_ee::{
@@ -63,7 +64,7 @@ impl<M: MemorySource> OracleQueryProcessor<M> for InMemoryEthereumInitialStorage
             // make MPT...
             let mut interner = BoxInterner::with_capacity_in(1 << 26, Global);
             let mut hasher = crypto::sha3::Keccak256::new();
-            let mut accounts_mpt =
+            let mut accounts_mpt: EthereumMPT<'_, Global, VecCtor> =
                 EthereumMPT::new_in(initial_root.as_u8_array(), &mut interner, Global).unwrap();
             let Ok(encoding) =
                 accounts_mpt.get(path, &mut self.preimages_oracle, &mut interner, &mut hasher)

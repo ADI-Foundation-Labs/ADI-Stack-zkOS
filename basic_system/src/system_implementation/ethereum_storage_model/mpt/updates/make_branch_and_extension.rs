@@ -1,6 +1,8 @@
 use super::*;
 
-impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
+use cc_traits::{Len, PushBack};
+
+impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
     pub(crate) fn temporary_split_existing_as_extension_and_branch(
         &mut self,
         grand_parent: NodeType,
@@ -8,7 +10,6 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         alternative_node: NodeType,
         extension: &[u8],
         interner: &mut (impl Interner<'a> + 'a),
-        hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
     ) -> Result<(), ()> {
         if alternative_node.is_leaf() {
             self.temporary_split_leaf_into_extension_branch_leaf(
@@ -25,7 +26,6 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 alternative_node,
                 extension,
                 interner,
-                hasher,
             )
         } else {
             Err(())
@@ -39,7 +39,6 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         extension_to_split: NodeType,
         extension: &[u8],
         interner: &mut (impl Interner<'a> + 'a),
-        hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
     ) -> Result<(), ()> {
         self.remove_from_cache(&grand_parent);
         self.remove_from_cache(&extension_to_split);
@@ -53,7 +52,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         let new_branch_node = self.push_branch(new_branch);
 
         // take existing one and truncate
-        let existing_extension = &mut self.extension_nodes[extension_to_split.index()];
+        let existing_extension = &mut self.capacities.extension_nodes[extension_to_split.index()];
         debug_assert_eq!(existing_extension.parent_node, grand_parent);
 
         // there is degenerate case when we should replace extension with just another branch node
@@ -66,7 +65,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
 
                 if existing_extension.child_node.is_branch() {
                     // update parent of it
-                    self.branch_nodes[existing_extension.child_node.index()].parent_node =
+                    self.capacities.branch_nodes[existing_extension.child_node.index()].parent_node =
                         new_branch_node;
                     (existing_extension.child_node, branch_index)
                 } else if existing_extension.child_node.is_unlinked() {
@@ -80,10 +79,11 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                             envelope: existing_extension.next_node_key,
                         },
                     };
+                    // NOTE: borrowcheck
                     let new_unreferenced_value_node = NodeType::unreferenced_value_in_branch(
-                        self.branch_unreferenced_values.len(),
+                        self.capacities.branch_unreferenced_values.len(),
                     );
-                    self.branch_unreferenced_values.push(new_unreferenced_value);
+                    self.capacities.branch_unreferenced_values.push_back(new_unreferenced_value);
                     // put it into cache - it's single exceptional case
                     self.keys_cache.insert(
                         new_unreferenced_value_node,
@@ -107,19 +107,19 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 (extension_to_split, branch_index)
             };
 
-        let new_branch_to_update = &mut self.branch_nodes[new_branch_node.index()];
+        let new_branch_to_update = &mut self.capacities.branch_nodes[new_branch_node.index()];
         new_branch_to_update.child_nodes[branch_index] = value_to_place_into_new_branch_node;
 
         if extension.len() == 0 {
-            self.branch_nodes[new_branch_node.index()].parent_node = grand_parent;
+            self.capacities.branch_nodes[new_branch_node.index()].parent_node = grand_parent;
             if grand_parent.is_extension() {
                 debug_assert_eq!(grand_parent_branch_index, 0);
-                let grand_parent_extension = &mut self.extension_nodes[grand_parent.index()];
+                let grand_parent_extension = &mut self.capacities.extension_nodes[grand_parent.index()];
                 grand_parent_extension.child_node = new_branch_node;
             }
             if grand_parent.is_branch() {
                 // link
-                let grand_parent_branch = &mut self.branch_nodes[grand_parent.index()];
+                let grand_parent_branch = &mut self.capacities.branch_nodes[grand_parent.index()];
                 grand_parent_branch.child_nodes[grand_parent_branch_index] = new_branch_node;
             } else if grand_parent.is_empty() {
                 // mark new root
@@ -139,10 +139,10 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 next_node_key: RLPSlice::empty(),
             };
             let new_extension_node = self.push_extension(new_extension);
-            self.branch_nodes[new_branch_node.index()].parent_node = new_extension_node;
+            self.capacities.branch_nodes[new_branch_node.index()].parent_node = new_extension_node;
             if grand_parent.is_branch() {
                 // link
-                let grand_parent_branch = &mut self.branch_nodes[grand_parent.index()];
+                let grand_parent_branch = &mut self.capacities.branch_nodes[grand_parent.index()];
                 debug_assert!(
                     grand_parent_branch.child_nodes[grand_parent_branch_index].is_empty() == false
                 );
@@ -179,7 +179,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         let new_branch_node = self.push_branch(new_branch);
 
         // take existing one and truncate
-        let existing_leaf = &mut self.leaf_nodes[leaf_to_split.index()];
+        let existing_leaf = &mut self.capacities.leaf_nodes[leaf_to_split.index()];
         debug_assert_eq!(existing_leaf.parent_node, grand_parent);
 
         // there are two case:
@@ -195,9 +195,10 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                     branch_index,
                     value: existing_leaf.value.take_value(),
                 };
+                // NOTE: borrowcheck
                 let new_terminal_node =
-                    NodeType::terminal_value_in_branch(self.branch_terminal_values.len());
-                self.branch_terminal_values.push(new_terminal_value);
+                    NodeType::terminal_value_in_branch(self.capacities.branch_terminal_values.len());
+                self.capacities.branch_terminal_values.push_back(new_terminal_value);
 
                 (new_terminal_node, branch_index)
             } else {
@@ -210,20 +211,20 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 (leaf_to_split, branch_index)
             };
 
-        let new_branch_to_update = &mut self.branch_nodes[new_branch_node.index()];
+        let new_branch_to_update = &mut self.capacities.branch_nodes[new_branch_node.index()];
         new_branch_to_update.child_nodes[branch_index] = value_to_place_into_new_branch_node;
 
         if extension.len() == 0 {
             // attach newly created branch to grand parent
-            self.branch_nodes[new_branch_node.index()].parent_node = grand_parent;
+            self.capacities.branch_nodes[new_branch_node.index()].parent_node = grand_parent;
             if grand_parent.is_extension() {
                 debug_assert_eq!(grand_parent_branch_index, 0);
-                let grand_parent_extension = &mut self.extension_nodes[grand_parent.index()];
+                let grand_parent_extension = &mut self.capacities.extension_nodes[grand_parent.index()];
                 grand_parent_extension.child_node = new_branch_node;
             }
             if grand_parent.is_branch() {
                 // link
-                let grand_parent_branch = &mut self.branch_nodes[grand_parent.index()];
+                let grand_parent_branch = &mut self.capacities.branch_nodes[grand_parent.index()];
                 grand_parent_branch.child_nodes[grand_parent_branch_index] = new_branch_node;
             } else if grand_parent.is_empty() {
                 // mark new root
@@ -243,10 +244,10 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 next_node_key: RLPSlice::empty(),
             };
             let new_extension_node = self.push_extension(new_extension);
-            self.branch_nodes[new_branch_node.index()].parent_node = new_extension_node;
+            self.capacities.branch_nodes[new_branch_node.index()].parent_node = new_extension_node;
             if grand_parent.is_branch() {
                 // link
-                let grand_parent_branch = &mut self.branch_nodes[grand_parent.index()];
+                let grand_parent_branch = &mut self.capacities.branch_nodes[grand_parent.index()];
                 debug_assert!(
                     grand_parent_branch.child_nodes[grand_parent_branch_index].is_empty() == false
                 );

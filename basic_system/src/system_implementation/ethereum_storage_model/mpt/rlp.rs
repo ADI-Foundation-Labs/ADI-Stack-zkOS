@@ -1,5 +1,30 @@
 use super::*;
 
+pub(crate) fn rlp_parse_short_bytes<'a>(src: &'a [u8]) -> Result<&'a [u8], ()> {
+    let mut data = src;
+    let b0 = consume(&mut data, 1)?;
+    let bb0 = b0[0];
+    if bb0 >= 0xc0 {
+        // it can not be a list
+        return Err(());
+    }
+    if bb0 < 0x80 {
+        if src.len() != 1 {
+            return Err(());
+        }
+        Ok(src)
+    } else if bb0 < 0xb8 {
+        let expected_len = (bb0 - 0x80) as usize;
+        if data.len() != expected_len {
+            return Err(());
+        }
+        Ok(data)
+    } else {
+        Err(())
+    }
+}
+
+
 pub(crate) fn slice_encoding_len(slice: &[u8]) -> usize {
     if slice.len() == 0 {
         1

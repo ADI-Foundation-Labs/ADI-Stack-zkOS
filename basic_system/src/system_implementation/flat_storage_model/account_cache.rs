@@ -440,6 +440,7 @@ impl<
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
         is_access_list: bool,
+        _observe: bool,
     ) -> Result<(), SystemError> {
         self.materialize_element::<PROOF_ENV>(
             ee_type,

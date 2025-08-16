@@ -376,6 +376,7 @@ pub trait IOSubsystemExt: IOSubsystem {
         resources: &mut Self::Resources,
         address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         is_access_list: bool,
+        observe: bool,
     ) -> Result<(), SystemError>;
 
     /// Generic function to read some of an account's properties

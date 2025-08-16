@@ -1,5 +1,6 @@
 use super::*;
 use basic_bootloader::bootloader::block_flow::ethereum_block_flow::*;
+use zk_ee::memory::vec_trait::VecCtor;
 
 pub struct EthereumStorageSystemTypes<O>(O);
 
@@ -28,6 +29,7 @@ impl<O: IOOracle> SystemTypes for EthereumStorageSystemTypes<O> {
     type Allocator = Global;
     type Logger = Logger;
     type Metadata = EthereumBlockMetadata;
+    type VecLikeCtor = VecCtor;
 }
 
 impl<O: IOOracle> EthereumLikeTypes for EthereumStorageSystemTypes<O> {}
@@ -71,6 +73,7 @@ impl<O: IOOracle> SystemTypes for EthereumStorageSystemTypesWithPostOps<O> {
     type Allocator = Global;
     type Logger = Logger;
     type Metadata = EthereumBlockMetadata;
+    type VecLikeCtor = VecCtor;
 }
 
 impl<O: IOOracle> EthereumLikeTypes for EthereumStorageSystemTypesWithPostOps<O> {}

@@ -15,8 +15,9 @@ use basic_system::system_implementation::ethereum_storage_model::EthereumMPT;
 use basic_system::system_implementation::ethereum_storage_model::LazyEncodable;
 use basic_system::system_implementation::ethereum_storage_model::LazyLeafValue;
 use basic_system::system_implementation::ethereum_storage_model::LeafValue;
+use basic_system::system_implementation::ethereum_storage_model::MPTInternalCapacities;
 use basic_system::system_implementation::ethereum_storage_model::Path;
-use basic_system::system_implementation::ethereum_storage_model::EMPTY_ROOT_HASH;
+use zk_ee::memory::vec_trait::VecLikeCtor;
 use core::alloc::Allocator;
 use core::fmt::Write;
 use crypto::MiniDigest;
@@ -93,7 +94,7 @@ impl<A: Allocator + Clone, B: Allocator> EthereumBasicTransactionDataKeeper<A, B
         }
     }
 
-    pub fn compute_header_values<S: EthereumLikeTypes>(
+    pub fn compute_header_values<S: EthereumLikeTypes, VC: VecLikeCtor>(
         self,
         system: &System<S>,
     ) -> EthereumBasicTransactionDataKeeperHeaderValues
@@ -103,30 +104,17 @@ impl<A: Allocator + Clone, B: Allocator> EthereumBasicTransactionDataKeeper<A, B
         use zk_ee::memory::stack_trait::Stack;
 
         let Self {
-            current_transaction_number: _,
+            current_transaction_number,
             block_gas_used,
             per_tx_data,
             executed_transactions,
         } = self;
 
-        // we need to get data from system to compute receipt root. We also have enough to compute transaction root
-        let mut interner = BoxInterner::with_capacity_in(1 << 25, system.get_allocator());
-        let mut receipts_mpt = EthereumMPT::new_in(
-            EMPTY_ROOT_HASH.as_u8_array(),
-            &mut interner,
-            system.get_allocator(),
-        )
-        .expect("must create new MPT");
-        let mut transactions_mpt = EthereumMPT::new_in(
-            EMPTY_ROOT_HASH.as_u8_array(),
-            &mut interner,
-            system.get_allocator(),
-        )
-        .expect("must create new MPT");
+        let allocator = system.get_allocator();
         let mut hasher = crypto::sha3::Keccak256::new();
         let mut block_bloom = LogsBloom::default();
 
-        let mut tmp_map = BTreeMap::new_in(system.get_allocator());
+        let mut tmp_map = BTreeMap::new_in(allocator.clone());
 
         // NOTE: we do not expect insanely large integers here, so any integer would fit into 4 bytes buffer;
 
@@ -171,6 +159,25 @@ impl<A: Allocator + Clone, B: Allocator> EthereumBasicTransactionDataKeeper<A, B
             );
         }
         assert_eq!(all_events_it.len(), 0);
+
+        // we need to get data from system to compute receipt root. We also have enough to compute transaction root
+        let mut interner = BoxInterner::with_capacity_in(1 << 20, allocator.clone());
+        let receipts_mpt_capacity = MPTInternalCapacities::<S::Allocator, VC>::with_capacity_in(
+            current_transaction_number as usize,
+            allocator.clone()
+        );
+        let mut receipts_mpt = EthereumMPT::empty_with_preallocated_capacities(
+            receipts_mpt_capacity,
+            allocator.clone(),
+        );
+        let transactions_mpt_capacity = MPTInternalCapacities::<S::Allocator, VC>::with_capacity_in(
+            current_transaction_number as usize,
+            allocator.clone(),
+        );
+        let mut transactions_mpt = EthereumMPT::empty_with_preallocated_capacities(
+            transactions_mpt_capacity,
+            allocator.clone(),
+        );
 
         for (_, ((key, len), receipt, tx)) in tmp_map.iter() {
             let digits = short_digits_from_key(&*key);

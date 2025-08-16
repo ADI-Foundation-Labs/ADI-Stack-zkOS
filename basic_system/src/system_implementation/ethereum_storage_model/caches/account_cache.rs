@@ -94,6 +94,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         oracle: &mut impl IOOracle,
         is_selfdestruct: bool,
         is_access_list: bool,
+        observe: bool,
     ) -> Result<AddressItem<'_, A>, SystemError> {
         let ergs = match ee_type {
             ExecutionEnvironmentType::NoEE => {
@@ -182,14 +183,24 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                             }
                         }
                     }
-
-                    x.update(|cache_record| {
-                        cache_record.update_metadata(|m| {
-                            m.last_touched_in_tx = Some(self.current_tx_number);
-                            Ok(())
-                        })
-                    })?;
                 }
+                x.update(|cache_record| {
+                    if observe {
+                        cache_record.observe();
+                    } else {
+                        cache_record.touch();
+                    }
+                    cache_record.update_metadata(|m| {
+                        if is_warm == false {
+                            m.last_touched_in_tx = Some(self.current_tx_number);
+                        }
+                        Ok(())
+                    })
+                })?;
+
+                debug_assert!(matches!(x.initial().appearance(), Appearance::Unset | Appearance::Retrieved));
+                debug_assert!(matches!(x.current().appearance(), Appearance::Touched | Appearance::Observed | Appearance::Updated | Appearance::Deconstructed));
+
                 Ok(x)
             })
     }
@@ -209,6 +220,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             address,
             oracle,
             is_selfdestruct,
+            false,
             false,
         )?;
 
@@ -327,6 +339,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         address: &B160,
         oracle: &mut impl IOOracle,
         is_access_list: bool,
+        observe: bool,
     ) -> Result<(), SystemError> {
         self.materialize_element::<PROOF_ENV>(
             ee_type,
@@ -335,6 +348,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             oracle,
             false,
             is_access_list,
+            observe,
         )?;
         Ok(())
     }
@@ -391,7 +405,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         SystemError,
     > {
         let account_data = self
-            .materialize_element::<PROOF_ENV>(ee_type, resources, address, oracle, false, false)?;
+            .materialize_element::<PROOF_ENV>(ee_type, resources, address, oracle, false, false, true)?;
 
         let full_data = account_data.current().value();
 
@@ -401,13 +415,15 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         // once or not), so if we do not access it ever we will not need to pollute preimages cache
 
         let bytecode_hash_is_zero = full_data.bytecode_hash.is_zero();
+        let initial_appearance = account_data.initial().appearance();
         let current_appearance = account_data.current().appearance();
 
         // NOTE: deconstruction happens at the end of the TX, so even deconstructed accounts would NOT
         // respond with empty bytecode (well, WTF)
         let bytecode = {
-            if current_appearance == Appearance::Unset {
-                // NOTE: Unset means that initial oracle query responded with 0 bytecode hash
+            if bytecode_hash_is_zero {
+                debug_assert!(initial_appearance == Appearance::Unset);
+
                 let res: &'static [u8] = &[];
 
                 res
@@ -430,8 +446,8 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             }
         };
 
-        let bytecode_hash = if current_appearance == Appearance::Unset {
-            // we will not bother to re-adjust it in other update functions, but will return depending on the appearance
+        let bytecode_hash = if initial_appearance == Appearance::Unset && (current_appearance == Appearance::Touched || current_appearance == Appearance::Observed || current_appearance == Appearance::Deconstructed) {
+            // initially empty, or deconstructed
             Bytes32::ZERO
         } else if bytecode_hash_is_zero {
             // but appearance is not unset/deconstructed, so it is existing, but no-code account
@@ -472,7 +488,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         oracle: &mut impl IOOracle,
     ) -> Result<u64, NonceSubsystemError> {
         let mut account_data = self
-            .materialize_element::<PROOF_ENV>(ee_type, resources, address, oracle, false, false)?;
+            .materialize_element::<PROOF_ENV>(ee_type, resources, address, oracle, false, false, false)?;
 
         resources.charge(&R::from_native(R::Native::from_computational(
             WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
@@ -574,6 +590,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                 oracle,
                 false,
                 false,
+                false,
             )
         })?;
 
@@ -628,7 +645,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
     ) -> Result<(), DeconstructionSubsystemError> {
         let cur_tx = self.current_tx_number;
         let mut account_data = self.materialize_element::<PROOF_ENV>(
-            from_ee, resources, at_address, oracle, true, false,
+            from_ee, resources, at_address, oracle, true, false, false,
         )?;
         resources.charge(&R::from_native(R::Native::from_computational(
             WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
@@ -715,6 +732,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                 inf_resources,
                 at_address,
                 oracle,
+                false,
                 false,
                 false,
             )

@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
+impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
     pub(crate) fn delete_leaf_node(
         &mut self,
         node: NodeType,
@@ -13,7 +13,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         self.remove_from_cache(&node);
 
         path.seek_to_end();
-        let existing_leaf = &self.leaf_nodes[node.index()];
+        let existing_leaf = &self.capacities.leaf_nodes[node.index()];
         path.ascend(&existing_leaf.path_segment);
         let remaining_prefix = path.prefix();
 

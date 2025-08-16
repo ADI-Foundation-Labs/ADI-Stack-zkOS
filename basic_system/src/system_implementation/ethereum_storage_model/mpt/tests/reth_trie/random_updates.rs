@@ -39,7 +39,7 @@ fn test_versus_randmomized_reth_trie_ordered(size: usize) {
         let mut interner = BoxInterner::with_capacity_in(1 << 26, Global);
         use crypto::MiniDigest;
         let mut hasher = crypto::sha3::Keccak256::new();
-        let mut trie =
+        let mut trie: EthereumMPT<'_, Global, VecCtor> =
             EthereumMPT::new_in(EMPTY_ROOT_HASH.as_u8_array(), &mut interner, Global).unwrap();
         let mut preimages_oracle = BTreeMap::new();
 
@@ -69,7 +69,7 @@ fn test_versus_randmomized_reth_trie_ordered(size: usize) {
         let mut interner = BoxInterner::with_capacity_in(1 << 26, Global);
         use crypto::MiniDigest;
         let mut hasher = crypto::sha3::Keccak256::new();
-        let mut trie =
+        let mut trie: EthereumMPT<'_, Global, VecCtor> =
             EthereumMPT::new_in(EMPTY_ROOT_HASH.as_u8_array(), &mut interner, Global).unwrap();
         let mut preimages_oracle = BTreeMap::new();
 
@@ -99,7 +99,7 @@ fn test_versus_randmomized_reth_trie_ordered(size: usize) {
     let mut interner = BoxInterner::with_capacity_in(1 << 26, Global);
     use crypto::MiniDigest;
     let mut hasher = crypto::sha3::Keccak256::new();
-    let mut trie =
+    let mut trie: EthereumMPT<'_, Global, VecCtor> =
         EthereumMPT::new_in(EMPTY_ROOT_HASH.as_u8_array(), &mut interner, Global).unwrap();
     let mut preimages_oracle = BTreeMap::new();
 
@@ -147,7 +147,7 @@ fn test_versus_randmomized_reth_trie_ordered(size: usize) {
                     .unwrap();
             } else if v_i != v_f {
                 // println!("Update {}", hex::encode(k_i));
-                trie.update(path, &pre_encoded_value, &mut interner, &mut hasher)
+                trie.update(path, &pre_encoded_value, &mut interner)
                     .unwrap();
             }
         } else {

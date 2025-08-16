@@ -239,6 +239,7 @@ impl<
         address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         oracle: &mut impl IOOracle,
         is_access_list: bool,
+        observe: bool,
     ) -> Result<(), SystemError> {
         self.account_data_cache.touch_account::<PROOF_ENV>(
             ee_type,
@@ -248,6 +249,7 @@ impl<
             &mut self.preimages_cache,
             oracle,
             is_access_list,
+            observe,
         )
     }
 

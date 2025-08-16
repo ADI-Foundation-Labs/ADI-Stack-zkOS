@@ -504,6 +504,7 @@ impl<
         resources: &mut Self::Resources,
         address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         is_access_list: bool,
+        observe: bool,
     ) -> Result<(), SystemError> {
         self.storage.touch_account(
             ee_type,
@@ -511,6 +512,7 @@ impl<
             address,
             &mut self.oracle,
             is_access_list,
+            observe,
         )
     }
 

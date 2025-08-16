@@ -7,7 +7,7 @@ use basic_system::system_implementation::ethereum_storage_model::BoxInterner;
 use basic_system::system_implementation::ethereum_storage_model::EthereumMPT;
 use basic_system::system_implementation::ethereum_storage_model::LeafValue;
 use basic_system::system_implementation::ethereum_storage_model::Path;
-use basic_system::system_implementation::ethereum_storage_model::EMPTY_ROOT_HASH;
+use zk_ee::memory::vec_trait::VecLikeCtor;
 use core::fmt::Write;
 use crypto::MiniDigest;
 use ruint::aliases::B160;
@@ -56,21 +56,28 @@ impl<'a> RLPParsable<'a> for WithdrawalRequest<'a> {
     }
 }
 
-pub(crate) fn process_withdrawals_list<'a, S: EthereumLikeTypes>(
+pub(crate) fn process_withdrawals_list<'a, S: EthereumLikeTypes, VC: VecLikeCtor>(
     system: &mut System<S>,
     list: WithdrawalsList<'a>,
 ) -> Result<Bytes32, InternalError>
 where
     S::IO: IOSubsystemExt,
 {
-    let mut interner = BoxInterner::with_capacity_in(1 << 25, system.get_allocator());
+    use basic_system::system_implementation::ethereum_storage_model::MPTInternalCapacities;
+    let num_items = list.count.expect("must be prevalidated and have a count");
+
+    let allocator = system.get_allocator();
+    let mut interner = BoxInterner::with_capacity_in(1 << 20, allocator.clone());
     let mut hasher = crypto::sha3::Keccak256::new();
-    let mut mpt = EthereumMPT::new_in(
-        EMPTY_ROOT_HASH.as_u8_array(),
-        &mut interner,
-        system.get_allocator(),
-    )
-    .expect("must create new MPT");
+    let mpt_capacity = MPTInternalCapacities::<S::Allocator, VC>::with_capacity_in(
+        num_items,
+        allocator.clone()
+    );
+    let mut mpt = EthereumMPT::empty_with_preallocated_capacities(
+        mpt_capacity,
+        allocator.clone(),
+    );
+
     let mut resources = S::Resources::from_native(
         <S::Resources as Resources>::Native::from_computational(u64::MAX),
     );

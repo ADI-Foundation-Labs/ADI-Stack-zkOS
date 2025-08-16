@@ -7,11 +7,17 @@ use core::fmt::Debug;
 /// Encodes state of cache element
 pub enum Appearance {
     #[default]
-    /// Represent uninitialized IO element
+    /// Represent uninitialized element - it doesn't exist in persistent form, so it it would be modified
+    /// into non-trivial state, then it would need to be persisted as "insert"
     Unset,
     /// Populated with some preexisted value
     Retrieved,
-    /// Cache value changed compared to initial value
+    /// Represent kind-of uninitialized element - it may or may not exist in persistent form, but it was "declared"
+    /// to be in cache for some reason, but was not yet read (observed)
+    Touched,
+    /// Represent the value that was "observed", but maybe was not modified
+    Observed,
+    /// Cache value was potentially changed compared to initial value
     Updated,
     /// Used for destructed accounts
     Deconstructed,
@@ -78,6 +84,22 @@ impl<V, M> CacheRecord<V, M> {
     /// Sets appearance to unset. The value itself remains untouched.
     pub fn unset(&mut self) {
         self.appearance = Appearance::Unset;
+    }
+
+    /// Sets appearance to "touched" to distinguish from elements that were "observed" via explicit read
+    /// or update. If it was observed before - does nothing
+    pub fn touch(&mut self) {
+        if self.appearance == Appearance::Unset || self.appearance == Appearance::Retrieved {
+            self.appearance = Appearance::Touched;
+        };
+    }
+
+    /// Sets appearance to "observed" to distinguish from elements that were "observed" via explicit read
+    /// or update. If it was observed before - does nothing
+    pub fn observe(&mut self) {
+        if self.appearance == Appearance::Unset || self.appearance == Appearance::Retrieved {
+            self.appearance = Appearance::Observed;
+        };
     }
 }
 

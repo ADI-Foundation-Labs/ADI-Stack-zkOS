@@ -113,6 +113,7 @@ pub trait StorageModel: Sized + SnapshottableIo {
         address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         oracle: &mut impl IOOracle,
         is_access_list: bool,
+        observe: bool,
     ) -> Result<(), SystemError>;
 
     fn increment_nonce(

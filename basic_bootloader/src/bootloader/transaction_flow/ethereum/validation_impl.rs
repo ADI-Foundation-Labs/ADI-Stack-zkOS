@@ -129,7 +129,7 @@ where
         resources.with_infinite_ergs(|resources| {
             system
                 .io
-                .touch_account(ExecutionEnvironmentType::NoEE, resources, &address, true)
+                .touch_account(ExecutionEnvironmentType::NoEE, resources, &address, true, true)
         })?;
         for slot in slots_list.iter() {
             // per-slot charge

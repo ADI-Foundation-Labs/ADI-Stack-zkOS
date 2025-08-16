@@ -66,7 +66,7 @@ where
                     panic!("Withdrawals list was parsed without validation");
                 };
                 if count > 0 {
-                    process_withdrawals_list(&mut system, withdrawals_list)
+                    process_withdrawals_list::<S, S::VecLikeCtor>(&mut system, withdrawals_list)
                         .expect("must process withdrawals list")
                 } else {
                     EMPTY_ROOT_HASH
@@ -96,7 +96,7 @@ where
             .get_logger()
             .write_fmt(format_args!("Requests hash = {:?}\n", &requests_hash,));
 
-        let block_data_results = block_data.compute_header_values(&system);
+        let block_data_results = block_data.compute_header_values::<S, S::VecLikeCtor>(&system);
 
         // Here we have to cascade everything
 

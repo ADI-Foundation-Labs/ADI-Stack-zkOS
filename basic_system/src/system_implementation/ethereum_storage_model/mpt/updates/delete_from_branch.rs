@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
+impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
     pub(crate) fn delete_from_branch_node(
         &mut self,
         branch_node: NodeType,
@@ -13,7 +13,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
 
         // here it's a little convoluted, as we may trigger cascading changed
         let branch_index = path.ascend_branch()?;
-        let existing_branch = &mut self.branch_nodes[branch_node.index()];
+        let existing_branch = &mut self.capacities.branch_nodes[branch_node.index()];
         debug_assert!(existing_branch.num_occupied() >= 2);
         existing_branch.child_nodes[branch_index] = NodeType::empty();
 
@@ -47,7 +47,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 };
                 // we have to allocate the next one and decide
                 let LeafValue::RLPEnveloped { envelope: key } =
-                    self.branch_unreferenced_values[surviving_node.index()].value
+                    self.capacities.branch_unreferenced_values[surviving_node.index()].value
                 else {
                     panic!("unreferenced opaque nodes area only envelopes");
                 };
@@ -111,7 +111,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 let (grand_parent, extension, grand_parent_branch_index) = if parent.is_extension()
                 {
                     // we need to glue them
-                    let existing_extension = self.extension_nodes[parent.index()];
+                    let existing_extension = self.capacities.extension_nodes[parent.index()];
                     debug_assert_eq!(existing_extension.child_node, branch_node);
                     path.ascend(existing_extension.path_segment);
                     let grand_parent_branch_index = path.ascend_branch()?;
@@ -143,7 +143,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
                 let (grand_parent, extension, grand_parent_branch_index) = if parent.is_extension()
                 {
                     // we need to glue them
-                    let existing_extension = self.extension_nodes[parent.index()];
+                    let existing_extension = self.capacities.extension_nodes[parent.index()];
                     debug_assert_eq!(existing_extension.child_node, branch_node);
                     path.ascend(existing_extension.path_segment);
                     let grand_parent_branch_index = path.ascend_branch()?;
@@ -192,13 +192,13 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         self.remove_from_cache(&existing_leaf_node);
         self.remove_from_cache(&upper_branch_node);
 
-        let existing_leaf = &self.leaf_nodes[existing_leaf_node.index()];
+        let existing_leaf = &self.capacities.leaf_nodes[existing_leaf_node.index()];
         let existing_path_segment = existing_leaf.path_segment;
         let mut new_path_buffer = interner.get_buffer(existing_path_segment.len() + 1)?;
         new_path_buffer.write_byte(branch_index as u8);
         new_path_buffer.write_slice(existing_path_segment);
         let path_segment = new_path_buffer.flush();
-        let value = self.leaf_nodes[existing_leaf_node.index()]
+        let value = self.capacities.leaf_nodes[existing_leaf_node.index()]
             .value
             .take_value();
         let leaf_node = LeafNode {
@@ -210,7 +210,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         let new_leaf_node = self.push_leaf(leaf_node);
 
         let parent_branch_index = path.ascend_branch()?;
-        let parent_branch = &mut self.branch_nodes[upper_branch_node.index()];
+        let parent_branch = &mut self.capacities.branch_nodes[upper_branch_node.index()];
         debug_assert_eq!(
             parent_branch.child_nodes[parent_branch_index],
             removed_branch_node
@@ -233,9 +233,9 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         self.remove_from_cache(&upper_extension_node);
 
         // glue paths together
-        let existing_leaf = &self.leaf_nodes[existing_leaf_node.index()];
+        let existing_leaf = &self.capacities.leaf_nodes[existing_leaf_node.index()];
         let existing_path_segment = existing_leaf.path_segment;
-        let parent_extension = self.extension_nodes[upper_extension_node.index()];
+        let parent_extension = self.capacities.extension_nodes[upper_extension_node.index()];
         debug_assert_eq!(parent_extension.child_node, removed_branch_node);
 
         let mut new_path_buffer = interner
@@ -245,7 +245,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         new_path_buffer.write_slice(existing_path_segment);
         let path_segment = new_path_buffer.flush();
 
-        let value = self.leaf_nodes[existing_leaf_node.index()]
+        let value = self.capacities.leaf_nodes[existing_leaf_node.index()]
             .value
             .take_value();
 
@@ -269,7 +269,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
             Ok(())
         } else if grand_parent.is_branch() {
             let grand_parent_branch_index = path.ascend_branch()?;
-            let grand_parent_branch = &mut self.branch_nodes[grand_parent.index()];
+            let grand_parent_branch = &mut self.capacities.branch_nodes[grand_parent.index()];
             debug_assert_eq!(
                 grand_parent_branch.child_nodes[grand_parent_branch_index],
                 upper_extension_node
@@ -310,10 +310,10 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
             next_node_key: RLPSlice::empty(),
         };
         let extension_node = self.push_extension(extension);
-        self.branch_nodes[existing_branch.index()].parent_node = extension_node;
+        self.capacities.branch_nodes[existing_branch.index()].parent_node = extension_node;
 
         if grand_parent.is_branch() {
-            self.branch_nodes[grand_parent.index()].child_nodes[grand_parent_branch_index] =
+            self.capacities.branch_nodes[grand_parent.index()].child_nodes[grand_parent_branch_index] =
                 extension_node;
 
             Ok(())
@@ -342,7 +342,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
 
         // we extend existing extension's path segment "up"
 
-        let existing_extension = &mut self.extension_nodes[existing_extension_node.index()];
+        let existing_extension = &mut self.capacities.extension_nodes[existing_extension_node.index()];
 
         // first create an extension
         let mut buffer =
@@ -357,7 +357,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         existing_extension.raw_nibbles_encoding = &[];
 
         if grand_parent.is_branch() {
-            self.branch_nodes[grand_parent.index()].child_nodes[grand_parent_branch_index] =
+            self.capacities.branch_nodes[grand_parent.index()].child_nodes[grand_parent_branch_index] =
                 existing_extension_node;
 
             Ok(())

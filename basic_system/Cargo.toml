@@ -21,7 +21,7 @@ system_hooks = { path = "../system_hooks", default-features = false }
 modexp = { path = "../supporting_crates/modexp" }
 cycle_marker = { path = "../cycle_marker" }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-
+cc-traits = { path = "../supporting_crates/cc-traits/", default-features = false, features = ["allocator_api"] }
 cfg-if = "1.0.0"
 const_for = "0.1.5"
 

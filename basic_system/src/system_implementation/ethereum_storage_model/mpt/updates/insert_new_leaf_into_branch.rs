@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
+impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
     pub(crate) fn insert_new_leaf_into_existing_branch(
         &mut self,
         branch_node: NodeType,
@@ -20,7 +20,7 @@ impl<'a, A: Allocator + Clone> EthereumMPT<'a, A> {
         };
         let node = self.push_leaf(leaf_node);
 
-        let parent_branch = &mut self.branch_nodes[branch_node.index()];
+        let parent_branch = &mut self.capacities.branch_nodes[branch_node.index()];
         debug_assert!(parent_branch.child_nodes[branch_index].is_empty());
         parent_branch.child_nodes[branch_index] = node;
 

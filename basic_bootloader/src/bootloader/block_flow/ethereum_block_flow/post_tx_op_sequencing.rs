@@ -66,7 +66,7 @@ where
                     panic!("Withdrawals list was parsed without validation");
                 };
                 if count > 0 {
-                    process_withdrawals_list(&mut system, withdrawals_list)
+                    process_withdrawals_list::<S, S::VecLikeCtor>(&mut system, withdrawals_list)
                         .expect("must process withdrawals list")
                 } else {
                     EMPTY_ROOT_HASH

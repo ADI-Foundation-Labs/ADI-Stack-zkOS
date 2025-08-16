@@ -422,7 +422,7 @@ impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
             }));
         }
 
-        if self.callstack_height > 1024 {
+        if self.callstack_height > MAX_GLOBAL_CALLS_STACK_DEPTH {
             return Ok(Some(CallResult::Failed {
                 return_values: ReturnValues::empty(),
             }));
@@ -626,7 +626,7 @@ impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
             resources_for_deployer = S::Resources::empty();
         }
 
-        if self.callstack_height > 1024 {
+        if self.callstack_height > MAX_GLOBAL_CALLS_STACK_DEPTH {
             resources_for_deployer.reclaim(launch_params.external_call.available_resources);
             return Ok(CompletedDeployment {
                 resources_returned: resources_for_deployer,

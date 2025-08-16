@@ -31,11 +31,12 @@ where
             let mut inf_resources = S::Resources::FORMAL_INFINITE;
             system
                 .io
-                .read_account_properties(
+                .touch_account(
                     ExecutionEnvironmentType::NoEE,
                     &mut inf_resources,
                     &system.get_coinbase(),
-                    AccountDataRequest::empty(),
+                    false,
+                    true,
                 )
                 .expect("must heat coinbase");
         }
@@ -46,11 +47,12 @@ where
                 let mut inf_resources = S::Resources::FORMAL_INFINITE;
                 system
                     .io
-                    .read_account_properties(
+                    .touch_account(
                         ExecutionEnvironmentType::NoEE,
                         &mut inf_resources,
                         &address,
-                        AccountDataRequest::empty(),
+                        false,
+                        false,
                     )
                     .expect("must warm up precompile");
             }

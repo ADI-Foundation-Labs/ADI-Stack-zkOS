@@ -11,6 +11,7 @@ use basic_system::system_implementation::system::{
 };
 use stack_trait::StackCtor;
 use zk_ee::memory::skip_list_quasi_vec::ListVec;
+use zk_ee::memory::vec_trait::BiVecCtor;
 use zk_ee::memory::*;
 use zk_ee::reference_implementations::BaseResources;
 use zk_ee::system::metadata::Metadata;
@@ -59,6 +60,7 @@ impl<O: IOOracle, L: Logger + Default> SystemTypes for ProofRunningSystemTypes<O
     type Allocator = BootloaderAllocator;
     type Logger = L;
     type Metadata = Metadata;
+    type VecLikeCtor = BiVecCtor;
 }
 
 impl<O: IOOracle, L: Logger + Default> EthereumLikeTypes for ProofRunningSystemTypes<O, L> {}

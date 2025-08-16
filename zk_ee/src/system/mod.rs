@@ -33,6 +33,7 @@ use self::{
     errors::{internal::InternalError, system::SystemError},
     logger::Logger,
 };
+use crate::memory::vec_trait::VecLikeCtor;
 use crate::metadata_markers::basic_metadata::BasicBlockMetadata;
 use crate::metadata_markers::basic_metadata::BasicMetadata;
 use crate::metadata_markers::basic_metadata::BasicTransactionMetadata;
@@ -64,6 +65,7 @@ pub trait SystemTypes: 'static {
     type Resources: Resources + Default;
     type Allocator: Allocator + Clone + Default;
     type Metadata: BasicMetadata<Self::IOTypes>;
+    type VecLikeCtor: VecLikeCtor;
 }
 pub trait EthereumLikeTypes: SystemTypes<IOTypes = EthereumIOTypesConfig> {}
 

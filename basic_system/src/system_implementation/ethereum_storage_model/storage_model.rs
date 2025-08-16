@@ -206,6 +206,7 @@ impl<
         address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         oracle: &mut impl IOOracle,
         is_access_list: bool,
+        observe: bool,
     ) -> Result<(), SystemError> {
         self.account_cache.touch_account::<PROOF_ENV>(
             ee_type,
@@ -213,6 +214,7 @@ impl<
             address,
             oracle,
             is_access_list,
+            observe,
         )
     }
 
@@ -452,10 +454,12 @@ impl<
         result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
     ) {
         if let Some(state_commitment) = state_commitment {
+            use zk_ee::memory::vec_trait::BiVecCtor;
+
             let mut persister = EthereumStoragePersister;
             let initial_commitment = *state_commitment;
             *state_commitment = persister
-                .persist_changes(
+                .persist_changes::<_, _, _, _, _, BiVecCtor>(
                     &mut self.account_cache,
                     &self.storage_cache,
                     &initial_commitment,

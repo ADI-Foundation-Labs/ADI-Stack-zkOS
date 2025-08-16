@@ -9,6 +9,7 @@ use basic_system::system_implementation::flat_storage_model::FlatTreeWithAccount
 use basic_system::system_implementation::system::BasicStorageModel;
 use basic_system::system_implementation::system::EthereumLikeStorageAccessCostModel;
 use zk_ee::memory::stack_trait::VecStackCtor;
+use zk_ee::memory::vec_trait::VecCtor;
 use zk_ee::reference_implementations::BaseResources;
 use zk_ee::system::{EthereumLikeTypes, SystemTypes};
 use zk_ee::system_io_oracle::IOOracle;
@@ -51,6 +52,7 @@ impl<O: IOOracle> SystemTypes for ForwardSystemTypes<O> {
     type Allocator = Global;
     type Logger = Logger;
     type Metadata = zk_ee::system::metadata::Metadata;
+    type VecLikeCtor = VecCtor;
 }
 
 impl<O: IOOracle> EthereumLikeTypes for ForwardSystemTypes<O> {}

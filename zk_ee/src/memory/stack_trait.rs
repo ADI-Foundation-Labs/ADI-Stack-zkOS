@@ -4,7 +4,6 @@ use core::alloc::Allocator;
 ///
 /// A stack constructor. Abstracts over the creation of `Stack<T, A>` trait instance.
 ///
-// #[const_trait]
 pub trait StackCtor<const N: usize> {
     /// Adds an extra constant parameter, used for the skip list implementation
     type Stack<T: Sized, const M: usize, A: Allocator + Clone>: Stack<T, A>;

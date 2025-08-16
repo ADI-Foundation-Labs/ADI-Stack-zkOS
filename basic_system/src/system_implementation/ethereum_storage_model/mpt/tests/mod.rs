@@ -7,6 +7,7 @@ use alloy::primitives::U256;
 use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
 use ruint::aliases::B160;
+use zk_ee::memory::vec_trait::VecCtor;
 use std::collections::{BTreeSet, HashMap};
 use std::{alloc::Global, collections::BTreeMap};
 use zk_ee::utils::Bytes32;
@@ -201,7 +202,7 @@ fn test_from_execution_witness() {
     } = data;
     let _ = all_storage_trie_pos;
 
-    let mut trie =
+    let mut trie: EthereumMPT<'_, Global, VecCtor> =
         EthereumMPT::new_in(initial_root.try_into().unwrap(), &mut interner, Global).unwrap();
 
     let mut initial_state_roots = BTreeMap::new();
@@ -277,7 +278,7 @@ fn test_from_execution_witness() {
 
     for (address, root) in initial_state_roots.into_iter() {
         let initial_storage = initial_state.0.get(&address).unwrap();
-        let mut storage_trie =
+        let mut storage_trie: EthereumMPT<'_, Global, VecCtor> =
             EthereumMPT::new_in(root.try_into().unwrap(), &mut interner, Global).unwrap();
 
         if let Some(storage) = initial_storage.storage.as_ref() {
@@ -372,7 +373,7 @@ fn test_from_execution_witness() {
                 let value_be = new_v.into_inner().to_be_bytes_trimmed_vec();
                 let new_value = rlp_encode_short_slice(&rlp_encode_short_slice(&value_be));
                 storage_trie
-                    .update(path, &new_value, &mut interner, &mut hasher)
+                    .update(path, &new_value, &mut interner)
                     .unwrap();
             }
         }
