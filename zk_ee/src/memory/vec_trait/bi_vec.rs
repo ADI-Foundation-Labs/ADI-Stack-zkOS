@@ -1,7 +1,7 @@
 // Quasi-vector implementation that descends into same sized allocated chunks
 
-use core::{alloc::Allocator, mem::MaybeUninit};
 use alloc::boxed::Box;
+use core::{alloc::Allocator, mem::MaybeUninit};
 
 // Backing capacity will not implement any notable traits itself. It is also dynamic, so whoever uses it
 // will be able to decide on allocation strategy
@@ -110,7 +110,10 @@ impl<T: Sized, A: Allocator> Drop for CapacityChunk<T, A> {
 #[cold]
 #[track_caller]
 fn bivec_push_panic(total_len: usize) -> ! {
-    panic!("BiVec: preallocated capacity exceeded, current length is {}", total_len);
+    panic!(
+        "BiVec: preallocated capacity exceeded, current length is {}",
+        total_len
+    );
 }
 
 #[inline(never)]
@@ -156,8 +159,10 @@ impl<T: Sized, A: Allocator> BiVec<T, A> {
     const INNER_BACKING_SIZE: usize = (1usize << 12) - 64; // ~ page size minus allocator header overhead
 
     pub fn clear(&mut self) {
-        unsafe { self.drop_up_to_len(self.len); }
-        
+        unsafe {
+            self.drop_up_to_len(self.len);
+        }
+
         // No deallocation of inner capacities, so only length is zeroed, but not total number of initialized elements
         self.len = 0;
     }
@@ -219,10 +224,7 @@ impl<T: Sized, A: Allocator + Clone> BiVec<T, A> {
         let outer_capacity = capacity.next_multiple_of(inner_capacity) / inner_capacity;
         let capacity = CapacityChunk::with_capacity_in(outer_capacity, allocator);
 
-        Self {
-            capacity,
-            len: 0,
-        }
+        Self { capacity, len: 0 }
     }
 
     unsafe fn push_back_new_inner(&mut self) {
@@ -246,7 +248,7 @@ impl<T: Sized, A: Allocator + Clone> cc_traits::Len for BiVec<T, A> {
                 self.capacity.filled_slice().iter().all(|el| el.is_empty())
             } else {
                 true
-            } 
+            }
         });
 
         self.len == 0

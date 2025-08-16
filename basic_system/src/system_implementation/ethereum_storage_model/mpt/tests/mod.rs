@@ -7,9 +7,9 @@ use alloy::primitives::U256;
 use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
 use ruint::aliases::B160;
-use zk_ee::memory::vec_trait::VecCtor;
 use std::collections::{BTreeSet, HashMap};
 use std::{alloc::Global, collections::BTreeMap};
+use zk_ee::memory::vec_trait::VecCtor;
 use zk_ee::utils::Bytes32;
 
 use super::*;

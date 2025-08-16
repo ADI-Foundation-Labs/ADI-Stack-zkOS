@@ -140,7 +140,7 @@ pub enum CreateScheme {
 }
 
 impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
-    pub(crate) const PRINT_OPCODES: bool = false;
+    pub(crate) const PRINT_OPCODES: bool = true;
 
     #[allow(dead_code)]
     pub(crate) fn stack_debug_print(&self, logger: &mut impl Logger) {

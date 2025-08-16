@@ -17,12 +17,12 @@ use basic_system::system_implementation::ethereum_storage_model::LazyLeafValue;
 use basic_system::system_implementation::ethereum_storage_model::LeafValue;
 use basic_system::system_implementation::ethereum_storage_model::MPTInternalCapacities;
 use basic_system::system_implementation::ethereum_storage_model::Path;
-use zk_ee::memory::vec_trait::VecLikeCtor;
 use core::alloc::Allocator;
 use core::fmt::Write;
 use crypto::MiniDigest;
 use zk_ee::common_structs::GenericEventContentRef;
 use zk_ee::memory::skip_list_quasi_vec::ListVec;
+use zk_ee::memory::vec_trait::VecLikeCtor;
 use zk_ee::system::logger::Logger;
 use zk_ee::system::*;
 use zk_ee::utils::Bytes32;
@@ -164,7 +164,7 @@ impl<A: Allocator + Clone, B: Allocator> EthereumBasicTransactionDataKeeper<A, B
         let mut interner = BoxInterner::with_capacity_in(1 << 20, allocator.clone());
         let receipts_mpt_capacity = MPTInternalCapacities::<S::Allocator, VC>::with_capacity_in(
             current_transaction_number as usize,
-            allocator.clone()
+            allocator.clone(),
         );
         let mut receipts_mpt = EthereumMPT::empty_with_preallocated_capacities(
             receipts_mpt_capacity,

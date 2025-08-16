@@ -19,7 +19,7 @@ pub enum Appearance {
     Observed,
     /// Cache value was potentially changed compared to initial value
     Updated,
-    /// Used for destructed accounts
+    /// Marks an account that is deconstructed according to EIP-6780 "in same transaction" rules
     Deconstructed,
 }
 
@@ -81,6 +81,11 @@ impl<V, M> CacheRecord<V, M> {
         self.appearance = Appearance::Deconstructed;
     }
 
+    /// Finishes deconstruction (that is in-same-tx by EIP-6780 rules), and marks an account as just observed
+    pub fn finish_deconstruction(&mut self) {
+        self.appearance = Appearance::Observed;
+    }
+
     /// Sets appearance to unset. The value itself remains untouched.
     pub fn unset(&mut self) {
         self.appearance = Appearance::Unset;
@@ -100,6 +105,12 @@ impl<V, M> CacheRecord<V, M> {
         if self.appearance == Appearance::Unset || self.appearance == Appearance::Retrieved {
             self.appearance = Appearance::Observed;
         };
+    }
+
+    /// There can be a case if in two transactions one will do 1) create/self-destruct 2) create to same address again
+    /// In this case we should avoid permanently locking an account in the "deconstructed" state
+    pub fn mark_as_created(&mut self) {
+        self.appearance = Appearance::Updated;
     }
 }
 

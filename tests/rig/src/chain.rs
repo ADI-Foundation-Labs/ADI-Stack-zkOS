@@ -28,13 +28,13 @@ use oracle_provider::{ReadWitnessSource, ZkEENonDeterminismSource};
 use risc_v_simulator::abstractions::memory::VectorMemoryImpl;
 use risc_v_simulator::sim::{DiagnosticsConfig, ProfilerConfig};
 use ruint::aliases::{B160, B256, U256};
-use zk_ee::memory::vec_trait::VecCtor;
 use std::alloc::Global;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use zk_ee::common_structs::{derive_flat_storage_key, ProofData};
+use zk_ee::memory::vec_trait::VecCtor;
 use zk_ee::system::metadata::{BlockHashes, BlockMetadataFromOracle};
 use zk_ee::system::tracer::NopTracer;
 use zk_ee::utils::Bytes32;
@@ -476,7 +476,8 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         let mut interner = BoxInterner::with_capacity_in(1 << 26, Global);
         let mut hasher = crypto::sha3::Keccak256::new();
-        let mut accounts_mpt: EthereumMPT<'_, Global, VecCtor> = EthereumMPT::new_in(initial_root.0, &mut interner, Global).unwrap();
+        let mut accounts_mpt: EthereumMPT<'_, Global, VecCtor> =
+            EthereumMPT::new_in(initial_root.0, &mut interner, Global).unwrap();
         let mut account_properties = HashMap::<B160, EthereumAccountProperties>::new();
         for el in witness.keys.iter() {
             if el.len() == 20 {

@@ -313,8 +313,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         self.capacities.branch_nodes[existing_branch.index()].parent_node = extension_node;
 
         if grand_parent.is_branch() {
-            self.capacities.branch_nodes[grand_parent.index()].child_nodes[grand_parent_branch_index] =
-                extension_node;
+            self.capacities.branch_nodes[grand_parent.index()].child_nodes
+                [grand_parent_branch_index] = extension_node;
 
             Ok(())
         } else if grand_parent.is_empty() {
@@ -342,7 +342,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
 
         // we extend existing extension's path segment "up"
 
-        let existing_extension = &mut self.capacities.extension_nodes[existing_extension_node.index()];
+        let existing_extension =
+            &mut self.capacities.extension_nodes[existing_extension_node.index()];
 
         // first create an extension
         let mut buffer =
@@ -357,8 +358,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         existing_extension.raw_nibbles_encoding = &[];
 
         if grand_parent.is_branch() {
-            self.capacities.branch_nodes[grand_parent.index()].child_nodes[grand_parent_branch_index] =
-                existing_extension_node;
+            self.capacities.branch_nodes[grand_parent.index()].child_nodes
+                [grand_parent_branch_index] = existing_extension_node;
 
             Ok(())
         } else if grand_parent.is_empty() {

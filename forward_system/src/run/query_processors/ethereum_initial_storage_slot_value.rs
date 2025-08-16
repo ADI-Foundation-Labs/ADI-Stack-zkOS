@@ -11,9 +11,9 @@ use basic_system::system_implementation::ethereum_storage_model::{
     EMPTY_ROOT_HASH,
 };
 use ruint::aliases::B160;
-use zk_ee::memory::vec_trait::VecCtor;
 use std::alloc::Global;
 use std::collections::BTreeMap;
+use zk_ee::memory::vec_trait::VecCtor;
 use zk_ee::{
     kv_markers::{InitialStorageSlotData, StorageAddress},
     system_io_oracle::{dyn_usize_iterator::DynUsizeIterator, INITIAL_STORAGE_SLOT_VALUE_QUERY_ID},

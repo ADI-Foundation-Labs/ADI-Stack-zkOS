@@ -24,7 +24,6 @@ pub(crate) fn rlp_parse_short_bytes<'a>(src: &'a [u8]) -> Result<&'a [u8], ()> {
     }
 }
 
-
 pub(crate) fn slice_encoding_len(slice: &[u8]) -> usize {
     if slice.len() == 0 {
         1

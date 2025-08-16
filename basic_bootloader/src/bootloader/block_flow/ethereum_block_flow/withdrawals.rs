@@ -7,12 +7,12 @@ use basic_system::system_implementation::ethereum_storage_model::BoxInterner;
 use basic_system::system_implementation::ethereum_storage_model::EthereumMPT;
 use basic_system::system_implementation::ethereum_storage_model::LeafValue;
 use basic_system::system_implementation::ethereum_storage_model::Path;
-use zk_ee::memory::vec_trait::VecLikeCtor;
 use core::fmt::Write;
 use crypto::MiniDigest;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
+use zk_ee::memory::vec_trait::VecLikeCtor;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::system::Computational;
 use zk_ee::system::EthereumLikeTypes;
@@ -69,14 +69,9 @@ where
     let allocator = system.get_allocator();
     let mut interner = BoxInterner::with_capacity_in(1 << 20, allocator.clone());
     let mut hasher = crypto::sha3::Keccak256::new();
-    let mpt_capacity = MPTInternalCapacities::<S::Allocator, VC>::with_capacity_in(
-        num_items,
-        allocator.clone()
-    );
-    let mut mpt = EthereumMPT::empty_with_preallocated_capacities(
-        mpt_capacity,
-        allocator.clone(),
-    );
+    let mpt_capacity =
+        MPTInternalCapacities::<S::Allocator, VC>::with_capacity_in(num_items, allocator.clone());
+    let mut mpt = EthereumMPT::empty_with_preallocated_capacities(mpt_capacity, allocator.clone());
 
     let mut resources = S::Resources::from_native(
         <S::Resources as Resources>::Native::from_computational(u64::MAX),

@@ -751,9 +751,13 @@ impl<'a> ZkSyncTransaction<'a> {
             ));
 
             resources.with_infinite_ergs(|resources| {
-                system
-                    .io
-                    .touch_account(ExecutionEnvironmentType::NoEE, resources, &address, true, true)
+                system.io.touch_account(
+                    ExecutionEnvironmentType::NoEE,
+                    resources,
+                    &address,
+                    true,
+                    true,
+                )
             })?;
             for key in keys {
                 // per-slot charge

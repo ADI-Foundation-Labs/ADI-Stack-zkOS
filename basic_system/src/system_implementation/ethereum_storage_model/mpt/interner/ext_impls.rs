@@ -1,5 +1,5 @@
-use super::*;
 use super::super::*;
+use super::*;
 
 // Some generic convenience function
 pub trait ETHMPTInternerExt<'a>: Interner<'a> {

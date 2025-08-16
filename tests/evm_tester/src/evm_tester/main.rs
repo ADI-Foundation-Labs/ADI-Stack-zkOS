@@ -110,7 +110,7 @@ mod tests {
             // paths: vec!["ethereum-fixtures/state_tests".to_owned()],
             paths: vec![],
             // names: vec![],
-            names: vec!["precompsEIP2929Cancun".to_string()],
+            names: vec!["extCodeHashCreatedAndDeletedAccountCall".to_string()],
             groups: vec![],
             labels: vec![],
             threads: Some(1),

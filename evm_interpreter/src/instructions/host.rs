@@ -43,6 +43,15 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
             &address,
         )?;
         *stack_top = U256::from(value);
+
+        if Self::PRINT_OPCODES {
+            use core::fmt::Write;
+            let _ = system.get_logger().write_fmt(format_args!(
+                " for address 0x{:040x} is {}",
+                address.as_uint(),
+                &value
+            ));
+        }
         Ok(())
     }
 
@@ -57,6 +66,15 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
         )?;
 
         *stack_top = value.into_u256_be();
+
+        if Self::PRINT_OPCODES {
+            use core::fmt::Write;
+            let _ = system.get_logger().write_fmt(format_args!(
+                " for address 0x{:040x} is {:?}",
+                address.as_uint(),
+                &value
+            ));
+        }
         Ok(())
     }
 

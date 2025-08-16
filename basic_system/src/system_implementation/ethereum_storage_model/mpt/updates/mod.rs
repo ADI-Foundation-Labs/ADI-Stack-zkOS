@@ -267,13 +267,15 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                         )?,
                     };
                     let terminal_node = self.push_branch_terminal_value(new_opaque);
-                    self.capacities.branch_nodes[branch.index()].child_nodes[branch_index] = terminal_node;
+                    self.capacities.branch_nodes[branch.index()].child_nodes[branch_index] =
+                        terminal_node;
 
                     Ok(())
                 } else if child.is_terminal_value_in_branch() {
                     self.remove_from_cache(&child);
                     // just update it
-                    let existing_opaque = &mut self.capacities.branch_terminal_values[child.index()];
+                    let existing_opaque =
+                        &mut self.capacities.branch_terminal_values[child.index()];
                     existing_opaque.value =
                         LeafValue::from_pre_encoded_with_interner(pre_encoded_value, interner)?;
 
@@ -389,7 +391,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                     value,
                 };
                 let terminal_value = self.push_branch_terminal_value(new_opaque);
-                self.capacities.branch_nodes[branch.index()].child_nodes[branch_index] = terminal_value;
+                self.capacities.branch_nodes[branch.index()].child_nodes[branch_index] =
+                    terminal_value;
 
                 Ok(())
             }
@@ -451,7 +454,9 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         } else {
             let leaf = &self.capacities.leaf_nodes[leaf_node.index()];
             let path_for_nibbles = leaf.path_segment;
-            let value = self.capacities.leaf_nodes[leaf_node.index()].value.take_value();
+            let value = self.capacities.leaf_nodes[leaf_node.index()]
+                .value
+                .take_value();
             let new_key = interner.make_leaf_key_for_value(path_for_nibbles, value, hasher)?;
             self.keys_cache.insert(leaf_node, new_key);
 

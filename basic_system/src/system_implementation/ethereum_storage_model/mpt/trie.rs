@@ -2,12 +2,12 @@ use super::nodes::*;
 use super::*;
 use alloc::alloc::Allocator;
 use alloc::collections::BTreeMap;
-use zk_ee::memory::vec_trait::VecCtor;
+use cc_traits::{Len, PushBack};
 use core::fmt::Debug;
 use crypto::MiniDigest;
-use zk_ee::utils::Bytes32;
+use zk_ee::memory::vec_trait::VecCtor;
 use zk_ee::memory::vec_trait::VecLikeCtor;
-use cc_traits::{Len, PushBack};
+use zk_ee::utils::Bytes32;
 
 // 100M gas limit / cold SLOAD
 const PESSIMISTIC_CAPACITY_ESTIMATE: usize = 100_000_000 / 2_100;
@@ -74,8 +74,7 @@ pub struct MPTInternalCapacities<'a, A: Allocator + Clone, VC: VecLikeCtor> {
 
 impl<A: Allocator + Clone, VC: VecLikeCtor> core::fmt::Debug for MPTInternalCapacities<'_, A, VC> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("MPTInternalCapacities")
-            .finish()
+        f.debug_struct("MPTInternalCapacities").finish()
     }
 }
 
@@ -94,13 +93,16 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> MPTInternalCapacities<'a, A, VC>
         }
     }
 
-    pub fn purge_reborrow<'b>(self) -> MPTInternalCapacities<'b, A, VC> where A: 'b {
+    pub fn purge_reborrow<'b>(self) -> MPTInternalCapacities<'b, A, VC>
+    where
+        A: 'b,
+    {
         let Self {
             mut leaf_nodes,
             mut extension_nodes,
             mut branch_nodes,
             mut branch_unreferenced_values,
-            mut branch_terminal_values
+            mut branch_terminal_values,
         } = self;
 
         VC::purge(&mut leaf_nodes);
@@ -112,31 +114,29 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> MPTInternalCapacities<'a, A, VC>
         // and now it's safe to just give them any other lifetime
 
         unsafe {
-            core::mem::transmute(
-                Self {
-                    leaf_nodes,
-                    extension_nodes,
-                    branch_nodes,
-                    branch_unreferenced_values,
-                    branch_terminal_values,
-                }
-            )
+            core::mem::transmute(Self {
+                leaf_nodes,
+                extension_nodes,
+                branch_nodes,
+                branch_unreferenced_values,
+                branch_terminal_values,
+            })
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.leaf_nodes.is_empty() && self.extension_nodes.is_empty() && self.branch_nodes.is_empty() && self.branch_unreferenced_values.is_empty() && self.branch_terminal_values.is_empty()
+        self.leaf_nodes.is_empty()
+            && self.extension_nodes.is_empty()
+            && self.branch_nodes.is_empty()
+            && self.branch_unreferenced_values.is_empty()
+            && self.branch_terminal_values.is_empty()
     }
 }
 
 /// Ethereum MPT implementation, that assumes constant-length paths of length at most 64 characters,
 /// and hash function that outputs 32 bytes
 #[derive(Debug)]
-pub struct EthereumMPT<
-    'a,
-    A: Allocator + Clone,
-    VC: VecLikeCtor = VecCtor,
-> {
+pub struct EthereumMPT<'a, A: Allocator + Clone, VC: VecLikeCtor = VecCtor> {
     pub(crate) root: NodeType,
     pub(crate) interned_root_node_key: &'a [u8], // We follow the same logic here - either hash, or short key
     // we want to store nodes separately
@@ -146,11 +146,7 @@ pub struct EthereumMPT<
     pub(crate) keys_cache: BTreeMap<NodeType, &'a [u8], A>,
 }
 
-impl<
-    'a,
-    A: Allocator + Clone,
-    VC: VecLikeCtor,
-> EthereumMPT<'a, A, VC> {
+impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
     pub fn new_in(
         root_hash: [u8; 32],
         interner: &mut (impl Interner<'a> + 'a),
@@ -220,7 +216,7 @@ impl<
     pub fn set_root(
         &mut self,
         root_hash: [u8; 32],
-        interner: &mut (impl Interner<'a> + 'a)
+        interner: &mut (impl Interner<'a> + 'a),
     ) -> Result<(), ()> {
         if self.root.is_empty() == false {
             return Err(());
@@ -248,11 +244,11 @@ impl<
         Ok(())
     }
 
-    pub fn deconstruct_to_reuse_capacity<'b>(self) -> MPTInternalCapacities<'b, A, VC> where A: 'b {
-        let Self {
-            capacities,
-            ..
-        } = self;
+    pub fn deconstruct_to_reuse_capacity<'b>(self) -> MPTInternalCapacities<'b, A, VC>
+    where
+        A: 'b,
+    {
+        let Self { capacities, .. } = self;
 
         capacities.purge_reborrow()
     }
@@ -371,7 +367,9 @@ impl<
                 AppendPath::LeafReached { allocated_node } => {
                     debug_assert_ne!(current_node, allocated_node);
                     self.link_if_needed(current_node, parent_branch_index, allocated_node)?;
-                    return Ok(self.capacities.leaf_nodes[allocated_node.index()].value.data());
+                    return Ok(self.capacities.leaf_nodes[allocated_node.index()]
+                        .value
+                        .data());
                 }
                 AppendPath::BranchReached {
                     final_branch_node,
@@ -415,7 +413,8 @@ impl<
         }
         if current_node.is_leaf() {
             // we need to follow the path
-            let existing_path_segment = self.capacities.leaf_nodes[current_node.index()].path_segment;
+            let existing_path_segment =
+                self.capacities.leaf_nodes[current_node.index()].path_segment;
             let common_prefix_len = path.follow_common_prefix(existing_path_segment)?;
             if path.is_empty() {
                 Ok(DescendPath::LeafReached {
@@ -801,7 +800,9 @@ impl<
     #[inline(always)]
     pub(crate) fn push_unreferenced_branch(&mut self, new_node: OpaqueValue<'a>) -> NodeType {
         let index = self.capacities.branch_unreferenced_values.len();
-        self.capacities.branch_unreferenced_values.push_back(new_node);
+        self.capacities
+            .branch_unreferenced_values
+            .push_back(new_node);
         NodeType::unreferenced_value_in_branch(index)
     }
 
@@ -829,7 +830,10 @@ impl<
             assert_eq!(self.capacities.leaf_nodes[index].parent_node, parent);
         } else if child_node.is_extension() {
             assert_eq!(self.capacities.extension_nodes[index].parent_node, parent);
-            self.ensure_linked_pair(child_node, self.capacities.extension_nodes[index].child_node);
+            self.ensure_linked_pair(
+                child_node,
+                self.capacities.extension_nodes[index].child_node,
+            );
         } else if child_node.is_unlinked() {
             assert!(parent.is_extension())
         } else if child_node.is_branch() {

@@ -1,3 +1,4 @@
+mod interner;
 mod lazy_leaf_value;
 mod nodes;
 mod parse_node;
@@ -5,7 +6,6 @@ mod preimages;
 mod rlp;
 mod trie;
 mod updates;
-mod interner;
 
 use core::alloc::Allocator;
 use crypto::MiniDigest;
@@ -16,12 +16,12 @@ pub(crate) use self::parse_node::*;
 pub(crate) use self::rlp::*;
 pub(crate) use self::trie::*;
 
+pub use self::interner::*;
 pub use self::lazy_leaf_value::{LazyEncodable, LazyLeafValue, LeafValue};
 pub use self::nodes::Path;
 pub use self::parse_node::RLPSlice;
 pub use self::preimages::*;
 pub use self::trie::{EthereumMPT, MPTInternalCapacities};
-pub use self::interner::*;
 
 pub(crate) const EMPTY_SLICE_ENCODING: &[u8] = &[0x80];
 

@@ -65,8 +65,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
 
                 if existing_extension.child_node.is_branch() {
                     // update parent of it
-                    self.capacities.branch_nodes[existing_extension.child_node.index()].parent_node =
-                        new_branch_node;
+                    self.capacities.branch_nodes[existing_extension.child_node.index()]
+                        .parent_node = new_branch_node;
                     (existing_extension.child_node, branch_index)
                 } else if existing_extension.child_node.is_unlinked() {
                     // should transform into unreferenced branch value as we have no idea what is in "key" there
@@ -83,7 +83,9 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                     let new_unreferenced_value_node = NodeType::unreferenced_value_in_branch(
                         self.capacities.branch_unreferenced_values.len(),
                     );
-                    self.capacities.branch_unreferenced_values.push_back(new_unreferenced_value);
+                    self.capacities
+                        .branch_unreferenced_values
+                        .push_back(new_unreferenced_value);
                     // put it into cache - it's single exceptional case
                     self.keys_cache.insert(
                         new_unreferenced_value_node,
@@ -114,7 +116,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             self.capacities.branch_nodes[new_branch_node.index()].parent_node = grand_parent;
             if grand_parent.is_extension() {
                 debug_assert_eq!(grand_parent_branch_index, 0);
-                let grand_parent_extension = &mut self.capacities.extension_nodes[grand_parent.index()];
+                let grand_parent_extension =
+                    &mut self.capacities.extension_nodes[grand_parent.index()];
                 grand_parent_extension.child_node = new_branch_node;
             }
             if grand_parent.is_branch() {
@@ -196,9 +199,12 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                     value: existing_leaf.value.take_value(),
                 };
                 // NOTE: borrowcheck
-                let new_terminal_node =
-                    NodeType::terminal_value_in_branch(self.capacities.branch_terminal_values.len());
-                self.capacities.branch_terminal_values.push_back(new_terminal_value);
+                let new_terminal_node = NodeType::terminal_value_in_branch(
+                    self.capacities.branch_terminal_values.len(),
+                );
+                self.capacities
+                    .branch_terminal_values
+                    .push_back(new_terminal_value);
 
                 (new_terminal_node, branch_index)
             } else {
@@ -219,7 +225,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             self.capacities.branch_nodes[new_branch_node.index()].parent_node = grand_parent;
             if grand_parent.is_extension() {
                 debug_assert_eq!(grand_parent_branch_index, 0);
-                let grand_parent_extension = &mut self.capacities.extension_nodes[grand_parent.index()];
+                let grand_parent_extension =
+                    &mut self.capacities.extension_nodes[grand_parent.index()];
                 grand_parent_extension.child_node = new_branch_node;
             }
             if grand_parent.is_branch() {

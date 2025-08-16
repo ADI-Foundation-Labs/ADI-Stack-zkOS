@@ -198,8 +198,17 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                     })
                 })?;
 
-                debug_assert!(matches!(x.initial().appearance(), Appearance::Unset | Appearance::Retrieved));
-                debug_assert!(matches!(x.current().appearance(), Appearance::Touched | Appearance::Observed | Appearance::Updated | Appearance::Deconstructed));
+                debug_assert!(matches!(
+                    x.initial().appearance(),
+                    Appearance::Unset | Appearance::Retrieved
+                ));
+                debug_assert!(matches!(
+                    x.current().appearance(),
+                    Appearance::Touched
+                        | Appearance::Observed
+                        | Appearance::Updated
+                        | Appearance::Deconstructed
+                ));
 
                 Ok(x)
             })
@@ -404,8 +413,9 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         >,
         SystemError,
     > {
-        let account_data = self
-            .materialize_element::<PROOF_ENV>(ee_type, resources, address, oracle, false, false, true)?;
+        let account_data = self.materialize_element::<PROOF_ENV>(
+            ee_type, resources, address, oracle, false, false, true,
+        )?;
 
         let full_data = account_data.current().value();
 
@@ -415,14 +425,12 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         // once or not), so if we do not access it ever we will not need to pollute preimages cache
 
         let bytecode_hash_is_zero = full_data.bytecode_hash.is_zero();
-        let initial_appearance = account_data.initial().appearance();
-        let current_appearance = account_data.current().appearance();
 
         // NOTE: deconstruction happens at the end of the TX, so even deconstructed accounts would NOT
         // respond with empty bytecode (well, WTF)
         let bytecode = {
             if bytecode_hash_is_zero {
-                debug_assert!(initial_appearance == Appearance::Unset);
+                debug_assert!(account_data.initial().appearance() == Appearance::Unset);
 
                 let res: &'static [u8] = &[];
 
@@ -446,16 +454,6 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             }
         };
 
-        let bytecode_hash = if initial_appearance == Appearance::Unset && (current_appearance == Appearance::Touched || current_appearance == Appearance::Observed || current_appearance == Appearance::Deconstructed) {
-            // initially empty, or deconstructed
-            Bytes32::ZERO
-        } else if bytecode_hash_is_zero {
-            // but appearance is not unset/deconstructed, so it is existing, but no-code account
-            EthereumAccountProperties::EMPTY_BUT_EXISTING_ACCOUNT.bytecode_hash
-        } else {
-            full_data.bytecode_hash
-        };
-
         let code_length = bytecode.len() as u32;
 
         let is_delegated = if code_length == 3 + 20 {
@@ -466,10 +464,10 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
 
         Ok(AccountData {
             ee_version: Maybe::construct(|| ExecutionEnvironmentType::EVM as u8),
-            observable_bytecode_hash: Maybe::construct(|| bytecode_hash),
+            observable_bytecode_hash: Maybe::construct(|| full_data.bytecode_hash),
             observable_bytecode_len: Maybe::construct(|| code_length),
             nonce: Maybe::construct(|| full_data.nonce),
-            bytecode_hash: Maybe::construct(|| bytecode_hash),
+            bytecode_hash: Maybe::construct(|| full_data.bytecode_hash),
             unpadded_code_len: Maybe::construct(|| code_length),
             artifacts_len: Maybe::construct(|| 0),
             nominal_token_balance: Maybe::construct(|| full_data.balance),
@@ -487,8 +485,9 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         increment_by: u64,
         oracle: &mut impl IOOracle,
     ) -> Result<u64, NonceSubsystemError> {
-        let mut account_data = self
-            .materialize_element::<PROOF_ENV>(ee_type, resources, address, oracle, false, false, false)?;
+        let mut account_data = self.materialize_element::<PROOF_ENV>(
+            ee_type, resources, address, oracle, false, false, false,
+        )?;
 
         resources.charge(&R::from_native(R::Native::from_computational(
             WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
@@ -498,6 +497,9 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         if let Some(new_nonce) = nonce.checked_add(increment_by) {
             account_data.update(|cache_record| {
                 cache_record.update(|x, _| {
+                    if x.bytecode_hash.is_zero() {
+                        x.bytecode_hash = EMPTY_STRING_KECCAK_HASH;
+                    }
                     x.nonce = new_nonce;
                     Ok(())
                 })
@@ -622,6 +624,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         )))?;
 
         account_data.update(|cache_record| {
+            cache_record.mark_as_created();
             cache_record.update(|v, m| {
                 v.bytecode_hash = bytecode_hash;
 
@@ -665,6 +668,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         if should_be_deconstructed {
             account_data.update::<_, SystemError>(|cache_record| {
                 cache_record.deconstruct();
+
                 Ok(())
             })?
         }
@@ -788,6 +792,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         self.cache
             .apply_to_last_record_of_pending_changes(|key, head_history_record| {
                 if head_history_record.value.appearance() == Appearance::Deconstructed {
+                    head_history_record.value.finish_deconstruction();
                     head_history_record.value.update(|x, _| {
                         *x = EthereumAccountProperties::EMPTY_ACCOUNT;
                         Ok(())

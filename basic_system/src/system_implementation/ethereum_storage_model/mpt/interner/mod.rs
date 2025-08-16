@@ -1,7 +1,7 @@
-use crypto::MiniDigest;
-use core::mem::MaybeUninit;
 use alloc::boxed::Box;
 use core::alloc::Allocator;
+use core::mem::MaybeUninit;
+use crypto::MiniDigest;
 
 mod ext_impls;
 
@@ -63,29 +63,43 @@ impl<'a> InterningWordBuffer<'a> for () {
 }
 
 pub trait InternerCtor<A: Allocator>: 'static {
-    type Interner<'a>: Interner<'a> where Self: 'a, A: 'a;
+    type Interner<'a>: Interner<'a>
+    where
+        Self: 'a,
+        A: 'a;
 
-    fn make_interner_with_capacity_in<'a>(byte_capacity: usize, allocator: A) -> Self::Interner<'a> where A: 'a;
-    fn purge<'a, 'b>(interner: Self::Interner<'a>) -> Self::Interner<'b> where A: 'a + 'b;
+    fn make_interner_with_capacity_in<'a>(byte_capacity: usize, allocator: A) -> Self::Interner<'a>
+    where
+        A: 'a;
+    fn purge<'a, 'b>(interner: Self::Interner<'a>) -> Self::Interner<'b>
+    where
+        A: 'a + 'b;
 }
 
 pub struct BoxInternerCtor {}
 
 impl<A: Allocator> InternerCtor<A> for BoxInternerCtor {
-    type Interner<'a> = BoxInterner<A> where A: 'a;
+    type Interner<'a>
+        = BoxInterner<A>
+    where
+        A: 'a;
 
-    fn make_interner_with_capacity_in<'a>(byte_capacity: usize, allocator: A) -> Self::Interner<'a> where A: 'a {
+    fn make_interner_with_capacity_in<'a>(byte_capacity: usize, allocator: A) -> Self::Interner<'a>
+    where
+        A: 'a,
+    {
         BoxInterner::with_capacity_in(byte_capacity, allocator)
     }
-    fn purge<'a, 'b>(mut interner: Self::Interner<'a>) -> Self::Interner<'b> where A: 'a + 'b {
+    fn purge<'a, 'b>(mut interner: Self::Interner<'a>) -> Self::Interner<'b>
+    where
+        A: 'a + 'b,
+    {
         // we own interner, so we can purge it and reinterpret for another lifetime
 
         // there is no need to drop, just set used length
         interner.used = 0;
 
-        unsafe {
-            core::mem::transmute(interner)
-        }
+        unsafe { core::mem::transmute(interner) }
     }
 }
 
