@@ -3,6 +3,8 @@ pub mod byte_slice;
 pub mod skip_list_quasi_vec;
 pub mod slice_vec;
 pub mod stack_trait;
+pub mod vec_trait;
 
 pub use self::allocator_ext::*;
 pub use self::byte_slice::*;
+pub use self::vec_trait::BiVec;

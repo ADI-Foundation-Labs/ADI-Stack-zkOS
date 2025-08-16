@@ -6,9 +6,7 @@ use zk_ee::internal_error;
 use zk_ee::metadata_markers::basic_metadata::BasicBlockMetadata;
 use zk_ee::metadata_markers::metadata::SystemMetadata;
 use zk_ee::system::errors::internal::InternalError;
-use zk_ee::system::metadata::BlockMetadataFromOracle;
-use zk_ee::system::{metadata::Metadata, SystemTypes};
-use zk_ee::system_io_oracle::BLOCK_METADATA_QUERY_ID;
+use zk_ee::system::SystemTypes;
 
 pub type EthereumBlockMetadata = SystemMetadata<
     EthereumIOTypesConfig,

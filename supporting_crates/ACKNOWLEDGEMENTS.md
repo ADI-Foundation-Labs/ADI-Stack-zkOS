@@ -11,5 +11,9 @@ This crate includes source code adapted from open-source projects. All reused co
 ## `./nostd_compression/`
 -  [miniz_oxide](https://github.com/Frommi/miniz_oxide/tree/master/miniz_oxide) licensed under [MIT](https://github.com/Frommi/miniz_oxide/blob/master/miniz_oxide/LICENSE-MIT.md) or [Apache-2.0](https://github.com/Frommi/miniz_oxide/blob/master/miniz_oxide/LICENSE-APACHE.md) or [Zlib](https://github.com/Frommi/miniz_oxide/blob/master/miniz_oxide/LICENSE-ZLIB.md)
 ---
+## `./cc-traits/`
+-  [cc-traits](https://github.com/timothee-haudebourg/cc-traits) dual-licensed under [MIT](https://github.com/timothee-haudebourg/cc-traits/blob/master/LICENSE-MIT) or [Apache-2.0](https://github.com/timothee-haudebourg/cc-traits/blob/master/LICENSE-APACHE)
+---
+
 
 Please refer to the source files for detailed comments
