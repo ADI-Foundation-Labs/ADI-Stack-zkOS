@@ -9,7 +9,7 @@ use crate::{system::errors::internal::InternalError, utils::stack_linked_list::S
 use alloc::collections::btree_map::Entry;
 use alloc::collections::BTreeMap;
 use core::{alloc::Allocator, fmt::Debug, ops::Bound};
-use element_pool::ElementPool;
+pub(crate) use element_pool::ElementPool;
 use element_with_history::ElementWithHistory;
 
 #[repr(transparent)]
@@ -24,7 +24,7 @@ impl NopSnapshotId {
 
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
-pub struct CacheSnapshotId(usize);
+pub struct CacheSnapshotId(pub(crate) usize);
 
 impl CacheSnapshotId {
     pub fn new() -> Self {

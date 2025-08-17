@@ -19,11 +19,12 @@ use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
 use storage_models::common_structs::PreimageCacheModel;
-use zk_ee::common_structs::cache_record::Appearance;
-use zk_ee::common_structs::cache_record::CacheRecord;
 use zk_ee::common_structs::history_map::CacheSnapshotId;
 use zk_ee::common_structs::history_map::HistoryMap;
 use zk_ee::common_structs::history_map::HistoryMapItemRefMut;
+use zk_ee::common_structs::structured_account_cache_record::{
+    CurrentAppearance, InitialAppearance, StructuredCacheRecord,
+};
 use zk_ee::common_structs::PreimageType;
 use zk_ee::define_subsystem;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
@@ -52,7 +53,7 @@ use zk_ee::{
 pub type AddressItem<'a, A> = HistoryMapItemRefMut<
     'a,
     BitsOrd<160, 3>,
-    CacheRecord<EthereumAccountProperties, AccountPropertiesMetadataNoPubdata>,
+    StructuredCacheRecord<EthereumAccountProperties, AccountPropertiesMetadataNoPubdata>,
     A,
 >;
 
@@ -64,7 +65,7 @@ pub struct EthereumAccountCache<
 > {
     pub(crate) cache: HistoryMap<
         BitsOrd160,
-        CacheRecord<EthereumAccountProperties, AccountPropertiesMetadataNoPubdata>,
+        StructuredCacheRecord<EthereumAccountProperties, AccountPropertiesMetadataNoPubdata>,
         A,
     >,
     pub(crate) current_tx_number: u32,
@@ -146,15 +147,24 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
 
                 // we just ask the oracle for properties
                 let acc_data = EthereumAccountPropertiesQuery::get(oracle, address)?;
-                let appearance = if acc_data.is_empty() {
-                    Appearance::Unset
+                let initial_appearance = if acc_data.is_empty() {
+                    InitialAppearance::Unset
                 } else {
-                    Appearance::Retrieved
+                    InitialAppearance::Retrieved
+                };
+                let current_appearance = if observe {
+                    CurrentAppearance::Observed
+                } else {
+                    CurrentAppearance::Touched
                 };
 
                 // Note: we initialize it as cold, should be warmed up separately
                 // Since in case of revert it should become cold again and initial record can't be rolled back
-                Ok(CacheRecord::new(acc_data, appearance))
+                Ok(StructuredCacheRecord::new(
+                    acc_data,
+                    initial_appearance,
+                    current_appearance,
+                ))
             })
             .and_then(|mut x| {
                 // Warm up element according to EVM rules if needed
@@ -185,11 +195,6 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                     }
                 }
                 x.update(|cache_record| {
-                    if observe {
-                        cache_record.observe();
-                    } else {
-                        cache_record.touch();
-                    }
                     cache_record.update_metadata(|m| {
                         if is_warm == false {
                             m.last_touched_in_tx = Some(self.current_tx_number);
@@ -199,15 +204,23 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                 })?;
 
                 debug_assert!(matches!(
-                    x.initial().appearance(),
-                    Appearance::Unset | Appearance::Retrieved
+                    x.initial().initial_appearance(),
+                    InitialAppearance::Unset | InitialAppearance::Retrieved
                 ));
                 debug_assert!(matches!(
-                    x.current().appearance(),
-                    Appearance::Touched
-                        | Appearance::Observed
-                        | Appearance::Updated
-                        | Appearance::Deconstructed
+                    x.current().initial_appearance(),
+                    InitialAppearance::Unset | InitialAppearance::Retrieved
+                ));
+                debug_assert!(matches!(
+                    x.initial().current_appearance(),
+                    CurrentAppearance::Touched | CurrentAppearance::Observed
+                ));
+                debug_assert!(matches!(
+                    x.current().current_appearance(),
+                    CurrentAppearance::Touched
+                        | CurrentAppearance::Observed
+                        | CurrentAppearance::Updated
+                        | CurrentAppearance::Deconstructed
                 ));
 
                 Ok(x)
@@ -430,7 +443,9 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         // respond with empty bytecode (well, WTF)
         let bytecode = {
             if bytecode_hash_is_zero {
-                debug_assert!(account_data.initial().appearance() == Appearance::Unset);
+                debug_assert!(
+                    account_data.current().initial_appearance() == InitialAppearance::Unset
+                );
 
                 let res: &'static [u8] = &[];
 
@@ -667,7 +682,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
 
         if should_be_deconstructed {
             account_data.update::<_, SystemError>(|cache_record| {
-                cache_record.deconstruct();
+                cache_record.mark_for_deconstruction();
 
                 Ok(())
             })?
@@ -791,7 +806,9 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         // Actually deconstructing accounts
         self.cache
             .apply_to_last_record_of_pending_changes(|key, head_history_record| {
-                if head_history_record.value.appearance() == Appearance::Deconstructed {
+                if head_history_record.value.current_appearance()
+                    == CurrentAppearance::MarkedForDeconstruction
+                {
                     head_history_record.value.finish_deconstruction();
                     head_history_record.value.update(|x, _| {
                         *x = EthereumAccountProperties::EMPTY_ACCOUNT;

@@ -9,6 +9,7 @@ pub mod new_preimages_publication_storage;
 pub mod proof_data;
 pub mod pubdata_compression;
 pub mod state_root_view;
+pub mod structured_account_cache_record;
 pub mod warm_storage_key;
 pub mod warm_storage_value;
 
@@ -18,5 +19,6 @@ pub use self::logs_storage::*;
 pub use self::new_preimages_publication_storage::*;
 pub use self::proof_data::*;
 pub use self::pubdata_compression::*;
+pub use self::structured_account_cache_record::*;
 pub use self::warm_storage_key::*;
 pub use self::warm_storage_value::*;
