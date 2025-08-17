@@ -11,7 +11,6 @@ use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::{
     common_structs::{WarmStorageKey, WarmStorageValue},
-    kv_markers::StorageAddress,
     memory::stack_trait::StackCtor,
     system::{errors::system::SystemError, Resources},
     system_io_oracle::IOOracle,
@@ -57,18 +56,13 @@ impl<
         key: &<Self::IOTypes as SystemIOTypesConfig>::StorageKey,
         oracle: &mut impl IOOracle,
     ) -> Result<<Self::IOTypes as SystemIOTypesConfig>::StorageKey, SystemError> {
-        let sa = StorageAddress {
-            address: *address,
-            key: *key,
-        };
-
         let key = WarmStorageKey {
             address: *address,
             key: *key,
         };
 
         self.0
-            .apply_read_impl(ee_type, &sa, &key, resources, oracle, false)
+            .apply_read_impl(ee_type, &key, resources, oracle, false)
     }
 
     fn touch(
@@ -82,18 +76,13 @@ impl<
     ) -> Result<(), SystemError> {
         // TODO(EVM-1076): use a different low-level function to avoid creating pubdata
         // and merkle proof obligations until we actually read the value
-        let sa = StorageAddress {
-            address: *address,
-            key: *key,
-        };
-
         let key = WarmStorageKey {
             address: *address,
             key: *key,
         };
 
         self.0
-            .apply_read_impl(ee_type, &sa, &key, resources, oracle, is_access_list)?;
+            .apply_read_impl(ee_type, &key, resources, oracle, is_access_list)?;
         Ok(())
     }
 
@@ -106,11 +95,6 @@ impl<
         new_value: &<Self::IOTypes as SystemIOTypesConfig>::StorageValue,
         oracle: &mut impl IOOracle,
     ) -> Result<<Self::IOTypes as SystemIOTypesConfig>::StorageKey, SystemError> {
-        let sa = StorageAddress {
-            address: *address,
-            key: *key,
-        };
-
         let key = WarmStorageKey {
             address: *address,
             key: *key,
@@ -118,7 +102,7 @@ impl<
 
         let old_value = self
             .0
-            .apply_write_impl(ee_type, &sa, &key, new_value, oracle, resources)?;
+            .apply_write_impl(ee_type, &key, new_value, oracle, resources)?;
 
         Ok(old_value)
     }
@@ -139,12 +123,6 @@ impl<
         let key = address_into_special_storage_key(address);
 
         // we just need to create a proper access function
-
-        let sa = StorageAddress {
-            address: ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
-            key,
-        };
-
         let key = WarmStorageKey {
             address: ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
             key,
@@ -152,7 +130,7 @@ impl<
 
         let raw_value = self
             .0
-            .apply_read_impl(ee_type, &sa, &key, resources, oracle, false)?;
+            .apply_read_impl(ee_type, &key, resources, oracle, false)?;
 
         let value = unsafe {
             // we checked TypeId above, so we reinterpret. No drop/forget needed
@@ -178,11 +156,6 @@ impl<
 
         let key = address_into_special_storage_key(address);
 
-        let sa = StorageAddress {
-            address: ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
-            key,
-        };
-
         let key = WarmStorageKey {
             address: ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
             key,
@@ -195,7 +168,7 @@ impl<
 
         let old_value = self
             .0
-            .apply_write_impl(ee_type, &sa, &key, &new_value, oracle, resources)?;
+            .apply_write_impl(ee_type, &key, &new_value, oracle, resources)?;
 
         let old_value = unsafe {
             // we checked TypeId above, so we reinterpret. No drop/forget needed

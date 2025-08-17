@@ -545,8 +545,8 @@ impl EthereumStoragePersister {
 
                     let _ = e.update(|v| {
                         v.update(|v, _m| {
+                            // This will mark appearance as "updated"
                             v.storage_root = new_root;
-                            // and we do not change appearance
 
                             Ok(())
                         })

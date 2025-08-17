@@ -187,11 +187,13 @@ impl<
         current_tx_number: TransactionId,
         ee_type: ExecutionEnvironmentType,
         resources: &mut R,
-        address: &StorageAddress<EthereumIOTypesConfig>,
         key: &'a K,
         oracle: &mut impl IOOracle,
         is_access_list: bool,
-    ) -> Result<(AddressItem<'a, K, V, A>, IsWarmRead), SystemError> {
+    ) -> Result<(AddressItem<'a, K, V, A>, IsWarmRead), SystemError>
+    where
+        StorageAddress<EthereumIOTypesConfig>: From<K>,
+    {
         resources_policy.charge_warm_storage_read(ee_type, resources, is_access_list)?;
 
         let mut initialized_element = false;
@@ -201,7 +203,8 @@ impl<
                 // Element doesn't exist in cache yet, initialize it
                 initialized_element = true;
 
-                let data_from_oracle = InitialStorageSlotQuery::get(oracle, &address)
+                let query_input = key.clone().into();
+                let data_from_oracle = InitialStorageSlotQuery::get(oracle, &query_input)
                     .expect("must get initial slot value from oracle");
 
                 resources_policy.charge_cold_storage_read_extra(
@@ -247,19 +250,20 @@ impl<
     pub fn apply_read_impl(
         &mut self,
         ee_type: ExecutionEnvironmentType,
-        address: &StorageAddress<EthereumIOTypesConfig>,
         key: &K,
         resources: &mut R,
         oracle: &mut impl IOOracle,
         is_access_list: bool,
-    ) -> Result<V, SystemError> {
+    ) -> Result<V, SystemError>
+    where
+        StorageAddress<EthereumIOTypesConfig>: From<K>,
+    {
         let (addr_data, _) = Self::materialize_element(
             &mut self.cache,
             &mut self.resources_policy,
             self.current_tx_number,
             ee_type,
             resources,
-            address,
             key,
             oracle,
             is_access_list,
@@ -271,19 +275,20 @@ impl<
     pub fn apply_write_impl(
         &mut self,
         ee_type: ExecutionEnvironmentType,
-        address: &StorageAddress<EthereumIOTypesConfig>,
         key: &K,
         new_value: &V,
         oracle: &mut impl IOOracle,
         resources: &mut R,
-    ) -> Result<V, SystemError> {
+    ) -> Result<V, SystemError>
+    where
+        StorageAddress<EthereumIOTypesConfig>: From<K>,
+    {
         let (mut addr_data, is_warm_read) = Self::materialize_element(
             &mut self.cache,
             &mut self.resources_policy,
             self.current_tx_number,
             ee_type,
             resources,
-            address,
             key,
             oracle,
             false,
