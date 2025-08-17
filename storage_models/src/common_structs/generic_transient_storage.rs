@@ -17,7 +17,7 @@ pub struct GenericTransientStorage<
     const N: usize,
     A: Allocator + Clone = Global,
 > {
-    cache: HistoryMap<K, V, A>,
+    cache: HistoryMap<K, V, A, ()>,
     pub(crate) current_tx_number: u32,
     phantom: PhantomData<SC>,
     alloc: A,
@@ -61,7 +61,7 @@ impl<
     where
         V: Default,
     {
-        cache.get_or_insert(key, || Ok(V::default()))
+        cache.get_or_insert(key, || Ok((V::default(), ())))
     }
 
     pub fn apply_read(&mut self, key: &K, dst: &mut V) -> Result<(), SystemError>

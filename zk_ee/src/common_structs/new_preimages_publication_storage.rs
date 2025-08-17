@@ -4,7 +4,7 @@ use alloc::alloc::Global;
 use core::alloc::Allocator;
 
 use super::{
-    cache_record::{Appearance, CacheRecord},
+    cache_record::CacheRecord,
     history_map::{CacheSnapshotId, HistoryMap, HistoryMapItemRef},
 };
 
@@ -41,7 +41,7 @@ impl PreimagesPublicationStorageValue {
 // we want to store new preimages for DA
 
 pub struct NewPreimagesPublicationStorage<A: Allocator + Clone = Global> {
-    cache: HistoryMap<Bytes32, CacheRecord<Elem, ()>, A>,
+    cache: HistoryMap<Bytes32, CacheRecord<Elem, ()>, A, ()>,
 }
 
 impl<A: Allocator + Clone> NewPreimagesPublicationStorage<A> {
@@ -87,7 +87,7 @@ impl<A: Allocator + Clone> NewPreimagesPublicationStorage<A> {
                     publication_net_bytes: preimage_publication_byte_len,
                 },
             };
-            Ok(CacheRecord::new(new, Appearance::Unset))
+            Ok((CacheRecord::new(new), ()))
         })?;
 
         item.update(|x| {

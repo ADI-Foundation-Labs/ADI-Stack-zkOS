@@ -18,7 +18,7 @@ use core::alloc::Allocator;
 use core::mem::MaybeUninit;
 use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
-use zk_ee::common_structs::{CurrentAppearance, InitialAppearance};
+use zk_ee::common_structs::*;
 use zk_ee::internal_error;
 use zk_ee::memory::stack_trait::StackCtor;
 use zk_ee::memory::vec_trait::VecLikeCtor;
@@ -542,15 +542,15 @@ impl EthereumStoragePersister {
                     //     ));
 
                     assert_ne!(new_root, e.current().value().storage_root);
-
-                    let _ = e.update(|v| {
+                    e.cache_appearance().update();
+                    e.update(|v| {
                         v.update(|v, _m| {
                             // This will mark appearance as "updated"
                             v.storage_root = new_root;
 
                             Ok(())
                         })
-                    });
+                    })?;
                 }
 
                 if let Some((addr, value)) = next_pair_to_read_check.take() {
@@ -623,22 +623,21 @@ impl EthereumStoragePersister {
             // let _ = logger
             //     .write_fmt(format_args!("Updating the state of address 0x{:040x}\n", addr.0.as_uint()));
 
+            let initial_appearance = record.initial_appearance();
+            let current_appearance = record.current_appearance();
+
             let initial = record.initial();
             let current = record.current();
-            debug_assert_eq!(initial.initial_appearance(), current.initial_appearance());
-
-            let initial_appearance = current.initial_appearance();
-            let current_appearance = current.current_appearance();
 
             match (initial_appearance, current_appearance) {
-                (_, CurrentAppearance::MarkedForDeconstruction) => {
+                (_, AccountCurrentAppearance::MarkedForDeconstruction) => {
                     panic!(
                         "Account 0x{:040x} was marked for deconstruction, but it was not completed",
                         addr.0.as_uint()
                     );
                 }
-                (InitialAppearance::Unset, CurrentAppearance::Touched)
-                | (InitialAppearance::Retrieved, CurrentAppearance::Touched) => {
+                (AccountInitialAppearance::Unset, AccountCurrentAppearance::Touched)
+                | (AccountInitialAppearance::Retrieved, AccountCurrentAppearance::Touched) => {
                     // whatever it was - it's unobservable, we can just skip it
 
                     assert_eq!(initial.value(), current.value());
@@ -646,10 +645,10 @@ impl EthereumStoragePersister {
                     // let _ = logger
                     //     .write_fmt(format_args!("Will skip account state verification for address 0x{:040x}\n", addr.0.as_uint()));
                 }
-                (InitialAppearance::Unset, CurrentAppearance::Observed)
-                | (InitialAppearance::Unset, CurrentAppearance::Updated)
-                | (InitialAppearance::Retrieved, CurrentAppearance::Updated)
-                | (InitialAppearance::Retrieved, CurrentAppearance::Observed) => {
+                (AccountInitialAppearance::Unset, AccountCurrentAppearance::Observed)
+                | (AccountInitialAppearance::Unset, AccountCurrentAppearance::Updated)
+                | (AccountInitialAppearance::Retrieved, AccountCurrentAppearance::Updated)
+                | (AccountInitialAppearance::Retrieved, AccountCurrentAppearance::Observed) => {
                     // there were some manipulations, so we should properly check
 
                     // let _ = logger
@@ -663,7 +662,7 @@ impl EthereumStoragePersister {
                             internal_error!("failed to get initial account value in MPT")
                         })?;
 
-                    if initial_appearance == InitialAppearance::Unset {
+                    if initial_appearance == AccountInitialAppearance::Unset {
                         // check that it's empty
                         assert!(initial_expected_value.is_empty());
                     } else {
@@ -699,13 +698,13 @@ impl EthereumStoragePersister {
                     //     .write_fmt(format_args!("\n",));
 
                     match current_appearance {
-                        CurrentAppearance::Touched
-                        | CurrentAppearance::MarkedForDeconstruction
-                        | CurrentAppearance::Deconstructed => unsafe {
+                        AccountCurrentAppearance::Touched
+                        | AccountCurrentAppearance::MarkedForDeconstruction
+                        | AccountCurrentAppearance::Deconstructed => unsafe {
                             core::hint::unreachable_unchecked()
                         },
-                        CurrentAppearance::Observed
-                            if initial_appearance == InitialAppearance::Unset =>
+                        AccountCurrentAppearance::Observed
+                            if initial_appearance == AccountInitialAppearance::Unset =>
                         {
                             assert_eq!(initial.value().storage_root, current.value().storage_root);
                             assert_eq!(initial.value().storage_root, EMPTY_ROOT_HASH);
@@ -714,24 +713,29 @@ impl EthereumStoragePersister {
                             result_keeper
                                 .account_state_opaque_encoding(&addr.0, initial_expected_value);
                         }
-                        CurrentAppearance::Observed
-                            if initial_appearance == InitialAppearance::Retrieved =>
+                        AccountCurrentAppearance::Observed
+                            if initial_appearance == AccountInitialAppearance::Retrieved =>
                         {
                             let initial = initial.value();
                             let current = current.value();
-                            assert_eq!(initial, current);
+                            assert_eq!(
+                                initial,
+                                current,
+                                "account 0x{:040x} was only observed, but has changes inside",
+                                addr.0.as_uint()
+                            );
 
                             result_keeper
                                 .account_state_opaque_encoding(&addr.0, initial_expected_value);
                         }
-                        CurrentAppearance::Observed => {
+                        AccountCurrentAppearance::Observed => {
                             panic!(
                                 "Element is observed, but initial appearance is {:?}",
                                 initial_appearance
                             );
                         }
-                        CurrentAppearance::Updated => {
-                            if initial_appearance == InitialAppearance::Unset {
+                        AccountCurrentAppearance::Updated => {
+                            if initial_appearance == AccountInitialAppearance::Unset {
                                 // let _ = logger
                                 //     .write_fmt(format_args!("Will insert new account at address 0x{:040x}\n", addr.0.as_uint()));
 
@@ -819,7 +823,7 @@ impl EthereumStoragePersister {
                         }
                     }
                 }
-                (InitialAppearance::Unset, CurrentAppearance::Deconstructed) => {
+                (AccountInitialAppearance::Unset, AccountCurrentAppearance::Deconstructed) => {
                     let digits = Self::cache_address_as_digits(addr, &mut key_cache, &mut hasher);
                     let path = Path::new(digits);
                     let initial_expected_value = accounts_mpt

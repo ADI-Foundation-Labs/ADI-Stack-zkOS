@@ -16,6 +16,8 @@ use storage_models::common_structs::StorageCacheModel;
 use storage_models::common_structs::StorageModel;
 use zk_ee::common_structs::history_map::NopSnapshotId;
 use zk_ee::common_structs::PreimageType;
+use zk_ee::common_structs::StorageCurrentAppearance;
+use zk_ee::common_structs::StorageInitialAppearance;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::system::BalanceSubsystemError;
 use zk_ee::system::DeconstructionSubsystemError;
@@ -410,17 +412,22 @@ impl<
     where
         Self: 'a;
     fn get_storage_diff<'a>(&'a self, key: Self::StorageKey<'a>) -> Option<Self::StorageDiff<'a>> {
-        use zk_ee::common_structs::cache_record::Appearance;
-
         self.storage_cache.slot_values.cache.get(key).map(|item| {
+            let is_new_storage_slot = item.initial_appearance() == StorageInitialAppearance::Empty;
+            let initial_value_used = matches!(
+                item.current_appearance(),
+                StorageCurrentAppearance::Observed
+                    | StorageCurrentAppearance::Updated
+                    | StorageCurrentAppearance::Deleted
+            );
             let current_record = item.current();
             let initial_record = item.initial();
 
             StorageDiff {
                 initial_value: *initial_record.value(),
                 current_value: *current_record.value(),
-                is_new_storage_slot: initial_record.appearance() == Appearance::Unset,
-                initial_value_used: true,
+                is_new_storage_slot,
+                initial_value_used,
             }
         })
     }
@@ -428,9 +435,14 @@ impl<
     fn storage_diffs_iterator<'a>(
         &'a self,
     ) -> impl ExactSizeIterator<Item = (Self::StorageKey<'a>, Self::StorageDiff<'a>)> + Clone {
-        use zk_ee::common_structs::cache_record::Appearance;
-
         self.storage_cache.slot_values.cache.iter().map(|item| {
+            let is_new_storage_slot = item.initial_appearance() == StorageInitialAppearance::Empty;
+            let initial_value_used = matches!(
+                item.current_appearance(),
+                StorageCurrentAppearance::Observed
+                    | StorageCurrentAppearance::Updated
+                    | StorageCurrentAppearance::Deleted
+            );
             let current_record = item.current();
             let initial_record = item.initial();
             (
@@ -439,8 +451,8 @@ impl<
                 StorageDiff {
                     initial_value: *initial_record.value(),
                     current_value: *current_record.value(),
-                    is_new_storage_slot: initial_record.appearance() == Appearance::Unset,
-                    initial_value_used: true,
+                    is_new_storage_slot,
+                    initial_value_used,
                 },
             )
         })

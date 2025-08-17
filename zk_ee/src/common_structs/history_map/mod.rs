@@ -4,6 +4,7 @@ mod element_pool;
 pub mod element_with_history;
 
 use crate::common_structs::history_map::element_with_history::HistoryRecord;
+use crate::common_structs::StructuredCacheAppearance;
 use crate::internal_error;
 use crate::{system::errors::internal::InternalError, utils::stack_linked_list::StackLinkedList};
 use alloc::collections::btree_map::Entry;
@@ -40,9 +41,9 @@ impl CacheSnapshotId {
 ///
 /// Structure:
 /// [ keys ] => [ history ] := [ snapshot 0 .. snapshot n ].
-pub struct HistoryMap<K, V, A: Allocator + Clone> {
+pub struct HistoryMap<K, V, A: Allocator + Clone, KA: StructuredCacheAppearance = ()> {
     /// Map from key to history of an element
-    btree: BTreeMap<K, ElementWithHistory<V, A>, A>,
+    btree: BTreeMap<K, ElementWithHistory<V, A, KA>, A>,
     state: HistoryMapState<K, A>,
     /// Manages memory allocations for history records, reuses old allocations for optimization
     records_memory_pool: ElementPool<V, A>,
@@ -57,7 +58,7 @@ struct HistoryMapState<K, A: Allocator + Clone> {
     alloc: A,
 }
 
-impl<K, V, A> HistoryMap<K, V, A>
+impl<K, V, A, KA: StructuredCacheAppearance> HistoryMap<K, V, A, KA>
 where
     K: Ord + Clone + Debug,
     A: Allocator + Clone,
@@ -77,14 +78,14 @@ where
     }
 
     /// Get history of an element by key
-    pub fn get<'s>(&'s self, key: &'s K) -> Option<HistoryMapItemRef<'s, K, V, A>> {
+    pub fn get<'s>(&'s self, key: &'s K) -> Option<HistoryMapItemRef<'s, K, V, A, KA>> {
         self.btree
             .get(key)
             .map(|ec| HistoryMapItemRef { key, history: ec })
     }
 
     /// Get history of an element by key, mutable
-    pub fn get_mut<'s>(&'s mut self, key: &'s K) -> Option<HistoryMapItemRefMut<'s, K, V, A>> {
+    pub fn get_mut<'s>(&'s mut self, key: &'s K) -> Option<HistoryMapItemRefMut<'s, K, V, A, KA>> {
         self.btree.get_mut(key).map(|ec| HistoryMapItemRefMut {
             key,
             history: ec,
@@ -97,8 +98,38 @@ where
     pub fn get_or_insert<'s, E>(
         &'s mut self,
         key: &'s K,
+        spawn_v: impl FnOnce() -> Result<(V, KA), E>,
+    ) -> Result<HistoryMapItemRefMut<'s, K, V, A, KA>, E> {
+        let entry = self.btree.entry(key.clone());
+
+        let v = match entry {
+            Entry::Occupied(o) => o.into_mut(),
+            Entry::Vacant(vacant_entry) => {
+                let (v, a) = spawn_v()?;
+                vacant_entry.insert(ElementWithHistory::new(
+                    a,
+                    v,
+                    &mut self.records_memory_pool,
+                    self.state.alloc.clone(),
+                ))
+            }
+        };
+
+        Ok(HistoryMapItemRefMut {
+            key,
+            history: v,
+            cache_state: &mut self.state,
+            records_memory_pool: &mut self.records_memory_pool,
+        })
+    }
+
+    /// Get history of an element by key or use callback to insert initial value
+    pub fn get_or_insert_with_appearance<'s, E>(
+        &'s mut self,
+        key: &'s K,
         spawn_v: impl FnOnce() -> Result<V, E>,
-    ) -> Result<HistoryMapItemRefMut<'s, K, V, A>, E> {
+        initial_appearance: KA,
+    ) -> Result<HistoryMapItemRefMut<'s, K, V, A, KA>, E> {
         let entry = self.btree.entry(key.clone());
 
         let v = match entry {
@@ -106,6 +137,7 @@ where
             Entry::Vacant(vacant_entry) => {
                 let v = spawn_v()?;
                 vacant_entry.insert(ElementWithHistory::new(
+                    initial_appearance,
                     v,
                     &mut self.records_memory_pool,
                     self.state.alloc.clone(),
@@ -212,7 +244,7 @@ where
         mut do_fn: F,
     ) -> Result<(), InternalError>
     where
-        F: FnMut(HistoryMapItemRefMut<K, V, A>) -> Result<(), InternalError>,
+        F: FnMut(HistoryMapItemRefMut<K, V, A, KA>) -> Result<(), InternalError>,
     {
         for (k, v) in self.btree.range_mut(range) {
             do_fn(HistoryMapItemRefMut {
@@ -227,7 +259,9 @@ where
     }
 
     /// Iterate over all elements in map
-    pub fn iter(&'_ self) -> impl ExactSizeIterator<Item = HistoryMapItemRef<'_, K, V, A>> + Clone {
+    pub fn iter(
+        &'_ self,
+    ) -> impl ExactSizeIterator<Item = HistoryMapItemRef<'_, K, V, A, KA>> + Clone {
         self.btree
             .iter()
             .map(|(k, v)| HistoryMapItemRef { key: k, history: v })
@@ -236,7 +270,7 @@ where
     /// Iterate over all elements that changed since last commit
     pub fn iter_altered_since_commit(
         &'_ self,
-    ) -> impl Iterator<Item = HistoryMapItemRef<'_, K, V, A>> {
+    ) -> impl Iterator<Item = HistoryMapItemRef<'_, K, V, A, KA>> {
         self.state
             .pending_updated_elements
             .iter()
@@ -255,10 +289,13 @@ where
         mut do_fn: F,
     ) -> Result<(), InternalError>
     where
-        F: FnMut(&K, &mut HistoryRecord<V>) -> Result<(), InternalError>,
+        F: FnMut(&K, (&mut HistoryRecord<V>, &mut KA)) -> Result<(), InternalError>,
     {
         for (k, _v) in self.state.pending_updated_elements.iter() {
-            do_fn(k, unsafe { self.btree.get_mut(&k).unwrap().head.as_mut() })?
+            let record = self.btree.get_mut(&k).unwrap();
+            let el = unsafe { record.head.as_mut() };
+            let cache_appearance = &mut record.appearance;
+            do_fn(k, (el, cache_appearance))?
         }
 
         Ok(())
@@ -266,18 +303,32 @@ where
 }
 
 /// External reference to element's history
-pub struct HistoryMapItemRef<'a, K: Clone, V, A: Allocator + Clone> {
+pub struct HistoryMapItemRef<
+    'a,
+    K: Clone,
+    V,
+    A: Allocator + Clone,
+    KA: StructuredCacheAppearance = (),
+> {
     key: &'a K,
-    history: &'a ElementWithHistory<V, A>,
+    history: &'a ElementWithHistory<V, A, KA>,
 }
 
-impl<'a, K, V, A> HistoryMapItemRef<'a, K, V, A>
+impl<'a, K, V, A, KA: StructuredCacheAppearance> HistoryMapItemRef<'a, K, V, A, KA>
 where
     K: Clone,
     A: Allocator + Clone,
 {
     pub fn key(&self) -> &'a K {
         self.key
+    }
+
+    pub fn initial_appearance(&self) -> KA::InitialAppearance {
+        self.history.appearance.initial_appearance()
+    }
+
+    pub fn current_appearance(&self) -> KA::CurrentAppearance {
+        self.history.appearance.current_appearance()
     }
 
     pub fn current(&self) -> &'a V {
@@ -295,14 +346,20 @@ where
 }
 
 /// External mutable reference to element's history
-pub struct HistoryMapItemRefMut<'a, K: Clone, V, A: Allocator + Clone> {
-    history: &'a mut ElementWithHistory<V, A>,
+pub struct HistoryMapItemRefMut<
+    'a,
+    K: Clone,
+    V,
+    A: Allocator + Clone,
+    KA: StructuredCacheAppearance = (),
+> {
+    history: &'a mut ElementWithHistory<V, A, KA>,
     cache_state: &'a mut HistoryMapState<K, A>,
     records_memory_pool: &'a mut ElementPool<V, A>,
     key: &'a K,
 }
 
-impl<'a, K, V, A> HistoryMapItemRefMut<'a, K, V, A>
+impl<'a, K, V, A, KA: StructuredCacheAppearance> HistoryMapItemRefMut<'a, K, V, A, KA>
 where
     K: Clone + Debug,
     V: Clone,
@@ -314,6 +371,27 @@ where
 
     pub fn initial(&self) -> &V {
         unsafe { &self.history.initial.as_ref().value }
+    }
+
+    pub fn initial_appearance(&self) -> KA::InitialAppearance {
+        self.history.appearance.initial_appearance()
+    }
+
+    pub fn current_appearance(&self) -> KA::CurrentAppearance {
+        self.history.appearance.current_appearance()
+    }
+
+    pub fn cache_appearance(&mut self) -> &mut KA {
+        &mut self.history.appearance
+    }
+
+    pub fn update_current_appearance<F>(&mut self, f: F)
+    where
+        F: FnOnce(&mut KA::CurrentAppearance) -> (),
+    {
+        // appearance is global property, and rolling-back "observe" action is not a good idea.
+        // We may get no net difference at the end, but element should still be considered as "updated".
+        self.history.appearance.update_current_appearance(f);
     }
 
     #[allow(dead_code)]
@@ -367,7 +445,7 @@ mod tests {
     fn miri_retrieve_single_elem() {
         let mut map = HistoryMap::<usize, usize, Global>::new(Global);
 
-        let v = map.get_or_insert::<()>(&1, || Ok(1)).unwrap();
+        let v = map.get_or_insert::<()>(&1, || Ok((1, ()))).unwrap();
 
         assert_eq!(1, *v.current());
     }
@@ -378,7 +456,7 @@ mod tests {
 
         map.snapshot();
 
-        let mut v = map.get_or_insert::<()>(&1, || Ok(1)).unwrap();
+        let mut v = map.get_or_insert::<()>(&1, || Ok((1, ()))).unwrap();
 
         v.update::<_, ()>(|x| {
             *x = 2;
@@ -398,7 +476,7 @@ mod tests {
 
         map.snapshot();
 
-        let mut v = map.get_or_insert::<()>(&1, || Ok(1)).unwrap();
+        let mut v = map.get_or_insert::<()>(&1, || Ok((1, ()))).unwrap();
 
         v.update::<_, ()>(|x| {
             *x = 2;
@@ -422,7 +500,7 @@ mod tests {
 
         map.snapshot();
 
-        map.get_or_insert::<()>(&1, || Ok(1)).unwrap();
+        map.get_or_insert::<()>(&1, || Ok((1, ()))).unwrap();
 
         map.commit();
 
@@ -438,7 +516,7 @@ mod tests {
 
         map.snapshot();
 
-        let mut v = map.get_or_insert::<()>(&1, || Ok(1)).unwrap();
+        let mut v = map.get_or_insert::<()>(&1, || Ok((1, ()))).unwrap();
 
         v.update::<_, ()>(|x| {
             *x = 2;
@@ -464,7 +542,7 @@ mod tests {
 
         map.snapshot();
 
-        let mut v = map.get_or_insert::<()>(&1, || Ok(1)).unwrap();
+        let mut v = map.get_or_insert::<()>(&1, || Ok((1, ()))).unwrap();
 
         v.update::<_, ()>(|x| {
             *x = 2;
@@ -474,7 +552,7 @@ mod tests {
 
         map.snapshot();
 
-        let mut v = map.get_or_insert::<()>(&1, || Ok(4)).unwrap();
+        let mut v = map.get_or_insert::<()>(&1, || Ok((4, ()))).unwrap();
 
         v.update::<_, ()>(|x| {
             *x = 3;
@@ -500,7 +578,7 @@ mod tests {
 
         map.snapshot();
 
-        let mut v = map.get_or_insert::<()>(&1, || Ok(1)).unwrap();
+        let mut v = map.get_or_insert::<()>(&1, || Ok((1, ()))).unwrap();
 
         v.update::<_, ()>(|x| {
             *x = 2;
@@ -510,7 +588,7 @@ mod tests {
 
         let ss = map.snapshot();
 
-        let mut v = map.get_or_insert::<()>(&1, || Ok(4)).unwrap();
+        let mut v = map.get_or_insert::<()>(&1, || Ok((4, ()))).unwrap();
 
         v.update::<_, ()>(|x| {
             *x = 3;
@@ -538,7 +616,7 @@ mod tests {
 
         map.snapshot();
 
-        let mut v = map.get_or_insert::<()>(&1, || Ok(1)).unwrap();
+        let mut v = map.get_or_insert::<()>(&1, || Ok((1, ()))).unwrap();
 
         v.update::<_, ()>(|x| {
             *x = 2;
@@ -549,7 +627,7 @@ mod tests {
         // We'll rollback to this point.
         let ss = map.snapshot();
 
-        let mut v = map.get_or_insert::<()>(&1, || Ok(4)).unwrap();
+        let mut v = map.get_or_insert::<()>(&1, || Ok((4, ()))).unwrap();
 
         // This snapshot will be rollbacked.
         v.update::<_, ()>(|x| {
@@ -563,7 +641,7 @@ mod tests {
 
         map.rollback(ss).expect("Correct snapshot");
 
-        let mut v = map.get_or_insert::<()>(&1, || Ok(5)).unwrap();
+        let mut v = map.get_or_insert::<()>(&1, || Ok((5, ()))).unwrap();
 
         // This will create a new snapshot and will reuse the one that rollbacked.
         v.update::<_, ()>(|x| {

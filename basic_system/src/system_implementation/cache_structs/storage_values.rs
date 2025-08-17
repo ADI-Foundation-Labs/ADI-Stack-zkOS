@@ -4,12 +4,14 @@ use alloc::fmt::Debug;
 use core::alloc::Allocator;
 use ruint::aliases::B160;
 use zk_ee::basic_queries::InitialStorageSlotQuery;
-use zk_ee::common_structs::cache_record::{Appearance, CacheRecord};
+use zk_ee::common_structs::cache_record::CacheRecord;
 #[cfg(feature = "evm_refunds")]
 use zk_ee::common_structs::history_counter::HistoryCounter;
 #[cfg(feature = "evm_refunds")]
 use zk_ee::common_structs::history_counter::HistoryCounterSnapshotId;
-use zk_ee::common_structs::history_map::*;
+use zk_ee::common_structs::{
+    history_map::*, StorageCacheAppearance, StorageCurrentAppearance, StorageInitialAppearance,
+};
 use zk_ee::common_traits::key_like_with_bounds::{KeyLikeWithBounds, TyEq};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::system::errors::internal::InternalError;
@@ -29,8 +31,8 @@ pub struct TransactionId(pub u32);
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IsWarmRead(pub bool);
 
-pub(crate) type AddressItem<'a, K, V, A> =
-    HistoryMapItemRefMut<'a, K, CacheRecord<V, StorageElementMetadata>, A>;
+pub(crate) type StorageItem<'a, K, V, A> =
+    HistoryMapItemRefMut<'a, K, CacheRecord<V, StorageElementMetadata>, A, StorageCacheAppearance>;
 
 /// EE-specific IO charging.
 pub trait StorageAccessPolicy<R: Resources, V>: 'static + Sized {
@@ -108,7 +110,7 @@ pub struct GenericPubdataAwareStorageValuesCache<
     R: Resources,
     P: StorageAccessPolicy<R, V>,
 > {
-    pub cache: HistoryMap<K, CacheRecord<V, StorageElementMetadata>, A>,
+    pub cache: HistoryMap<K, CacheRecord<V, StorageElementMetadata>, A, StorageCacheAppearance>,
     pub(crate) resources_policy: P,
     pub(crate) current_tx_number: TransactionId,
     pub(crate) initial_values: BTreeMap<K, (V, TransactionId), A>, // Used to cache initial values at the beginning of the tx (For EVM gas model)
@@ -182,7 +184,12 @@ impl<
 
     /// Read element and initialize it if needed
     pub(crate) fn materialize_element<'a>(
-        cache: &'a mut HistoryMap<K, CacheRecord<V, StorageElementMetadata>, A>,
+        cache: &'a mut HistoryMap<
+            K,
+            CacheRecord<V, StorageElementMetadata>,
+            A,
+            StorageCacheAppearance,
+        >,
         resources_policy: &mut P,
         current_tx_number: TransactionId,
         ee_type: ExecutionEnvironmentType,
@@ -190,7 +197,7 @@ impl<
         key: &'a K,
         oracle: &mut impl IOOracle,
         is_access_list: bool,
-    ) -> Result<(AddressItem<'a, K, V, A>, IsWarmRead), SystemError>
+    ) -> Result<(StorageItem<'a, K, V, A>, IsWarmRead), SystemError>
     where
         StorageAddress<EthereumIOTypesConfig>: From<K>,
     {
@@ -213,15 +220,19 @@ impl<
                     data_from_oracle.is_new_storage_slot,
                 )?;
 
-                let appearance = match data_from_oracle.is_new_storage_slot {
-                    true => Appearance::Unset,
-                    false => Appearance::Retrieved,
+                let initial_appearance = match data_from_oracle.is_new_storage_slot {
+                    true => StorageInitialAppearance::Empty,
+                    false => StorageInitialAppearance::Existing,
                 };
+
+                let current_appearance = StorageCurrentAppearance::Observed;
+                let appearance =
+                    StorageCacheAppearance::new(initial_appearance, current_appearance);
 
                 // Note: we initialize it as cold, should be warmed up separately
                 // Since in case of revert it should become cold again and initial record can't be rolled back
-                Ok(CacheRecord::new(
-                    data_from_oracle.initial_value.into(),
+                Ok((
+                    CacheRecord::new(data_from_oracle.initial_value.into()),
                     appearance,
                 ))
             })
@@ -320,10 +331,11 @@ impl<
             new_value,
             resources,
             is_warm_read.0,
-            addr_data.current().appearance() == Appearance::Unset,
+            addr_data.initial_appearance() == StorageInitialAppearance::Empty,
         )?;
 
         let old_value = addr_data.current().value().clone();
+        addr_data.cache_appearance().update();
         addr_data.update(|cache_record| {
             cache_record.update(|x, _| {
                 *x = new_value.clone();
@@ -363,9 +375,12 @@ impl<
                         *v = V::default();
                         Ok(())
                     })?;
-                    cache_record.unset();
                     Ok(())
-                })
+                })?;
+
+                x.cache_appearance().delete();
+
+                Ok(())
             })?;
 
         Ok(())

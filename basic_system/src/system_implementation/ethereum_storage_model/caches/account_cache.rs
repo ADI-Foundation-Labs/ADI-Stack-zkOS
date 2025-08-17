@@ -19,12 +19,12 @@ use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
 use storage_models::common_structs::PreimageCacheModel;
+use zk_ee::common_structs::cache_record::CacheRecord;
 use zk_ee::common_structs::history_map::CacheSnapshotId;
 use zk_ee::common_structs::history_map::HistoryMap;
 use zk_ee::common_structs::history_map::HistoryMapItemRefMut;
-use zk_ee::common_structs::structured_account_cache_record::{
-    CurrentAppearance, InitialAppearance, StructuredCacheRecord,
-};
+use zk_ee::common_structs::structured_account_cache_record::*;
+use zk_ee::common_structs::AccountCacheAppearance;
 use zk_ee::common_structs::PreimageType;
 use zk_ee::define_subsystem;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
@@ -53,8 +53,9 @@ use zk_ee::{
 pub type AddressItem<'a, A> = HistoryMapItemRefMut<
     'a,
     BitsOrd<160, 3>,
-    StructuredCacheRecord<EthereumAccountProperties, AccountPropertiesMetadataNoPubdata>,
+    CacheRecord<EthereumAccountProperties, AccountPropertiesMetadataNoPubdata>,
     A,
+    AccountCacheAppearance,
 >;
 
 pub struct EthereumAccountCache<
@@ -65,8 +66,9 @@ pub struct EthereumAccountCache<
 > {
     pub(crate) cache: HistoryMap<
         BitsOrd160,
-        StructuredCacheRecord<EthereumAccountProperties, AccountPropertiesMetadataNoPubdata>,
+        CacheRecord<EthereumAccountProperties, AccountPropertiesMetadataNoPubdata>,
         A,
+        AccountCacheAppearance,
     >,
     pub(crate) current_tx_number: u32,
     #[allow(dead_code)]
@@ -148,23 +150,21 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                 // we just ask the oracle for properties
                 let acc_data = EthereumAccountPropertiesQuery::get(oracle, address)?;
                 let initial_appearance = if acc_data.is_empty() {
-                    InitialAppearance::Unset
+                    AccountInitialAppearance::Unset
                 } else {
-                    InitialAppearance::Retrieved
+                    AccountInitialAppearance::Retrieved
                 };
                 let current_appearance = if observe {
-                    CurrentAppearance::Observed
+                    AccountCurrentAppearance::Observed
                 } else {
-                    CurrentAppearance::Touched
+                    AccountCurrentAppearance::Touched
                 };
+                let appearance =
+                    AccountCacheAppearance::new(initial_appearance, current_appearance);
 
                 // Note: we initialize it as cold, should be warmed up separately
                 // Since in case of revert it should become cold again and initial record can't be rolled back
-                Ok(StructuredCacheRecord::new(
-                    acc_data,
-                    initial_appearance,
-                    current_appearance,
-                ))
+                Ok((CacheRecord::new(acc_data), appearance))
             })
             .and_then(|mut x| {
                 // Warm up element according to EVM rules if needed
@@ -193,35 +193,20 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                             }
                         }
                     }
+                    // mark as warm
+                    x.update(|cache_record| {
+                        cache_record.update_metadata(|m| {
+                            if is_warm == false {
+                                m.last_touched_in_tx = Some(self.current_tx_number);
+                            }
+                            Ok(())
+                        })
+                    })?;
                 }
-                x.update(|cache_record| {
-                    cache_record.update_metadata(|m| {
-                        if is_warm == false {
-                            m.last_touched_in_tx = Some(self.current_tx_number);
-                        }
-                        Ok(())
-                    })
-                })?;
-
-                debug_assert!(matches!(
-                    x.initial().initial_appearance(),
-                    InitialAppearance::Unset | InitialAppearance::Retrieved
-                ));
-                debug_assert!(matches!(
-                    x.current().initial_appearance(),
-                    InitialAppearance::Unset | InitialAppearance::Retrieved
-                ));
-                debug_assert!(matches!(
-                    x.initial().current_appearance(),
-                    CurrentAppearance::Touched | CurrentAppearance::Observed
-                ));
-                debug_assert!(matches!(
-                    x.current().current_appearance(),
-                    CurrentAppearance::Touched
-                        | CurrentAppearance::Observed
-                        | CurrentAppearance::Updated
-                        | CurrentAppearance::Deconstructed
-                ));
+                // appearance mark
+                if observe {
+                    x.cache_appearance().observe();
+                }
 
                 Ok(x)
             })
@@ -252,6 +237,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
 
         let cur = account_data.current().value().balance;
         let new = update_fn(&cur)?;
+        account_data.cache_appearance().update();
         account_data.update(|cache_record| {
             cache_record.update(|v, _| {
                 v.balance = new;
@@ -426,10 +412,12 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         >,
         SystemError,
     > {
-        let account_data = self.materialize_element::<PROOF_ENV>(
+        let mut account_data = self.materialize_element::<PROOF_ENV>(
             ee_type, resources, address, oracle, false, false, true,
         )?;
-
+        // we are actually going to use account properties, so we should mark it so
+        account_data.cache_appearance().observe();
+        let initial_appearance = account_data.initial_appearance();
         let full_data = account_data.current().value();
 
         // we already charged for "cold" case, and now can charge more precisely
@@ -443,9 +431,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         // respond with empty bytecode (well, WTF)
         let bytecode = {
             if bytecode_hash_is_zero {
-                debug_assert!(
-                    account_data.current().initial_appearance() == InitialAppearance::Unset
-                );
+                debug_assert!(initial_appearance == AccountInitialAppearance::Unset);
 
                 let res: &'static [u8] = &[];
 
@@ -510,6 +496,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
 
         let nonce = account_data.current().value().nonce;
         if let Some(new_nonce) = nonce.checked_add(increment_by) {
+            account_data.cache_appearance().update();
             account_data.update(|cache_record| {
                 cache_record.update(|x, _| {
                     if x.bytecode_hash.is_zero() {
@@ -638,8 +625,8 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
         )))?;
 
+        account_data.cache_appearance().mark_as_created();
         account_data.update(|cache_record| {
-            cache_record.mark_as_created();
             cache_record.update(|v, m| {
                 v.bytecode_hash = bytecode_hash;
 
@@ -681,11 +668,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             account_data.current().metadata().deployed_in_tx == Some(cur_tx) || in_constructor;
 
         if should_be_deconstructed {
-            account_data.update::<_, SystemError>(|cache_record| {
-                cache_record.mark_for_deconstruction();
-
-                Ok(())
-            })?
+            account_data.cache_appearance().mark_for_deconstruction();
         }
 
         // First do the token transfer
@@ -788,6 +771,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
         )))?;
 
+        account_data.cache_appearance().update();
         account_data.update(|cache_record| {
             cache_record.update(|v, _m| {
                 v.bytecode_hash = bytecode_hash;
@@ -804,12 +788,14 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         storage: &mut EthereumStorageCache<A, SC, N, R, P>,
     ) -> Result<(), InternalError> {
         // Actually deconstructing accounts
-        self.cache
-            .apply_to_last_record_of_pending_changes(|key, head_history_record| {
-                if head_history_record.value.current_appearance()
-                    == CurrentAppearance::MarkedForDeconstruction
+        self.cache.apply_to_last_record_of_pending_changes(
+            |key, (head_history_record, cache_appearance)| {
+                use zk_ee::common_structs::StructuredCacheAppearance;
+
+                if cache_appearance.current_appearance()
+                    == AccountCurrentAppearance::MarkedForDeconstruction
                 {
-                    head_history_record.value.finish_deconstruction();
+                    cache_appearance.finish_deconstruction();
                     head_history_record.value.update(|x, _| {
                         *x = EthereumAccountProperties::EMPTY_ACCOUNT;
                         Ok(())
@@ -820,7 +806,8 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                         .expect("must clear state for code deconstruction in same TX");
                 }
                 Ok(())
-            })?;
+            },
+        )?;
 
         Ok(())
     }

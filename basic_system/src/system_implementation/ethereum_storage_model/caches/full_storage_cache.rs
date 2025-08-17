@@ -2,7 +2,7 @@
 use core::alloc::Allocator;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::StorageCacheModel;
-use zk_ee::common_structs::cache_record::Appearance;
+use zk_ee::common_structs::StorageInitialAppearance;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::{
@@ -159,6 +159,7 @@ impl<
     ) -> impl Iterator<Item = (WarmStorageKey, WarmStorageValue)> + Clone + use<'_, A, SC, N, R, P>
     {
         self.slot_values.cache.iter().map(|item| {
+            let initial_appearance = item.initial_appearance();
             let current_record = item.current();
             let initial_record = item.initial();
             (
@@ -167,7 +168,7 @@ impl<
                 // not actually 'using' it.
                 WarmStorageValue {
                     current_value: *current_record.value(),
-                    is_new_storage_slot: initial_record.appearance() == Appearance::Unset,
+                    is_new_storage_slot: initial_appearance == StorageInitialAppearance::Empty,
                     initial_value: *initial_record.value(),
                     initial_value_used: true,
                     ..Default::default()
