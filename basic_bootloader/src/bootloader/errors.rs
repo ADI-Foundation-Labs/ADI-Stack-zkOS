@@ -45,6 +45,7 @@ pub enum InvalidTransaction {
         fee: U256,
         balance: U256,
     },
+    // TODO: not used
     /// Overflow payment in transaction.
     OverflowPaymentInTransaction,
     /// Nonce overflows in transaction.
@@ -106,8 +107,8 @@ pub enum InvalidTransaction {
     /// Paymaster context offset is greater than returndata length
     PaymasterContextOffsetTooLong,
 
+    // TODO: it's not really validation errors, may worth separate enum
     /// Protocol upgrade txs should always be successful.
-    // TODO: it's not really a validation error
     UpgradeTxFailed,
 
     /// Transaction makes the block reach the gas limit

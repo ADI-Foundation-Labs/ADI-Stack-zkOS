@@ -31,6 +31,7 @@ use alloc::boxed::Box;
 use core::alloc::Allocator;
 use core::fmt::Write;
 use core::mem::MaybeUninit;
+use arrayvec::ArrayVec;
 use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
 use zk_ee::{internal_error, oracle::*};
@@ -174,6 +175,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
     where
         S::IO: IOSubsystemExt,
     {
+        // TODO: check gas model, overheads, prices, simulation!
         cycle_marker::start!("run_prepared");
         // we will model initial calldata buffer as just another "heap"
         let mut system: System<S> =
@@ -383,16 +385,27 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         }
 
         let block_number = system.get_block_number();
-        let previous_block_hash = system.get_blockhash(block_number);
+        let previous_block_hash = system.get_blockhash(block_number - 1);
         let beneficiary = system.get_coinbase();
         let gas_limit = system.get_gas_limit();
         let timestamp = system.get_timestamp();
         let consensus_random = Bytes32::from_u256_be(&system.get_mix_hash());
-        let base_fee_per_gas = system.get_eip1559_basefee();
-        // TODO: add gas_per_pubdata and native price
-        let base_fee_per_gas = base_fee_per_gas
+        let base_fee_per_gas = system
+            .get_eip1559_basefee()
             .try_into()
             .map_err(|_| internal_error!("base_fee_per_gas exceeds max u64"))?;
+        let native_price: u64 = system
+            .get_native_price()
+            .try_into()
+            .map_err(|_| internal_error!("native_price exceeds max u64"))?;
+        // TODO: pubdata_price instead gas_per_pubdata?
+        let gas_per_pubdata: u64 = system
+            .get_gas_per_pubdata()
+            .try_into()
+            .map_err(|_| internal_error!("gas_per_pubdata exceeds max u64"))?;
+        let mut extra_data = ArrayVec::new();
+        extra_data.extend(native_price.to_be_bytes());
+        extra_data.extend(gas_per_pubdata.to_be_bytes());
         let block_header = BlockHeader::new(
             Bytes32::from(previous_block_hash.to_be_bytes::<32>()),
             beneficiary,
@@ -401,6 +414,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             gas_limit,
             block_gas_used,
             timestamp,
+            extra_data
             consensus_random,
             base_fee_per_gas,
         );

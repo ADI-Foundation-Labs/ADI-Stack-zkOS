@@ -90,6 +90,8 @@ pub struct BlockMetadataFromOracle {
     pub native_price: U256,
     pub coinbase: B160,
     pub gas_limit: u64,
+    // TODO: what?
+    // TODO: think about pubdata limit, l1 tx, etc
     pub pubdata_limit: u64,
     /// Source of randomness, currently holds the value
     /// of prevRandao.

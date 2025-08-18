@@ -170,7 +170,6 @@ where
             system
         )?;
 
-        // TODO: l1 transaction preparation (marking factory deps)
         let chain_id = system.get_chain_id();
 
         let (tx_hash, preparation_out_of_resources): (Bytes32, bool) = match transaction
@@ -519,6 +518,7 @@ where
         // the block's gas limit.
         let block_gas_limit = system.get_gas_limit();
         // First, check block gas limit can be represented as ergs.
+        // TODO: check once per block??
         require!(
             block_gas_limit <= MAX_BLOCK_GAS_LIMIT,
             InvalidTransaction::BlockGasLimitTooHigh,
@@ -856,8 +856,6 @@ where
         let _ = system
             .get_logger()
             .write_fmt(format_args!("Start of execution\n"));
-
-        // TODO: factory deps? Probably fine to ignore for now
 
         // AA execution
         let execution_result = account_model.execute(

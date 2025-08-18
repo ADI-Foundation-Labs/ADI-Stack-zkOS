@@ -19,6 +19,7 @@ pub const EMPTY_OMMER_ROOT_HASH: [u8; 32] = [
 /// - ParentBeaconRoot ( EIP-4788 )
 /// - RequestsHash( EIP-7685 )
 ///
+// TODO: add consensus/blobs fields?
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BlockHeader {
     /// The Keccak 256-bit hash of the parent
@@ -87,6 +88,7 @@ impl BlockHeader {
         gas_limit: u64,
         gas_used: u64,
         timestamp: u64,
+        extra_data: ArrayVec<u8, 32>,
         mix_hash: Bytes32,
         base_fee_per_gas: u64,
     ) -> Self {
@@ -109,8 +111,7 @@ impl BlockHeader {
             gas_limit,
             gas_used,
             timestamp,
-            // for now extra data is empty
-            extra_data: ArrayVec::new(),
+            extra_data,
             mix_hash,
             // nonce is set to zero after EIP-3675
             nonce: [0u8; 8],

@@ -25,6 +25,7 @@ unsafe fn workload() -> ! {
     zksync_os_finish_success(&[1, 0, 0, 0, 0, 0, 0, 0]);
 }
 
+// TODO: do we need this crate?
 #[inline(never)]
 fn main() -> ! {
     unsafe { workload() }
