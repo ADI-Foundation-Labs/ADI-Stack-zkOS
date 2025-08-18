@@ -218,9 +218,10 @@ impl<
     ) -> impl Iterator<Item = (WarmStorageKey, WarmStorageValue)> + Clone + use<'_, A, SC, N, R, P>
     {
         self.0.cache.iter().map(|item| {
-            let is_new_storage_slot = item.initial_appearance() == StorageInitialAppearance::Empty;
+            let is_new_storage_slot =
+                item.key_properties().initial_appearance() == StorageInitialAppearance::Empty;
             let initial_value_used = matches!(
-                item.current_appearance(),
+                item.key_properties().current_appearance(),
                 StorageCurrentAppearance::Observed
                     | StorageCurrentAppearance::Updated
                     | StorageCurrentAppearance::Deleted

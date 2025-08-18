@@ -413,9 +413,10 @@ impl<
         Self: 'a;
     fn get_storage_diff<'a>(&'a self, key: Self::StorageKey<'a>) -> Option<Self::StorageDiff<'a>> {
         self.storage_cache.slot_values.cache.get(key).map(|item| {
-            let is_new_storage_slot = item.initial_appearance() == StorageInitialAppearance::Empty;
+            let is_new_storage_slot =
+                item.key_properties().initial_appearance() == StorageInitialAppearance::Empty;
             let initial_value_used = matches!(
-                item.current_appearance(),
+                item.key_properties().current_appearance(),
                 StorageCurrentAppearance::Observed
                     | StorageCurrentAppearance::Updated
                     | StorageCurrentAppearance::Deleted
@@ -436,9 +437,10 @@ impl<
         &'a self,
     ) -> impl ExactSizeIterator<Item = (Self::StorageKey<'a>, Self::StorageDiff<'a>)> + Clone {
         self.storage_cache.slot_values.cache.iter().map(|item| {
-            let is_new_storage_slot = item.initial_appearance() == StorageInitialAppearance::Empty;
+            let is_new_storage_slot =
+                item.key_properties().initial_appearance() == StorageInitialAppearance::Empty;
             let initial_value_used = matches!(
-                item.current_appearance(),
+                item.key_properties().current_appearance(),
                 StorageCurrentAppearance::Observed
                     | StorageCurrentAppearance::Updated
                     | StorageCurrentAppearance::Deleted

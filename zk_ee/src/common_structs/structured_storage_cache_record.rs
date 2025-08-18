@@ -1,6 +1,5 @@
 //! Wraps values with additional metadata used by IO caches
 
-use crate::common_structs::StructuredCacheAppearance;
 use core::fmt::Debug;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -44,6 +43,14 @@ impl StorageCacheAppearance {
         }
     }
 
+    pub fn initial_appearance(&self) -> StorageInitialAppearance {
+        self.initial_appearance
+    }
+
+    pub fn current_appearance(&self) -> StorageCurrentAppearance {
+        self.current_appearance
+    }
+
     /// Sets appearance to "observed" to distinguish from elements that were "observed" via explicit read
     /// or update. If it was observed before - does nothing
     pub fn observe(&mut self) {
@@ -60,25 +67,5 @@ impl StorageCacheAppearance {
     /// Mark element as "update", meaning it was written to, but net difference can be trivial anyway
     pub fn delete(&mut self) {
         self.current_appearance = StorageCurrentAppearance::Deleted;
-    }
-}
-
-impl StructuredCacheAppearance for StorageCacheAppearance {
-    type InitialAppearance = StorageInitialAppearance;
-    type CurrentAppearance = StorageCurrentAppearance;
-
-    fn initial_appearance(&self) -> Self::InitialAppearance {
-        self.initial_appearance
-    }
-
-    fn current_appearance(&self) -> Self::CurrentAppearance {
-        self.current_appearance
-    }
-
-    fn update_current_appearance<FN: FnOnce(&mut Self::CurrentAppearance) -> ()>(
-        &mut self,
-        update_fn: FN,
-    ) {
-        update_fn(&mut self.current_appearance);
     }
 }

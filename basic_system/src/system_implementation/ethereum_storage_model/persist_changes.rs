@@ -10,7 +10,7 @@ use crate::system_implementation::ethereum_storage_model::mpt::{
 };
 use crate::system_implementation::ethereum_storage_model::LeafValue;
 use crate::system_implementation::ethereum_storage_model::{
-    EthereumMPT, InterningWordBuffer, PreimagesOracle, EMPTY_ROOT_HASH,
+    EthereumMPT, InterningWordBuffer, PreimagesOracle,
 };
 use alloc::collections::btree_map::Entry;
 use alloc::collections::BTreeMap;
@@ -542,10 +542,9 @@ impl EthereumStoragePersister {
                     //     ));
 
                     assert_ne!(new_root, e.current().value().storage_root);
-                    e.cache_appearance().update();
+                    e.key_properties_mut().observe();
                     e.update(|v| {
                         v.update(|v, _m| {
-                            // This will mark appearance as "updated"
                             v.storage_root = new_root;
 
                             Ok(())
@@ -623,33 +622,30 @@ impl EthereumStoragePersister {
             // let _ = logger
             //     .write_fmt(format_args!("Updating the state of address 0x{:040x}\n", addr.0.as_uint()));
 
-            let initial_appearance = record.initial_appearance();
-            let current_appearance = record.current_appearance();
+            let initial_appearance = record.key_properties().initial_appearance();
+            let current_appearance = record.key_properties().current_appearance();
 
             let initial = record.initial();
             let current = record.current();
+            let current_metadata = current.metadata();
+            assert!(
+                current_metadata.is_marked_for_deconstruction == false,
+                "Account 0x{:040x} was marked for deconstruction, but it was not completed",
+                addr.0.as_uint()
+            );
 
             match (initial_appearance, current_appearance) {
-                (_, AccountCurrentAppearance::MarkedForDeconstruction) => {
-                    panic!(
-                        "Account 0x{:040x} was marked for deconstruction, but it was not completed",
-                        addr.0.as_uint()
-                    );
-                }
                 (AccountInitialAppearance::Unset, AccountCurrentAppearance::Touched)
                 | (AccountInitialAppearance::Retrieved, AccountCurrentAppearance::Touched) => {
                     // whatever it was - it's unobservable, we can just skip it
-
                     assert_eq!(initial.value(), current.value());
 
                     // let _ = logger
                     //     .write_fmt(format_args!("Will skip account state verification for address 0x{:040x}\n", addr.0.as_uint()));
                 }
                 (AccountInitialAppearance::Unset, AccountCurrentAppearance::Observed)
-                | (AccountInitialAppearance::Unset, AccountCurrentAppearance::Updated)
-                | (AccountInitialAppearance::Retrieved, AccountCurrentAppearance::Updated)
                 | (AccountInitialAppearance::Retrieved, AccountCurrentAppearance::Observed) => {
-                    // there were some manipulations, so we should properly check
+                    // we need to check that initial value is the one we claimed in cache
 
                     // let _ = logger
                     //     .write_fmt(format_args!("Will retrieve initial account state for address 0x{:040x}\n", addr.0.as_uint()));
@@ -682,10 +678,7 @@ impl EthereumStoragePersister {
                             "storage root hash must not be zero for retrieved account"
                         );
 
-                        assert_eq!(initial.value().nonce, parsed.nonce);
-                        assert_eq!(initial.value().balance, parsed.balance);
-                        assert_eq!(initial.value().bytecode_hash, parsed.bytecode_hash);
-                        assert_eq!(initial.value().storage_root, parsed.storage_root);
+                        assert_eq!(initial.value(), &parsed);
                     }
 
                     // let _ = logger
@@ -697,153 +690,96 @@ impl EthereumStoragePersister {
                     // let _ = logger
                     //     .write_fmt(format_args!("\n",));
 
-                    match current_appearance {
-                        AccountCurrentAppearance::Touched
-                        | AccountCurrentAppearance::MarkedForDeconstruction
-                        | AccountCurrentAppearance::Deconstructed => unsafe {
-                            core::hint::unreachable_unchecked()
-                        },
-                        AccountCurrentAppearance::Observed
-                            if initial_appearance == AccountInitialAppearance::Unset =>
-                        {
-                            assert_eq!(initial.value().storage_root, current.value().storage_root);
-                            assert_eq!(initial.value().storage_root, EMPTY_ROOT_HASH);
-                            assert!(initial.value().is_empty());
+                    let initial_value = initial.value();
+                    let current_value = current.value();
 
-                            result_keeper
-                                .account_state_opaque_encoding(&addr.0, initial_expected_value);
-                        }
-                        AccountCurrentAppearance::Observed
-                            if initial_appearance == AccountInitialAppearance::Retrieved =>
-                        {
-                            let initial = initial.value();
-                            let current = current.value();
-                            assert_eq!(
-                                initial,
-                                current,
-                                "account 0x{:040x} was only observed, but has changes inside",
+                    if initial_appearance == AccountInitialAppearance::Unset {
+                        let is_modified_modulo_bytecode_hash = initial_value.nonce
+                            == current_value.nonce
+                            && initial_value.balance == current_value.balance
+                            && initial_value.storage_root == current_value.storage_root;
+
+                        let bytecode_hash_is_zero = current_value.bytecode_hash.is_zero();
+                        if is_modified_modulo_bytecode_hash && bytecode_hash_is_zero {
+                            // empty -> observed -> empty
+                            let _ = logger.write_fmt(format_args!(
+                                "Will skip empty account insert for address 0x{:040x}\n",
                                 addr.0.as_uint()
-                            );
+                            ));
+                        } else {
+                            // let _ = logger
+                            //     .write_fmt(format_args!("Will insert new account at address 0x{:040x}\n", addr.0.as_uint()));
+
+                            let mut current_value = *current_value;
+                            if bytecode_hash_is_zero {
+                                // if account was created, but bytecode was never touched, then we should
+                                // put proper value instead of 0
+                                current_value.bytecode_hash = EMPTY_STRING_KECCAK_HASH;
+                            }
+
+                            // we will need to insert
+                            // encode - we need slice, that is over list internally
+                            let pre_encoded_value = current_value
+                                .rlp_encode_for_leaf(&mut account_data_encoding_buffer);
+
+                            // let _ = logger
+                            //     .write_fmt(format_args!("Leaf updated value for address 0x{:040x} is 0x", addr.0.as_uint()));
+
+                            // let _ = logger
+                            //     .log_data(pre_encoded_value.iter().copied());
+
+                            // let _ = logger
+                            //     .write_fmt(format_args!("\n",));
+
+                            result_keeper.account_state_opaque_encoding(&addr.0, pre_encoded_value);
+
+                            accounts_mpt
+                                .insert(path, pre_encoded_value, &mut preimage_oracle, &mut hasher)
+                                .map_err(|_| {
+                                    internal_error!("failed to get update account value in MPT")
+                                })?;
+                        }
+                    } else {
+                        // it's an update potentially, and initial is not empty
+
+                        let initial = initial.value();
+                        let current = current.value();
+
+                        debug_assert!(current.bytecode_hash.is_zero() == false);
+
+                        if initial != current {
+                            // let _ = logger
+                            //     .write_fmt(format_args!("Will update account state at address 0x{:040x}\n", addr.0.as_uint()));
+
+                            // we checked initial, and rolled-over any possible updates on it,
+                            // so this step is safe to skip if it's unchanged
+
+                            // encode - we need slice, that is over list internally
+                            let pre_encoded_value =
+                                current.rlp_encode_for_leaf(&mut account_data_encoding_buffer);
+
+                            // let _ = logger
+                            //     .write_fmt(format_args!("Leaf updated value for address 0x{:040x} is 0x", addr.0.as_uint()));
+
+                            // let _ = logger
+                            //     .log_data(pre_encoded_value.iter().copied());
+
+                            // let _ = logger
+                            //     .write_fmt(format_args!("\n",));
+
+                            result_keeper.account_state_opaque_encoding(&addr.0, pre_encoded_value);
+
+                            accounts_mpt.update(path, pre_encoded_value).map_err(|_| {
+                                internal_error!("failed to update account value in MPT")
+                            })?;
+                        } else {
+                            // let _ = logger
+                            //     .write_fmt(format_args!("No net modification at address 0x{:040x}\n", addr.0.as_uint()));
 
                             result_keeper
                                 .account_state_opaque_encoding(&addr.0, initial_expected_value);
-                        }
-                        AccountCurrentAppearance::Observed => {
-                            panic!(
-                                "Element is observed, but initial appearance is {:?}",
-                                initial_appearance
-                            );
-                        }
-                        AccountCurrentAppearance::Updated => {
-                            if initial_appearance == AccountInitialAppearance::Unset {
-                                // let _ = logger
-                                //     .write_fmt(format_args!("Will insert new account at address 0x{:040x}\n", addr.0.as_uint()));
-
-                                let mut current_value = *current.value();
-                                if current_value.bytecode_hash.is_zero() {
-                                    // if account was created, but bytecode was never touched, then we should
-                                    // put proper value instead of 0
-                                    current_value.bytecode_hash = EMPTY_STRING_KECCAK_HASH;
-                                }
-
-                                // we will need to insert
-                                // encode - we need slice, that is over list internally
-                                let pre_encoded_value = current_value
-                                    .rlp_encode_for_leaf(&mut account_data_encoding_buffer);
-
-                                // let _ = logger
-                                //     .write_fmt(format_args!("Leaf updated value for address 0x{:040x} is 0x", addr.0.as_uint()));
-
-                                // let _ = logger
-                                //     .log_data(pre_encoded_value.iter().copied());
-
-                                // let _ = logger
-                                //     .write_fmt(format_args!("\n",));
-
-                                result_keeper
-                                    .account_state_opaque_encoding(&addr.0, pre_encoded_value);
-
-                                accounts_mpt
-                                    .insert(
-                                        path,
-                                        pre_encoded_value,
-                                        &mut preimage_oracle,
-                                        &mut hasher,
-                                    )
-                                    .map_err(|_| {
-                                        internal_error!("failed to get update account value in MPT")
-                                    })?;
-                            } else {
-                                // it's an update potentially
-
-                                let initial = initial.value();
-                                let current = current.value();
-
-                                let modified = initial.nonce != current.nonce
-                                    || initial.balance != current.balance
-                                    || initial.bytecode_hash != current.bytecode_hash
-                                    || initial.storage_root != current.storage_root;
-                                if modified {
-                                    // let _ = logger
-                                    //     .write_fmt(format_args!("Will update account state at address 0x{:040x}\n", addr.0.as_uint()));
-
-                                    debug_assert!(current.bytecode_hash.is_zero() == false);
-                                    // we checked initial, and rolled-over any possible updates on it,
-                                    // so this step is safe to skip if it's unchanged
-
-                                    // encode - we need slice, that is over list internally
-                                    let pre_encoded_value = current
-                                        .rlp_encode_for_leaf(&mut account_data_encoding_buffer);
-
-                                    // let _ = logger
-                                    //     .write_fmt(format_args!("Leaf updated value for address 0x{:040x} is 0x", addr.0.as_uint()));
-
-                                    // let _ = logger
-                                    //     .log_data(pre_encoded_value.iter().copied());
-
-                                    // let _ = logger
-                                    //     .write_fmt(format_args!("\n",));
-
-                                    result_keeper
-                                        .account_state_opaque_encoding(&addr.0, pre_encoded_value);
-
-                                    accounts_mpt.update(path, pre_encoded_value).map_err(|_| {
-                                        internal_error!("failed to update account value in MPT")
-                                    })?;
-                                } else {
-                                    // let _ = logger
-                                    //     .write_fmt(format_args!("No net modification at address 0x{:040x}\n", addr.0.as_uint()));
-
-                                    result_keeper.account_state_opaque_encoding(
-                                        &addr.0,
-                                        initial_expected_value,
-                                    );
-                                }
-                            }
                         }
                     }
-                }
-                (AccountInitialAppearance::Unset, AccountCurrentAppearance::Deconstructed) => {
-                    let digits = Self::cache_address_as_digits(addr, &mut key_cache, &mut hasher);
-                    let path = Path::new(digits);
-                    let initial_expected_value = accounts_mpt
-                        .get(path, &mut preimage_oracle, &mut hasher)
-                        .map_err(|_| {
-                            internal_error!("failed to get initial account value in MPT")
-                        })?;
-                    assert!(
-                        initial_expected_value.is_empty(),
-                        "item with unset initial appearance has non-empty leaf"
-                    );
-
-                    assert_eq!(initial.value().storage_root, current.value().storage_root);
-                    assert_eq!(initial.value().storage_root, EMPTY_ROOT_HASH);
-                    assert!(initial.value().is_empty());
-
-                    result_keeper.account_state_opaque_encoding(&addr.0, initial_expected_value);
-                }
-                (i, c) => {
-                    panic!("Impossible combination for address 0x{:040x}: initial appearance = {:?}, current one = {:?}", addr.0.as_uint(), i, c);
                 }
             }
         }

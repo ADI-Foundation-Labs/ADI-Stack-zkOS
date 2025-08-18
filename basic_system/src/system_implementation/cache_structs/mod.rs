@@ -11,6 +11,8 @@ pub struct AccountPropertiesMetadataNoPubdata {
     /// Transaction where this account was last accessed.
     /// Considered warm if equal to Some(current_tx)
     pub last_touched_in_tx: Option<u32>,
+    /// Marks if account is marked for deconstruction is transaction
+    pub is_marked_for_deconstruction: bool,
 }
 
 impl AccountPropertiesMetadataNoPubdata {

@@ -205,7 +205,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                 }
                 // appearance mark
                 if observe {
-                    x.cache_appearance().observe();
+                    x.key_properties_mut().observe();
                 }
 
                 Ok(x)
@@ -237,7 +237,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
 
         let cur = account_data.current().value().balance;
         let new = update_fn(&cur)?;
-        account_data.cache_appearance().update();
+        account_data.key_properties_mut().observe();
         account_data.update(|cache_record| {
             cache_record.update(|v, _| {
                 v.balance = new;
@@ -416,8 +416,8 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             ee_type, resources, address, oracle, false, false, true,
         )?;
         // we are actually going to use account properties, so we should mark it so
-        account_data.cache_appearance().observe();
-        let initial_appearance = account_data.initial_appearance();
+        account_data.key_properties_mut().observe();
+        let initial_appearance = account_data.key_properties().initial_appearance();
         let full_data = account_data.current().value();
 
         // we already charged for "cold" case, and now can charge more precisely
@@ -496,7 +496,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
 
         let nonce = account_data.current().value().nonce;
         if let Some(new_nonce) = nonce.checked_add(increment_by) {
-            account_data.cache_appearance().update();
+            account_data.key_properties_mut().observe();
             account_data.update(|cache_record| {
                 cache_record.update(|x, _| {
                     if x.bytecode_hash.is_zero() {
@@ -625,7 +625,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
         )))?;
 
-        account_data.cache_appearance().mark_as_created();
+        account_data.key_properties_mut().observe();
         account_data.update(|cache_record| {
             cache_record.update(|v, m| {
                 v.bytecode_hash = bytecode_hash;
@@ -668,7 +668,14 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             account_data.current().metadata().deployed_in_tx == Some(cur_tx) || in_constructor;
 
         if should_be_deconstructed {
-            account_data.cache_appearance().mark_for_deconstruction();
+            account_data.key_properties_mut().observe();
+            account_data.update(|data| {
+                data.update_metadata(|metadata| {
+                    metadata.is_marked_for_deconstruction = true;
+
+                    Ok(())
+                })
+            })?;
         }
 
         // First do the token transfer
@@ -771,7 +778,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
         )))?;
 
-        account_data.cache_appearance().update();
+        account_data.key_properties_mut().observe();
         account_data.update(|cache_record| {
             cache_record.update(|v, _m| {
                 v.bytecode_hash = bytecode_hash;
@@ -790,13 +797,16 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         // Actually deconstructing accounts
         self.cache.apply_to_last_record_of_pending_changes(
             |key, (head_history_record, cache_appearance)| {
-                use zk_ee::common_structs::StructuredCacheAppearance;
-
-                if cache_appearance.current_appearance()
-                    == AccountCurrentAppearance::MarkedForDeconstruction
+                if head_history_record
+                    .value
+                    .metadata()
+                    .is_marked_for_deconstruction
                 {
-                    cache_appearance.finish_deconstruction();
-                    head_history_record.value.update(|x, _| {
+                    // NOTE: it can only happen if the account is initially empty,
+                    // so we need to make sure that it was observed earlier - when bytecode was deployed
+                    cache_appearance.assert_observed();
+                    head_history_record.value.update(|x, metadata| {
+                        metadata.is_marked_for_deconstruction = false;
                         *x = EthereumAccountProperties::EMPTY_ACCOUNT;
                         Ok(())
                     })?;

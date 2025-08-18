@@ -324,6 +324,8 @@ impl<
             }
         };
 
+        let is_new_slot =
+            addr_data.key_properties().initial_appearance() == StorageInitialAppearance::Empty;
         self.resources_policy.charge_storage_write_extra(
             ee_type,
             val_at_tx_start,
@@ -331,11 +333,11 @@ impl<
             new_value,
             resources,
             is_warm_read.0,
-            addr_data.initial_appearance() == StorageInitialAppearance::Empty,
+            is_new_slot,
         )?;
 
         let old_value = addr_data.current().value().clone();
-        addr_data.cache_appearance().update();
+        addr_data.key_properties_mut().update();
         addr_data.update(|cache_record| {
             cache_record.update(|x, _| {
                 *x = new_value.clone();
@@ -377,8 +379,7 @@ impl<
                     })?;
                     Ok(())
                 })?;
-
-                x.cache_appearance().delete();
+                x.key_properties_mut().delete();
 
                 Ok(())
             })?;

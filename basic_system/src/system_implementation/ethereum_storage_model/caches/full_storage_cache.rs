@@ -159,7 +159,7 @@ impl<
     ) -> impl Iterator<Item = (WarmStorageKey, WarmStorageValue)> + Clone + use<'_, A, SC, N, R, P>
     {
         self.slot_values.cache.iter().map(|item| {
-            let initial_appearance = item.initial_appearance();
+            let initial_appearance = item.key_properties().initial_appearance();
             let current_record = item.current();
             let initial_record = item.initial();
             (

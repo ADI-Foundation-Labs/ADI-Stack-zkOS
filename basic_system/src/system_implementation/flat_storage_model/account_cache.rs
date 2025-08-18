@@ -29,7 +29,6 @@ use zk_ee::common_structs::AccountCacheAppearance;
 use zk_ee::common_structs::AccountCurrentAppearance;
 use zk_ee::common_structs::AccountInitialAppearance;
 use zk_ee::common_structs::PreimageType;
-use zk_ee::common_structs::StructuredCacheAppearance;
 use zk_ee::define_subsystem;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::interface_error;
@@ -244,7 +243,7 @@ impl<
                 }
 
                 if observe {
-                    x.cache_appearance().observe();
+                    x.key_properties_mut().observe();
                 }
                 Ok(x)
             })
@@ -279,7 +278,7 @@ impl<
 
         let cur = account_data.current().value().balance;
         let new = update_fn(&cur)?;
-        account_data.cache_appearance().update();
+        account_data.key_properties_mut().observe();
         account_data.update(|cache_record| {
             cache_record.update(|v, _| {
                 v.balance = new;
@@ -635,7 +634,7 @@ impl<
 
         let nonce = account_data.current().value().nonce;
         if let Some(new_nonce) = nonce.checked_add(increment_by) {
-            account_data.cache_appearance().update();
+            account_data.key_properties_mut().observe();
             account_data.update(|cache_record| {
                 cache_record.update(|x, _| {
                     x.nonce = new_nonce;
@@ -823,7 +822,7 @@ impl<
             WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
         )))?;
 
-        account_data.cache_appearance().mark_as_created();
+        account_data.key_properties_mut().observe();
         account_data.update(|cache_record| {
             cache_record.update(|v, m| {
                 v.observable_bytecode_hash = observable_bytecode_hash;
@@ -936,7 +935,7 @@ impl<
             WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
         )))?;
 
-        account_data.cache_appearance().update();
+        account_data.key_properties_mut().observe();
         account_data.update(|cache_record| {
             cache_record.update(|v, m| {
                 v.observable_bytecode_hash = observable_bytecode_hash;
@@ -1042,7 +1041,7 @@ impl<
             WARM_ACCOUNT_CACHE_WRITE_EXTRA_NATIVE_COST,
         )))?;
 
-        account_data.cache_appearance().update();
+        account_data.key_properties_mut().observe();
         account_data.update(|cache_record| {
             cache_record.update(|v, m| {
                 v.observable_bytecode_hash = observable_bytecode_hash;
@@ -1116,7 +1115,14 @@ impl<
             account_data.current().metadata().deployed_in_tx == Some(cur_tx) || in_constructor;
 
         if should_be_deconstructed {
-            account_data.cache_appearance().mark_for_deconstruction();
+            account_data.key_properties_mut().observe();
+            account_data.update(|data| {
+                data.update_metadata(|metadata| {
+                    metadata.is_marked_for_deconstruction = true;
+
+                    Ok(())
+                })
+            })?;
         }
 
         // First do the token transfer
@@ -1178,11 +1184,16 @@ impl<
         // Actually deconstructing accounts
         self.cache.apply_to_last_record_of_pending_changes(
             |key, (head_history_record, cache_appearance)| {
-                if cache_appearance.current_appearance()
-                    == AccountCurrentAppearance::MarkedForDeconstruction
+                if head_history_record
+                    .value
+                    .metadata()
+                    .is_marked_for_deconstruction
                 {
-                    cache_appearance.finish_deconstruction();
-                    head_history_record.value.update(|x, _| {
+                    // NOTE: it can only happen if the account is initially empty,
+                    // so we need to make sure that it was observed earlier - when bytecode was deployed
+                    cache_appearance.assert_observed();
+                    head_history_record.value.update(|x, metadata| {
+                        metadata.is_marked_for_deconstruction = false;
                         *x = AccountProperties::TRIVIAL_VALUE;
                         Ok(())
                     })?;

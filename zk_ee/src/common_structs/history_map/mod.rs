@@ -4,7 +4,6 @@ mod element_pool;
 pub mod element_with_history;
 
 use crate::common_structs::history_map::element_with_history::HistoryRecord;
-use crate::common_structs::StructuredCacheAppearance;
 use crate::internal_error;
 use crate::{system::errors::internal::InternalError, utils::stack_linked_list::StackLinkedList};
 use alloc::collections::btree_map::Entry;
@@ -41,9 +40,9 @@ impl CacheSnapshotId {
 ///
 /// Structure:
 /// [ keys ] => [ history ] := [ snapshot 0 .. snapshot n ].
-pub struct HistoryMap<K, V, A: Allocator + Clone, KA: StructuredCacheAppearance = ()> {
+pub struct HistoryMap<K, V, A: Allocator + Clone, KP = ()> {
     /// Map from key to history of an element
-    btree: BTreeMap<K, ElementWithHistory<V, A, KA>, A>,
+    btree: BTreeMap<K, ElementWithHistory<V, A, KP>, A>,
     state: HistoryMapState<K, A>,
     /// Manages memory allocations for history records, reuses old allocations for optimization
     records_memory_pool: ElementPool<V, A>,
@@ -58,7 +57,7 @@ struct HistoryMapState<K, A: Allocator + Clone> {
     alloc: A,
 }
 
-impl<K, V, A, KA: StructuredCacheAppearance> HistoryMap<K, V, A, KA>
+impl<K, V, A, KP> HistoryMap<K, V, A, KP>
 where
     K: Ord + Clone + Debug,
     A: Allocator + Clone,
@@ -78,14 +77,14 @@ where
     }
 
     /// Get history of an element by key
-    pub fn get<'s>(&'s self, key: &'s K) -> Option<HistoryMapItemRef<'s, K, V, A, KA>> {
+    pub fn get<'s>(&'s self, key: &'s K) -> Option<HistoryMapItemRef<'s, K, V, A, KP>> {
         self.btree
             .get(key)
             .map(|ec| HistoryMapItemRef { key, history: ec })
     }
 
     /// Get history of an element by key, mutable
-    pub fn get_mut<'s>(&'s mut self, key: &'s K) -> Option<HistoryMapItemRefMut<'s, K, V, A, KA>> {
+    pub fn get_mut<'s>(&'s mut self, key: &'s K) -> Option<HistoryMapItemRefMut<'s, K, V, A, KP>> {
         self.btree.get_mut(key).map(|ec| HistoryMapItemRefMut {
             key,
             history: ec,
@@ -98,8 +97,8 @@ where
     pub fn get_or_insert<'s, E>(
         &'s mut self,
         key: &'s K,
-        spawn_v: impl FnOnce() -> Result<(V, KA), E>,
-    ) -> Result<HistoryMapItemRefMut<'s, K, V, A, KA>, E> {
+        spawn_v: impl FnOnce() -> Result<(V, KP), E>,
+    ) -> Result<HistoryMapItemRefMut<'s, K, V, A, KP>, E> {
         let entry = self.btree.entry(key.clone());
 
         let v = match entry {
@@ -108,36 +107,6 @@ where
                 let (v, a) = spawn_v()?;
                 vacant_entry.insert(ElementWithHistory::new(
                     a,
-                    v,
-                    &mut self.records_memory_pool,
-                    self.state.alloc.clone(),
-                ))
-            }
-        };
-
-        Ok(HistoryMapItemRefMut {
-            key,
-            history: v,
-            cache_state: &mut self.state,
-            records_memory_pool: &mut self.records_memory_pool,
-        })
-    }
-
-    /// Get history of an element by key or use callback to insert initial value
-    pub fn get_or_insert_with_appearance<'s, E>(
-        &'s mut self,
-        key: &'s K,
-        spawn_v: impl FnOnce() -> Result<V, E>,
-        initial_appearance: KA,
-    ) -> Result<HistoryMapItemRefMut<'s, K, V, A, KA>, E> {
-        let entry = self.btree.entry(key.clone());
-
-        let v = match entry {
-            Entry::Occupied(o) => o.into_mut(),
-            Entry::Vacant(vacant_entry) => {
-                let v = spawn_v()?;
-                vacant_entry.insert(ElementWithHistory::new(
-                    initial_appearance,
                     v,
                     &mut self.records_memory_pool,
                     self.state.alloc.clone(),
@@ -244,7 +213,7 @@ where
         mut do_fn: F,
     ) -> Result<(), InternalError>
     where
-        F: FnMut(HistoryMapItemRefMut<K, V, A, KA>) -> Result<(), InternalError>,
+        F: FnMut(HistoryMapItemRefMut<K, V, A, KP>) -> Result<(), InternalError>,
     {
         for (k, v) in self.btree.range_mut(range) {
             do_fn(HistoryMapItemRefMut {
@@ -261,7 +230,7 @@ where
     /// Iterate over all elements in map
     pub fn iter(
         &'_ self,
-    ) -> impl ExactSizeIterator<Item = HistoryMapItemRef<'_, K, V, A, KA>> + Clone {
+    ) -> impl ExactSizeIterator<Item = HistoryMapItemRef<'_, K, V, A, KP>> + Clone {
         self.btree
             .iter()
             .map(|(k, v)| HistoryMapItemRef { key: k, history: v })
@@ -270,7 +239,7 @@ where
     /// Iterate over all elements that changed since last commit
     pub fn iter_altered_since_commit(
         &'_ self,
-    ) -> impl Iterator<Item = HistoryMapItemRef<'_, K, V, A, KA>> {
+    ) -> impl Iterator<Item = HistoryMapItemRef<'_, K, V, A, KP>> {
         self.state
             .pending_updated_elements
             .iter()
@@ -289,12 +258,12 @@ where
         mut do_fn: F,
     ) -> Result<(), InternalError>
     where
-        F: FnMut(&K, (&mut HistoryRecord<V>, &mut KA)) -> Result<(), InternalError>,
+        F: FnMut(&K, (&mut HistoryRecord<V>, &mut KP)) -> Result<(), InternalError>,
     {
         for (k, _v) in self.state.pending_updated_elements.iter() {
             let record = self.btree.get_mut(&k).unwrap();
             let el = unsafe { record.head.as_mut() };
-            let cache_appearance = &mut record.appearance;
+            let cache_appearance = &mut record.key_properties;
             do_fn(k, (el, cache_appearance))?
         }
 
@@ -303,18 +272,12 @@ where
 }
 
 /// External reference to element's history
-pub struct HistoryMapItemRef<
-    'a,
-    K: Clone,
-    V,
-    A: Allocator + Clone,
-    KA: StructuredCacheAppearance = (),
-> {
+pub struct HistoryMapItemRef<'a, K: Clone, V, A: Allocator + Clone, KP = ()> {
     key: &'a K,
-    history: &'a ElementWithHistory<V, A, KA>,
+    history: &'a ElementWithHistory<V, A, KP>,
 }
 
-impl<'a, K, V, A, KA: StructuredCacheAppearance> HistoryMapItemRef<'a, K, V, A, KA>
+impl<'a, K, V, A, KP> HistoryMapItemRef<'a, K, V, A, KP>
 where
     K: Clone,
     A: Allocator + Clone,
@@ -323,12 +286,8 @@ where
         self.key
     }
 
-    pub fn initial_appearance(&self) -> KA::InitialAppearance {
-        self.history.appearance.initial_appearance()
-    }
-
-    pub fn current_appearance(&self) -> KA::CurrentAppearance {
-        self.history.appearance.current_appearance()
+    pub fn key_properties(&self) -> &KP {
+        &self.history.key_properties
     }
 
     pub fn current(&self) -> &'a V {
@@ -346,20 +305,14 @@ where
 }
 
 /// External mutable reference to element's history
-pub struct HistoryMapItemRefMut<
-    'a,
-    K: Clone,
-    V,
-    A: Allocator + Clone,
-    KA: StructuredCacheAppearance = (),
-> {
-    history: &'a mut ElementWithHistory<V, A, KA>,
+pub struct HistoryMapItemRefMut<'a, K: Clone, V, A: Allocator + Clone, KP = ()> {
+    history: &'a mut ElementWithHistory<V, A, KP>,
     cache_state: &'a mut HistoryMapState<K, A>,
     records_memory_pool: &'a mut ElementPool<V, A>,
     key: &'a K,
 }
 
-impl<'a, K, V, A, KA: StructuredCacheAppearance> HistoryMapItemRefMut<'a, K, V, A, KA>
+impl<'a, K, V, A, KP> HistoryMapItemRefMut<'a, K, V, A, KP>
 where
     K: Clone + Debug,
     V: Clone,
@@ -373,25 +326,12 @@ where
         unsafe { &self.history.initial.as_ref().value }
     }
 
-    pub fn initial_appearance(&self) -> KA::InitialAppearance {
-        self.history.appearance.initial_appearance()
+    pub fn key_properties(&self) -> &KP {
+        &self.history.key_properties
     }
 
-    pub fn current_appearance(&self) -> KA::CurrentAppearance {
-        self.history.appearance.current_appearance()
-    }
-
-    pub fn cache_appearance(&mut self) -> &mut KA {
-        &mut self.history.appearance
-    }
-
-    pub fn update_current_appearance<F>(&mut self, f: F)
-    where
-        F: FnOnce(&mut KA::CurrentAppearance) -> (),
-    {
-        // appearance is global property, and rolling-back "observe" action is not a good idea.
-        // We may get no net difference at the end, but element should still be considered as "updated".
-        self.history.appearance.update_current_appearance(f);
+    pub fn key_properties_mut(&mut self) -> &mut KP {
+        &mut self.history.key_properties
     }
 
     #[allow(dead_code)]

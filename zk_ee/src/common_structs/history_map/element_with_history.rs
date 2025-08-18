@@ -1,5 +1,3 @@
-use crate::common_structs::StructuredCacheAppearance;
-
 use super::{element_pool::ElementPool, CacheSnapshotId};
 use alloc::boxed::Box;
 use core::{alloc::Allocator, ptr::NonNull};
@@ -14,8 +12,8 @@ pub struct HistoryRecord<V> {
 }
 
 /// The history linked list. Always has at least one item with the snapshot id of 0.
-pub struct ElementWithHistory<V, A: Allocator + Clone, CA: StructuredCacheAppearance = ()> {
-    pub appearance: CA,
+pub struct ElementWithHistory<V, A: Allocator + Clone, KP = ()> {
+    pub key_properties: KP,
     /// Initial record (before history started)
     pub initial: HistoryRecordLink<V>,
     pub first: HistoryRecordLink<V>,
@@ -24,7 +22,7 @@ pub struct ElementWithHistory<V, A: Allocator + Clone, CA: StructuredCacheAppear
     alloc: A,
 }
 
-impl<V, A: Allocator + Clone, CA: StructuredCacheAppearance> Drop for ElementWithHistory<V, A, CA> {
+impl<V, A: Allocator + Clone, KP> Drop for ElementWithHistory<V, A, KP> {
     fn drop(&mut self) {
         let mut elem = unsafe { Box::from_raw_in(self.head.as_ptr(), self.alloc.clone()) };
 
@@ -36,10 +34,10 @@ impl<V, A: Allocator + Clone, CA: StructuredCacheAppearance> Drop for ElementWit
     } // last elem is dropped here.
 }
 
-impl<V, A: Allocator + Clone, CA: StructuredCacheAppearance> ElementWithHistory<V, A, CA> {
+impl<V, A: Allocator + Clone, KP> ElementWithHistory<V, A, KP> {
     #[inline(always)]
     pub fn new(
-        initial_appearance: CA,
+        key_properties: KP,
         initial_value: V,
         records_memory_pool: &mut ElementPool<V, A>,
         alloc: A,
@@ -48,19 +46,12 @@ impl<V, A: Allocator + Clone, CA: StructuredCacheAppearance> ElementWithHistory<
         let elem = records_memory_pool.create_element(initial_value, None, CacheSnapshotId(0));
 
         Self {
-            appearance: initial_appearance,
+            key_properties,
             head: elem,
             initial: elem,
             first: elem,
             alloc,
         }
-    }
-
-    pub fn update_current_appearance<FN: FnOnce(&mut CA::CurrentAppearance) -> ()>(
-        &mut self,
-        update_fn: FN,
-    ) {
-        self.appearance.update_current_appearance(update_fn);
     }
 
     pub fn add_new_record(&mut self, new_element: HistoryRecordLink<V>) {
