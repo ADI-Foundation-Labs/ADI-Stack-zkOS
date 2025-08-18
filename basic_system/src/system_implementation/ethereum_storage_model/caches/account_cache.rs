@@ -197,6 +197,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                     x.update(|cache_record| {
                         cache_record.update_metadata(|m| {
                             if is_warm == false {
+                                assert!(m.is_marked_for_deconstruction == false); // any deconstuction should finish in previous TX
                                 m.last_touched_in_tx = Some(self.current_tx_number);
                             }
                             Ok(())
