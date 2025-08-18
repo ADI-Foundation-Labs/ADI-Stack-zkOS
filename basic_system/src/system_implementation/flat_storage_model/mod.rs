@@ -104,10 +104,6 @@ impl<
     type IOTypes = EthereumIOTypesConfig;
     type InitData = P;
 
-    fn finish_tx(&mut self) -> Result<(), zk_ee::system::errors::internal::InternalError> {
-        self.account_data_cache.finish_tx(&mut self.storage_cache)
-    }
-
     fn construct(init_data: Self::InitData, allocator: Self::Allocator) -> Self {
         let resources_policy = init_data;
         let storage_cache = NewStorageWithAccountPropertiesUnderHash::<A, SC, N, R, P>(
@@ -560,6 +556,12 @@ impl<
         self.storage_cache.begin_new_tx();
         self.preimages_cache.begin_new_tx();
         self.account_data_cache.begin_new_tx();
+    }
+
+    fn finish_tx(&mut self) -> Result<(), zk_ee::system::errors::internal::InternalError> {
+        self.account_data_cache.finish_tx(&mut self.storage_cache)?;
+        self.storage_cache.finish_tx()?;
+        self.preimages_cache.finish_tx()
     }
 
     fn start_frame(&mut self) -> Self::StateSnapshot {

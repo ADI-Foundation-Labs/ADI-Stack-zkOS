@@ -417,8 +417,6 @@ impl<
 
     pub fn begin_new_tx(&mut self) {
         self.cache.commit();
-
-        self.current_tx_number += 1;
     }
 
     pub fn start_frame(&mut self) -> CacheSnapshotId {
@@ -1188,6 +1186,8 @@ impl<
         &mut self,
         storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
     ) -> Result<(), InternalError> {
+        self.current_tx_number += 1;
+
         // Actually deconstructing accounts
         self.cache.apply_to_last_record_of_pending_changes(
             |key, (_initial, current), cache_appearance| {

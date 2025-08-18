@@ -154,7 +154,9 @@ impl<
             self.evm_refunds_counter = HistoryCounter::new(self.alloc.clone());
             self.evm_refunds_counter.update(R::empty());
         }
+    }
 
+    pub fn finish_tx(&mut self) {
         self.current_tx_number.0 += 1;
     }
 
