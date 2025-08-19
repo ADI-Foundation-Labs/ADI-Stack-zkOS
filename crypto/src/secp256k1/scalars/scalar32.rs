@@ -61,6 +61,7 @@ impl ScalarInner {
         Self(U256::from_be_slice(bytes))
     }
 
+    #[expect(dead_code)]
     pub(super) fn from_be_bytes(bytes: &[u8; 32]) -> Self {
         Self(U256::from_be_slice(bytes))
     }
@@ -112,6 +113,7 @@ impl ScalarInner {
         (Self(r1), Self(r2))
     }
 
+    #[expect(unused_variables)]
     pub(super) fn eq_mod(&self, other: &Self, modulus: &Self) -> bool {
         let (order, _) =
             crate::k256::elliptic_curve::bigint::NonZero::<crate::k256::U256>::const_new(

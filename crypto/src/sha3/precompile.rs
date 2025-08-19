@@ -457,12 +457,24 @@ fn chi_nopi(state: &mut [u64; STATE_AND_SCRATCH_WORDS], round: usize) {
     });
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+// #[cfg(test)]
+#[cfg(any(test, feature = "sha3_tests"))]
+pub mod tests {
+    #[test] fn keccak_f1600() {
+        keccak_f1600_test();
+    }
 
-    #[test]
-    fn keccak_f1600() {
+    #[test] fn mini_digest() {
+        mini_digest_test();
+    }
+
+    #[test] fn hash_chain() {
+        hash_chain_test();
+    }
+
+    #[allow(dead_code)]
+    pub fn keccak_f1600_test() {
+        use super::*;
         let state_first = [
             0xF1258F7940E1DDE7,
             0x84D5CCF933C0478A,
@@ -518,15 +530,17 @@ mod tests {
             0x20D06CD26A8FBF5C,
         ];
 
-        let mut state = AlignedState([0; STATE_AND_SCRATCH_WORDS]);
+        let mut state = super::AlignedState([0; STATE_AND_SCRATCH_WORDS]);
         state.0[..25].copy_from_slice(&state_first);
         super::keccak_f1600(&mut state);
         assert!(state.0[..25] == state_second);
     }
 
-    #[test]
-    fn mini_digest() {
+    #[allow(dead_code)]
+    pub fn mini_digest_test() {
+        use super::*;
         use ark_std::rand::Rng;
+        use ark_std::vec::Vec; // this is not good
         let mut rng = ark_std::test_rng();
         let mut formal_keccak256 = <sha3::Keccak256 as sha3::Digest>::new();
         let mut formal_sha3 = <sha3::Sha3_256 as sha3::Digest>::new();
@@ -545,5 +559,15 @@ mod tests {
             assert!(&sha3::Digest::finalize_reset(&mut formal_keccak256)[..] == my_keccak256.finalize_reset());
             assert!(&sha3::Digest::finalize_reset(&mut formal_sha3)[..] == &my_sha3.finalize_reset());
         }
+    }
+
+    #[allow(dead_code)]
+    pub fn hash_chain_test() {
+        use super::*;
+        let mut state = AlignedState([0; STATE_AND_SCRATCH_WORDS]);
+        for _ in 0..2000 {
+            super::keccak_f1600(&mut state);
+        }
+        core::hint::black_box(state);
     }
 }
