@@ -34,7 +34,6 @@ use zk_ee::{
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::UsizeAlignedByteBox,
 };
-use crypto::sha3::Keccak256;
 
 pub struct FullIO<
     A: Allocator + Clone + Default,
@@ -576,6 +575,7 @@ where
         result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
         mut logger: impl Logger,
     ) -> Self::FinalData {
+        use crypto::sha3::Keccak256;
         let mut state_commitment = {
             let mut initialization_iterator = self
                 .oracle
