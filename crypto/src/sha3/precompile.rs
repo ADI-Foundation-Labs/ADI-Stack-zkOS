@@ -540,21 +540,23 @@ pub mod tests {
     pub fn mini_digest_test() {
         use super::*;
         use ark_std::rand::Rng;
-        use ark_std::vec::Vec; // this is not good
         let mut rng = ark_std::test_rng();
         let mut formal_keccak256 = <sha3::Keccak256 as sha3::Digest>::new();
         let mut formal_sha3 = <sha3::Sha3_256 as sha3::Digest>::new();
         let mut my_keccak256 = Keccak256::new();
         let mut my_sha3 = Sha3_256::new();
+        let mut msg = [0; u8::MAX as usize];
 
         for _ in 0..1 << 10 {
             for _ in 0..rng.r#gen::<u8>() {
-                let len = rng.r#gen::<u8>();
-                let msg: Vec<u8> = (0..len).map(|_| rng.r#gen::<u8>()).collect();
-                sha3::Digest::update(&mut formal_keccak256, &msg);
-                sha3::Digest::update(&mut formal_sha3, &msg);
-                my_keccak256.update(&msg);
-                my_sha3.update(&msg);
+                let len = rng.r#gen::<u8>() as usize;
+                for i in 0..len {
+                    msg[i] = rng.r#gen::<u8>();
+                }
+                sha3::Digest::update(&mut formal_keccak256, &msg[..len]);
+                sha3::Digest::update(&mut formal_sha3, &msg[..len]);
+                my_keccak256.update(&msg[..len]);
+                my_sha3.update(&msg[..len]);
             }
             assert!(&sha3::Digest::finalize_reset(&mut formal_keccak256)[..] == my_keccak256.finalize_reset());
             assert!(&sha3::Digest::finalize_reset(&mut formal_sha3)[..] == &my_sha3.finalize_reset());
