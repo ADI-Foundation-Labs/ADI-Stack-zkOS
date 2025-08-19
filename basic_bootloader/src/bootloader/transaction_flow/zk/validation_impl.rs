@@ -380,7 +380,7 @@ where
         Err(SubsystemError::LeafRuntime(RuntimeError::OutOfErgs(_))) => {
             unreachable!();
         }
-        Err(SubsystemError::LeafRuntime(RuntimeError::OutOfNativeResources(_))) => {
+        Err(SubsystemError::LeafRuntime(RuntimeError::FatalRuntimeError(_))) => {
             // TODO: decide if we wan to allow such cases at all
             return Err(TxError::Validation(
                 InvalidTransaction::OutOfNativeResourcesDuringValidation,

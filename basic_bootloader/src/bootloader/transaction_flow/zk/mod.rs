@@ -235,7 +235,7 @@ where
                 }
                 SubsystemError::LeafDefect(internal_error) => internal_error.into(),
                 SubsystemError::LeafRuntime(runtime_error) => match runtime_error {
-                    RuntimeError::OutOfNativeResources(_) => {
+                    RuntimeError::FatalRuntimeError(_) => {
                         TxError::oon_as_validation(out_of_native_resources!().into())
                     }
                     RuntimeError::OutOfErgs(_) => {
@@ -317,9 +317,9 @@ where
             // Out of native is converted to a top-level revert and
             // gas is exhausted.
             Err(e) => match e.root_cause() {
-                RootCause::Runtime(e @ RuntimeError::OutOfNativeResources(_)) => {
+                RootCause::Runtime(e @ RuntimeError::FatalRuntimeError(_)) => {
                     let _ = system.get_logger().write_fmt(format_args!(
-                        "Transaction ran out of native resources: {e:?}\n"
+                        "Transaction ran out of native resources or memory: {e:?}\n"
                     ));
                     context.resources.main_resources.exhaust_ergs();
                     system.finish_global_frame(Some(&main_body_rollback_handle))?;

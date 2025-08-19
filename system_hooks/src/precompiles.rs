@@ -101,7 +101,7 @@ where
                 let (_, rest) = return_vec.destruct();
                 Ok((make_error_return_state(resources), rest))
             }
-            RootCause::Runtime(e @ RuntimeError::OutOfNativeResources(_)) => {
+            RootCause::Runtime(e @ RuntimeError::FatalRuntimeError(_)) => {
                 Err(Into::<SystemError>::into(e.clone_or_copy()))
             }
         },
@@ -173,7 +173,7 @@ where
                 let (_, rest) = return_vec.destruct();
                 Ok((make_error_return_state(resources), rest))
             }
-            RootCause::Runtime(e @ RuntimeError::OutOfNativeResources(_)) => {
+            RootCause::Runtime(e @ RuntimeError::FatalRuntimeError(_)) => {
                 Err(Into::<SystemError>::into(e.clone_or_copy()))
             }
         },

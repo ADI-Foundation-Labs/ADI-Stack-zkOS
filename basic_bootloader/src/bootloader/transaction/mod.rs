@@ -1523,8 +1523,8 @@ pub fn charge_keccak<R: Resources>(len: usize, resources: &mut R) -> Result<(), 
                 internal_error!("Charging for keccak is not supposed to consume ergs").into()
             }
             SystemError::LeafDefect(e) => BootloaderSubsystemError::LeafDefect(e),
-            SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(loc)) => {
-                BootloaderSubsystemError::LeafRuntime(RuntimeError::OutOfNativeResources(loc))
+            SystemError::LeafRuntime(RuntimeError::FatalRuntimeError(e)) => {
+                BootloaderSubsystemError::LeafRuntime(RuntimeError::FatalRuntimeError(e))
             }
         })
         .map_err(TxError::oon_as_validation)
