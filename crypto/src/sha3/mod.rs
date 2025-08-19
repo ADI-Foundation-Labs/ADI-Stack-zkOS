@@ -36,3 +36,7 @@ mod binary_tests {
         runner("src/sha3/test_program/app_keccak_bench.bin");
     }
 }
+
+pub const APP_KECCAK_SIMPLE_BIN: &[u8] = include_bytes!("test_program/app_keccak_simple.bin");
+pub const APP_KECCAK_COMPLEX_BIN: &[u8] = include_bytes!("test_program/app_keccak_complex.bin");
+pub const APP_KECCAK_BENCH_BIN: &[u8] = include_bytes!("test_program/app_keccak_bench.bin");
