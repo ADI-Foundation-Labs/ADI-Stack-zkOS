@@ -148,13 +148,19 @@ where
     fn try_begin_next_tx<'a>(
         system: &'_ mut System<S>,
         scratch_space: &'a mut Self::ScratchSpace,
-    ) -> Option<Self::TransactionBuffer<'a>> {
-        let tx_length_in_bytes = system
-            .try_begin_next_tx(&mut scratch_space.into_writable())
-            .expect("TX start call must always succeed")?;
+    ) -> Option<Result<Self::TransactionBuffer<'a>, NextTxSubsystemError>> {
+        let tx_length_in_bytes = match system.try_begin_next_tx(&mut scratch_space.into_writable()) {
+            Some(r) => {
+                match r {
+                    Ok(tx_length_in_bytes) => tx_length_in_bytes,
+                    Err(e) => return Some(Err(e.into()))
+                }
+            },
+            None => return None
+        };
         let initial_calldata_buffer = scratch_space.as_tx_buffer(tx_length_in_bytes);
 
-        Some(initial_calldata_buffer)
+        Some(Ok(initial_calldata_buffer))
     }
 
     fn parse_transaction<'a>(

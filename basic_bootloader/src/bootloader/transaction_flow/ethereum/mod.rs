@@ -217,7 +217,7 @@ where
     fn try_begin_next_tx<'a>(
         system: &'_ mut System<S>,
         _scratch_space: &'a mut Self::ScratchSpace,
-    ) -> Option<Self::TransactionBuffer<'a>> {
+    ) -> Option<Result<Self::TransactionBuffer<'a>, NextTxSubsystemError>> {
         let allocator = system.get_allocator();
         let (tx_length_in_bytes, mut buffer) = system
             .try_begin_next_tx_with_constructor(move |tx_length_in_bytes| {
@@ -226,7 +226,7 @@ where
             .expect("TX start call must always succeed")?;
         buffer.truncated_to_byte_length(tx_length_in_bytes);
 
-        Some(buffer)
+        Some(Ok(buffer))
     }
 
     fn parse_transaction<'a>(

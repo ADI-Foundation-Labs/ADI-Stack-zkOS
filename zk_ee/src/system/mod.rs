@@ -267,21 +267,43 @@ where
     pub fn try_begin_next_tx(
         &mut self,
         tx_write_iter: &mut impl crate::oracle::SafeUsizeWritable,
-    ) -> Result<Option<usize>, InternalError> {
-        let next_tx_len_bytes = match self.io.oracle().try_begin_next_tx()? {
-            None => return Ok(None),
-            Some(size) => size.get() as usize,
+    ) -> Option<Result<usize, NextTxSubsystemError>> {
+        let next_tx_len_bytes = match self.io.oracle().try_begin_next_tx(){
+            Ok(maybe_next_len) => {
+                match maybe_next_len {
+                    None => return None,
+                    Some(size) => size.get() as usize,
+                }
+            },
+            Err(e) => return Some(Err(e.into())),
         };
+        
+        // Check to avoid usize overflow in 32-bit target.
+        // The maximum allowed length is u32::MAX - 3, as it is
+        // the last multiple of 4 (u32 byte size). Any value larger than that
+        // will overflow u32 in the next_multiple_of(USIZE_SIZE) call.
+        if next_tx_len_bytes > u32::MAX as usize - (core::mem::size_of::<u32>() - 1) {
+            return Some(Err(interface_error!(
+                crate::system::NextTxInterfaceError::TxLengthTooLarge
+            )));
+        }
         let next_tx_len_usize_words = next_tx_len_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE;
         if tx_write_iter.len() < next_tx_len_usize_words {
-            return Err(internal_error!("destination iterator len is insufficient"));
+            return Some(Err(interface_error!(
+                crate::system::NextTxInterfaceError::TxWriteIteratorTooSmall
+            )));
         }
-        let tx_iterator = self
+        let tx_iterator = match self
             .io
             .oracle()
-            .raw_query_with_empty_input(TX_DATA_WORDS_QUERY_ID)?;
+            .raw_query_with_empty_input(TX_DATA_WORDS_QUERY_ID) {
+                Ok(res) => res,
+                Err(e) => return Some(Err(e.into())),
+            };
         if tx_iterator.len() != next_tx_len_usize_words {
-            return Err(internal_error!("iterator len is inconsistent"));
+            return Some(Err(interface_error!(
+                crate::system::NextTxInterfaceError::TxIteratorLengthMismatch
+            )));
         }
         for word in tx_iterator {
             unsafe {
@@ -291,32 +313,47 @@ where
 
         self.io.begin_next_tx();
 
-        Ok(Some(next_tx_len_bytes))
+        Some(Ok(next_tx_len_bytes))
     }
 
     pub fn try_begin_next_tx_with_constructor<B: AsUsizeWritable>(
         &mut self,
         buffer_constructor: impl FnOnce(usize) -> B,
-    ) -> Result<Option<(usize, B)>, InternalError> {
+    ) -> Result<Option<(usize, B)>, NextTxSubsystemError> {
         use crate::oracle::usize_rw::{SafeUsizeWritable, UsizeWriteable};
 
         let next_tx_len_bytes = match self.io.oracle().try_begin_next_tx()? {
             None => return Ok(None),
             Some(size) => size.get() as usize,
         };
+
+        // Check to avoid usize overflow in 32-bit target.
+        // The maximum allowed length is u32::MAX - 3, as it is
+        // the last multiple of 4 (u32 byte size). Any value larger than that
+        // will overflow u32 in the next_multiple_of(USIZE_SIZE) call.
+        if next_tx_len_bytes > u32::MAX as usize - (core::mem::size_of::<u32>() - 1) {
+            return Err(interface_error!(
+                crate::system::NextTxInterfaceError::TxLengthTooLarge
+            ));
+        }
+
         // create buffer
         let mut buffer = (buffer_constructor)(next_tx_len_bytes);
         let mut as_writable = buffer.as_writable();
         let next_tx_len_usize_words = next_tx_len_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE;
         if as_writable.len() < next_tx_len_usize_words {
-            return Err(internal_error!("destination buffer length is insufficient"));
+            return Err(interface_error!(
+                crate::system::NextTxInterfaceError::DestinationBufferInsuffitient
+            ));
         }
         let tx_iterator = self
             .io
             .oracle()
             .raw_query_with_empty_input(TX_DATA_WORDS_QUERY_ID)?;
         if tx_iterator.len() > as_writable.len() {
-            return Err(internal_error!("iterator length is too large"));
+            return Err(interface_error!(
+                crate::system::NextTxInterfaceError::TxWriteIteratorTooBig
+            ));
         }
         for word in tx_iterator {
             unsafe {
@@ -387,3 +424,13 @@ where
         )
     }
 }
+
+define_subsystem!(NextTx,
+  interface NextTxInterfaceError {
+    TxLengthTooLarge,
+    TxWriteIteratorTooSmall,
+    TxIteratorLengthMismatch,
+    DestinationBufferInsuffitient,
+    TxWriteIteratorTooBig
+  }
+);
