@@ -46,7 +46,7 @@ case "$TYPE" in
     TEXT_NAME="app.text"
     ;;
   debug-in-simulator)
-    FEATURES="$FEATURES,print_debug_info,proof_running_system/cycle_marker,proof_running_system/unlimited_native,proof_running_system/p256_precompile"
+    FEATURES="$FEATURES,print_debug_info,proof_running_system/cycle_marker,proof_running_system/p256_precompile"
     BIN_NAME="app_debug.bin"
     ELF_NAME="app_debug.elf"
     TEXT_NAME="app_debug.text"
@@ -80,6 +80,18 @@ case "$TYPE" in
     BIN_NAME="app.bin"
     ELF_NAME="app.elf"
     TEXT_NAME="app.text"
+    ;;
+  multiblock-batch)
+    FEATURES="$FEATURES,proof_running_system/multiblock-batch"
+    BIN_NAME="multiblock_batch.bin"
+    ELF_NAME="multiblock_batch.elf"
+    TEXT_NAME="multiblock_batch.text"
+    ;;
+  multiblock-batch-logging-enabled)
+    FEATURES="$FEATURES,proof_running_system/multiblock-batch,print_debug_info"
+    BIN_NAME="multiblock_batch_logging_enabled.bin"
+    ELF_NAME="multiblock_batch_logging_enabled.elf"
+    TEXT_NAME="multiblock_batch_logging_enabled.text"
     ;;
   default)
     # leave defaults
