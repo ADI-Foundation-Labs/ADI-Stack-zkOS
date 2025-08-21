@@ -45,7 +45,7 @@ pub struct Chain<const RANDOMIZED_TREE: bool = false> {
     state_tree: InMemoryTree<RANDOMIZED_TREE>,
     preimage_source: InMemoryPreimageSource,
     chain_id: u64,
-    block_number: u64,
+    previous_block_number: Option<u64>,
     block_hashes: [U256; 256],
     block_timestamp: u64,
 }
@@ -92,7 +92,7 @@ impl Chain<false> {
                 inner: HashMap::new(),
             },
             chain_id: chain_id.unwrap_or(37),
-            block_number: 0,
+            previous_block_number: None,
             block_hashes: [U256::ZERO; 256],
             block_timestamp: 0,
         }
@@ -115,7 +115,7 @@ impl Chain<true> {
                 inner: HashMap::new(),
             },
             chain_id: chain_id.unwrap_or(37),
-            block_number: 0,
+            previous_block_number: None,
             block_hashes: [U256::ZERO; 256],
             block_timestamp: 0,
         }
@@ -130,7 +130,11 @@ pub struct BlockExtraStats {
 
 impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
     pub fn set_last_block_number(&mut self, prev: u64) {
-        self.block_number = prev
+        self.previous_block_number = Some(prev)
+    }
+
+    pub fn next_block_number(&self) -> u64 {
+        self.previous_block_number.map(|n| n + 1).unwrap_or(0)
     }
 
     pub fn set_block_hashes(&mut self, block_hashes: [U256; 256]) {
@@ -183,7 +187,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         let block_context = block_context.unwrap_or_default();
         let block_metadata = BlockMetadataFromOracle {
             chain_id: self.chain_id,
-            block_number: self.block_number + 1,
+            block_number: self.next_block_number(),
             block_hashes: BlockHashes(self.block_hashes),
             timestamp: block_context.timestamp,
             eip1559_basefee: block_context.eip1559_basefee,
@@ -253,7 +257,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         let block_context = block_context.unwrap_or_default();
         let block_metadata = BlockMetadataFromOracle {
             chain_id: self.chain_id,
-            block_number: self.block_number + 1,
+            block_number: self.next_block_number(),
             block_hashes: BlockHashes(self.block_hashes),
             timestamp: block_context.timestamp,
             eip1559_basefee: block_context.eip1559_basefee,
@@ -338,6 +342,27 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
                 })
                 .sum::<u64>();
             stats.computational_native_used = Some(native_used);
+        }
+
+        // update state
+        self.previous_block_number = Some(self.next_block_number());
+        self.block_timestamp = block_context.timestamp;
+        for i in 0..255 {
+            self.block_hashes[i] = self.block_hashes[i + 1];
+        }
+        self.block_hashes[255] = U256::from_be_bytes(block_output.header.hash());
+
+        for storage_write in block_output.storage_writes.iter() {
+            self.state_tree
+                .cold_storage
+                .insert(storage_write.key, storage_write.value);
+            self.state_tree
+                .storage_tree
+                .insert(&storage_write.key, &storage_write.value);
+        }
+
+        for (hash, preimage, _preimage_type) in block_output.published_preimages.iter() {
+            self.preimage_source.inner.insert(*hash, preimage.clone());
         }
 
         if let Some(path) = witness_output_file {
