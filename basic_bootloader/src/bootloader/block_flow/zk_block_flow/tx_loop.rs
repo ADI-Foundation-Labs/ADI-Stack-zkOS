@@ -98,26 +98,35 @@ where
                         &tx_processing_result,
                     ));
 
-                    // it is concrete type here!
-                    block_data.block_gas_used += tx_processing_result.gas_used;
-                    block_data.block_computational_native_used +=
-                        tx_processing_result.computational_native_used;
-                    block_data.block_pubdata_used += tx_processing_result.pubdata_used;
+                    // Do not update the accumulators yet, we may need to revert the transaction
+                    let next_block_gas_used =
+                        block_data.block_gas_used + tx_processing_result.gas_used;
+                    let next_block_computational_native_used =
+                        block_data.block_computational_native_used
+                            + tx_processing_result.computational_native_used;
+                    let next_block_pubdata_used =
+                        block_data.block_pubdata_used + tx_processing_result.pubdata_used;
                     let block_logs_used = system.io.signals_iterator().len();
 
                     // Check if the transaction made the block reach any of the limits
                     // for gas, native, pubdata or logs.
                     if let Err(err) = check_for_block_limits(
                         system,
-                        block_data.block_gas_used,
-                        block_data.block_computational_native_used,
-                        block_data.block_pubdata_used,
+                        next_block_gas_used,
+                        next_block_computational_native_used,
+                        next_block_pubdata_used,
                         block_logs_used as u64,
                     ) {
                         // Revert to state before transaction
                         system.finish_global_frame(Some(&pre_tx_rollback_handle))?;
                         result_keeper.tx_processed(Err(err));
                     } else {
+                        // Now update the accumulators
+                        block_data.block_gas_used = next_block_gas_used;
+                        block_data.block_computational_native_used =
+                            next_block_computational_native_used;
+                        block_data.block_pubdata_used = next_block_pubdata_used;
+
                         // Finish the frame opened before processing the tx
                         system.finish_global_frame(None)?;
 
