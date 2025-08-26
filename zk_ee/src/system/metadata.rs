@@ -1,4 +1,4 @@
-use crate::utils::Bytes32;
+use crate::{system::MAX_NUMBER_INTEROP_ROOTS, utils::Bytes32};
 
 use super::{
     errors::internal::InternalError,
@@ -76,17 +76,17 @@ impl UsizeDeserializable for BlockHashes {
 #[cfg_attr(feature = "testing", derive(serde::Serialize, serde::Deserialize))]
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct InteropRoot {
-    pub root: [Bytes32; 1],
+    pub root: Bytes32,
     pub block_number: u64,
     pub chain_id: u64,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct InteropRoots(pub [InteropRoot; 100]);
+pub struct InteropRoots(pub [InteropRoot; MAX_NUMBER_INTEROP_ROOTS]);
 
 impl Default for InteropRoots {
     fn default() -> Self {
-        Self([InteropRoot::default(); 100])
+        Self([InteropRoot::default(); MAX_NUMBER_INTEROP_ROOTS])
     }
 }
 
@@ -143,7 +143,7 @@ impl UsizeSerializable for InteropRoot {
     fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
         ExactSizeChain::new(
             ExactSizeChain::new(
-                UsizeSerializable::iter(&self.root[0]),
+                UsizeSerializable::iter(&self.root),
                 UsizeSerializable::iter(&self.block_number),
             ),
             UsizeSerializable::iter(&self.chain_id),
@@ -157,12 +157,12 @@ impl UsizeDeserializable for InteropRoot {
         + <u64 as UsizeSerializable>::USIZE_LEN;
 
     fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
-        let interop_roots = <Bytes32 as UsizeDeserializable>::from_iter(src)?;
+        let root = <Bytes32 as UsizeDeserializable>::from_iter(src)?;
         let block_number = <u64 as UsizeDeserializable>::from_iter(src)?;
         let chain_id = <u64 as UsizeDeserializable>::from_iter(src)?;
 
         let new = Self {
-            root: [interop_roots],
+            root,
             block_number,
             chain_id,
         };
@@ -233,24 +233,27 @@ impl UsizeSerializable for BlockMetadataFromOracle {
                                     ExactSizeChain::new(
                                         ExactSizeChain::new(
                                             ExactSizeChain::new(
-                                                UsizeSerializable::iter(&self.eip1559_basefee),
-                                                UsizeSerializable::iter(&self.gas_per_pubdata),
+                                                ExactSizeChain::new(
+                                                    UsizeSerializable::iter(&self.eip1559_basefee),
+                                                    UsizeSerializable::iter(&self.gas_per_pubdata),
+                                                ),
+                                                UsizeSerializable::iter(&self.native_price),
                                             ),
-                                            UsizeSerializable::iter(&self.native_price),
+                                            UsizeSerializable::iter(&self.block_number),
                                         ),
-                                        UsizeSerializable::iter(&self.block_number),
+                                        UsizeSerializable::iter(&self.timestamp),
                                     ),
-                                    UsizeSerializable::iter(&self.timestamp),
+                                    UsizeSerializable::iter(&self.chain_id),
                                 ),
-                                UsizeSerializable::iter(&self.chain_id),
+                                UsizeSerializable::iter(&self.gas_limit),
                             ),
-                            UsizeSerializable::iter(&self.gas_limit),
+                            UsizeSerializable::iter(&self.pubdata_limit),
                         ),
-                        UsizeSerializable::iter(&self.pubdata_limit),
+                        UsizeSerializable::iter(&self.coinbase),
                     ),
-                    UsizeSerializable::iter(&self.coinbase),
+                    UsizeSerializable::iter(&self.block_hashes),
                 ),
-                UsizeSerializable::iter(&self.block_hashes),
+                UsizeSerializable::iter(&self.mix_hash),
             ),
             UsizeSerializable::iter(&self.interop_roots),
         )
