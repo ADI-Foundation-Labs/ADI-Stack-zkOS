@@ -512,11 +512,15 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         //
         // We also compute the rolling hash of the interop roots and include it as part of the public input
 
+        let mut non_empty_root_counter = 0;
+
         system
             .get_interop_roots()
             .iter()
             .filter(|interop_root| interop_root.chain_id != 0 && interop_root.block_number != 0)
             .for_each(|interop_root| {
+                non_empty_root_counter += 1;
+
                 let mut data = [0u8; 164];
                 // fb6200c6: function addInteropRoot(uint256 chainId, uint256 blockOrBatchNumber, bytes32[] calldata sides) external;
                 data[0..4].copy_from_slice(&[0xfb, 0x62, 0x00, 0xc6]);
@@ -543,13 +547,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                 );
             });
 
-        let num_non_empty_interop_roots = system
-            .get_interop_roots()
-            .iter()
-            .filter(|interop_root| interop_root.chain_id != 0 && interop_root.block_number != 0)
-            .count();
-
-        if num_non_empty_interop_roots > 0 {
+        if non_empty_root_counter > 0 {
             Bytes32::from(interop_root_hasher.finalize())
         } else {
             Bytes32::ZERO
