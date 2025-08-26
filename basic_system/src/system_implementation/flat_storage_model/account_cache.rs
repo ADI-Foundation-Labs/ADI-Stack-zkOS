@@ -737,7 +737,7 @@ impl<
         storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
-    ) -> Result<&'static [u8], SystemError> {
+    ) -> Result<(&'static [u8], Bytes32, u32), SystemError> {
         let alloc = self.alloc.clone();
         // Charge for code deposit cost
         match from_ee {
@@ -848,7 +848,7 @@ impl<
             })
         })?;
 
-        Ok(deployed_code)
+        Ok((deployed_code, bytecode_hash, observable_bytecode_len))
     }
 
     /// Assumes [code_hash] is of default version, which does not contain
