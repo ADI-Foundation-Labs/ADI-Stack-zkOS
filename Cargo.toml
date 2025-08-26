@@ -21,6 +21,7 @@ members = [
     "supporting_crates/solidity_abi_derive",
     "tests/rig",
     "tests/instances/transactions",
+    "tests/instances/debug",
     "tests/instances/erc20",
     "tests/instances/forge_tests",
     "tests/instances/precompiles",

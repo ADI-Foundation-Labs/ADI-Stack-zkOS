@@ -21,7 +21,7 @@ use risc_v_simulator::sim::{DiagnosticsConfig, ProfilerConfig};
 use ruint::aliases::{B160, B256, U256};
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::PathBuf;
 use zk_ee::common_structs::{derive_flat_storage_key, ProofData};
 use zk_ee::system::metadata::{BlockHashes, BlockMetadataFromOracle};
@@ -244,9 +244,8 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         transactions: Vec<Vec<u8>>,
         block_context: Option<BlockContext>,
         profiler_config: Option<ProfilerConfig>,
-    ) -> BlockOutput {
+    ) {
         self.run_block_with_extra_stats(transactions, block_context, profiler_config, None, None)
-            .0
     }
 
     pub fn run_block_with_extra_stats(
@@ -256,208 +255,18 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         profiler_config: Option<ProfilerConfig>,
         witness_output_file: Option<PathBuf>,
         app: Option<String>,
-    ) -> (BlockOutput, BlockExtraStats, Vec<u32>) {
-        let block_context = block_context.unwrap_or_default();
-        let block_metadata = BlockMetadataFromOracle {
-            chain_id: self.chain_id,
-            block_number: self.next_block_number(),
-            block_hashes: BlockHashes(self.block_hashes),
-            timestamp: block_context.timestamp,
-            eip1559_basefee: block_context.eip1559_basefee,
-            gas_per_pubdata: block_context.gas_per_pubdata,
-            native_price: block_context.native_price,
-            coinbase: block_context.coinbase,
-            gas_limit: block_context.gas_limit,
-            pubdata_limit: block_context.pubdata_limit,
-            mix_hash: block_context.mix_hash,
-        };
-        let state_commitment = FlatStorageCommitment::<{ TREE_HEIGHT }> {
-            root: *self.state_tree.storage_tree.root(),
-            next_free_slot: self.state_tree.storage_tree.next_free_slot,
-        };
-        let proof_data = ProofData {
-            state_root_view: state_commitment,
-            last_block_timestamp: self.block_timestamp,
-        };
-        let tx_source = TxListSource {
-            transactions: transactions.into(),
-        };
+    ) {
 
-        let oracle = ForwardRunningOracle {
-            proof_data: Some(proof_data),
-            preimage_source: self.preimage_source.clone(),
-            tree: self.state_tree.clone(),
-            block_metadata,
-            next_tx: None,
-            tx_source: tx_source.clone(),
-        };
-
-        // dump oracle if env variable set
-        if let Ok(path) = std::env::var("ORACLE_DUMP_FILE") {
-            let serialized_oracle = bincode::serialize(&oracle).expect("should serialize");
-            let mut file = File::create(&path).expect("should create file");
-            file.write_all(&serialized_oracle)
-                .expect("should write to file");
-            info!("Successfully wrote oracle dumo to: {path}");
+        let mut file = File::open("/Users/antond/Desktop/zk_os_playground/zksync-os/input.hex").unwrap();
+        let mut content = String::new();
+        file.read_to_string(&mut content);
+        let binary = hex::decode(&content).unwrap();
+        let mut items = Vec::new();
+        for num in binary.array_chunks::<4>() {
+            items.push(u32::from_be_bytes(*num));
         }
 
-        // forward run
-        let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
-        let mut nop_tracer = NopTracer::default();
-
-        // we use proving config here for benchmarking,
-        // although sequencer can have extra optimizations
-        run_forward::<BasicBootloaderProvingExecutionConfig, _, _, _>(
-            oracle.clone(),
-            &mut result_keeper,
-            &mut nop_tracer,
-        );
-
-        let block_output: BlockOutput = result_keeper.into();
-        trace!(
-            "{}Block output:{} \n{:#?}",
-            colors::MAGENTA,
-            colors::RESET,
-            block_output.tx_results
-        );
-        #[allow(unused_mut)]
-        let mut stats = BlockExtraStats {
-            computational_native_used: None,
-            effective_used: None,
-        };
-
-        {
-            let native_used: u64 = block_output
-                .tx_results
-                .iter()
-                .map(|res| {
-                    res.as_ref()
-                        .map(|tx_out| tx_out.computational_native_used)
-                        .unwrap_or_default()
-                })
-                .sum::<u64>();
-            stats.computational_native_used = Some(native_used);
-        }
-
-        // update state
-        self.previous_block_number = Some(self.next_block_number());
-        self.block_timestamp = block_context.timestamp;
-        for i in 0..255 {
-            self.block_hashes[i] = self.block_hashes[i + 1];
-        }
-        self.block_hashes[255] = U256::from_be_bytes(block_output.header.hash());
-
-        for storage_write in block_output.storage_writes.iter() {
-            self.state_tree
-                .cold_storage
-                .insert(storage_write.key, storage_write.value);
-            self.state_tree
-                .storage_tree
-                .insert(&storage_write.key, &storage_write.value);
-        }
-
-        for (hash, preimage, _preimage_type) in block_output.published_preimages.iter() {
-            self.preimage_source.inner.insert(*hash, preimage.clone());
-        }
-
-        let proof_input = if let Some(path) = witness_output_file {
-            let result = Self::run_block_generate_witness(oracle.clone(), &app);
-            let mut file = File::create(&path).expect("should create file");
-            let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
-            let hex = hex::encode(witness);
-            file.write_all(hex.as_bytes())
-                .expect("should write to file");
-            result
-        } else {
-            // proof run
-            let oracle_wrapper = BasicZkEEOracleWrapper::<EthereumIOTypesConfig, _>::new(oracle);
-
-            #[cfg(feature = "simulate_witness_gen")]
-            let source_for_witness_bench = {
-                let mut non_determinism_source = ZkEENonDeterminismSource::default();
-                non_determinism_source.add_external_processor(oracle_wrapper.clone());
-                non_determinism_source.add_external_processor(
-                    callable_oracles::arithmetic::ArithmeticQuery {
-                        marker: std::marker::PhantomData,
-                    },
-                );
-
-                non_determinism_source
-            };
-
-            let mut non_determinism_source = ZkEENonDeterminismSource::default();
-            non_determinism_source.add_external_processor(oracle_wrapper);
-            non_determinism_source.add_external_processor(
-                callable_oracles::arithmetic::ArithmeticQuery {
-                    marker: std::marker::PhantomData,
-                },
-            );
-            // We'll wrap the source, to collect all the reads.
-            let copy_source = ReadWitnessSource::new(non_determinism_source);
-            let items = copy_source.get_read_items();
-
-            let diagnostics_config = profiler_config.map(|cfg| {
-                let mut diagnostics_cfg = DiagnosticsConfig::new(get_zksync_os_sym_path(&app));
-                diagnostics_cfg.profiler_config = Some(cfg);
-                diagnostics_cfg
-            });
-
-            let now = std::time::Instant::now();
-            let (proof_output, block_effective) = zksync_os_runner::run_and_get_effective_cycles(
-                get_zksync_os_img_path(&app),
-                diagnostics_config,
-                1 << 36,
-                copy_source,
-            );
-            info!(
-                "Simulator without witness tracing executed over {:?}",
-                now.elapsed()
-            );
-            stats.effective_used = block_effective;
-
-            #[cfg(feature = "simulate_witness_gen")]
-            {
-                zksync_os_runner::simulate_witness_tracing(
-                    get_zksync_os_img_path(),
-                    source_for_witness_bench,
-                )
-            }
-
-            // dump csr reads if env var set
-            if let Ok(output_csr) = std::env::var("CSR_READS_DUMP") {
-                // Save the read elements into a file - that can be later read with the tools/cli from zksync-airbender.
-                let mut file = File::create(&output_csr).expect("Failed to create csr reads file");
-                // Write each u32 as an 8-character hexadecimal string without newlines
-                for num in items.borrow().iter() {
-                    write!(file, "{num:08X}").expect("Failed to write to file");
-                }
-                debug!(
-                    "Successfully wrote {} u32 csr reads elements to file: {}",
-                    items.borrow().len(),
-                    output_csr
-                );
-            }
-
-            let proof_input = items.borrow().iter().copied().collect::<Vec<u32>>();
-
-            debug!(
-                "{}Proof running output{} = 0x",
-                colors::GREEN,
-                colors::RESET
-            );
-            for word in proof_output.into_iter() {
-                debug!("{word:08x}");
-            }
-
-            // Ensure that proof running didn't fail: check that output is not zero
-            assert!(proof_output.into_iter().any(|word| word != 0));
-
-            #[cfg(feature = "e2e_proving")]
-            run_prover(items.borrow().as_slice());
-
-            proof_input
-        };
-        (block_output, stats, proof_input)
+        run_prover(items.as_slice());
     }
 
     fn get_account_properties(&mut self, address: &B160) -> AccountProperties {
@@ -628,7 +437,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
 // bunch of internal utility methods
 fn get_zksync_os_path(app_name: &Option<String>, extension: &str) -> PathBuf {
-    let app = app_name.as_deref().unwrap_or("app");
+    let app = app_name.as_deref().unwrap_or("app1");
     // let app = app_name.as_deref().unwrap_or("app_debug");
     let filename = format!("{app}.{extension}");
     let zksync_os_path = std::env::var("OVERRIDE_ZKSYNC_OS_PATH")

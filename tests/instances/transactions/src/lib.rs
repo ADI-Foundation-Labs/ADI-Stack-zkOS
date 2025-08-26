@@ -2,6 +2,8 @@
 //! These tests are focused on different tx types, AA features.
 //!
 #![cfg(test)]
+
+use std::path::PathBuf;
 use alloy::consensus::{TxEip1559, TxEip2930, TxLegacy};
 use alloy::primitives::TxKind;
 use alloy::signers::local::PrivateKeySigner;
@@ -261,7 +263,7 @@ fn run_base_system_common(use_aa: bool, use_paymaster: bool) {
             U256::from(1_000_000_000_000_000_u64),
         );
 
-    let output = chain.run_block(transactions, None, None);
+    let output = chain.run_block_with_extra_stats(transactions, None, None, Some(PathBuf::from_str("/Users/antond/Desktop/zk_os_playground/zksync-os/input.hex").unwrap()), None).0;
 
     // Assert all txs succeeded
     assert!(output.tx_results.iter().cloned().enumerate().all(|(i, r)| {
