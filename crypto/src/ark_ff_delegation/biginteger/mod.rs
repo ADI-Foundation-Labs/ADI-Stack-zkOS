@@ -303,6 +303,18 @@ impl<const N: usize> BigInteger for BigInt<N> {
                     core::mem::transmute(other),
                 )
             }
+        } else if N == 8 {
+            unsafe {
+                let low_carry = crate::bigint_delegation::u256::add_assign(
+                    core::mem::transmute(&mut self.0),
+                    core::mem::transmute(&other.0),
+                );
+                crate::bigint_delegation::u256::add_with_carry_bit(
+                    core::mem::transmute(self.0.get_unchecked_mut(4)),
+                    core::mem::transmute(other.0.get_unchecked(4)),
+                    low_carry,
+                )
+            }
         } else {
             unreachable!("must not be used with delegation")
         }
@@ -315,6 +327,18 @@ impl<const N: usize> BigInteger for BigInt<N> {
                 crate::bigint_delegation::u256::sub_assign(
                     core::mem::transmute(self),
                     core::mem::transmute(other),
+                )
+            }
+        } else if N == 8 {
+            unsafe {
+                let low_borrow = crate::bigint_delegation::u256::sub_assign(
+                    core::mem::transmute(&mut self.0),
+                    core::mem::transmute(&other.0),
+                );
+                crate::bigint_delegation::u256::sub_with_carry_bit(
+                    core::mem::transmute(self.0.get_unchecked_mut(4)),
+                    core::mem::transmute(other.0.get_unchecked(4)),
+                    low_borrow,
                 )
             }
         } else {
