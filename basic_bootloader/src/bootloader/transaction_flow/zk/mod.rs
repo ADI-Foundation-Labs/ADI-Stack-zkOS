@@ -686,6 +686,7 @@ where
         let returndata_iter = return_values.returndata.iter().copied();
         let _ = system.get_logger().write_fmt(format_args!("Returndata = "));
         let _ = system.get_logger().log_data(returndata_iter);
+        let _ = system.get_logger().write_fmt(format_args!("\n"));
         let deployed_address = at
             .map(DeployedAddress::Address)
             .unwrap_or(DeployedAddress::RevertedNoAddress);
