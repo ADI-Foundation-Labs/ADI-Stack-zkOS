@@ -294,12 +294,32 @@ impl<const N: usize> BigInt<N> {
 impl<const N: usize> BigInteger for BigInt<N> {
     const NUM_LIMBS: usize = N;
 
-    fn add_with_carry(&mut self, _other: &Self) -> bool {
-        unreachable!("must not be used with delegation")
+    #[inline(always)]
+    fn add_with_carry(&mut self, other: &Self) -> bool {
+        if N == 4 {
+            unsafe {
+                crate::bigint_delegation::u256::add_assign(
+                    core::mem::transmute(self),
+                    core::mem::transmute(other),
+                )
+            }
+        } else {
+            unreachable!("must not be used with delegation")
+        }
     }
 
-    fn sub_with_borrow(&mut self, _other: &Self) -> bool {
-        unreachable!("must not be used with delegation")
+    #[inline(always)]
+    fn sub_with_borrow(&mut self, other: &Self) -> bool {
+        if N == 4 {
+            unsafe {
+                crate::bigint_delegation::u256::sub_assign(
+                    core::mem::transmute(self),
+                    core::mem::transmute(other),
+                )
+            }
+        } else {
+            unreachable!("must not be used with delegation")
+        }
     }
 
     #[inline]
