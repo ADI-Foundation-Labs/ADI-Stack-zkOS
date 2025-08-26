@@ -5,7 +5,7 @@ use alloy_rlp::Decodable;
 use alloy_rlp::Encodable;
 use basic_bootloader::bootloader::block_flow::ethereum_block_flow::PectraForkHeader;
 use basic_bootloader::bootloader::config::BasicBootloaderCallSimulationConfig;
-use basic_bootloader::bootloader::config::BasicBootloaderForwardSimulationConfig;
+use basic_bootloader::bootloader::config::BasicBootloaderProvingExecutionConfig;
 use basic_bootloader::bootloader::constants::MAX_BLOCK_GAS_LIMIT;
 use basic_bootloader::bootloader::BasicBootloader;
 use basic_system::system_implementation::ethereum_storage_model::caches::account_properties::EthereumAccountProperties;
@@ -303,12 +303,14 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         let mut nop_tracer = NopTracer::default();
 
+        // we use proving config here for benchmarking,
+        // although sequencer can have extra optimizations
         let block_output: BlockOutput = forward_system::run::run_batch_with_oracle_dump_ext::<
             _,
             _,
             _,
             _,
-            BasicBootloaderForwardSimulationConfig,
+            BasicBootloaderProvingExecutionConfig,
         >(
             block_metadata,
             self.state_tree.clone(),
