@@ -101,8 +101,8 @@ impl<S: SystemTypes> System<S> {
         }
     }
 
-    pub fn get_interop_roots(&self) -> &[InteropRoot] {
-        &self.metadata.block_level_metadata.interop_roots.0
+    pub fn get_interop_roots(&self) -> [InteropRoot; MAX_NUMBER_INTEROP_ROOTS] {
+        self.metadata.block_level_metadata.interop_roots.0
     }
 
     pub fn get_blockhash(&self, block_number: u64) -> ruint::aliases::U256 {

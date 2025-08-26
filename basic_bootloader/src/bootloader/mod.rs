@@ -211,58 +211,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         let mut first_tx = true;
         let mut upgrade_tx_hash = Bytes32::zero();
         let mut block_gas_used = 0;
-        #[allow(unused_mut)]
-        let mut interop_root_hasher = crypto::sha3::Keccak256::new();
 
-        // Block of code needed for interop.
-        // We need to add interop roots to the interop root storage.
-        // We do it by calling the addInteropRoot function.
-        // The function is defined in the InteropRootStorage contract.
-        // The function is called with the chainId, blockOrBatchNumber, and the sides.
-        // The sides are the interop roots.
-        // The chainId is the chainId of the interop root.
-        // The blockOrBatchNumber is the block number of the interop root.
-        //
-        // We also compute the rolling hash of the interop roots and include it as part of the public input
-        // #[cfg(feature = "interop")]
-        for interop_root in system.get_interop_roots() {
-            if interop_root.chain_id == 0 && interop_root.block_number == 0 {
-                continue;
-            }
-
-            let mut calldata = [0u8; 164];
-                // fb6200c6: function addInteropRoot(uint256 chainId, uint256 blockOrBatchNumber, bytes32[] calldata sides) external;
-                calldata[0..4].copy_from_slice(&[0xfb, 0x62, 0x00, 0xc6]);
-                calldata[28..36].copy_from_slice(&interop_root.chain_id.to_be_bytes());
-                calldata[60..68].copy_from_slice(&interop_root.block_number.to_be_bytes());
-                calldata[96..100].copy_from_slice(&32u32.to_be_bytes());
-                calldata[128..132].copy_from_slice(&1u32.to_be_bytes());
-                calldata[132..164].copy_from_slice(&interop_root.root.as_u8_ref());
-                interop_root_hasher.update(&calldata);
-
-                calldata[92..96].copy_from_slice(&96u32.to_be_bytes());
-
-                match Self::run_single_interaction(
-                    &mut system,
-                    &mut system_functions,
-                    memories.reborrow(),
-                    &calldata,
-                    &BOOTLOADER_FORMAL_ADDRESS,
-                    &L2_INTEROP_ROOT_STORAGE_ADDRESS,
-                    S::Resources::FORMAL_INFINITE,
-                    &U256::ZERO,
-                    true,
-                    tracer,
-                ) {
-                    Ok(_) => todo!(),
-                    Err(err) => todo!(),
-                }
-        }
-        
-        #[cfg(not(feature = "interop"))]
-        assert!(system.get_interop_roots().iter().filter(|interop_root| interop_root.chain_id == 0 && interop_root.block_number == 0).count() == 100);
-
-        let interop_root_hash = Bytes32::from(interop_root_hasher.finalize());
         let mut block_computational_native_used = 0;
         let mut block_pubdata_used = 0;
 
@@ -540,7 +489,6 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         }
     }
 
-    #[cfg(feature = "interop")]
     fn process_interop_roots(
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
@@ -569,25 +517,23 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             .iter()
             .filter(|interop_root| interop_root.chain_id != 0 && interop_root.block_number != 0)
             .for_each(|interop_root| {
-                let mut data = [0u8; 160];
-                data[24..32].copy_from_slice(&interop_root.chain_id.to_be_bytes());
-                data[56..64].copy_from_slice(&interop_root.block_number.to_be_bytes());
-                data[92..96].copy_from_slice(&32u32.to_be_bytes());
-                data[124..128].copy_from_slice(&1u32.to_be_bytes());
-                data[128..160].copy_from_slice(&interop_root.root[0].as_u8_ref());
+                let mut data = [0u8; 164];
+                // fb6200c6: function addInteropRoot(uint256 chainId, uint256 blockOrBatchNumber, bytes32[] calldata sides) external;
+                data[0..4].copy_from_slice(&[0xfb, 0x62, 0x00, 0xc6]);
+                data[28..36].copy_from_slice(&interop_root.chain_id.to_be_bytes());
+                data[60..68].copy_from_slice(&interop_root.block_number.to_be_bytes());
+                data[96..100].copy_from_slice(&32u32.to_be_bytes());
+                data[132..136].copy_from_slice(&1u32.to_be_bytes());
+                data[136..164].copy_from_slice(&interop_root.root.as_u8_ref());
                 interop_root_hasher.update(&data);
 
                 data[92..96].copy_from_slice(&96u32.to_be_bytes());
-
-                // fb6200c6: function addInteropRoot(uint256 chainId, uint256 blockOrBatchNumber, bytes32[] calldata sides) external;
-                let mut calldata = [0xfb, 0x62, 0x00, 0xc6].to_vec();
-                calldata.extend(&data);
 
                 let _ = Self::run_single_interaction(
                     system,
                     system_functions,
                     memories.reborrow(),
-                    &calldata,
+                    &data,
                     &BOOTLOADER_FORMAL_ADDRESS,
                     &L2_INTEROP_ROOT_STORAGE_ADDRESS,
                     S::Resources::FORMAL_INFINITE,
@@ -597,19 +543,16 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                 );
             });
 
-        Bytes32::from(interop_root_hasher.finalize())
-    }
+        let num_non_empty_interop_roots = system
+            .get_interop_roots()
+            .iter()
+            .filter(|interop_root| interop_root.chain_id != 0 && interop_root.block_number != 0)
+            .count();
 
-    #[cfg(not(feature = "interop"))]
-    fn process_interop_roots(
-        _system: &mut System<S>,
-        _system_functions: &mut HooksStorage<S, S::Allocator>,
-        _memories: &mut RunnerMemoryBuffers,
-        _tracer: &mut impl Tracer<S>,
-    ) -> Bytes32
-    where
-        S::IO: IOSubsystemExt,
-    {
-        Bytes32::ZERO
+        if num_non_empty_interop_roots > 0 {
+            Bytes32::from(interop_root_hasher.finalize())
+        } else {
+            Bytes32::ZERO
+        }
     }
 }
