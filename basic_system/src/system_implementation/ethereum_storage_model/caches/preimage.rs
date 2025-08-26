@@ -15,6 +15,7 @@ use zk_ee::{
 };
 
 use super::super::cost_constants::PREIMAGE_CACHE_GET_NATIVE_COST;
+use crate::system_functions::keccak256::keccak256_native_cost;
 use crate::system_implementation::ethereum_storage_model::ETHEREUM_STORAGE_SUBSPACE_MASK;
 
 pub struct PreimageLengthQuery;
@@ -30,8 +31,7 @@ impl SimpleOracleQuery for PreimageLengthQuery {
     type Output = u32;
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "testing", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct PreimageRequestForUnknownLength {
     pub hash: Bytes32,
     pub preimage_type: PreimageType,
@@ -76,7 +76,9 @@ impl<R: Resources, A: Allocator + Clone> BytecodeKeccakPreimagesStorage<R, A> {
             // We charge for native.
             let expected_length_in_bytes =
                 PreimageLengthQuery::get(oracle, hash).expect("must get preimage length") as usize;
+            // NOTE: we leave some slack for 64/32 bit arch mismatches
             let buffer_size = expected_length_in_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE;
+            let buffer_size = buffer_size.next_multiple_of(2);
             let mut buffered = UsizeAlignedByteBox::from_init_fn_in(
                 buffer_size,
                 |dst| {
@@ -89,8 +91,8 @@ impl<R: Resources, A: Allocator + Clone> BytecodeKeccakPreimagesStorage<R, A> {
             // truncate
             buffered.truncated_to_byte_length(expected_length_in_bytes);
 
-            // let native_cost = blake2s_native_cost(expected_length_in_bytes);
-            // resources.charge(&R::from_native(R::Native::from_computational(native_cost)))?;
+            let native_cost = keccak256_native_cost::<R>(expected_length_in_bytes);
+            resources.charge(&R::from_native(native_cost))?;
 
             if PROOF_ENV {
                 use crypto::sha3::Keccak256;

@@ -203,7 +203,7 @@ pub trait IOOracle: 'static + Sized {
             .expect("must make an iterator for preimage");
         assert!(it.len() <= destination.len());
         let words_written = it.len();
-        for i in 0..it.len() {
+        for i in 0..words_written {
             unsafe {
                 // Contract of ExactSizeIterator
                 destination[i].write(it.next().unwrap_unchecked());
