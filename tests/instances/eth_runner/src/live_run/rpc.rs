@@ -30,7 +30,7 @@ fn to_hex(n: u64) -> String {
 
 /// Fetches the full block data with transactions.
 pub fn get_witness(endpoint: &str, block_number: u64) -> Result<JsonResponse<ExecutionWitness>> {
-    debug!("RPC: get_block({block_number})");
+    debug!("RPC: get_witness({block_number})");
     let body = json!({
         "method": "debug_executionWitness",
         "params": [to_hex(block_number)],

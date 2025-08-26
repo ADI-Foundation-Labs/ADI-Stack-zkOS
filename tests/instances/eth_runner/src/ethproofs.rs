@@ -62,9 +62,18 @@ pub fn ethproofs_run(block_number: u64, reth_endpoint: &str) -> anyhow::Result<(
     let witness = rpc::get_witness(reth_endpoint, block_number)
         .context(format!("Failed to fetch witness for {block_number}"))?
         .result;
-    let block_hashes = rpc::fetch_block_hashes_array(reth_endpoint, block_number)
-        .context(format!("Failed to fetch block hashes for {block_number}"))?
-        .to_vec();
+    let headers: Vec<Header> = witness
+        .headers
+        .iter()
+        .map(|el| alloy_rlp::decode_exact(&el[..]).expect("must decode headers from witness"))
+        .collect();
+    assert!(headers.len() > 0);
+    assert_eq!(headers[0].number, block_number - 1);
+    let mut block_hashes: Vec<U256> = headers
+        .iter()
+        .map(|el| U256::from_be_bytes(el.hash_slow().0))
+        .collect();
+    block_hashes.resize(256, U256::ZERO); // those will not be accessed
 
     info!("Running block: {block_number}");
     info!("Block gas used: {}", block.result.header.gas_used);
