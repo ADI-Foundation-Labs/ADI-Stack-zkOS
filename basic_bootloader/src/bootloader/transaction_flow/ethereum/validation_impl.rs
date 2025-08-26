@@ -164,13 +164,9 @@ where
     Ok(())
 }
 
-pub fn parse_blobs_list<S: EthereumLikeTypes, const MAX_BLOBS_IN_TX: usize>(
-    system: &mut System<S>,
+pub fn parse_blobs_list<const MAX_BLOBS_IN_TX: usize>(
     blobs_list: BlobHashesList<'_>,
-) -> Result<arrayvec::ArrayVec<(Bytes32, crypto::bls12_381::G1Affine), MAX_BLOBS_IN_TX>, TxError>
-where
-    S::IO: IOSubsystemExt,
-{
+) -> Result<arrayvec::ArrayVec<Bytes32, MAX_BLOBS_IN_TX>, TxError> {
     let mut result = arrayvec::ArrayVec::<_, MAX_BLOBS_IN_TX>::new();
 
     for blob_hash in blobs_list.iter() {
@@ -186,56 +182,12 @@ where
             ));
         }
 
-        // now we should consult oracle (a-la CL data) to get actual KZG point encoding, and compute hash.
-        // NOTE: Unfortunately we also need to validate that this encoding is indeed a valid point,
-        // so we will store uncompressed point in the result. Validation requires both decompression + on-curve check + subgroup check.
-        // We will SAVE on computations by requesting uncompressed point, performing validation of it (on-curve and subgroup),
-        // and then compressing and hashing it instead
+        // NOTE: we do NOT check that this blob hash is meaningful - we are not worried about block validity
+        // from consensus perspective. And KZG blob precompile requires explicit preimage anyway
 
         let blob_hash = Bytes32::from_array(*blob_hash);
 
-        let kzg: crypto::bls12_381::G1Affine = {
-            let mut x = crypto::bls12_381::Fq::ZERO.into_bigint();
-            let mut y = x;
-            fill_blob_point_from_oracle::<_, 6>(&mut x, &mut y, &blob_hash, system.io.oracle())?;
-
-            let x = crypto::bls12_381::Fq::from_bigint(x).expect("must be proper bigint repr");
-            let y = crypto::bls12_381::Fq::from_bigint(y).expect("must be proper bigint repr");
-            // This will assert inside - non-infinity, on curve, in subgroup
-            let point = crypto::bls12_381::G1Affine::new(x, y);
-
-            point
-        };
-
-        // not infinite, and is on curve/in subgroup
-        let x = &kzg.x;
-        use crypto::ark_ff::PrimeField;
-        let x_encoding = x.into_bigint();
-        // NOTE: we only need 6 lowest limbs, and it's canonical and not Montgomery form anymore
-        let mut encoding = [0u8; 48];
-        // it is BE all the way
-        for (dst, src) in encoding
-            .as_chunks_mut::<8>()
-            .0
-            .iter_mut()
-            .zip(x_encoding.0[..6].iter().rev())
-        {
-            *dst = src.to_be_bytes();
-        }
-        // now we need Y parity
-        let minus_y = -kzg.y;
-        let is_largest = kzg.y.into_bigint() > minus_y.into_bigint();
-        encoding[0] |= 1 << 7 | (is_largest as u8) << 5;
-
-        use crypto::sha256::Digest;
-        let hash = crypto::sha256::Sha256::digest(&encoding);
-        if &hash.as_slice()[1..] != &blob_hash.as_u8_ref()[1..] {
-            return Err(TxError::Validation(
-                InvalidTransaction::BlobElementIsNotSupported,
-            ));
-        }
-
-        result.push((blob_hash, kzg));
+        result.push(blob_hash);
     }
 
     if result.is_empty() {
@@ -715,7 +667,7 @@ where
                 InvalidTransaction::BlobElementIsNotSupported,
             ));
         }
-        let blobs = match parse_blobs_list::<S, MAX_BLOBS_IN_TX>(system, blobs_list) {
+        let blobs = match parse_blobs_list::<MAX_BLOBS_IN_TX>(blobs_list) {
             Ok(blobs) => blobs,
             Err(e) => {
                 return Err(e);

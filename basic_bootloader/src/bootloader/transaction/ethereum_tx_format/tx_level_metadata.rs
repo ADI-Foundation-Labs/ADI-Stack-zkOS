@@ -8,7 +8,7 @@ use zk_ee::{
 pub struct EthereumTransactionMetadata<const MAX_BLOBS: usize> {
     pub tx_origin: B160,
     pub tx_gas_price: U256,
-    pub blobs: arrayvec::ArrayVec<(Bytes32, crypto::bls12_381::G1Affine), MAX_BLOBS>,
+    pub blobs: arrayvec::ArrayVec<Bytes32, MAX_BLOBS>,
 }
 
 impl<const MAX_BLOBS: usize> EthereumTransactionMetadata<MAX_BLOBS> {
@@ -34,6 +34,6 @@ impl<const MAX_BLOBS: usize> BasicTransactionMetadata<EthereumIOTypesConfig>
         self.blobs.len()
     }
     fn get_blob_hash(&self, idx: usize) -> Option<Bytes32> {
-        self.blobs.get(idx).map(|el| el.0)
+        self.blobs.get(idx).copied()
     }
 }
