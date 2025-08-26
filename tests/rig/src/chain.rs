@@ -542,6 +542,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
         // let mut nop_tracer = NopTracer::default();
+        // use oracle_provider::DummyMemorySource;
         // if PROOF_ENV {
         //     BasicBootloader::<
         //         EthereumStorageSystemTypesWithPostOps<ZkEENonDeterminismSource<DummyMemorySource>>,

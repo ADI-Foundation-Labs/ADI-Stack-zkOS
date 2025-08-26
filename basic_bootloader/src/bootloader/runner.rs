@@ -372,7 +372,14 @@ impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
                 Err(e) => {
                     match e {
                         SubsystemError::LeafUsage(_interface_error) => {
-                            // TODO log this error, but logger is unavailable
+                            let _ = self.system.get_logger().write_fmt(
+                                format_args!(
+                                    "Insufficient balance to transfer {} native tokens from 0x{:040x} to 0x{:040x}\n",
+                                    value,
+                                    external_call_params.external_call.caller.as_uint(),
+                                    target.as_uint(),
+                                )
+                            );
                             // Insufficient balance
                             match ee_type {
                                 ExecutionEnvironmentType::NoEE => {

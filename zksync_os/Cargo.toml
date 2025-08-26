@@ -65,6 +65,7 @@ prevrandao = ["proof_running_system/prevrandao"]
 evm-compatibility = ["proof_running_system/evm-compatibility"]
 evm_refunds = ["proof_running_system/evm_refunds"]
 pectra = ["proof_running_system/pectra"]
+disable_system_contracts = ["proof_running_system/disable_system_contracts"]
 
 
 # [patch."https://github.com/matter-labs/zksync-airbender"]

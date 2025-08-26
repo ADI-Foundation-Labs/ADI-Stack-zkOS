@@ -254,7 +254,7 @@ impl EthereumStoragePersister {
             } else {
                 // rlp(rlp([0xff])) = rlp([0x81, 0xff]) = 0x82, 0x81, 0xff
                 buffer[0].write(0x80 + 2);
-                buffer[1].write(0x81 + 2);
+                buffer[1].write(0x80 + 1);
                 buffer[2].write(b);
                 offset = 3;
             }
@@ -359,11 +359,11 @@ impl EthereumStoragePersister {
                 "storage root can not be zero"
             );
 
-            let _ = logger.write_fmt(format_args!(
-                "Initial storage root for address 0x{:040x} is {:?}\n",
-                addr.address.as_uint(),
-                &initial_root,
-            ));
+            // let _ = logger.write_fmt(format_args!(
+            //     "Initial storage root for address 0x{:040x} is {:?}\n",
+            //     addr.address.as_uint(),
+            //     &initial_root,
+            // ));
 
             reusable_mpt = reusable_mpt.reinit_with_root(initial_root.as_u8_array());
 
@@ -444,11 +444,11 @@ impl EthereumStoragePersister {
                 for _ in 0..counter {
                     let (addr, v) = unsafe { it_set_final.next().unwrap_unchecked() };
 
-                    // let _ = logger
-                    //     .write_fmt(format_args!(
-                    //         "Processing potential updates for slot {:?}\n",
-                    //         &addr
-                    //     ));
+                    // let _ = logger.write_fmt(format_args!(
+                    //     "Processing potential updates for address 0x{:040x}, slot {:?}\n",
+                    //     &addr.address.as_uint(),
+                    //     &addr.key,
+                    // ));
 
                     debug_assert_eq!(addr.address, active_address);
                     if v.initial_value != v.current_value {
@@ -464,11 +464,11 @@ impl EthereumStoragePersister {
 
                         if v.initial_value.is_zero() {
                             // insert
-                            // let _ = logger
-                            //     .write_fmt(format_args!(
-                            //         "Will insert value {:?} at slot {:?}\n",
-                            //         &v.current_value, &addr.key
-                            //     ));
+
+                            // let _ = logger.write_fmt(format_args!(
+                            //     "Will insert value {:?} at slot {:?}\n",
+                            //     &v.current_value, &addr.key
+                            // ));
 
                             // encode value
                             let pre_encoded_value = Self::encode_slot_value(
@@ -483,11 +483,11 @@ impl EthereumStoragePersister {
                                 })?;
                         } else if v.current_value.is_zero() {
                             // delete
-                            // let _ = logger
-                            //     .write_fmt(format_args!(
-                            //         "Will delete value {:?} at slot {:?}\n",
-                            //         &v.initial_value, &addr.key
-                            //     ));
+
+                            // let _ = logger.write_fmt(format_args!(
+                            //     "Will delete value {:?} at slot {:?}\n",
+                            //     &v.initial_value, &addr.key
+                            // ));
 
                             reusable_mpt
                                 .delete(path, &mut preimage_oracle, &mut hasher)
@@ -496,11 +496,11 @@ impl EthereumStoragePersister {
                                 })?;
                         } else {
                             // update
-                            // let _ = logger
-                            //     .write_fmt(format_args!(
-                            //         "Will update slot {:?} as {:?} -> {:?}\n",
-                            //         &addr.key, &v.initial_value, &v.current_value
-                            //     ));
+
+                            // let _ = logger.write_fmt(format_args!(
+                            //     "Will update slot {:?} as {:?} -> {:?}\n",
+                            //     &addr.key, &v.initial_value, &v.current_value
+                            // ));
 
                             // encode value
                             let pre_encoded_value = Self::encode_slot_value(
@@ -516,11 +516,10 @@ impl EthereumStoragePersister {
                 }
                 // recompute new root
                 if any_mutation {
-                    // let _ = logger
-                    //     .write_fmt(format_args!(
-                    //         "Will update storage root for {:?}\n",
-                    //         &active_address
-                    //     ));
+                    // let _ = logger.write_fmt(format_args!(
+                    //     "Will update storage root for 0x{:040x}\n",
+                    //     &active_address.as_uint()
+                    // ));
 
                     // NOTE: this is fast NOP if no mutations happened, but we will not do it anyway
                     reusable_mpt
@@ -533,12 +532,11 @@ impl EthereumStoragePersister {
                         .expect("account with storage address must be cached");
                     let new_root = Bytes32::from_array(reusable_mpt.root(&mut hasher));
 
-                    // let _ = logger
-                    //     .write_fmt(format_args!(
-                    //         "New storage root for address 0x{:040x} is {:?}\n",
-                    //         active_address.as_uint(),
-                    //         &new_root,
-                    //     ));
+                    // let _ = logger.write_fmt(format_args!(
+                    //     "New storage root for address 0x{:040x} is {:?}\n",
+                    //     active_address.as_uint(),
+                    //     &new_root,
+                    // ));
 
                     assert_ne!(new_root, e.current().value().storage_root);
                     e.key_properties_mut().observe();
@@ -549,6 +547,11 @@ impl EthereumStoragePersister {
                             Ok(())
                         })
                     })?;
+                } else {
+                    // let _ = logger.write_fmt(format_args!(
+                    //     "Storage root of 0x{:040x} will remain unchanged\n",
+                    //     &active_address.as_uint(),
+                    // ));
                 }
 
                 if let Some((addr, value)) = next_pair_to_read_check.take() {
