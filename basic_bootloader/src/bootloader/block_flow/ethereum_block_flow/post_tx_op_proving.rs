@@ -200,6 +200,6 @@ where
             &metadata.block_level.computed_header_hash,
         ));
 
-        (io.oracle, Bytes32::ZERO)
+        (io.oracle, metadata.block_level.computed_header_hash)
     }
 }

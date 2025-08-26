@@ -342,11 +342,11 @@ impl EthereumStoragePersister {
         let mut active_address;
 
         if let Some((addr, value)) = it_fill_initial.next() {
-            let _ = logger.write_fmt(format_args!(
-                "Processing initial value for address 0x{:040x}, slot {:?}\n",
-                &addr.address.as_uint(),
-                &addr.key,
-            ));
+            // let _ = logger.write_fmt(format_args!(
+            //     "Processing initial value for address 0x{:040x}, slot {:?}\n",
+            //     &addr.address.as_uint(),
+            //     &addr.key,
+            // ));
 
             let entry = account_cache
                 .cache
@@ -393,11 +393,11 @@ impl EthereumStoragePersister {
         loop {
             match it_fill_initial.next() {
                 Some((addr, value)) => {
-                    let _ = logger.write_fmt(format_args!(
-                        "Processing initial value for address 0x{:040x}, slot {:?}\n",
-                        &addr.address.as_uint(),
-                        &addr.key,
-                    ));
+                    // let _ = logger.write_fmt(format_args!(
+                    //     "Processing initial value for address 0x{:040x}, slot {:?}\n",
+                    //     &addr.address.as_uint(),
+                    //     &addr.key,
+                    // ));
 
                     if active_address == addr.address {
                         let digits = Self::cache_slot_value_as_digits(
@@ -573,11 +573,11 @@ impl EthereumStoragePersister {
 
                     reusable_mpt = reusable_mpt.reinit_with_root(initial_root.as_u8_array());
 
-                    let _ = logger.write_fmt(format_args!(
-                        "Initial storage root for address 0x{:040x} is {:?}\n",
-                        addr.address.as_uint(),
-                        &initial_root,
-                    ));
+                    // let _ = logger.write_fmt(format_args!(
+                    //     "Initial storage root for address 0x{:040x} is {:?}\n",
+                    //     addr.address.as_uint(),
+                    //     &initial_root,
+                    // ));
 
                     let digits =
                         Self::cache_slot_value_as_digits(&addr.key, &mut key_cache, &mut hasher);

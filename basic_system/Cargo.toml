@@ -33,6 +33,7 @@ hex = { version = "*", optional = true }
 
 [features]
 testing = ["zk_ee/testing", "evm_interpreter/testing", "ruint/serde", "rand", "crypto/testing", "hex"]
+prevrandao = ["zk_ee/prevrandao"]
 evm-compatibility = []
 default = ["testing"]
 cycle_marker = ["cycle_marker/log_to_file"]
