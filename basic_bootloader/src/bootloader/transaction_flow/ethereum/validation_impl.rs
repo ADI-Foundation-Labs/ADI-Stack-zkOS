@@ -1,5 +1,4 @@
 use super::*;
-use crate::bootloader::block_flow::ethereum_block_flow::oracle_queries::fill_blob_point_from_oracle;
 use crate::bootloader::constants::*;
 use crate::bootloader::errors::InvalidTransaction::CreateInitCodeSizeLimit;
 use crate::bootloader::errors::{InvalidTransaction, TxError};
@@ -14,7 +13,6 @@ use crate::require;
 use core::alloc::Allocator;
 use core::fmt::Write;
 use core::u64;
-use crypto::ark_ff::AdditiveGroup;
 use crypto::secp256k1::SECP256K1N_HALF;
 use evm_interpreter::{ERGS_PER_GAS, MAX_INITCODE_SIZE};
 use ruint::aliases::{B160, U256};

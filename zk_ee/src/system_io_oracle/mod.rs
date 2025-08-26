@@ -229,10 +229,11 @@ pub trait IOOracle: 'static + Sized {
         }
         let num_bytes = size as usize;
         let num_words = num_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE;
+        // NOTE: we leave some slack for 64/32 bit arch mismatches
+        let num_words = num_words.next_multiple_of(2);
         let body_query_it = self.raw_query(body_query_id, input)?;
         let body_it_len = body_query_it.len();
-        // Some slack to account for 32/64 bit arch differences
-        if body_it_len.next_multiple_of(2) != num_words.next_multiple_of(2) {
+        if body_it_len > num_words {
             return Err(internal_error!("iterator len is inconsistent"));
         }
         // create buffer
