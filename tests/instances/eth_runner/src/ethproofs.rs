@@ -33,7 +33,6 @@ fn eth_run(
     block_hashes: Vec<U256>,
     witness: alloy_rpc_types_debug::ExecutionWitness,
     withdrawals_encoding: Vec<u8>,
-    blobs: Vec<BlobTransactionSidecarItem>,
 ) -> anyhow::Result<()> {
     chain.set_last_block_number(block_number - 1);
 
@@ -49,7 +48,6 @@ fn eth_run(
         witness,
         header,
         withdrawals_encoding,
-        blobs,
         Some(witness_output_dir),
         None,
     );
@@ -57,19 +55,10 @@ fn eth_run(
     Ok(())
 }
 
-pub fn ethproofs_run(
-    block_number: u64,
-    reth_endpoint: &str,
-    beacon_chain_endpoint: &str,
-) -> anyhow::Result<()> {
+pub fn ethproofs_run(block_number: u64, reth_endpoint: &str) -> anyhow::Result<()> {
     // Fetch data from RPC endpoints
     let block = rpc::get_block(reth_endpoint, block_number)
         .context(format!("Failed to fetch block for {block_number}"))?;
-    let blobs = rpc::get_blobs_from_beacon_chain(beacon_chain_endpoint, &block.result.header)
-        .context(format!("Failed to fetch blobs for {block_number}"))?;
-    // Remove?
-    let prestate = rpc::get_prestate(reth_endpoint, block_number)
-        .context(format!("Failed to fetch prestate trace for {block_number}"))?;
     let witness = rpc::get_witness(reth_endpoint, block_number)
         .context(format!("Failed to fetch witness for {block_number}"))?
         .result;
@@ -80,16 +69,6 @@ pub fn ethproofs_run(
     info!("Running block: {block_number}");
     info!("Block gas used: {}", block.result.header.gas_used);
     let miner = block.result.header.beneficiary;
-    let blobs: Vec<BlobTransactionSidecarItem> = blobs
-        .into_iter()
-        .enumerate()
-        .map(|(idx, el)| BlobTransactionSidecarItem {
-            index: idx as u64,
-            blob: Box::default(),
-            kzg_commitment: el.kzg_commitment,
-            kzg_proof: el.kzg_proof,
-        })
-        .collect();
 
     let header = block.result.header.clone().into();
     let withdrawals = block
@@ -117,6 +96,5 @@ pub fn ethproofs_run(
         block_hashes,
         witness,
         withdrawals_encoding,
-        blobs,
     )
 }

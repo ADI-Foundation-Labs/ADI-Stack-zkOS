@@ -430,7 +430,6 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         witness: alloy_rpc_types_debug::ExecutionWitness,
         block_header: Header,
         withdrawals: Vec<u8>,
-        blobs: Vec<BlobTransactionSidecarItem>,
         witness_output_file: Option<PathBuf>,
         app: Option<String>,
     ) -> ForwardRunningResultKeeper<NoopTxCallback, PectraForkHeader> {
@@ -522,21 +521,10 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             preimages_oracle: oracle,
         };
 
-        let mut blob_hashes = BTreeMap::new();
-        for blob in blobs.into_iter() {
-            let versioned_hash = blob.to_kzg_versioned_hash();
-            let point =
-                crypto::bls12_381::G1Affine::deserialize_compressed(&blob.kzg_commitment.0[..])
-                    .unwrap();
-
-            blob_hashes.insert(Bytes32::from_array(versioned_hash), point);
-        }
-
         let cl_responder = EthereumCLResponder {
             withdrawals_list: withdrawals,
             parent_headers_list: headers,
             parent_headers_encodings_list: witness.headers.iter().map(|el| el.0.to_vec()).collect(),
-            blob_hashes,
         };
 
         let mut oracle = ZkEENonDeterminismSource::default();
@@ -547,7 +535,6 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         oracle.add_external_processor(initial_values_responder);
         oracle.add_external_processor(cl_responder);
         oracle.add_external_processor(UARTPrintReponsder);
-        oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
 
         use crate::forward_system::system::system_types::ethereum::*;
         use basic_bootloader::bootloader::config::BasicBootloaderForwardETHLikeConfig;

@@ -104,7 +104,6 @@ fn eth_run<const PROOF_ENV: bool>(
         witness,
         header,
         withdrawals_encoding,
-        blobs,
         None,
         None,
     );

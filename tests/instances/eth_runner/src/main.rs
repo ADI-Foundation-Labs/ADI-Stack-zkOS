@@ -83,8 +83,6 @@ enum Command {
         block_number: u64,
         #[arg(long)]
         reth_endpoint: String,
-        #[arg(long)]
-        beacon_chain_endpoint: String,
     },
 }
 
@@ -129,8 +127,7 @@ fn main() -> anyhow::Result<()> {
         Command::EthproofsRun {
             block_number,
             reth_endpoint,
-            beacon_chain_endpoint,
-        } => ethproofs::ethproofs_run(block_number, &reth_endpoint, &beacon_chain_endpoint),
+        } => ethproofs::ethproofs_run(block_number, &reth_endpoint),
     }
 }
 
