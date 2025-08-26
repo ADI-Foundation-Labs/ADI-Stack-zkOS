@@ -431,6 +431,8 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         block_header: Header,
         withdrawals: Vec<u8>,
         blobs: Vec<BlobTransactionSidecarItem>,
+        witness_output_file: Option<PathBuf>,
+        app: Option<String>,
     ) -> ForwardRunningResultKeeper<NoopTxCallback, PectraForkHeader> {
         use crypto::MiniDigest;
         use std::collections::BTreeMap;
@@ -545,32 +547,41 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         oracle.add_external_processor(initial_values_responder);
         oracle.add_external_processor(cl_responder);
         oracle.add_external_processor(UARTPrintReponsder);
+        oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
 
         use crate::forward_system::system::system_types::ethereum::*;
         use basic_bootloader::bootloader::config::BasicBootloaderForwardETHLikeConfig;
         use forward_system::run::result_keeper::ForwardRunningResultKeeper;
-        use oracle_provider::DummyMemorySource;
 
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
-        let mut nop_tracer = NopTracer::default();
-        if PROOF_ENV {
-            BasicBootloader::<
-                EthereumStorageSystemTypesWithPostOps<ZkEENonDeterminismSource<DummyMemorySource>>,
-            >::run::<BasicBootloaderForwardETHLikeConfig>(
-                oracle,
-                &mut result_keeper,
-                &mut nop_tracer,
-            )
-            .expect("must succeed");
-        } else {
-            BasicBootloader::<
-                EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>,
-            >::run::<BasicBootloaderForwardETHLikeConfig>(
-                oracle,
-                &mut result_keeper,
-                &mut nop_tracer,
-            )
-            .expect("must succeed");
+        // let mut nop_tracer = NopTracer::default();
+        // if PROOF_ENV {
+        //     BasicBootloader::<
+        //         EthereumStorageSystemTypesWithPostOps<ZkEENonDeterminismSource<DummyMemorySource>>,
+        //     >::run::<BasicBootloaderForwardETHLikeConfig>(
+        //         oracle,
+        //         &mut result_keeper,
+        //         &mut nop_tracer,
+        //     )
+        //     .expect("must succeed");
+        // } else {
+        //     BasicBootloader::<
+        //         EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>,
+        //     >::run::<BasicBootloaderForwardETHLikeConfig>(
+        //         oracle,
+        //         &mut result_keeper,
+        //         &mut nop_tracer,
+        //     )
+        //     .expect("must succeed");
+        // }
+
+        if let Some(path) = witness_output_file {
+            let result = Self::run_batch_generate_witness(oracle, &app);
+            let mut file = File::create(&path).expect("should create file");
+            let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
+            let hex = hex::encode(witness);
+            file.write_all(hex.as_bytes())
+                .expect("should write to file");
         }
 
         result_keeper

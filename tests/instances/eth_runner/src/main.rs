@@ -6,6 +6,7 @@ mod block;
 mod block_hashes;
 mod calltrace;
 pub(crate) mod dump_utils;
+mod ethproofs;
 mod live_run;
 mod native_model;
 mod post_check;
@@ -76,6 +77,15 @@ enum Command {
         #[arg(long)]
         db: String,
     },
+    // Prove an ethereum block for Ethproofs
+    EthproofsRun {
+        #[arg(long)]
+        block_number: u64,
+        #[arg(long)]
+        reth_endpoint: String,
+        #[arg(long)]
+        beacon_chain_endpoint: String,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -116,6 +126,11 @@ fn main() -> anyhow::Result<()> {
         ),
         Command::ExportRatios { db, path } => live_run::export_block_ratios(db, path),
         Command::ShowStatus { db } => live_run::show_status(db),
+        Command::EthproofsRun {
+            block_number,
+            reth_endpoint,
+            beacon_chain_endpoint,
+        } => ethproofs::ethproofs_run(block_number, &reth_endpoint, &beacon_chain_endpoint),
     }
 }
 

@@ -105,6 +105,8 @@ fn eth_run<const PROOF_ENV: bool>(
         header,
         withdrawals_encoding,
         blobs,
+        None,
+        None,
     );
 
     if PROOF_ENV {
