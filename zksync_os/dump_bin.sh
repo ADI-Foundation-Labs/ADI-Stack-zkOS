@@ -75,6 +75,12 @@ case "$TYPE" in
     ELF_NAME="app.elf"
     TEXT_NAME="app.text"
     ;;
+  pectra-debug)
+    FEATURES="$FEATURES,pectra,evm-compatibility,prevrandao,evm_refunds,unlimited_native,disable_system_contracts,print_debug_info"
+    BIN_NAME="app.bin"
+    ELF_NAME="app.elf"
+    TEXT_NAME="app.text"
+    ;;
   default)
     # leave defaults
     ;;
