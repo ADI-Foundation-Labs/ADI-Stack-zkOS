@@ -9816,7 +9816,6 @@ dependencies = [
  "execution_utils",
  "prover_examples",
  "risc_v_simulator",
- "trace_and_split",
 ]
 
 [[package]]
