@@ -159,7 +159,7 @@ mod test {
 
     #[test]
     fn invoke_single_eth_block() {
-        let block_number = 23226434;
+        let block_number = 23230927;
         crate::single_run::single_eth_run::<true>(format!("blocks/{}", block_number), Some(1))
             .expect("must succeed");
     }

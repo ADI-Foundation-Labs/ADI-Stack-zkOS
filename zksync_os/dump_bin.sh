@@ -70,7 +70,7 @@ case "$TYPE" in
     TEXT_NAME="evm_replay.text"
     ;;
   pectra)
-    FEATURES="$FEATURES,pectra,evm-compatibility,prevrandao,evm_refunds,unlimited_native,disable_system_contracts"
+    FEATURES="$FEATURES,pectra,evm-compatibility,prevrandao,evm_refunds,unlimited_native,disable_system_contracts,print_debug_info"
     BIN_NAME="app.bin"
     ELF_NAME="app.elf"
     TEXT_NAME="app.text"

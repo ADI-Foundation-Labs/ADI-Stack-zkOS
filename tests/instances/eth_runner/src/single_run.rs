@@ -99,12 +99,18 @@ fn eth_run<const PROOF_ENV: bool>(
 
     let prestate_cache = populate_prestate(&mut chain, ps_trace, &calltrace);
 
+    let witness_output_dir = {
+        let mut suffix = block_number.to_string();
+        suffix.push_str("_witness");
+        std::path::PathBuf::from(&suffix)
+    };
+
     let mut result_keeper = chain.run_eth_block::<PROOF_ENV>(
         transactions,
         witness,
         header,
         withdrawals_encoding,
-        None,
+        Some(witness_output_dir),
         None,
     );
 
@@ -327,19 +333,19 @@ pub fn single_eth_run<const PROOF_ENV: bool>(
     let account_diffs_file = File::open(dir.join("account_diffs.json"))?;
     let account_diffs: Vec<AccountStateDiffs> = serde_json::from_reader(account_diffs_file)?;
 
-    let blobs_file = File::open(dir.join("blobs.json"))?;
-    let blobs: Vec<BlobTransactionQuasiSidecarItem> = serde_json::from_reader(blobs_file)?;
+    // let blobs_file = File::open(dir.join("blobs.json"))?;
+    // let blobs: Vec<BlobTransactionQuasiSidecarItem> = serde_json::from_reader(blobs_file)?;
 
-    let blobs: Vec<BlobTransactionSidecarItem> = blobs
-        .into_iter()
-        .enumerate()
-        .map(|(idx, el)| BlobTransactionSidecarItem {
-            index: idx as u64,
-            blob: Box::default(),
-            kzg_commitment: el.kzg_commitment,
-            kzg_proof: el.kzg_proof,
-        })
-        .collect();
+    // let blobs: Vec<BlobTransactionSidecarItem> = blobs
+    //     .into_iter()
+    //     .enumerate()
+    //     .map(|(idx, el)| BlobTransactionSidecarItem {
+    //         index: idx as u64,
+    //         blob: Box::default(),
+    //         kzg_commitment: el.kzg_commitment,
+    //         kzg_proof: el.kzg_proof,
+    //     })
+    //     .collect();
 
     let header = block.result.header.clone().into();
     let withdrawals = block
@@ -411,6 +417,6 @@ pub fn single_eth_run<const PROOF_ENV: bool>(
         &withdrawals,
         withdrawals_encoding,
         account_diffs,
-        blobs,
+        vec![],
     )
 }

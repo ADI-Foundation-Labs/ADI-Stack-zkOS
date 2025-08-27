@@ -527,21 +527,21 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             parent_headers_encodings_list: witness.headers.iter().map(|el| el.0.to_vec()).collect(),
         };
 
-        let mut oracle = ZkEENonDeterminismSource::default();
-        oracle.add_external_processor(target_header_reponsder);
-        oracle.add_external_processor(tx_data_responder);
-        oracle.add_external_processor(preimage_responder);
-        oracle.add_external_processor(initial_account_state_responder);
-        oracle.add_external_processor(initial_values_responder);
-        oracle.add_external_processor(cl_responder);
-        oracle.add_external_processor(UARTPrintReponsder);
+        // let mut oracle = ZkEENonDeterminismSource::default();
+        // oracle.add_external_processor(target_header_reponsder.clone());
+        // oracle.add_external_processor(tx_data_responder.clone());
+        // oracle.add_external_processor(preimage_responder.clone());
+        // oracle.add_external_processor(initial_account_state_responder.clone());
+        // oracle.add_external_processor(initial_values_responder.clone());
+        // oracle.add_external_processor(cl_responder.clone());
+        // oracle.add_external_processor(UARTPrintReponsder);
 
         use crate::forward_system::system::system_types::ethereum::*;
         use basic_bootloader::bootloader::config::BasicBootloaderForwardETHLikeConfig;
         use forward_system::run::result_keeper::ForwardRunningResultKeeper;
 
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
-        // let mut nop_tracer = NopTracer::default();
+        let mut nop_tracer = NopTracer::default();
         // use oracle_provider::DummyMemorySource;
         // if PROOF_ENV {
         //     BasicBootloader::<
@@ -564,6 +564,14 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         // }
 
         if let Some(path) = witness_output_file {
+            let mut oracle = ZkEENonDeterminismSource::default();
+            oracle.add_external_processor(target_header_reponsder);
+            oracle.add_external_processor(tx_data_responder);
+            oracle.add_external_processor(preimage_responder);
+            oracle.add_external_processor(initial_account_state_responder);
+            oracle.add_external_processor(initial_values_responder);
+            oracle.add_external_processor(cl_responder);
+            oracle.add_external_processor(UARTPrintReponsder);
             let result = Self::run_batch_generate_witness(oracle, &app);
             let mut file = File::create(&path).expect("should create file");
             let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
