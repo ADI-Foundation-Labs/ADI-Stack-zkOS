@@ -503,6 +503,10 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
     where
         S::IO: IOSubsystemExt,
     {
+        if system.get_interop_roots().len() == 0 {
+            return Ok(Bytes32::ZERO);
+        }
+
         let mut interop_root_hasher = crypto::sha3::Keccak256::new();
 
         // Block of code needed for interop.
@@ -516,43 +520,33 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         //
         // We also compute the rolling hash of the interop roots and include it as part of the public input
 
-        let mut non_empty_root_counter = 0;
+        for interop_root in system.get_interop_roots().iter() {
+            let mut data = [0u8; 164];
+            // fb6200c6: function addInteropRoot(uint256 chainId, uint256 blockOrBatchNumber, bytes32[] calldata sides) external;
+            data[0..4].copy_from_slice(&[0xfb, 0x62, 0x00, 0xc6]);
+            data[28..36].copy_from_slice(&interop_root.chain_id.to_be_bytes());
+            data[60..68].copy_from_slice(&interop_root.block_number.to_be_bytes());
+            data[96..100].copy_from_slice(&32u32.to_be_bytes());
+            data[132..136].copy_from_slice(&1u32.to_be_bytes());
+            data[136..164].copy_from_slice(&interop_root.root.as_u8_ref());
+            interop_root_hasher.update(&data);
 
-        for interop_root in system.get_interop_roots() {
-            if interop_root.chain_id != 0 && interop_root.block_number != 0 {
-                non_empty_root_counter += 1;
+            data[92..96].copy_from_slice(&96u32.to_be_bytes());
 
-                let mut data = [0u8; 164];
-                // fb6200c6: function addInteropRoot(uint256 chainId, uint256 blockOrBatchNumber, bytes32[] calldata sides) external;
-                data[0..4].copy_from_slice(&[0xfb, 0x62, 0x00, 0xc6]);
-                data[28..36].copy_from_slice(&interop_root.chain_id.to_be_bytes());
-                data[60..68].copy_from_slice(&interop_root.block_number.to_be_bytes());
-                data[96..100].copy_from_slice(&32u32.to_be_bytes());
-                data[132..136].copy_from_slice(&1u32.to_be_bytes());
-                data[136..164].copy_from_slice(&interop_root.root.as_u8_ref());
-                interop_root_hasher.update(&data);
-
-                data[92..96].copy_from_slice(&96u32.to_be_bytes());
-
-                let _ = Self::run_single_interaction(
-                    system,
-                    system_functions,
-                    memories.reborrow(),
-                    &data,
-                    &BOOTLOADER_FORMAL_ADDRESS,
-                    &L2_INTEROP_ROOT_STORAGE_ADDRESS,
-                    S::Resources::FORMAL_INFINITE,
-                    &U256::ZERO,
-                    true,
-                    tracer,
-                )?;
-            }
+            let _ = Self::run_single_interaction(
+                system,
+                system_functions,
+                memories.reborrow(),
+                &data,
+                &BOOTLOADER_FORMAL_ADDRESS,
+                &L2_INTEROP_ROOT_STORAGE_ADDRESS,
+                S::Resources::FORMAL_INFINITE,
+                &U256::ZERO,
+                true,
+                tracer,
+            )?;
         }
 
-        if non_empty_root_counter > 0 {
-            Ok(Bytes32::from(interop_root_hasher.finalize()))
-        } else {
-            Ok(Bytes32::ZERO)
-        }
+        Ok(Bytes32::from(interop_root_hasher.finalize()))
     }
 }
