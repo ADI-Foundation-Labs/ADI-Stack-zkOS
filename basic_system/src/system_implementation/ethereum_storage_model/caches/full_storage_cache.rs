@@ -159,9 +159,17 @@ impl<
     ) -> impl Iterator<Item = (WarmStorageKey, WarmStorageValue)> + Clone + use<'_, A, SC, N, R, P>
     {
         self.slot_values.cache.iter().map(|item| {
+            use zk_ee::common_structs::StorageCurrentAppearance;
+
             let initial_appearance = item.key_properties().initial_appearance();
             let current_record = item.current();
             let initial_record = item.initial();
+            let initial_value_used = matches!(
+                item.key_properties().current_appearance(),
+                StorageCurrentAppearance::Observed
+                    | StorageCurrentAppearance::Updated
+                    | StorageCurrentAppearance::Deleted
+            );
             (
                 *item.key(),
                 // Using the WarmStorageValue temporarily till it's outed from the codebase. We're
@@ -170,7 +178,7 @@ impl<
                     current_value: *current_record.value(),
                     is_new_storage_slot: initial_appearance == StorageInitialAppearance::Empty,
                     initial_value: *initial_record.value(),
-                    initial_value_used: true,
+                    initial_value_used,
                     ..Default::default()
                 },
             )
