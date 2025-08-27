@@ -397,8 +397,6 @@ where
 
     pub fn begin_new_tx(&mut self) {
         self.cache.commit();
-
-        self.current_tx_number += 1;
     }
 
     pub fn start_frame(&mut self) -> CacheSnapshotId {
@@ -1058,7 +1056,7 @@ where
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
         in_constructor: bool,
-    ) -> Result<(), DeconstructionSubsystemError> {
+    ) -> Result<U256, DeconstructionSubsystemError> {
         let cur_tx = self.current_tx_number;
         let mut account_data = self.materialize_element::<PROOF_ENV>(
             from_ee,
@@ -1141,17 +1139,20 @@ where
             }
         }
 
-        Ok(())
+        Ok(transfer_amount)
     }
 
     pub fn finish_tx(
         &mut self,
         storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, SCC, R, P>,
     ) -> Result<(), InternalError> {
+        self.current_tx_number += 1;
+
         // Actually deconstructing accounts
         self.cache
             .apply_to_last_record_of_pending_changes(|key, head_history_record| {
                 if head_history_record.value.appearance() == Appearance::Deconstructed {
+                    head_history_record.value.finish_deconstruction()?;
                     head_history_record.value.update(|x, _| {
                         *x = AccountProperties::TRIVIAL_VALUE;
                         Ok(())
