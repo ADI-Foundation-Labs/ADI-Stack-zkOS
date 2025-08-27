@@ -72,12 +72,10 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                     // should transform into unreferenced branch value as we have no idea what is in "key" there
 
                     // it'll go into newly created branch as opaque
-                    let new_unreferenced_value = OpaqueValue {
+                    let new_unreferenced_value = UnreferencedValue {
                         parent_node: new_branch_node,
                         branch_index,
-                        value: LeafValue::RLPEnveloped {
-                            envelope: existing_extension.next_node_key,
-                        },
+                        value: existing_extension.next_node_key.full_encoding(),
                     };
                     // NOTE: borrowcheck
                     let new_unreferenced_value_node = NodeType::unreferenced_value_in_branch(

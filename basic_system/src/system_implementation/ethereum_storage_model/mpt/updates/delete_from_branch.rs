@@ -46,16 +46,13 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                     prefix_len,
                 };
                 // we have to allocate the next one and decide
-                let LeafValue::RLPEnveloped { envelope: key } =
-                    self.capacities.branch_unreferenced_values[surviving_node.index()].value
-                else {
-                    panic!("unreferenced opaque nodes area only envelopes");
-                };
+                let key_encoding =
+                    self.capacities.branch_unreferenced_values[surviving_node.index()].value;
                 let current_node = branch_node;
                 let parent_branch_index = surviving_branch;
                 match self.descend_through_proof(
                     &mut modified_path,
-                    key,
+                    key_encoding,
                     current_node,
                     preimages_oracle,
                     interner,

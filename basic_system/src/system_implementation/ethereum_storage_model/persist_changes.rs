@@ -601,8 +601,8 @@ impl EthereumStoragePersister {
                     counter = 1;
 
                     let _ = logger.write_fmt(format_args!(
-                        "Setting {:?} as new active address\n",
-                        &addr.address
+                        "Setting 0x{:040x} as new active address\n",
+                        &addr.address.as_uint()
                     ));
 
                     // Now we should update MTP for next account, and reset counter

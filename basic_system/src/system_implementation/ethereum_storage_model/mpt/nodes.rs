@@ -271,6 +271,13 @@ pub(crate) struct ExtensionNode<'a> {
     pub(crate) next_node_key: RLPSlice<'a>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct UnreferencedValue<'a> {
+    pub(crate) parent_node: NodeType,
+    pub(crate) branch_index: usize,
+    pub(crate) value: &'a [u8],
+}
+
 // #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Debug)]
 pub(crate) struct OpaqueValue<'a> {
