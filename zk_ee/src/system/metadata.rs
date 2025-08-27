@@ -1,4 +1,5 @@
 use crate::{system::MAX_NUMBER_INTEROP_ROOTS, utils::Bytes32};
+use arrayvec::ArrayVec;
 
 use super::{
     errors::internal::InternalError,
@@ -7,7 +8,7 @@ use super::{
 };
 use ruint::aliases::{B160, U256};
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Metadata<IOTypes: SystemIOTypesConfig> {
     pub chain_id: u64,
     pub tx_origin: IOTypes::Address,
@@ -81,12 +82,12 @@ pub struct InteropRoot {
     pub chain_id: u64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct InteropRoots(pub [InteropRoot; MAX_NUMBER_INTEROP_ROOTS]);
+#[derive(Clone, Debug, PartialEq)]
+pub struct InteropRoots(pub ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS>);
 
 impl Default for InteropRoots {
     fn default() -> Self {
-        Self([InteropRoot::default(); MAX_NUMBER_INTEROP_ROOTS])
+        Self(ArrayVec::new())
     }
 }
 
@@ -107,10 +108,16 @@ impl<'de> serde::Deserialize<'de> for InteropRoots {
         D: serde::Deserializer<'de>,
     {
         let vec: Vec<InteropRoot> = Vec::deserialize(deserializer)?;
-        let array: [InteropRoot; 100] = vec
-            .try_into()
-            .map_err(|_| serde::de::Error::custom("Expected array of length 100"))?;
-        Ok(Self(array))
+        let mut array_vec = ArrayVec::new();
+        for item in vec {
+            if array_vec.try_push(item).is_err() {
+                return Err(serde::de::Error::custom(format!(
+                    "Too many InteropRoot items for ArrayVec (max {})",
+                    MAX_NUMBER_INTEROP_ROOTS
+                )));
+            }
+        }
+        Ok(Self(array_vec))
     }
 }
 
@@ -126,12 +133,16 @@ impl UsizeSerializable for InteropRoots {
 }
 
 impl UsizeDeserializable for InteropRoots {
-    const USIZE_LEN: usize = <InteropRoot as UsizeDeserializable>::USIZE_LEN * 100;
+    const USIZE_LEN: usize =
+        <InteropRoot as UsizeDeserializable>::USIZE_LEN * MAX_NUMBER_INTEROP_ROOTS;
 
     fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
-        Ok(Self(core::array::from_fn(|_| {
-            InteropRoot::from_iter(src).unwrap_or_default()
-        })))
+        let mut array_vec = ArrayVec::new();
+        for _ in 0..MAX_NUMBER_INTEROP_ROOTS {
+            let interop_root = InteropRoot::from_iter(src)?;
+            array_vec.push(interop_root);
+        }
+        Ok(Self(array_vec))
     }
 }
 
@@ -176,7 +187,7 @@ impl UsizeDeserializable for InteropRoot {
 // block number, etc
 
 #[cfg_attr(feature = "testing", derive(serde::Serialize, serde::Deserialize))]
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct BlockMetadataFromOracle {
     // Chain id is temporarily also added here (so that it can be easily passed from the oracle)
     // long term, we have to decide whether we want to keep it here, or add a separate oracle

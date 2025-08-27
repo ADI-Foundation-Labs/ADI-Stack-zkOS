@@ -31,7 +31,7 @@ impl<T: ReadStorageTree + Clone, PS: PreimageSource + Clone, TS: TxSource + Clon
     fn clone(&self) -> Self {
         ForwardRunningOracle {
             proof_data: self.proof_data,
-            block_metadata: self.block_metadata,
+            block_metadata: self.block_metadata.clone(),
             tree: self.tree.clone(),
             tx_source: self.tx_source.clone(),
             preimage_source: self.preimage_source.clone(),
@@ -95,7 +95,7 @@ impl<T: ReadStorageTree, PS: PreimageSource, TS: TxSource> ForwardRunningOracle<
                         .cast::<<BlockLevelMetadataIterator as OracleIteratorTypeMarker>::Params>()
                 };
                 // we do not use it for anything
-                let iterator = DynUsizeIterator::from_owned(self.block_metadata);
+                let iterator = DynUsizeIterator::from_owned(self.block_metadata.clone());
 
                 Ok(Box::new(iterator))
             }
@@ -267,7 +267,7 @@ impl<S: ReadStorage, PS: PreimageSource, TS: TxSource> CallSimulationOracle<S, P
                         .cast::<<BlockLevelMetadataIterator as OracleIteratorTypeMarker>::Params>()
                 };
                 // we do not use it for anything
-                let iterator = DynUsizeIterator::from_owned(self.block_metadata);
+                let iterator = DynUsizeIterator::from_owned(self.block_metadata.clone());
 
                 Ok(Box::new(iterator))
             }

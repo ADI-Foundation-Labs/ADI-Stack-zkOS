@@ -50,6 +50,11 @@ use zk_ee::utils::*;
 pub(crate) const EVM_EE_BYTE: u8 = ExecutionEnvironmentType::EVM_EE_BYTE;
 pub const DEBUG_OUTPUT: bool = false;
 
+// l2 interop root storage system hook (contract) needed for all envs (add interop root)
+pub const L2_INTEROP_ROOT_STORAGE_ADDRESS_LOW: u32 = 0x10008;
+pub const L2_INTEROP_ROOT_STORAGE_ADDRESS: B160 =
+    B160::from_limbs([L2_INTEROP_ROOT_STORAGE_ADDRESS_LOW as u64, 0, 0]);
+
 pub struct BasicBootloader<S: EthereumLikeTypes> {
     _marker: core::marker::PhantomData<S>,
 }
@@ -217,7 +222,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
 
         // Get interop roots and set them in the L2_INTEROP_ROOT_STORAGE_ADDRESS storage
         let interop_root_hash =
-            Self::process_interop_roots(&mut system, &mut system_functions, &mut memories, tracer);
+            Self::process_interop_roots(&mut system, &mut system_functions, &mut memories, tracer)?;
 
         // now we can run every transaction
         while let Some(next_tx_data_len_bytes) = {
@@ -494,11 +499,10 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         system_functions: &mut HooksStorage<S, S::Allocator>,
         memories: &mut RunnerMemoryBuffers,
         tracer: &mut impl Tracer<S>,
-    ) -> Bytes32
+    ) -> Result<Bytes32, BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt,
     {
-        use system_hooks::addresses_constants::L2_INTEROP_ROOT_STORAGE_ADDRESS;
         let mut interop_root_hasher = crypto::sha3::Keccak256::new();
 
         // Block of code needed for interop.
@@ -514,11 +518,8 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
 
         let mut non_empty_root_counter = 0;
 
-        system
-            .get_interop_roots()
-            .iter()
-            .filter(|interop_root| interop_root.chain_id != 0 && interop_root.block_number != 0)
-            .for_each(|interop_root| {
+        for interop_root in system.get_interop_roots() {
+            if interop_root.chain_id != 0 && interop_root.block_number != 0 {
                 non_empty_root_counter += 1;
 
                 let mut data = [0u8; 164];
@@ -544,13 +545,14 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                     &U256::ZERO,
                     true,
                     tracer,
-                );
-            });
+                )?;
+            }
+        }
 
         if non_empty_root_counter > 0 {
-            Bytes32::from(interop_root_hasher.finalize())
+            Ok(Bytes32::from(interop_root_hasher.finalize()))
         } else {
-            Bytes32::ZERO
+            Ok(Bytes32::ZERO)
         }
     }
 }
