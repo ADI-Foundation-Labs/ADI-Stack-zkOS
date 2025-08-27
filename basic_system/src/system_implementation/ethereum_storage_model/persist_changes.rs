@@ -323,7 +323,7 @@ impl EthereumStoragePersister {
 
         let _ = logger.write_fmt(format_args!("Beginning MTP updates\n"));
 
-        let mut it_fill_initial = storage_cache.iter_as_storage_types();
+        let mut it_fill_initial = storage_cache.net_accesses_iter();
         let mut it_set_final = it_fill_initial.clone();
 
         let mut preimage_oracle = OracleProxy(oracle);
@@ -342,11 +342,14 @@ impl EthereumStoragePersister {
         let mut active_address;
 
         if let Some((addr, value)) = it_fill_initial.next() {
-            // let _ = logger.write_fmt(format_args!(
-            //     "Processing initial value for address 0x{:040x}, slot {:?}\n",
-            //     &addr.address.as_uint(),
-            //     &addr.key,
-            // ));
+            counter = 1;
+            active_address = addr.address;
+
+            let _ = logger.write_fmt(format_args!(
+                "Processing initial value for address 0x{:040x}, slot {:?}\n",
+                &addr.address.as_uint(),
+                &addr.key,
+            ));
 
             let entry = account_cache
                 .cache
@@ -359,29 +362,35 @@ impl EthereumStoragePersister {
                 "storage root can not be zero"
             );
 
-            // let _ = logger.write_fmt(format_args!(
-            //     "Initial storage root for address 0x{:040x} is {:?}\n",
-            //     addr.address.as_uint(),
-            //     &initial_root,
-            // ));
+            let _ = logger.write_fmt(format_args!(
+                "Initial storage root for address 0x{:040x} is {:?}\n",
+                addr.address.as_uint(),
+                &initial_root,
+            ));
 
             reusable_mpt = reusable_mpt.reinit_with_root(initial_root.as_u8_array());
 
-            let digits = Self::cache_slot_value_as_digits(&addr.key, &mut key_cache, &mut hasher);
-            let path = Path::new(digits);
-            let initial_expected_value = reusable_mpt
-                .get(path, &mut preimage_oracle, &mut hasher)
-                .map_err(|_| internal_error!("failed to get initial value in MPT"))?;
+            if value.initial_value_used {
+                let digits =
+                    Self::cache_slot_value_as_digits(&addr.key, &mut key_cache, &mut hasher);
+                let path = Path::new(digits);
+                let initial_expected_value = reusable_mpt
+                    .get(path, &mut preimage_oracle, &mut hasher)
+                    .map_err(|_| internal_error!("failed to get initial value in MPT"))?;
 
-            assert!(
-                compare_bytes32_and_mpt_integer(&value.initial_value, initial_expected_value),
-                "failed to compare expected storage slot value {:?} vs RLP encoded {:?}\n",
-                &value.initial_value,
-                &initial_expected_value
-            );
-
-            counter = 1;
-            active_address = addr.address;
+                assert!(
+                    compare_bytes32_and_mpt_integer(&value.initial_value, initial_expected_value),
+                    "failed to compare expected storage slot value {:?} vs RLP encoded {:?}\n",
+                    &value.initial_value,
+                    &initial_expected_value
+                );
+            } else {
+                let _ = logger.write_fmt(format_args!(
+                    "Value for address 0x{:040x}, slot {:?} is unobservable\n",
+                    &addr.address.as_uint(),
+                    &addr.key,
+                ));
+            }
         } else {
             // Nothing to do
             return Ok(*initial_state_root);
@@ -393,13 +402,230 @@ impl EthereumStoragePersister {
         loop {
             match it_fill_initial.next() {
                 Some((addr, value)) => {
-                    // let _ = logger.write_fmt(format_args!(
-                    //     "Processing initial value for address 0x{:040x}, slot {:?}\n",
-                    //     &addr.address.as_uint(),
-                    //     &addr.key,
-                    // ));
+                    let _ = logger.write_fmt(format_args!(
+                        "Processing initial value for address 0x{:040x}, slot {:?}\n",
+                        &addr.address.as_uint(),
+                        &addr.key,
+                    ));
 
                     if active_address == addr.address {
+                        counter += 1;
+
+                        if value.initial_value_used {
+                            let digits = Self::cache_slot_value_as_digits(
+                                &addr.key,
+                                &mut key_cache,
+                                &mut hasher,
+                            );
+                            let path = Path::new(digits);
+                            let initial_expected_value = reusable_mpt
+                                .get(path, &mut preimage_oracle, &mut hasher)
+                                .map_err(|_| {
+                                    internal_error!("failed to get initial value in MPT")
+                                })?;
+
+                            assert!(
+                                compare_bytes32_and_mpt_integer(
+                                    &value.initial_value,
+                                    initial_expected_value
+                                ),
+                                "failed to compare expected storage slot value {:?} vs RLP encoded {:?}\n",
+                                &value.initial_value,
+                                &initial_expected_value
+                            );
+                        } else {
+                            let _ = logger.write_fmt(format_args!(
+                                "Value for address 0x{:040x}, slot {:?} is unobservable\n",
+                                &addr.address.as_uint(),
+                                &addr.key,
+                            ));
+                        }
+                    } else {
+                        next_pair_to_read_check = Some((addr, value));
+                        should_update = true;
+                    }
+                }
+                None => {
+                    should_update = true;
+                }
+            }
+
+            if should_update {
+                should_update = false;
+
+                let _ = logger.write_fmt(format_args!(
+                    "Should process {} potential updates for address {:?}\n",
+                    counter, &active_address
+                ));
+
+                let mut storage_is_observed = false;
+                let mut any_mutation = false;
+                for _ in 0..counter {
+                    let (addr, v) = unsafe { it_set_final.next().unwrap_unchecked() };
+
+                    let _ = logger.write_fmt(format_args!(
+                        "Processing potential updates for address 0x{:040x}, slot {:?}\n",
+                        &addr.address.as_uint(),
+                        &addr.key,
+                    ));
+
+                    if v.initial_value_used {
+                        storage_is_observed |= true;
+
+                        debug_assert_eq!(addr.address, active_address);
+                        if v.initial_value != v.current_value {
+                            any_mutation |= true;
+
+                            // cache hit
+                            let digits = Self::cache_slot_value_as_digits(
+                                &addr.key,
+                                &mut key_cache,
+                                &mut hasher,
+                            );
+                            let path = Path::new(digits);
+
+                            if v.initial_value.is_zero() {
+                                // insert
+
+                                // let _ = logger.write_fmt(format_args!(
+                                //     "Will insert value {:?} at slot {:?}\n",
+                                //     &v.current_value, &addr.key
+                                // ));
+
+                                // encode value
+                                let pre_encoded_value = Self::encode_slot_value(
+                                    &v.current_value,
+                                    &mut slot_value_encoding_buffer,
+                                );
+
+                                reusable_mpt
+                                    .insert(
+                                        path,
+                                        pre_encoded_value,
+                                        &mut preimage_oracle,
+                                        &mut hasher,
+                                    )
+                                    .map_err(|_| {
+                                        internal_error!("failed to get insert value into MPT")
+                                    })?;
+                            } else if v.current_value.is_zero() {
+                                // delete
+
+                                // let _ = logger.write_fmt(format_args!(
+                                //     "Will delete value {:?} at slot {:?}\n",
+                                //     &v.initial_value, &addr.key
+                                // ));
+
+                                reusable_mpt
+                                    .delete(path, &mut preimage_oracle, &mut hasher)
+                                    .map_err(|_| {
+                                        internal_error!("failed to get delete value from MPT")
+                                    })?;
+                            } else {
+                                // update
+
+                                // let _ = logger.write_fmt(format_args!(
+                                //     "Will update slot {:?} as {:?} -> {:?}\n",
+                                //     &addr.key, &v.initial_value, &v.current_value
+                                // ));
+
+                                // encode value
+                                let pre_encoded_value = Self::encode_slot_value(
+                                    &v.current_value,
+                                    &mut slot_value_encoding_buffer,
+                                );
+
+                                reusable_mpt.update(path, pre_encoded_value).map_err(|_| {
+                                    internal_error!("failed to get update value in MPT")
+                                })?;
+                            }
+                        } else {
+                            assert_eq!(v.initial_value, v.current_value);
+                            let _ = logger.write_fmt(format_args!(
+                                "Skipping updates for value for address 0x{:040x}, slot {:?} as it was not observed\n",
+                                &addr.address.as_uint(),
+                                &addr.key,
+                            ));
+                        }
+                    }
+                }
+                if storage_is_observed {
+                    let mut e = account_cache
+                        .cache
+                        .get_mut((&active_address).into())
+                        .expect("account with storage address must be cached");
+                    e.key_properties_mut().observe();
+                }
+
+                // recompute new root
+                if any_mutation {
+                    let _ = logger.write_fmt(format_args!(
+                        "Will update storage root for 0x{:040x}\n",
+                        &active_address.as_uint()
+                    ));
+
+                    // NOTE: this is fast NOP if no mutations happened, but we will not do it anyway
+                    reusable_mpt
+                        .recompute(&mut hasher)
+                        .map_err(|_| internal_error!("failed to compute new root for MPT"))?;
+
+                    let mut e = account_cache
+                        .cache
+                        .get_mut((&active_address).into())
+                        .expect("account with storage address must be cached");
+                    let new_root = Bytes32::from_array(reusable_mpt.root(&mut hasher));
+
+                    let _ = logger.write_fmt(format_args!(
+                        "New storage root for address 0x{:040x} is {:?}\n",
+                        active_address.as_uint(),
+                        &new_root,
+                    ));
+
+                    assert_ne!(new_root, e.current().value().storage_root);
+                    e.update(|v| {
+                        v.update(|v, _m| {
+                            v.storage_root = new_root;
+
+                            Ok(())
+                        })
+                    })?;
+                } else {
+                    let _ = logger.write_fmt(format_args!(
+                        "Storage root of 0x{:040x} will remain unchanged\n",
+                        &active_address.as_uint(),
+                    ));
+                }
+
+                if let Some((addr, value)) = next_pair_to_read_check.take() {
+                    active_address = addr.address;
+                    counter = 1;
+
+                    let _ = logger.write_fmt(format_args!(
+                        "Setting {:?} as new active address\n",
+                        &addr.address
+                    ));
+
+                    // Now we should update MTP for next account, and reset counter
+                    // reuse for the next account
+                    let entry = account_cache
+                        .cache
+                        .get((&addr.address).into())
+                        .expect("account with storage address must be cached");
+                    let initial_root = entry.current().value().storage_root;
+
+                    debug_assert!(
+                        initial_root.is_zero() == false,
+                        "storage root can not be zero"
+                    );
+                    reusable_mpt = reusable_mpt.reinit_with_root(initial_root.as_u8_array());
+
+                    if value.initial_value_used {
+                        // let _ = logger.write_fmt(format_args!(
+                        //     "Initial storage root for address 0x{:040x} is {:?}\n",
+                        //     addr.address.as_uint(),
+                        //     &initial_root,
+                        // ));
+
                         let digits = Self::cache_slot_value_as_digits(
                             &addr.key,
                             &mut key_cache,
@@ -415,192 +641,17 @@ impl EthereumStoragePersister {
                                 &value.initial_value,
                                 initial_expected_value
                             ),
-                            "failed to compare expected storage slot value {:?} vs RLP encoded {:?}\n",
+                            "failed to compare expected initial storage root value {:?} vs RLP encoded {:?}\n",
                             &value.initial_value,
                             &initial_expected_value
                         );
-
-                        counter += 1;
                     } else {
-                        next_pair_to_read_check = Some((addr, value));
-                        should_update = true;
-                    }
-                }
-                None => {
-                    should_update = true;
-                }
-            }
-
-            if should_update {
-                should_update = false;
-
-                // let _ = logger
-                //     .write_fmt(format_args!(
-                //         "Should process {} potential updates for address {:?}\n",
-                //         counter, &active_address
-                //     ));
-
-                let mut any_mutation = false;
-                for _ in 0..counter {
-                    let (addr, v) = unsafe { it_set_final.next().unwrap_unchecked() };
-
-                    // let _ = logger.write_fmt(format_args!(
-                    //     "Processing potential updates for address 0x{:040x}, slot {:?}\n",
-                    //     &addr.address.as_uint(),
-                    //     &addr.key,
-                    // ));
-
-                    debug_assert_eq!(addr.address, active_address);
-                    if v.initial_value != v.current_value {
-                        any_mutation |= true;
-
-                        // cache hit
-                        let digits = Self::cache_slot_value_as_digits(
+                        let _ = logger.write_fmt(format_args!(
+                            "Value for address 0x{:040x}, slot {:?} is unobservable\n",
+                            &addr.address.as_uint(),
                             &addr.key,
-                            &mut key_cache,
-                            &mut hasher,
-                        );
-                        let path = Path::new(digits);
-
-                        if v.initial_value.is_zero() {
-                            // insert
-
-                            // let _ = logger.write_fmt(format_args!(
-                            //     "Will insert value {:?} at slot {:?}\n",
-                            //     &v.current_value, &addr.key
-                            // ));
-
-                            // encode value
-                            let pre_encoded_value = Self::encode_slot_value(
-                                &v.current_value,
-                                &mut slot_value_encoding_buffer,
-                            );
-
-                            reusable_mpt
-                                .insert(path, pre_encoded_value, &mut preimage_oracle, &mut hasher)
-                                .map_err(|_| {
-                                    internal_error!("failed to get insert value into MPT")
-                                })?;
-                        } else if v.current_value.is_zero() {
-                            // delete
-
-                            // let _ = logger.write_fmt(format_args!(
-                            //     "Will delete value {:?} at slot {:?}\n",
-                            //     &v.initial_value, &addr.key
-                            // ));
-
-                            reusable_mpt
-                                .delete(path, &mut preimage_oracle, &mut hasher)
-                                .map_err(|_| {
-                                    internal_error!("failed to get delete value from MPT")
-                                })?;
-                        } else {
-                            // update
-
-                            // let _ = logger.write_fmt(format_args!(
-                            //     "Will update slot {:?} as {:?} -> {:?}\n",
-                            //     &addr.key, &v.initial_value, &v.current_value
-                            // ));
-
-                            // encode value
-                            let pre_encoded_value = Self::encode_slot_value(
-                                &v.current_value,
-                                &mut slot_value_encoding_buffer,
-                            );
-
-                            reusable_mpt.update(path, pre_encoded_value).map_err(|_| {
-                                internal_error!("failed to get update value in MPT")
-                            })?;
-                        }
+                        ));
                     }
-                }
-                // recompute new root
-                if any_mutation {
-                    // let _ = logger.write_fmt(format_args!(
-                    //     "Will update storage root for 0x{:040x}\n",
-                    //     &active_address.as_uint()
-                    // ));
-
-                    // NOTE: this is fast NOP if no mutations happened, but we will not do it anyway
-                    reusable_mpt
-                        .recompute(&mut hasher)
-                        .map_err(|_| internal_error!("failed to compute new root for MPT"))?;
-
-                    let mut e = account_cache
-                        .cache
-                        .get_mut((&active_address).into())
-                        .expect("account with storage address must be cached");
-                    let new_root = Bytes32::from_array(reusable_mpt.root(&mut hasher));
-
-                    // let _ = logger.write_fmt(format_args!(
-                    //     "New storage root for address 0x{:040x} is {:?}\n",
-                    //     active_address.as_uint(),
-                    //     &new_root,
-                    // ));
-
-                    assert_ne!(new_root, e.current().value().storage_root);
-                    e.key_properties_mut().observe();
-                    e.update(|v| {
-                        v.update(|v, _m| {
-                            v.storage_root = new_root;
-
-                            Ok(())
-                        })
-                    })?;
-                } else {
-                    // let _ = logger.write_fmt(format_args!(
-                    //     "Storage root of 0x{:040x} will remain unchanged\n",
-                    //     &active_address.as_uint(),
-                    // ));
-                }
-
-                if let Some((addr, value)) = next_pair_to_read_check.take() {
-                    // let _ = logger
-                    //     .write_fmt(format_args!(
-                    //         "Setting {:?} as new active address\n",
-                    //         &addr.address
-                    //     ));
-
-                    // Now we should update MTP for next account, and reset counter
-                    // reuse for the next account
-                    let entry = account_cache
-                        .cache
-                        .get((&addr.address).into())
-                        .expect("account with storage address must be cached");
-                    let initial_root = entry.current().value().storage_root;
-
-                    debug_assert!(
-                        initial_root.is_zero() == false,
-                        "storage root can not be zero"
-                    );
-
-                    reusable_mpt = reusable_mpt.reinit_with_root(initial_root.as_u8_array());
-
-                    // let _ = logger.write_fmt(format_args!(
-                    //     "Initial storage root for address 0x{:040x} is {:?}\n",
-                    //     addr.address.as_uint(),
-                    //     &initial_root,
-                    // ));
-
-                    let digits =
-                        Self::cache_slot_value_as_digits(&addr.key, &mut key_cache, &mut hasher);
-                    let path = Path::new(digits);
-                    let initial_expected_value = reusable_mpt
-                        .get(path, &mut preimage_oracle, &mut hasher)
-                        .map_err(|_| internal_error!("failed to get initial value in MPT"))?;
-
-                    assert!(
-                        compare_bytes32_and_mpt_integer(
-                            &value.initial_value,
-                            initial_expected_value
-                        ),
-                        "failed to compare expected initial storage root value {:?} vs RLP encoded {:?}\n",
-                        &value.initial_value,
-                        &initial_expected_value
-                    );
-
-                    active_address = addr.address;
-                    counter = 1;
                 } else {
                     // break out of the loop
                     assert!(it_set_final.next().is_none());
@@ -609,8 +660,7 @@ impl EthereumStoragePersister {
             }
         }
 
-        // let _ = logger
-        //     .write_fmt(format_args!("Will update accounts MTP now\n",));
+        let _ = logger.write_fmt(format_args!("Will update accounts MTP now\n",));
 
         // now reuse for accounts
         let mut accounts_mpt = reusable_mpt.reinit_with_root(initial_state_root.as_u8_array());
@@ -620,8 +670,10 @@ impl EthereumStoragePersister {
         for record in account_cache.cache.iter() {
             let addr = record.key();
 
-            // let _ = logger
-            //     .write_fmt(format_args!("Updating the state of address 0x{:040x}\n", addr.0.as_uint()));
+            let _ = logger.write_fmt(format_args!(
+                "Updating the state of address 0x{:040x}\n",
+                addr.0.as_uint()
+            ));
 
             let initial_appearance = record.key_properties().initial_appearance();
             let current_appearance = record.key_properties().current_appearance();
@@ -641,15 +693,19 @@ impl EthereumStoragePersister {
                     // whatever it was - it's unobservable, we can just skip it
                     assert_eq!(initial.value(), current.value());
 
-                    // let _ = logger
-                    //     .write_fmt(format_args!("Will skip account state verification for address 0x{:040x}\n", addr.0.as_uint()));
+                    let _ = logger.write_fmt(format_args!(
+                        "Will skip account state verification for address 0x{:040x}\n",
+                        addr.0.as_uint()
+                    ));
                 }
                 (AccountInitialAppearance::Unset, AccountCurrentAppearance::Observed)
                 | (AccountInitialAppearance::Retrieved, AccountCurrentAppearance::Observed) => {
                     // we need to check that initial value is the one we claimed in cache
 
-                    // let _ = logger
-                    //     .write_fmt(format_args!("Will retrieve initial account state for address 0x{:040x}\n", addr.0.as_uint()));
+                    let _ = logger.write_fmt(format_args!(
+                        "Will retrieve initial account state for address 0x{:040x}\n",
+                        addr.0.as_uint()
+                    ));
 
                     let digits = Self::cache_address_as_digits(addr, &mut key_cache, &mut hasher);
                     let path = Path::new(digits);
