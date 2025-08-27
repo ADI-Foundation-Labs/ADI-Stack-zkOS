@@ -478,6 +478,7 @@ pub trait IOSubsystemExt: IOSubsystem {
         resources: &mut Self::Resources,
         tx_hash: Bytes32,
         success: bool,
+        is_priority: bool,
     ) -> Result<(), SystemError>;
 
     /// Returns old balance
