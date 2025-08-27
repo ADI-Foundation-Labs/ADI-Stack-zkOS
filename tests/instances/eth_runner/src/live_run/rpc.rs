@@ -56,6 +56,24 @@ pub fn get_block(endpoint: &str, block_number: u64) -> Result<Block> {
     Ok(block)
 }
 
+/// Fetches the latest block number.
+pub fn get_block_number(endpoint: &str) -> Result<u64> {
+    debug!("RPC: eth_blockNumber");
+    let body = json!({
+        "method": "eth_blockNumber",
+        "id": 1,
+        "params": [],
+        "jsonrpc": "2.0"
+    });
+    let res = send(endpoint, body)?;
+    let res: serde_json::Value = serde_json::from_str(&res)?;
+    let number = res["result"]
+        .as_str()
+        .ok_or_else(|| anyhow!("No block number found in response"))?;
+    let number = u64::from_str_radix(number.trim_start_matches("0x"), 16)?;
+    Ok(number)
+}
+
 /// Fetches the block hash.
 pub fn get_block_hash(endpoint: &str, block_number: u64) -> Result<B256> {
     debug!("RPC: get_block_hash({block_number})");

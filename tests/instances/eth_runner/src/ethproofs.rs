@@ -21,6 +21,8 @@ use rig::log::info;
 use rig::*;
 use std::fs::{self, File};
 use std::io::BufReader;
+use std::thread::sleep;
+use std::time::Duration;
 
 const ETH_CHAIN_ID: u64 = 1;
 
@@ -106,4 +108,25 @@ pub fn ethproofs_run(block_number: u64, reth_endpoint: &str) -> anyhow::Result<(
         witness,
         withdrawals_encoding,
     )
+}
+
+const POLL_INTERVAL: Duration = Duration::from_secs(5);
+const CONFIRMATIONS: u64 = 2;
+
+pub fn ethproofs_live_run(reth_endpoint: &str) -> anyhow::Result<()> {
+    let mut next = rpc::get_block_number(reth_endpoint)?.saturating_sub(CONFIRMATIONS);
+
+    ethproofs_run(next, reth_endpoint)?;
+
+    loop {
+        let head = rpc::get_block_number(reth_endpoint)?.saturating_sub(CONFIRMATIONS);
+        if head > next {
+            for n in (next + 1)..=head {
+                ethproofs_run(n, reth_endpoint)?;
+            }
+            next = head;
+        } else {
+            sleep(POLL_INTERVAL);
+        }
+    }
 }

@@ -2,6 +2,7 @@
 #![recursion_limit = "1024"]
 
 use clap::{Parser, Subcommand};
+use ethproofs::ethproofs_live_run;
 mod block;
 mod block_hashes;
 mod calltrace;
@@ -84,6 +85,11 @@ enum Command {
         #[arg(long)]
         reth_endpoint: String,
     },
+    // Prove ethereum blocks for Ethproofs live
+    EthproofsLiveRun {
+        #[arg(long)]
+        reth_endpoint: String,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -128,6 +134,7 @@ fn main() -> anyhow::Result<()> {
             block_number,
             reth_endpoint,
         } => ethproofs::ethproofs_run(block_number, &reth_endpoint),
+        Command::EthproofsLiveRun { reth_endpoint } => ethproofs_live_run(&reth_endpoint),
     }
 }
 
