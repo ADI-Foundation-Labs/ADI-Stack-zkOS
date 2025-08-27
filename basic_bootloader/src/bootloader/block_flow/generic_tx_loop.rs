@@ -36,7 +36,7 @@ where
                     &mut inf_resources,
                     &system.get_coinbase(),
                     false,
-                    true,
+                    false,
                 )
                 .expect("must heat coinbase");
         }
