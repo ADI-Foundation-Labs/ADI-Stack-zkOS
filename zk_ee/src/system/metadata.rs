@@ -84,8 +84,8 @@ pub struct InteropRoot {
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct InteropRootsContainer {
-    pub roots: ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS>,
-    pub length: u32,
+    roots: ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS>,
+    length: u32,
     empty_value: InteropRoot,
 }
 
@@ -97,6 +97,12 @@ impl From<ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS>> for InteropRootsConta
             length,
             empty_value: Default::default(),
         }
+    }
+}
+
+impl From<InteropRootsContainer> for ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS> {
+    fn from(container: InteropRootsContainer) -> Self {
+        container.roots
     }
 }
 

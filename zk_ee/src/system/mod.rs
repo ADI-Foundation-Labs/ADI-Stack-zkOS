@@ -106,8 +106,8 @@ impl<S: SystemTypes> System<S> {
         self.metadata
             .block_level_metadata
             .interop_roots
-            .roots
             .clone()
+            .into()
     }
 
     pub fn get_blockhash(&self, block_number: u64) -> ruint::aliases::U256 {
