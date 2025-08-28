@@ -1,4 +1,5 @@
 use alloc::vec::Vec;
+use basic_system::system_implementation::system::public_input::calculate_interop_roots_rolling_hash;
 use constants::{MAX_TX_LEN_WORDS, TX_OFFSET_WORDS};
 use errors::{BootloaderInterfaceError, BootloaderSubsystemError, InvalidTransaction};
 use result_keeper::ResultKeeperExt;
@@ -556,14 +557,13 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                 tracer,
             )?;
 
-            let mut data = [0u8; 128];
-            data[0..32].copy_from_slice(&rolling_hash.as_u8_ref());
-            data[56..64].copy_from_slice(&interop_root.chain_id.to_be_bytes());
-            data[88..96].copy_from_slice(&interop_root.block_number.to_be_bytes());
-            data[96..128].copy_from_slice(&interop_root.root.as_u8_ref());
-
-            interop_root_hasher.update(data);
-            rolling_hash = interop_root_hasher.finalize_reset().into();
+            rolling_hash = calculate_interop_roots_rolling_hash(
+                rolling_hash,
+                interop_root.chain_id,
+                interop_root.block_number,
+                &[interop_root.root],
+                &mut interop_root_hasher,
+            );
         }
 
         Ok(rolling_hash)

@@ -27,7 +27,7 @@ use zk_ee::{
 };
 
 mod io_subsystem;
-mod public_input;
+pub mod public_input;
 
 pub use self::io_subsystem::*;
 pub use self::public_input::BatchOutput;

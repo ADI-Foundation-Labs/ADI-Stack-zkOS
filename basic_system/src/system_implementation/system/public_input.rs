@@ -253,7 +253,6 @@ impl BatchPublicInputBuilder {
         upgrade_tx_hash: Bytes32,
         interop_roots: &ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS>,
     ) {
-        // TODO process interop_roots
         if self.is_first_block {
             self.initial_state_commitment = Some(state_commitment_before);
             self.current_state_commitment = Some(state_commitment_after);
@@ -262,8 +261,6 @@ impl BatchPublicInputBuilder {
             self.chain_id = Some(chain_id);
             self.upgrade_tx_hash = Some(upgrade_tx_hash);
             self.is_first_block = false;
-
-            self.interop_root_rolling_hash = Bytes32::from([0u8; 32]); // for now no interop roots
         } else {
             assert_eq!(
                 self.current_state_commitment.unwrap(),
@@ -273,6 +270,17 @@ impl BatchPublicInputBuilder {
             self.current_block_timestamp = Some(block_timestamp);
             assert_eq!(self.chain_id.unwrap(), chain_id);
             assert!(upgrade_tx_hash.is_zero());
+        }
+
+        let mut interop_root_hasher = crypto::sha3::Keccak256::new();
+        for interop_root in interop_roots {
+            self.interop_root_rolling_hash = calculate_interop_roots_rolling_hash(
+                self.interop_root_rolling_hash,
+                interop_root.chain_id,
+                interop_root.block_number,
+                &[interop_root.root],
+                &mut interop_root_hasher,
+            );
         }
     }
 
@@ -446,4 +454,23 @@ impl BatchPublicInputBuilder {
             EMPTY_HASHES[14].into()
         }
     }
+}
+
+pub fn calculate_interop_roots_rolling_hash(
+    old_rolling_hash: Bytes32,
+    chain_id: u64,
+    block_number: u64,
+    sides: &[Bytes32],
+    hasher: &mut crypto::sha3::Keccak256,
+) -> Bytes32 {
+    let mut data = [0u8; 96];
+    data[0..32].copy_from_slice(&old_rolling_hash.as_u8_ref());
+    data[56..64].copy_from_slice(&chain_id.to_be_bytes());
+    data[88..96].copy_from_slice(&block_number.to_be_bytes());
+    hasher.update(data);
+    for side in sides {
+        hasher.update(side.as_u8_ref());
+    }
+
+    hasher.finalize_reset().into()
 }
