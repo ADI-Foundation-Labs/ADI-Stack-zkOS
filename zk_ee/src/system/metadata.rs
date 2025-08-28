@@ -121,10 +121,11 @@ impl<'de> serde::Deserialize<'de> for InteropRoots {
 }
 
 impl UsizeSerializable for InteropRoots {
-    const USIZE_LEN: usize = <InteropRoot as UsizeSerializable>::USIZE_LEN * 100;
+    const USIZE_LEN: usize =
+        <InteropRoot as UsizeSerializable>::USIZE_LEN * MAX_NUMBER_INTEROP_ROOTS;
 
     fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
-        super::kv_markers::ExactSizeChainN::<_, _, 100>::new(
+        super::kv_markers::ExactSizeChainN::<_, _, MAX_NUMBER_INTEROP_ROOTS>::new(
             core::iter::empty::<usize>(),
             core::array::from_fn(|i| Some(self.0[i].iter())),
         )
@@ -146,7 +147,7 @@ impl UsizeDeserializable for InteropRoots {
 }
 
 impl UsizeSerializable for InteropRoot {
-    const USIZE_LEN: usize = <Bytes32 as UsizeSerializable>::USIZE_LEN * 100
+    const USIZE_LEN: usize = <Bytes32 as UsizeSerializable>::USIZE_LEN * MAX_NUMBER_INTEROP_ROOTS
         + <u64 as UsizeSerializable>::USIZE_LEN
         + <u64 as UsizeSerializable>::USIZE_LEN;
 
@@ -162,7 +163,7 @@ impl UsizeSerializable for InteropRoot {
 }
 
 impl UsizeDeserializable for InteropRoot {
-    const USIZE_LEN: usize = <Bytes32 as UsizeSerializable>::USIZE_LEN * 100
+    const USIZE_LEN: usize = <Bytes32 as UsizeSerializable>::USIZE_LEN * MAX_NUMBER_INTEROP_ROOTS
         + <u64 as UsizeSerializable>::USIZE_LEN
         + <u64 as UsizeSerializable>::USIZE_LEN;
 
