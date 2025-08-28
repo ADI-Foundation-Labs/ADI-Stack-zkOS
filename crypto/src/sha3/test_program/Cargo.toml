@@ -17,5 +17,6 @@ crypto = { path = "../../../", features = ["sha3_tests"]}
 
 [features]
 keccak_f1600_test = []
+bad_keccak_f1600_test = []
 mini_digest_test = []
 hash_chain_test = []

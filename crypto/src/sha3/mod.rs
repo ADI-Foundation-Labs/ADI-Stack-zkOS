@@ -26,6 +26,12 @@ mod binary_tests {
         runner("src/sha3/test_program/app_keccak_simple.bin");
     }
 
+    // #[should_panic]
+    // #[test]
+    // fn run_delegation_bad() {
+    //     runner("src/sha3/test_program/app_keccak_bad.bin");
+    // }
+
     #[test]
     fn run_delegation_complex() {
         runner("src/sha3/test_program/app_keccak_complex.bin");

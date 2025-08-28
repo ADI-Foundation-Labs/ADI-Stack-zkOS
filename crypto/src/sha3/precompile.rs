@@ -165,6 +165,10 @@ fn keccak_pad<const SHA3: bool>(
 #[unsafe(no_mangle)]
 // #[inline(always)]
 fn keccak_f1600(state: &mut AlignedState) {
+    #[cfg(target_arch = "riscv32")] unsafe {
+        const CONTROL_INIT: u32 = 0b00000_00001_00001 << 4; // LUI skips only 12 bits not 16
+        asm!("lui x10, {imm}", imm = const CONTROL_INIT, out("x10") _); // start by setting control
+    }
     seq!(round in 0..24 {
         iota_theta_rho_nopi(&mut state.0, round);
         chi_nopi(&mut state.0, round);
@@ -337,8 +341,8 @@ fn iota_theta_rho_nopi(state: &mut [u64; STATE_AND_SCRATCH_WORDS], round: usize)
             let _ = PERMUTATIONS_ADJUSTED; // this is embedded into circuit based on control
             let _ = ROUND_CONSTANTS_ADJUSTED; // this is embedded into circuit based on i+round using a special table
             const PRECOMPILE_IOTA_COLUMNXOR: u32 = 0;
-            let control = 1<<(16+PRECOMPILE_IOTA_COLUMNXOR) | 1<<(16+5+i) | (round as u32)<<(16+10);
-            asm!("csrrw x0, 1001, x0", in("x11") state.as_mut_ptr(), in("x10") control);
+            let _control = 1<<(16+PRECOMPILE_IOTA_COLUMNXOR) | 1<<(16+5+i) | (round as u32)<<(16+10); // control is embedded in circuit using register overwrite
+            asm!("csrrw x0, 1001, x0", in("x11") state.as_mut_ptr(), out("x10") _);
         }
     });
     #[cfg(not(target_arch = "riscv32"))]
@@ -356,10 +360,10 @@ fn iota_theta_rho_nopi(state: &mut [u64; STATE_AND_SCRATCH_WORDS], round: usize)
     unsafe {
         const PRECOMPILE_COLUMNMIX: u32 = 1;
         const DUMMY_I: u32 = 0;
-        let control: u32 = 1 << (16 + PRECOMPILE_COLUMNMIX)
+        let _control: u32 = 1 << (16 + PRECOMPILE_COLUMNMIX) 
             | 1 << (16 + 5 + DUMMY_I)
-            | (round as u32) << (16 + 10);
-        asm!("csrrw x0, 1001, x0", in("x11") state.as_mut_ptr(), in("x10") control);
+            | (round as u32) << (16 + 10); // control is embedded in circuit using register overwrite
+        asm!("csrrw x0, 1001, x0", in("x11") state.as_mut_ptr(), out("x10") _);
     }
     const IDCOLS: [usize; 5] = [29, 25, 26, 27, 28];
     seq!(i in 0..5 {
@@ -382,8 +386,8 @@ fn iota_theta_rho_nopi(state: &mut [u64; STATE_AND_SCRATCH_WORDS], round: usize)
             let _ = (IDCOLS, ROTATION_CONSTANTS); // this is embedded into circuit based on i
             let _ = PERMUTATIONS_ADJUSTED; // this is embedded into circuit based on control
             const PRECOMPILE_THETA_RHO: u32 = 2;
-            let control = 1<<(16+PRECOMPILE_THETA_RHO) | 1<<(16+5+i) | (round as u32)<<(16+10);
-            asm!("csrrw x0, 1001, x0", in("x11") state.as_mut_ptr(), in("x10") control);
+            let _control = 1<<(16+PRECOMPILE_THETA_RHO) | 1<<(16+5+i) | (round as u32)<<(16+10); // control is embedded in circuit using register overwrite
+            asm!("csrrw x0, 1001, x0", in("x11") state.as_mut_ptr(), out("x10") _);
         }
     });
 }
@@ -449,10 +453,10 @@ fn chi_nopi(state: &mut [u64; STATE_AND_SCRATCH_WORDS], round: usize) {
             let _ = PERMUTATIONS_ADJUSTED; // this is embedded into circuit based on control
             const PRECOMPILE_CHI1: u32 = 3;
             const PRECOMPILE_CHI2: u32 = 4;
-            let control1 = 1<<(16+PRECOMPILE_CHI1) | 1<<(16+5+i) | (round as u32)<<(16+10);
-            let control2 = 1<<(16+PRECOMPILE_CHI2) | 1<<(16+5+i) | (round as u32)<<(16+10);
-            asm!("csrrw x0, 1001, x0", in("x11") state.as_mut_ptr(), in("x10") control1);
-            asm!("csrrw x0, 1001, x0", in("x11") state.as_mut_ptr(), in("x10") control2);
+            let _control1 = 1<<(16+PRECOMPILE_CHI1) | 1<<(16+5+i) | (round as u32)<<(16+10); // control is embedded in circuit using register overwrite
+            let _control2 = 1<<(16+PRECOMPILE_CHI2) | 1<<(16+5+i) | (round as u32)<<(16+10); // control is embedded in circuit using register overwrite
+            asm!("csrrw x0, 1001, x0", in("x11") state.as_mut_ptr(), out("x10") _);
+            asm!("csrrw x0, 1001, x0", in("x11") state.as_mut_ptr(), out("x10") _);
         }
     });
 }
@@ -464,6 +468,13 @@ pub mod tests {
         keccak_f1600_test();
     }
 
+    // #[cfg(test)]
+    // #[test] 
+    // #[should_panic]
+    // fn bad_keccak_f1600() {
+    //     bad_keccak_f1600_test();
+    // }
+
     #[test] fn mini_digest() {
         mini_digest_test();
     }
@@ -471,6 +482,70 @@ pub mod tests {
     #[test] fn hash_chain() {
         hash_chain_test();
     }
+
+    // #[allow(dead_code)]
+    // pub fn bad_keccak_f1600_test() {
+    //     use super::*;
+    //     let state_first = [
+    //         0xF1258F7940E1DDE7,
+    //         0x84D5CCF933C0478A,
+    //         0xD598261EA65AA9EE,
+    //         0xBD1547306F80494D,
+    //         0x8B284E056253D057,
+    //         0xFF97A42D7F8E6FD4,
+    //         0x90FEE5A0A44647C4,
+    //         0x8C5BDA0CD6192E76,
+    //         0xAD30A6F71B19059C,
+    //         0x30935AB7D08FFC64,
+    //         0xEB5AA93F2317D635,
+    //         0xA9A6E6260D712103,
+    //         0x81A57C16DBCF555F,
+    //         0x43B831CD0347C826,
+    //         0x01F22F1A11A5569F,
+    //         0x05E5635A21D9AE61,
+    //         0x64BEFEF28CC970F2,
+    //         0x613670957BC46611,
+    //         0xB87C5A554FD00ECB,
+    //         0x8C3EE88A1CCF32C8,
+    //         0x940C7922AE3A2614,
+    //         0x1841F924A2C509E4,
+    //         0x16F53526E70465C2,
+    //         0x75F644E97F30A13B,
+    //         0xEAF1FF7B5CECA249,
+    //     ];
+    //     let state_second = [
+    //         0x2D5C954DF96ECB3C,
+    //         0x6A332CD07057B56D,
+    //         0x093D8D1270D76B6C,
+    //         0x8A20D9B25569D094,
+    //         0x4F9C4F99E5E7F156,
+    //         0xF957B9A2DA65FB38,
+    //         0x85773DAE1275AF0D,
+    //         0xFAF4F247C3D810F7,
+    //         0x1F1B9EE6F79A8759,
+    //         0xE4FECC0FEE98B425,
+    //         0x68CE61B6B9CE68A1,
+    //         0xDEEA66C4BA8F974F,
+    //         0x33C43D836EAFB1F5,
+    //         0xE00654042719DBD9,
+    //         0x7CF8A9F009831265,
+    //         0xFD5449A6BF174743,
+    //         0x97DDAD33D8994B40,
+    //         0x48EAD5FC5D0BE774,
+    //         0xE3B8C8EE55B7B03C,
+    //         0x91A0226E649E42E9,
+    //         0x900E3129E7BADD7B,
+    //         0x202A9EC5FAA3CCE8,
+    //         0x5B3402464E1C3DB6,
+    //         0x609F4E62A44C1059,
+    //         0x1 //0x20D06CD26A8FBF5C,
+    //     ];
+
+    //     let mut state = super::AlignedState([0; STATE_AND_SCRATCH_WORDS]);
+    //     state.0[..25].copy_from_slice(&state_first);
+    //     super::keccak_f1600(&mut state);
+    //     assert!(state.0[..25] == state_second);
+    // }
 
     #[allow(dead_code)]
     pub fn keccak_f1600_test() {
