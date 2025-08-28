@@ -4,6 +4,8 @@ use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
 use ruint::aliases::{B160, U256};
 use zk_ee::system::logger::Logger;
+use zk_ee::system::metadata::InteropRoot;
+use zk_ee::system::MAX_NUMBER_INTEROP_ROOTS;
 use zk_ee::utils::Bytes32;
 
 ///
@@ -212,6 +214,7 @@ pub struct BatchPublicInputBuilder {
     pub number_of_layer_1_txs: U256,
     pub l1_txs_rolling_hash: Bytes32,
     upgrade_tx_hash: Option<Bytes32>,
+    interop_root_rolling_hash: Bytes32,
 }
 
 impl BatchPublicInputBuilder {
@@ -233,6 +236,7 @@ impl BatchPublicInputBuilder {
                 0x5d, 0x85, 0xa4, 0x70,
             ]),
             upgrade_tx_hash: None,
+            interop_root_rolling_hash: Bytes32::ZERO,
         }
     }
 
@@ -247,7 +251,9 @@ impl BatchPublicInputBuilder {
         block_timestamp: u64,
         chain_id: U256,
         upgrade_tx_hash: Bytes32,
+        interop_roots: &ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS>,
     ) {
+        // TODO process interop_roots
         if self.is_first_block {
             self.initial_state_commitment = Some(state_commitment_before);
             self.current_state_commitment = Some(state_commitment_after);
@@ -256,6 +262,8 @@ impl BatchPublicInputBuilder {
             self.chain_id = Some(chain_id);
             self.upgrade_tx_hash = Some(upgrade_tx_hash);
             self.is_first_block = false;
+
+            self.interop_root_rolling_hash = Bytes32::from([0u8; 32]); // for now no interop roots
         } else {
             assert_eq!(
                 self.current_state_commitment.unwrap(),
@@ -296,7 +304,7 @@ impl BatchPublicInputBuilder {
             priority_operations_hash: self.l1_txs_rolling_hash,
             l2_logs_tree_root: full_l2_to_l1_logs_root.into(),
             upgrade_tx_hash: self.upgrade_tx_hash.unwrap(),
-            interop_root_rolling_hash: Bytes32::from([0u8; 32]), // for now no interop roots
+            interop_root_rolling_hash: self.interop_root_rolling_hash,
         };
         let public_input = BatchPublicInput {
             state_before: self.initial_state_commitment.unwrap(),

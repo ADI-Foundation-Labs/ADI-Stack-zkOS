@@ -869,6 +869,7 @@ where
             block_metadata.timestamp,
             U256::try_from(block_metadata.chain_id).unwrap(),
             upgrade_tx_hash,
+            block_metadata.interop_roots.roots(),
         );
 
         self.oracle

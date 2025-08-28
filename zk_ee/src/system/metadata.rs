@@ -106,6 +106,12 @@ impl From<InteropRootsContainer> for ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_RO
     }
 }
 
+impl InteropRootsContainer {
+    pub fn roots(&self) -> &ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS> {
+        &self.roots
+    }
+}
+
 #[cfg(feature = "testing")]
 impl serde::Serialize for InteropRootsContainer {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
