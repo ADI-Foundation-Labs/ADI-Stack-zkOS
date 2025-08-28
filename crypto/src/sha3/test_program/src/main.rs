@@ -22,8 +22,8 @@ unsafe fn workload() -> ! {
     #[cfg(feature = "keccak_f1600_test")]
     crypto::sha3::precompile::tests::keccak_f1600_test();
 
-    // #[cfg(feature = "bad_keccak_f1600_test")]
-    // crypto::sha3::precompile::tests::bad_keccak_f1600_test();
+    #[cfg(feature = "bad_keccak_f1600_test")]
+    crypto::sha3::precompile::tests::bad_keccak_f1600_test();
 
     #[cfg(feature = "mini_digest_test")]
     crypto::sha3::precompile::tests::mini_digest_test();
