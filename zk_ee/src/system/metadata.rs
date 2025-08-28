@@ -170,11 +170,18 @@ impl UsizeDeserializable for InteropRootsContainer {
 
     fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
         let mut array_vec = ArrayVec::new();
+        // Len of array is encoded in first 4 bytes
         let len = u32::from_iter(src)?;
-        for _ in 0..MAX_NUMBER_INTEROP_ROOTS {
-            // TODO copy only len roots
+        for _ in 0..len {
             let interop_root = InteropRoot::from_iter(src)?;
             array_vec.push(interop_root);
+        }
+
+        // Skip unneeded data from the oracle
+        let range_to_skip = <InteropRoot as UsizeDeserializable>::USIZE_LEN * (len as usize)
+            ..<InteropRoot as UsizeDeserializable>::USIZE_LEN * MAX_NUMBER_INTEROP_ROOTS;
+        for _ in range_to_skip {
+            src.next();
         }
 
         unsafe {
