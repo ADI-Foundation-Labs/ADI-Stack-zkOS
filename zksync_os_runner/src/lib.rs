@@ -2,7 +2,6 @@
 
 #[cfg(feature = "prover")]
 use prover_examples::prover::VectorMemoryImplWithRom;
-
 use risc_v_simulator::{
     abstractions::{memory::VectorMemoryImpl, non_determinism::NonDeterminismCSRSource},
     sim::{BinarySource, DiagnosticsConfig, ProfilerConfig, SimulatorConfig},
@@ -116,7 +115,7 @@ pub fn run_and_get_effective_cycles(
     // TODO: move to new simulator
     #[allow(deprecated)]
     (
-        final_state.registers[10..18].try_into().unwrap(),
+        run_result.state.registers[10..18].try_into().unwrap(),
         block_effective,
     )
 }
@@ -147,6 +146,7 @@ pub fn simulate_witness_tracing(
             num_instances_upper_bound,
             &binary,
             non_determinism_source,
+            1 << 22,
             &worker,
         );
     let elapsed = now.elapsed();
