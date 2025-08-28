@@ -86,17 +86,12 @@ pub struct InteropRoot {
 pub struct InteropRootsContainer {
     roots: ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS>,
     length: u32,
-    empty_value: InteropRoot,
 }
 
 impl From<ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS>> for InteropRootsContainer {
     fn from(roots: ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS>) -> Self {
         let length = roots.len().try_into().expect("Invalid amount of roots");
-        Self {
-            roots,
-            length,
-            empty_value: Default::default(),
-        }
+        Self { roots, length }
     }
 }
 
@@ -107,6 +102,12 @@ impl From<InteropRootsContainer> for ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_RO
 }
 
 impl InteropRootsContainer {
+    pub(crate) const EMPTY_VALUE: InteropRoot = InteropRoot {
+        root: Bytes32::ZERO,
+        block_or_batch_number: 0,
+        chain_id: 0,
+    };
+
     pub fn roots(&self) -> &ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS> {
         &self.roots
     }
@@ -141,7 +142,6 @@ impl<'de> serde::Deserialize<'de> for InteropRootsContainer {
         Ok(Self {
             roots: array_vec,
             length: len,
-            empty_value: Default::default(),
         })
     }
 }
@@ -157,7 +157,7 @@ impl UsizeSerializable for InteropRootsContainer {
                 if i < self.roots.len() {
                     Some(self.roots[i].iter())
                 } else {
-                    Some(self.empty_value.iter())
+                    Some(Self::EMPTY_VALUE.iter())
                 }
             }),
         )
@@ -191,7 +191,6 @@ impl UsizeDeserializable for InteropRootsContainer {
         Ok(Self {
             roots: array_vec,
             length: len,
-            empty_value: Default::default(),
         })
     }
 }
