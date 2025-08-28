@@ -261,6 +261,7 @@ interface BootloaderInterfaceError {
     CantPayRefundOverflow,
     MintingBalanceOverflow,
     TopLevelInsufficientBalance,
+    FailedToSetInteropRoots
 },
 cascade WrappedError {
     Balance(BalanceSubsystemError),

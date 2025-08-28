@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
 use constants::{MAX_TX_LEN_WORDS, TX_OFFSET_WORDS};
-use errors::{BootloaderSubsystemError, InvalidTransaction};
+use errors::{BootloaderInterfaceError, BootloaderSubsystemError, InvalidTransaction};
 use result_keeper::ResultKeeperExt;
 use ruint::aliases::*;
 use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
@@ -33,7 +33,7 @@ use core::fmt::Write;
 use core::mem::MaybeUninit;
 use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
-use zk_ee::{internal_error, oracle::*};
+use zk_ee::{interface_error, internal_error, oracle::*};
 
 use crate::bootloader::account_models::{ExecutionOutput, ExecutionResult, TxProcessingResult};
 use crate::bootloader::block_header::BlockHeader;
@@ -550,14 +550,12 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             data[0..4].copy_from_slice(&[0xfb, 0x62, 0x00, 0xc6]);
             data[28..36].copy_from_slice(&interop_root.chain_id.to_be_bytes());
             data[60..68].copy_from_slice(&interop_root.block_number.to_be_bytes());
-            data[96..100].copy_from_slice(&32u32.to_be_bytes());
-            data[132..136].copy_from_slice(&1u32.to_be_bytes());
-            data[136..164].copy_from_slice(&interop_root.root.as_u8_ref());
+            data[96..100].copy_from_slice(&96u32.to_be_bytes());
+            data[128..132].copy_from_slice(&1u32.to_be_bytes());
+            data[132..164].copy_from_slice(&interop_root.root.as_u8_ref());
             interop_root_hasher.update(&data);
 
-            data[92..96].copy_from_slice(&96u32.to_be_bytes());
-
-            let _ = Self::run_single_interaction(
+            let res = Self::run_single_interaction(
                 system,
                 system_functions,
                 memories.reborrow(),
@@ -569,6 +567,21 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                 true,
                 tracer,
             )?;
+
+            match res.result {
+                CallResult::PreparationStepFailed => {
+                    return Err(internal_error!(
+                        "Unexpected preparation failure in interop roots processing"
+                    )
+                    .into())
+                } // Should never happen
+                CallResult::Failed { return_values: _ } => {
+                    return Err(interface_error!(
+                        BootloaderInterfaceError::FailedToSetInteropRoots
+                    ))
+                } // TODO error context can be helpful here
+                CallResult::Successful { return_values: _ } => {}
+            };
         }
 
         Ok(Bytes32::from(interop_root_hasher.finalize()))
