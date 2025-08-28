@@ -24,7 +24,7 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use zk_ee::common_structs::{derive_flat_storage_key, ProofData};
-use zk_ee::system::metadata::InteropRoots;
+use zk_ee::system::metadata::InteropRootsContainer;
 use zk_ee::system::metadata::{BlockHashes, BlockMetadataFromOracle};
 use zk_ee::system::tracer::NopTracer;
 use zk_ee::types_config::EthereumIOTypesConfig;
@@ -52,7 +52,7 @@ pub struct BlockContext {
     pub gas_limit: u64,
     pub pubdata_limit: u64,
     pub mix_hash: U256,
-    pub interop_roots: InteropRoots,
+    pub interop_roots: InteropRootsContainer,
 }
 
 impl Default for BlockContext {
@@ -66,7 +66,7 @@ impl Default for BlockContext {
             gas_limit: MAX_BLOCK_GAS_LIMIT,
             pubdata_limit: u64::MAX,
             mix_hash: U256::ONE,
-            interop_roots: InteropRoots::default(),
+            interop_roots: InteropRootsContainer::default(),
         }
     }
 }

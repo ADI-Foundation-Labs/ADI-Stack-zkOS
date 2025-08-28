@@ -83,26 +83,34 @@ pub struct InteropRoot {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub struct InteropRoots(pub ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS>);
+pub struct InteropRootsContainer {
+    pub roots: ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS>,
+    pub length: u32,
+    empty_value: InteropRoot,
+}
 
-impl Default for InteropRoots {
+impl Default for InteropRootsContainer {
     fn default() -> Self {
-        Self(ArrayVec::new())
+        Self {
+            roots: Default::default(),
+            length: 0,
+            empty_value: Default::default(),
+        }
     }
 }
 
 #[cfg(feature = "testing")]
-impl serde::Serialize for InteropRoots {
+impl serde::Serialize for InteropRootsContainer {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        self.0.to_vec().serialize(serializer)
+        self.roots.to_vec().serialize(serializer)
     }
 }
 
 #[cfg(feature = "testing")]
-impl<'de> serde::Deserialize<'de> for InteropRoots {
+impl<'de> serde::Deserialize<'de> for InteropRootsContainer {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -116,33 +124,55 @@ impl<'de> serde::Deserialize<'de> for InteropRoots {
                 )));
             }
         }
-        Ok(Self(array_vec))
+        let len = array_vec.len().try_into().expect("Deserialization failed");
+        Ok(Self {
+            roots: array_vec,
+            length: len,
+            empty_value: Default::default(),
+        })
     }
 }
 
-impl UsizeSerializable for InteropRoots {
-    const USIZE_LEN: usize =
-        <InteropRoot as UsizeSerializable>::USIZE_LEN * MAX_NUMBER_INTEROP_ROOTS;
+impl UsizeSerializable for InteropRootsContainer {
+    const USIZE_LEN: usize = <u64 as UsizeSerializable>::USIZE_LEN
+        + <InteropRoot as UsizeSerializable>::USIZE_LEN * MAX_NUMBER_INTEROP_ROOTS;
 
     fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
         super::kv_markers::ExactSizeChainN::<_, _, MAX_NUMBER_INTEROP_ROOTS>::new(
-            core::iter::empty::<usize>(),
-            core::array::from_fn(|i| Some(self.0[i].iter())),
+            UsizeSerializable::iter(&self.length),
+            core::array::from_fn(|i| {
+                if i <= self.roots.len() {
+                    Some(self.roots[i].iter())
+                } else {
+                    Some(self.empty_value.iter())
+                }
+            }),
         )
     }
 }
 
-impl UsizeDeserializable for InteropRoots {
+impl UsizeDeserializable for InteropRootsContainer {
     const USIZE_LEN: usize =
         <InteropRoot as UsizeDeserializable>::USIZE_LEN * MAX_NUMBER_INTEROP_ROOTS;
 
     fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
         let mut array_vec = ArrayVec::new();
+        let len = u32::from_iter(src)?;
         for _ in 0..MAX_NUMBER_INTEROP_ROOTS {
+            // TODO copy only len roots
             let interop_root = InteropRoot::from_iter(src)?;
             array_vec.push(interop_root);
         }
-        Ok(Self(array_vec))
+
+        unsafe {
+            array_vec.set_len(len.try_into().unwrap());
+        }
+
+        Ok(Self {
+            roots: array_vec,
+            length: len,
+            empty_value: Default::default(),
+        })
     }
 }
 
@@ -205,7 +235,7 @@ pub struct BlockMetadataFromOracle {
     /// Source of randomness, currently holds the value
     /// of prevRandao.
     pub mix_hash: U256,
-    pub interop_roots: InteropRoots,
+    pub interop_roots: InteropRootsContainer,
 }
 
 impl BlockMetadataFromOracle {
@@ -222,7 +252,7 @@ impl BlockMetadataFromOracle {
             coinbase: B160::ZERO,
             block_hashes: BlockHashes::default(),
             mix_hash: U256::ONE,
-            interop_roots: InteropRoots::default(),
+            interop_roots: InteropRootsContainer::default(),
         }
     }
 }
@@ -231,7 +261,7 @@ impl UsizeSerializable for BlockMetadataFromOracle {
     const USIZE_LEN: usize = <U256 as UsizeSerializable>::USIZE_LEN * (4 + 256)
         + <u64 as UsizeSerializable>::USIZE_LEN * 5
         + <B160 as UsizeDeserializable>::USIZE_LEN
-        + <InteropRoots as UsizeDeserializable>::USIZE_LEN;
+        + <InteropRootsContainer as UsizeDeserializable>::USIZE_LEN;
 
     fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
         ExactSizeChain::new(
