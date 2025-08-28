@@ -766,6 +766,7 @@ where
         current_block_hash: Bytes32,
         _l1_to_l2_txs_hash: Bytes32,
         upgrade_tx_hash: Bytes32,
+        _interop_root_rolling_hash: Bytes32,
         _result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
         _logger: impl Logger,
     ) -> Self::FinalData {
