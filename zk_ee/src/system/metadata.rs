@@ -82,18 +82,19 @@ pub struct InteropRoot {
     pub chain_id: u64,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct InteropRootsContainer {
     pub roots: ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS>,
     pub length: u32,
     empty_value: InteropRoot,
 }
 
-impl Default for InteropRootsContainer {
-    fn default() -> Self {
+impl From<ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS>> for InteropRootsContainer {
+    fn from(roots: ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS>) -> Self {
+        let length = roots.len().try_into().expect("Invalid amount of roots");
         Self {
-            roots: Default::default(),
-            length: 0,
+            roots,
+            length,
             empty_value: Default::default(),
         }
     }
@@ -141,7 +142,7 @@ impl UsizeSerializable for InteropRootsContainer {
         super::kv_markers::ExactSizeChainN::<_, _, MAX_NUMBER_INTEROP_ROOTS>::new(
             UsizeSerializable::iter(&self.length),
             core::array::from_fn(|i| {
-                if i <= self.roots.len() {
+                if i < self.roots.len() {
                     Some(self.roots[i].iter())
                 } else {
                     Some(self.empty_value.iter())
