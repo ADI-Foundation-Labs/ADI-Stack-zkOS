@@ -112,8 +112,7 @@ impl<'de> serde::Deserialize<'de> for InteropRoots {
         for item in vec {
             if array_vec.try_push(item).is_err() {
                 return Err(serde::de::Error::custom(format!(
-                    "Too many InteropRoot items for ArrayVec (max {})",
-                    MAX_NUMBER_INTEROP_ROOTS
+                    "Too many InteropRoot items for ArrayVec (max {MAX_NUMBER_INTEROP_ROOTS})"
                 )));
             }
         }

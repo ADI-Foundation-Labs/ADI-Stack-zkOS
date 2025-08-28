@@ -4,7 +4,6 @@ use errors::{BootloaderSubsystemError, InvalidTransaction};
 use result_keeper::ResultKeeperExt;
 use ruint::aliases::*;
 use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
-
 use zk_ee::common_structs::MAX_NUMBER_OF_LOGS;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::memory::slice_vec::SliceVec;
@@ -216,7 +215,6 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         let mut first_tx = true;
         let mut upgrade_tx_hash = Bytes32::zero();
         let mut block_gas_used = 0;
-
         let mut block_computational_native_used = 0;
         let mut block_pubdata_used = 0;
 
