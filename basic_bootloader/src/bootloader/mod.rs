@@ -549,7 +549,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         for interop_root in system.get_interop_roots().iter() {
             let _ = Self::add_interop_root_to_l2_interop_root_storage(
                 interop_root.chain_id,
-                interop_root.block_number,
+                interop_root.block_or_batch_number,
                 &[interop_root.root],
                 system,
                 system_functions,
@@ -560,7 +560,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             rolling_hash = calculate_interop_roots_rolling_hash(
                 rolling_hash,
                 interop_root.chain_id,
-                interop_root.block_number,
+                interop_root.block_or_batch_number,
                 &[interop_root.root],
                 &mut interop_root_hasher,
             );

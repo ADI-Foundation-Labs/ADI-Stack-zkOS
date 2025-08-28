@@ -277,7 +277,7 @@ impl BatchPublicInputBuilder {
             self.interop_root_rolling_hash = calculate_interop_roots_rolling_hash(
                 self.interop_root_rolling_hash,
                 interop_root.chain_id,
-                interop_root.block_number,
+                interop_root.block_or_batch_number,
                 &[interop_root.root],
                 &mut interop_root_hasher,
             );

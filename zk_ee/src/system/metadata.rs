@@ -78,7 +78,7 @@ impl UsizeDeserializable for BlockHashes {
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct InteropRoot {
     pub root: Bytes32,
-    pub block_number: u64,
+    pub block_or_batch_number: u64,
     pub chain_id: u64,
 }
 
@@ -190,7 +190,7 @@ impl UsizeDeserializable for InteropRootsContainer {
 }
 
 impl UsizeSerializable for InteropRoot {
-    const USIZE_LEN: usize = <Bytes32 as UsizeSerializable>::USIZE_LEN * MAX_NUMBER_INTEROP_ROOTS
+    const USIZE_LEN: usize = <Bytes32 as UsizeSerializable>::USIZE_LEN
         + <u64 as UsizeSerializable>::USIZE_LEN
         + <u64 as UsizeSerializable>::USIZE_LEN;
 
@@ -198,7 +198,7 @@ impl UsizeSerializable for InteropRoot {
         ExactSizeChain::new(
             ExactSizeChain::new(
                 UsizeSerializable::iter(&self.root),
-                UsizeSerializable::iter(&self.block_number),
+                UsizeSerializable::iter(&self.block_or_batch_number),
             ),
             UsizeSerializable::iter(&self.chain_id),
         )
@@ -206,7 +206,7 @@ impl UsizeSerializable for InteropRoot {
 }
 
 impl UsizeDeserializable for InteropRoot {
-    const USIZE_LEN: usize = <Bytes32 as UsizeSerializable>::USIZE_LEN * MAX_NUMBER_INTEROP_ROOTS
+    const USIZE_LEN: usize = <Bytes32 as UsizeSerializable>::USIZE_LEN
         + <u64 as UsizeSerializable>::USIZE_LEN
         + <u64 as UsizeSerializable>::USIZE_LEN;
 
@@ -217,7 +217,7 @@ impl UsizeDeserializable for InteropRoot {
 
         let new = Self {
             root,
-            block_number,
+            block_or_batch_number: block_number,
             chain_id,
         };
 
