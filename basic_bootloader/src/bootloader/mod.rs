@@ -531,8 +531,6 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             return Ok(Bytes32::ZERO);
         }
 
-        let mut interop_root_hasher = crypto::sha3::Keccak256::new();
-
         // Block of code needed for interop.
         // We need to add interop roots to the interop root storage.
         // We do it by calling the addInteropRoot function.
@@ -544,46 +542,76 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         //
         // We also compute the rolling hash of the interop roots and include it as part of the public input
 
-        for interop_root in system.get_interop_roots().iter() {
-            let mut data = [0u8; 164];
-            // fb6200c6: function addInteropRoot(uint256 chainId, uint256 blockOrBatchNumber, bytes32[] calldata sides) external;
-            data[0..4].copy_from_slice(&[0xfb, 0x62, 0x00, 0xc6]);
-            data[28..36].copy_from_slice(&interop_root.chain_id.to_be_bytes());
-            data[60..68].copy_from_slice(&interop_root.block_number.to_be_bytes());
-            data[96..100].copy_from_slice(&96u32.to_be_bytes());
-            data[128..132].copy_from_slice(&1u32.to_be_bytes());
-            data[132..164].copy_from_slice(&interop_root.root.as_u8_ref());
-            interop_root_hasher.update(&data);
+        let mut rolling_hash = Bytes32::zero();
+        let mut interop_root_hasher = crypto::sha3::Keccak256::new();
 
-            let res = Self::run_single_interaction(
+        for interop_root in system.get_interop_roots().iter() {
+            let _ = Self::add_interop_root_to_l2_interop_root_storage(
+                interop_root.chain_id,
+                interop_root.block_number,
+                &[interop_root.root],
                 system,
                 system_functions,
-                memories.reborrow(),
-                &data,
-                &BOOTLOADER_FORMAL_ADDRESS,
-                &L2_INTEROP_ROOT_STORAGE_ADDRESS,
-                S::Resources::FORMAL_INFINITE,
-                &U256::ZERO,
-                true,
+                memories,
                 tracer,
             )?;
 
-            match res.result {
-                CallResult::PreparationStepFailed => {
-                    return Err(internal_error!(
-                        "Unexpected preparation failure in interop roots processing"
-                    )
-                    .into())
-                } // Should never happen
-                CallResult::Failed { return_values: _ } => {
-                    return Err(interface_error!(
-                        BootloaderInterfaceError::FailedToSetInteropRoots
-                    ))
-                } // TODO error context can be helpful here
-                CallResult::Successful { return_values: _ } => {}
-            };
+            let mut data = [0u8; 128];
+            data[0..32].copy_from_slice(&rolling_hash.as_u8_ref());
+            data[56..64].copy_from_slice(&interop_root.chain_id.to_be_bytes());
+            data[88..96].copy_from_slice(&interop_root.block_number.to_be_bytes());
+            data[96..128].copy_from_slice(&interop_root.root.as_u8_ref());
+
+            interop_root_hasher.update(data);
+            rolling_hash = interop_root_hasher.finalize_reset().into();
         }
 
-        Ok(Bytes32::from(interop_root_hasher.finalize()))
+        Ok(rolling_hash)
+    }
+
+    fn add_interop_root_to_l2_interop_root_storage(
+        chain_id: u64,
+        block_or_batch_number: u64,
+        sides: &[Bytes32],
+        system: &mut System<S>,
+        system_functions: &mut HooksStorage<S, S::Allocator>,
+        memories: &mut RunnerMemoryBuffers,
+        tracer: &mut impl Tracer<S>,
+    ) -> Result<(), BootloaderSubsystemError>
+    where
+        S::IO: IOSubsystemExt,
+    {
+        let mut data = [0u8; 164];
+        // fb6200c6: function addInteropRoot(uint256 chainId, uint256 blockOrBatchNumber, bytes32[] calldata sides) external;
+        data[0..4].copy_from_slice(&[0xfb, 0x62, 0x00, 0xc6]);
+        data[28..36].copy_from_slice(&chain_id.to_be_bytes());
+        data[60..68].copy_from_slice(&block_or_batch_number.to_be_bytes());
+        data[96..100].copy_from_slice(&96u32.to_be_bytes());
+        data[128..132].copy_from_slice(&1u32.to_be_bytes());
+        data[132..164].copy_from_slice(&sides[0].as_u8_ref());
+
+        let res = Self::run_single_interaction(
+            system,
+            system_functions,
+            memories.reborrow(),
+            &data,
+            &BOOTLOADER_FORMAL_ADDRESS,
+            &L2_INTEROP_ROOT_STORAGE_ADDRESS,
+            S::Resources::FORMAL_INFINITE,
+            &U256::ZERO,
+            true,
+            tracer,
+        )?;
+
+        match res.result {
+            CallResult::PreparationStepFailed => Err(internal_error!(
+                "Unexpected preparation failure in interop roots processing"
+            )
+            .into()), // Should never happen
+            CallResult::Failed { return_values: _ } => Err(interface_error!(
+                BootloaderInterfaceError::FailedToSetInteropRoots
+            )), // TODO error context can be helpful here
+            CallResult::Successful { return_values: _ } => Ok(()),
+        }
     }
 }
