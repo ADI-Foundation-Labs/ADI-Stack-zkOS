@@ -116,10 +116,6 @@ impl UsizeDeserializable for InteropRootsContainer {
             src.next();
         }
 
-        unsafe {
-            array_vec.set_len(len.try_into().unwrap());
-        }
-
         Ok(Self {
             roots: array_vec,
             length: len,
