@@ -6,6 +6,7 @@ use crate::post_check::post_check;
 use crate::prestate::{populate_prestate, DiffTrace, PrestateTrace};
 use crate::receipts::{BlockReceipts, TransactionReceipt};
 use alloy::primitives::U256;
+use arrayvec::ArrayVec;
 use rig::log::info;
 use rig::*;
 use zk_ee::common_structs::interop_root::InteropRoot;
@@ -97,7 +98,7 @@ pub fn single_run(
     // assert!(block.result.header.gas_used <= 11_000_000);
     let miner = block.result.header.beneficiary;
 
-    let block_context = block.get_block_context();
+    let mut block_context = block.get_block_context();
 
     // To check benchmarks
     // TODO remove
