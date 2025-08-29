@@ -59,6 +59,7 @@ where
         system_functions: &mut HooksStorage<S, S::Allocator>,
         memories: RunnerMemoryBuffers<'a>,
         is_first_tx: bool,
+        block_gas_remaining: u64,
         tracer: &mut impl Tracer<S>,
     ) -> Result<TxProcessingResult<'a>, TxError> {
         let transaction = ZkSyncTransaction::try_from_slice(initial_calldata_buffer)
@@ -97,6 +98,7 @@ where
                 memories,
                 transaction,
                 tracer,
+                block_gas_remaining,
             ),
         }
     }
@@ -517,6 +519,7 @@ where
         mut memories: RunnerMemoryBuffers<'a>,
         mut transaction: ZkSyncTransaction,
         tracer: &mut impl Tracer<S>,
+        block_gas_remaining: u64,
     ) -> Result<TxProcessingResult<'a>, TxError> {
         let from = transaction.from.read();
         let gas_limit = transaction.gas_limit.read();
@@ -535,6 +538,11 @@ where
         require!(
             tx_gas_limit <= block_gas_limit,
             InvalidTransaction::CallerGasLimitMoreThanBlock,
+            system
+        )?;
+        require!(
+            tx_gas_limit <= block_gas_remaining,
+            InvalidTransaction::BlockGasRemainingLessThanTxGasLimit,
             system
         )?;
 

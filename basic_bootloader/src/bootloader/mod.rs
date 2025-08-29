@@ -255,6 +255,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
 
                     // We will give the full buffer here, and internally we will use parts of it to give forward to EEs
                     cycle_marker::start!("process_transaction");
+                    let block_gas_remaining = system.get_gas_limit().saturating_sub(block_gas_used);
 
                     let tx_result = Self::process_transaction::<Config>(
                         initial_calldata_buffer,
@@ -262,6 +263,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                         &mut system_functions,
                         memories.reborrow(),
                         first_tx,
+                        block_gas_remaining,
                         tracer,
                     );
 

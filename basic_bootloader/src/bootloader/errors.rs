@@ -32,6 +32,8 @@ pub enum InvalidTransaction {
     GasPriceLessThanBasefee,
     /// `gas_limit` in the tx is bigger than `block_gas_limit`.
     CallerGasLimitMoreThanBlock,
+    /// `gas_limit` in the tx is bigger than gas left in the block.
+    BlockGasRemainingLessThanTxGasLimit,
     /// Initial gas for a Call is bigger than `gas_limit`.
     ///
     /// Initial gas for a Call contains:
