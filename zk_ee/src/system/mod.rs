@@ -36,7 +36,7 @@ use self::{
     logger::Logger,
     metadata::{BlockMetadataFromOracle, Metadata},
 };
-use crate::system::metadata::InteropRoot;
+use crate::common_structs::interop_root::InteropRoot;
 use crate::utils::Bytes32;
 use crate::{
     execution_environment_type::ExecutionEnvironmentType,

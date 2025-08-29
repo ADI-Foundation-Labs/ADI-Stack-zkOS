@@ -10,7 +10,7 @@ use arrayvec::ArrayVec;
 use rig::alloy::primitives::address;
 use rig::ruint::aliases::{B160, U256};
 use rig::utils::{ERC_20_BYTECODE, ERC_20_MINT_CALLDATA};
-use rig::zk_ee::system::metadata::InteropRoot;
+use rig::zk_ee::common_structs::interop_root::InteropRoot;
 use rig::zk_ee::utils::Bytes32;
 use rig::{alloy, zksync_web3_rs, BlockContext, Chain};
 use std::fs;

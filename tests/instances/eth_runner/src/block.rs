@@ -6,7 +6,7 @@ use rig::log::warn;
 use rig::utils::encode_alloy_rpc_tx;
 use ruint::aliases::{B160, U256};
 use serde::{Deserialize, Serialize};
-use zk_ee::system::metadata::InteropRootsContainer;
+use zk_ee::common_structs::interop_root::InteropRootsContainer;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Block {
