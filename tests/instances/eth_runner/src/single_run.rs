@@ -9,10 +9,10 @@ use alloy::primitives::U256;
 use arrayvec::ArrayVec;
 use rig::log::info;
 use rig::*;
-use zk_ee::common_structs::interop_root::InteropRoot;
-use zk_ee::utils::Bytes32;
 use std::fs::{self, File};
 use std::io::BufReader;
+use zk_ee::common_structs::interop_root::InteropRoot;
+use zk_ee::utils::Bytes32;
 
 #[allow(clippy::too_many_arguments)]
 fn run<const RANDOMIZED: bool>(

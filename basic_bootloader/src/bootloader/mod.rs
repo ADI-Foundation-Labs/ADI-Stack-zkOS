@@ -220,8 +220,9 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         let mut block_pubdata_used = 0;
 
         // Get interop roots and set them in the L2_INTEROP_ROOT_STORAGE_ADDRESS storage
-        let interop_root_hash =
+        let (interop_root_hash, computational_native_used_for_interop_roots) =
             Self::process_interop_roots(&mut system, &mut system_functions, &mut memories, tracer)?;
+        block_computational_native_used += computational_native_used_for_interop_roots;
 
         // now we can run every transaction
         while let Some(r) = {
@@ -524,12 +525,12 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         system_functions: &mut HooksStorage<S, S::Allocator>,
         memories: &mut RunnerMemoryBuffers,
         tracer: &mut impl Tracer<S>,
-    ) -> Result<Bytes32, BootloaderSubsystemError>
+    ) -> Result<(Bytes32, u64), BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt,
     {
         if system.get_interop_roots().len() == 0 {
-            return Ok(Bytes32::ZERO);
+            return Ok((Bytes32::ZERO, 0));
         }
 
         // Block of code needed for interop.
@@ -546,14 +547,18 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         let mut rolling_hash = Bytes32::zero();
         let mut interop_root_hasher = crypto::sha3::Keccak256::new();
 
+        let mut resources = S::Resources::FORMAL_INFINITE;
+        let native_resource_before_processing = resources.native().as_u64();
+
         for interop_root in system.get_interop_roots().iter() {
-            Self::add_interop_root_to_l2_interop_root_storage(
+            resources = Self::add_interop_root_to_l2_interop_root_storage(
                 interop_root.chain_id,
                 interop_root.block_or_batch_number,
                 &[interop_root.root],
                 system,
                 system_functions,
                 memories,
+                resources,
                 tracer,
             )?;
 
@@ -566,7 +571,9 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             );
         }
 
-        Ok(rolling_hash)
+        let native_resource_used = native_resource_before_processing - resources.native().as_u64();
+
+        Ok((rolling_hash, native_resource_used))
     }
 
     fn add_interop_root_to_l2_interop_root_storage(
@@ -576,8 +583,9 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
         memories: &mut RunnerMemoryBuffers,
+        resources: S::Resources,
         tracer: &mut impl Tracer<S>,
-    ) -> Result<(), BootloaderSubsystemError>
+    ) -> Result<S::Resources, BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt,
     {
@@ -597,7 +605,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             &data,
             &BOOTLOADER_FORMAL_ADDRESS,
             &L2_INTEROP_ROOT_STORAGE_ADDRESS,
-            S::Resources::FORMAL_INFINITE,
+            resources,
             &U256::ZERO,
             true,
             tracer,
@@ -611,7 +619,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             CallResult::Failed { return_values: _ } => Err(interface_error!(
                 BootloaderInterfaceError::FailedToSetInteropRoots
             )), // TODO error context can be helpful here
-            CallResult::Successful { return_values: _ } => Ok(()),
+            CallResult::Successful { return_values: _ } => Ok(res.resources_returned),
         }
     }
 }
