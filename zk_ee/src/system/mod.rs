@@ -1,4 +1,3 @@
-use arrayvec::ArrayVec;
 use errors::subsystem::Subsystem;
 
 use super::*;
@@ -37,6 +36,8 @@ use self::{
     metadata::{BlockMetadataFromOracle, Metadata},
 };
 use crate::common_structs::interop_root::InteropRoot;
+use crate::common_traits::usize_serializable_dynamic::UsizeDeserializableDynamic;
+use crate::system_io_oracle::InteropRootsIterator;
 use crate::utils::Bytes32;
 use crate::{
     execution_environment_type::ExecutionEnvironmentType,
@@ -100,14 +101,6 @@ impl<S: SystemTypes> System<S> {
         {
             ruint::aliases::U256::ONE
         }
-    }
-
-    pub fn get_interop_roots(&self) -> ArrayVec<InteropRoot, MAX_NUMBER_INTEROP_ROOTS> {
-        self.metadata
-            .block_level_metadata
-            .interop_roots
-            .clone()
-            .into()
     }
 
     pub fn get_blockhash(&self, block_number: u64) -> ruint::aliases::U256 {
@@ -296,6 +289,23 @@ where
         Some(Ok(next_tx_len_bytes))
     }
 
+    pub fn get_interop_roots(
+        &mut self,
+    ) -> Result<alloc::vec::Vec<InteropRoot, S::Allocator>, InteropRootsSubsystemError> {
+        let mut interop_roots_iterator = self
+            .io
+            .oracle()
+            .create_oracle_access_iterator::<InteropRootsIterator>(())
+            .expect("must create iterator for the interop roots");
+
+        let res = UsizeDeserializableDynamic::from_iter(
+            &mut interop_roots_iterator,
+            self.allocator.clone(),
+        )?;
+
+        Ok(res)
+    }
+
     pub fn deploy_bytecode(
         &mut self,
         for_ee: ExecutionEnvironmentType,
@@ -348,7 +358,7 @@ where
         block_hash: Bytes32,
         l1_to_l2_txs_hash: Bytes32,
         upgrade_tx_hash: Bytes32,
-        interop_root_rolling_hash: Bytes32,
+        interop_roots: &[InteropRoot],
         result_keeper: &mut impl IOResultKeeper<S::IOTypes>,
     ) -> <S::IO as IOSubsystemExt>::FinalData {
         let logger = self.get_logger();
@@ -357,7 +367,7 @@ where
             block_hash,
             l1_to_l2_txs_hash,
             upgrade_tx_hash,
-            interop_root_rolling_hash,
+            interop_roots,
             result_keeper,
             logger,
         )
@@ -369,5 +379,11 @@ define_subsystem!(NextTx,
     TxLengthTooLarge,
     TxWriteIteratorTooSmall,
     TxIteratorLengthMismatch,
+  }
+);
+
+define_subsystem!(InteropRoots,
+  interface InteropRootsInterfaceError {
+    InteropRootsIteratorLengthMismatch,
   }
 );

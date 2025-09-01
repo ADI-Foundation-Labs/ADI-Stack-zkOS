@@ -2,6 +2,7 @@ use crate::run::{NextTxResponse, PreimageSource, ReadStorageTree, TxSource};
 use basic_system::system_implementation::flat_storage_model::*;
 use serde::{Deserialize, Serialize};
 use zk_ee::common_structs::derive_flat_storage_key;
+use zk_ee::common_structs::interop_root::InteropRoot;
 use zk_ee::common_structs::ProofData;
 use zk_ee::internal_error;
 use zk_ee::kv_markers::StorageAddress;
@@ -23,6 +24,7 @@ pub struct ForwardRunningOracle<T: ReadStorageTree, PS: PreimageSource, TS: TxSo
     pub tx_source: TS,
     pub preimage_source: PS,
     pub next_tx: Option<Vec<u8>>,
+    pub interop_roots: Vec<InteropRoot>,
 }
 
 impl<T: ReadStorageTree + Clone, PS: PreimageSource + Clone, TS: TxSource + Clone> Clone
@@ -36,6 +38,7 @@ impl<T: ReadStorageTree + Clone, PS: PreimageSource + Clone, TS: TxSource + Clon
             tx_source: self.tx_source.clone(),
             preimage_source: self.preimage_source.clone(),
             next_tx: self.next_tx.clone(),
+            interop_roots: self.interop_roots.clone(),
         }
     }
 }
@@ -181,6 +184,12 @@ impl<T: ReadStorageTree, PS: PreimageSource, TS: TxSource> ForwardRunningOracle<
             }
             a if a == core::any::TypeId::of::<Arithmetics>() => {
                 let iterator = DynUsizeIterator::from_owned(init_value);
+
+                Ok(Box::new(iterator))
+            }
+            a if a == core::any::TypeId::of::<InteropRootsIterator>() => {
+                // TODO use take instead of clone?
+                let iterator = DynUsizeIterator::from_owned_dynamic(self.interop_roots.clone());
 
                 Ok(Box::new(iterator))
             }

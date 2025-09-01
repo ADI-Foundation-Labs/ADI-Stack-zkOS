@@ -1,12 +1,11 @@
 use alloc::vec::Vec;
-use basic_system::system_implementation::system::public_input::{
-    calculate_interop_roots_rolling_hash, native_resource_cost_of_hashing_interop_roots,
-};
+use basic_system::system_implementation::system::public_input::native_resource_cost_of_hashing_interop_roots;
 use constants::{MAX_TX_LEN_WORDS, TX_OFFSET_WORDS};
 use errors::{BootloaderInterfaceError, BootloaderSubsystemError, InvalidTransaction};
 use result_keeper::ResultKeeperExt;
 use ruint::aliases::*;
 use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
+use zk_ee::common_structs::interop_root::InteropRoot;
 use zk_ee::common_structs::MAX_NUMBER_OF_LOGS;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::memory::slice_vec::SliceVec;
@@ -36,7 +35,7 @@ use core::fmt::Write;
 use core::mem::MaybeUninit;
 use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
-use zk_ee::{interface_error, internal_error, oracle::*};
+use zk_ee::{interface_error, internal_error, oracle::*, wrap_error};
 
 use crate::bootloader::account_models::{ExecutionOutput, ExecutionResult, TxProcessingResult};
 use crate::bootloader::block_header::BlockHeader;
@@ -222,7 +221,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         let mut block_pubdata_used = 0;
 
         // Get interop roots and set them in the L2_INTEROP_ROOT_STORAGE_ADDRESS storage
-        let (interop_root_hash, computational_native_used_for_interop_roots) =
+        let (interop_roots, computational_native_used_for_interop_roots) =
             Self::process_interop_roots(&mut system, &mut system_functions, &mut memories, tracer)?;
         block_computational_native_used += computational_native_used_for_interop_roots;
 
@@ -470,7 +469,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             block_hash,
             l1_to_l2_tx_hash,
             upgrade_tx_hash,
-            interop_root_hash,
+            interop_roots.as_slice(),
             result_keeper,
         );
         cycle_marker::end!("run_prepared");
@@ -527,12 +526,14 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         system_functions: &mut HooksStorage<S, S::Allocator>,
         memories: &mut RunnerMemoryBuffers,
         tracer: &mut impl Tracer<S>,
-    ) -> Result<(Bytes32, u64), BootloaderSubsystemError>
+    ) -> Result<(Vec<InteropRoot, S::Allocator>, u64), BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt,
     {
-        if system.get_interop_roots().len() == 0 {
-            return Ok((Bytes32::ZERO, 0));
+        let interop_roots = system.get_interop_roots().map_err(|x| wrap_error!(x))?;
+
+        if interop_roots.is_empty() {
+            return Ok((interop_roots, 0));
         }
 
         // Block of code needed for interop.
@@ -546,16 +547,8 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         //
         // We also compute the rolling hash of the interop roots and include it as part of the public input
 
-        let interop_roots = system.get_interop_roots();
-
         let mut native_resource_used =
             native_resource_cost_of_hashing_interop_roots(interop_roots.as_slice());
-
-        let rolling_hash = calculate_interop_roots_rolling_hash(
-            Bytes32::zero(),
-            interop_roots.as_slice(),
-            &mut crypto::sha3::Keccak256::new(),
-        );
 
         let mut resources = S::Resources::FORMAL_INFINITE;
         let native_resource_before_processing = resources.native().as_u64();
@@ -579,7 +572,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
 
         native_resource_used = native_resources_used_by_calls.saturating_add(native_resource_used);
 
-        Ok((rolling_hash, native_resource_used))
+        Ok((interop_roots, native_resource_used))
     }
 
     fn add_interop_root_to_l2_interop_root_storage(
