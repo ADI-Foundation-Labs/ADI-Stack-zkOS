@@ -27,11 +27,15 @@ impl<R: Resources> SystemFunction<R, Keccak256Errors> for Keccak256Impl {
     }
 }
 
-pub fn keccak256_native_cost<R: Resources>(len: usize) -> R::Native {
-    use zk_ee::system::Computational;
+pub fn keccak256_native_cost_u64(len: usize) -> u64 {
     let rounds = core::cmp::max(1, len.div_ceil(KECCAK256_CHUNK_SIZE));
     let native_cost = (rounds as u64) * KECCAK256_ROUND_NATIVE_COST + KECCAK256_BASE_NATIVE_COST;
-    R::Native::from_computational(native_cost)
+    native_cost
+}
+
+pub fn keccak256_native_cost<R: Resources>(len: usize) -> R::Native {
+    use zk_ee::system::Computational;
+    R::Native::from_computational(keccak256_native_cost_u64(len))
 }
 
 fn keccak256_as_system_function_inner<D: ?Sized + Extend<u8>, R: Resources>(
