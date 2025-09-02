@@ -454,8 +454,9 @@ impl EthereumStoragePersister {
                 should_update = false;
 
                 let _ = logger.write_fmt(format_args!(
-                    "Should process {} potential updates for address {:?}\n",
-                    counter, &active_address
+                    "Should process {} potential updates for address 0x{:040x}\n",
+                    counter,
+                    &active_address.as_uint()
                 ));
 
                 let mut storage_is_observed = false;
@@ -487,10 +488,10 @@ impl EthereumStoragePersister {
                             if v.initial_value.is_zero() {
                                 // insert
 
-                                // let _ = logger.write_fmt(format_args!(
-                                //     "Will insert value {:?} at slot {:?}\n",
-                                //     &v.current_value, &addr.key
-                                // ));
+                                let _ = logger.write_fmt(format_args!(
+                                    "Will insert value {:?} at slot {:?}\n",
+                                    &v.current_value, &addr.key
+                                ));
 
                                 // encode value
                                 let pre_encoded_value = Self::encode_slot_value(
@@ -511,10 +512,15 @@ impl EthereumStoragePersister {
                             } else if v.current_value.is_zero() {
                                 // delete
 
-                                // let _ = logger.write_fmt(format_args!(
-                                //     "Will delete value {:?} at slot {:?}\n",
-                                //     &v.initial_value, &addr.key
-                                // ));
+                                if format!("{:?}", addr.key) == "0x0f31c2617f19693e2cfc99de8861f2a2ec1596f5803f654aa73c2ea3420885f7" {
+                                    println!("DEBUG");
+                                    continue;
+                                }
+
+                                let _ = logger.write_fmt(format_args!(
+                                    "Will delete value {:?} at slot {:?}\n",
+                                    &v.initial_value, &addr.key
+                                ));
 
                                 reusable_mpt
                                     .delete(path, &mut preimage_oracle, &mut hasher)
@@ -524,10 +530,10 @@ impl EthereumStoragePersister {
                             } else {
                                 // update
 
-                                // let _ = logger.write_fmt(format_args!(
-                                //     "Will update slot {:?} as {:?} -> {:?}\n",
-                                //     &addr.key, &v.initial_value, &v.current_value
-                                // ));
+                                let _ = logger.write_fmt(format_args!(
+                                    "Will update slot {:?} as {:?} -> {:?}\n",
+                                    &addr.key, &v.initial_value, &v.current_value
+                                ));
 
                                 // encode value
                                 let pre_encoded_value = Self::encode_slot_value(
@@ -540,13 +546,18 @@ impl EthereumStoragePersister {
                                 })?;
                             }
                         } else {
-                            assert_eq!(v.initial_value, v.current_value);
                             let _ = logger.write_fmt(format_args!(
-                                "Skipping updates for value for address 0x{:040x}, slot {:?} as it was not observed\n",
+                                "Skipping updates for value for address 0x{:040x}, slot {:?} as there is no net update\n",
                                 &addr.address.as_uint(),
                                 &addr.key,
                             ));
                         }
+                    } else {
+                        let _ = logger.write_fmt(format_args!(
+                            "Skipping updates for value for address 0x{:040x}, slot {:?} as it was not observed\n",
+                            &addr.address.as_uint(),
+                            &addr.key,
+                        ));
                     }
                 }
                 if storage_is_observed {

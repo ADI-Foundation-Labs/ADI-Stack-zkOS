@@ -33,21 +33,33 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             assert!(surviving_branch < 16);
             let mut surviving_node = existing_branch.child_nodes[surviving_branch];
             let parent = existing_branch.parent_node;
+
             if surviving_node.is_unreferenced_value() {
-                // we need to remake a path
+                // Here we are a little in trouble as we can not make a decision
+                // what to do, and have to try to iteratively descend until we know more.
+                // We do not need to follow the full path, but need to have some knowledge of what
+                // is below
+
+                // We will make a buffer that we will count as path,
+                // and will try to follow it iteratively
                 let Path {
                     path: raw_path,
                     prefix_len,
                 } = path;
-                let new_raw_path = interner.intern_slice_mut(raw_path)?;
-                new_raw_path[prefix_len] = surviving_branch as u8;
-                let mut modified_path = Path {
-                    path: new_raw_path,
-                    prefix_len,
-                };
-                // we have to allocate the next one and decide
+                let new_raw_path_buffer = interner.intern_slice_mut(raw_path)?;
+                new_raw_path_buffer[prefix_len] = surviving_branch as u8;
+
                 let key_encoding =
                     self.capacities.unreferenced_values[surviving_node.index()].value;
+
+                let mut modified_path = Path {
+                    path: new_raw_path_buffer,
+                    prefix_len: prefix_len + 1,
+                };
+
+                // Now try to peek what is inside this unreferenced key to decide
+                // what to do next
+
                 let current_node = branch_node;
                 let parent_branch_index = surviving_branch;
                 match self.descend_through_proof(

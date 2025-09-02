@@ -177,7 +177,7 @@ pub struct EthereumTxContext<S: EthereumLikeTypes> {
     pub tx_gas_limit: u64,
     pub gas_used: u64,
     pub blob_gas_used: u64,
-    pub tx_level_metadata: EthereumTransactionMetadata<{ MAX_BLOBS_IN_TX }>,
+    pub tx_level_metadata: EthereumTransactionMetadata<{ MAX_BLOBS_PER_BLOCK }>,
 }
 
 impl<S: EthereumLikeTypes> core::fmt::Debug for EthereumTxContext<S> {

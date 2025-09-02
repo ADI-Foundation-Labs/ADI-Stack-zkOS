@@ -166,6 +166,12 @@ pub fn parse_blobs_list<const MAX_BLOBS_IN_TX: usize>(
     blobs_list: BlobHashesList<'_>,
 ) -> Result<arrayvec::ArrayVec<Bytes32, MAX_BLOBS_IN_TX>, TxError> {
     let mut result = arrayvec::ArrayVec::<_, MAX_BLOBS_IN_TX>::new();
+    if blobs_list.count > MAX_BLOBS_IN_TX {
+        // transactions that allow blobs should have at least one
+        return Err(TxError::Validation(
+            InvalidTransaction::BlobElementIsNotSupported,
+        ));
+    }
 
     for blob_hash in blobs_list.iter() {
         let Ok(blob_hash) = blob_hash else {
@@ -665,7 +671,7 @@ where
                 InvalidTransaction::BlobElementIsNotSupported,
             ));
         }
-        let blobs = match parse_blobs_list::<MAX_BLOBS_IN_TX>(blobs_list) {
+        let blobs = match parse_blobs_list::<MAX_BLOBS_PER_BLOCK>(blobs_list) {
             Ok(blobs) => blobs,
             Err(e) => {
                 return Err(e);

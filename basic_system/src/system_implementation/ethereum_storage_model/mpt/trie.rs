@@ -283,14 +283,17 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             debug_assert!(current_node.is_empty() == false);
             match self.descend_through_existing_nodes(&mut path, current_node)? {
                 DescendPath::PathDiverged { .. } => {
+                    debug_assert_eq!(self.ensure_linked(), ());
                     return Ok(&[]);
                 }
                 DescendPath::EmptyBranchTaken { branch_node, .. } => {
                     debug_assert_eq!(current_node, branch_node);
+                    debug_assert_eq!(self.ensure_linked(), ());
                     return Ok(&[]);
                 }
                 DescendPath::LeafReached { final_node } => {
                     debug_assert_eq!(current_node, final_node);
+                    debug_assert_eq!(self.ensure_linked(), ());
                     return Ok(self.capacities.leaf_nodes[final_node.index()].value.data());
                 }
                 DescendPath::BranchReached {
@@ -300,8 +303,10 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 } => {
                     debug_assert_eq!(current_node, final_branch_node);
                     if child_to_use.is_empty() {
+                        debug_assert_eq!(self.ensure_linked(), ());
                         return Ok(&[]);
                     } else {
+                        debug_assert_eq!(self.ensure_linked(), ());
                         return Ok(self.capacities.leaf_nodes[child_to_use.index()]
                             .value
                             .data());
@@ -324,6 +329,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         };
 
         debug_assert!(self.root.is_empty() == false);
+        debug_assert_eq!(self.ensure_linked(), ());
 
         // continue to descend, but use oracle and verify proofs now
         loop {
@@ -339,11 +345,13 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 AppendPath::PathDiverged { allocated_node } => {
                     debug_assert_ne!(current_node, allocated_node);
                     self.link_if_needed(current_node, parent_branch_index, allocated_node)?;
+                    debug_assert_eq!(self.ensure_linked(), ());
                     return Ok(&[]);
                 }
                 AppendPath::EmptyBranchTaken { allocated_node, .. } => {
                     debug_assert_ne!(current_node, allocated_node);
                     self.link_if_needed(current_node, parent_branch_index, allocated_node)?;
+                    debug_assert_eq!(self.ensure_linked(), ());
                     return Ok(&[]);
                 }
                 AppendPath::BranchTaken {
@@ -360,6 +368,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 AppendPath::LeafReached { allocated_node } => {
                     debug_assert_ne!(current_node, allocated_node);
                     self.link_if_needed(current_node, parent_branch_index, allocated_node)?;
+                    debug_assert_eq!(self.ensure_linked(), ());
                     return Ok(self.capacities.leaf_nodes[allocated_node.index()]
                         .value
                         .data());
@@ -371,8 +380,10 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                     debug_assert_ne!(current_node, final_branch_node);
                     self.link_if_needed(current_node, parent_branch_index, final_branch_node)?;
                     if child_to_use.is_empty() {
+                        debug_assert_eq!(self.ensure_linked(), ());
                         return Ok(&[]);
                     } else {
+                        debug_assert_eq!(self.ensure_linked(), ());
                         return Ok(self.capacities.leaf_nodes[child_to_use.index()]
                             .value
                             .data());
@@ -796,6 +807,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         NodeType::unreferenced_value(index)
     }
 
+    #[track_caller]
     pub fn ensure_linked(&self) {
         if self.root.is_empty() || self.root.is_opaque_nontrivial_root() {
             return;
@@ -803,6 +815,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         self.ensure_linked_pair(NodeType::empty(), self.root);
     }
 
+    #[track_caller]
     fn ensure_linked_pair(&self, parent: NodeType, child_node: NodeType) {
         if child_node.is_empty() {
             // nothing

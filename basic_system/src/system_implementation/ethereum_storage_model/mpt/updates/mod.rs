@@ -344,7 +344,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 path,
                 value,
                 interner,
-            ),
+            )?,
             ValueInsertionStrategy::Split {
                 alternative_path,
                 parent_branch_or_empty,
@@ -361,7 +361,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                     interner,
                 )?;
 
-                self.insert_lazy_value(original_path, value, preimages_oracle, interner, hasher)
+                self.insert_lazy_value(original_path, value, preimages_oracle, interner, hasher)?
             }
             ValueInsertionStrategy::WriteIntoBranchValue {
                 branch,
@@ -372,16 +372,20 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 path,
                 value,
                 interner,
-            ),
+            )?,
         }
+        debug_assert_eq!(self.ensure_linked(), ());
+
+        Ok(())
     }
 
+    #[track_caller]
     pub fn recompute(
         &mut self,
         interner: &mut (impl Interner<'a> + 'a),
         hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
     ) -> Result<(), ()> {
-        debug_assert!(self.ensure_linked() == ());
+        debug_assert_eq!(self.ensure_linked(), ());
         if self.root.is_empty() {
             return Ok(());
         }

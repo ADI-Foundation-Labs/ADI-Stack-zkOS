@@ -12,6 +12,7 @@ use crate::bootloader::block_flow::ethereum_block_flow::{
 };
 use basic_system::system_implementation::ethereum_storage_model::EthereumStorageModel;
 use basic_system::system_implementation::ethereum_storage_model::EMPTY_ROOT_HASH;
+use zk_ee::system::errors::internal::InternalError;
 
 impl<
         A: Allocator + Clone + Default,
@@ -46,71 +47,18 @@ where
         block_data: Self::BlockData,
         result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig, BlockHeader = Self::BlockHeader>,
     ) -> Self::PostTxLoopOpResult {
-        // apply withdrawals
-        let withdrawals_root = {
-            // apply withdrawals - we will be lazy here and instead will allocate some bytes and parse them. We anyway will need
-            // encoding of withdrawal request for root calculation
-            let withdrawals_encoding = system
-                .get_bytes_from_query(
-                    ETHEREUM_WITHDRAWALS_BUFFER_LEN_QUERY_ID,
-                    ETHEREUM_WITHDRAWALS_BUFFER_DATA_QUERY_ID,
-                )
-                .expect("must get withdrawals bytes");
-            let withdrawals_root = if let Some(withdrawals) = withdrawals_encoding {
-                let Ok(withdrawals_list) =
-                    WithdrawalsList::try_parse_slice_in_full(withdrawals.as_slice())
-                else {
-                    panic!("Withdrawals list is invalid");
-                };
-                let Some(count) = withdrawals_list.count else {
-                    panic!("Withdrawals list was parsed without validation");
-                };
-                if count > 0 {
-                    process_withdrawals_list::<S, S::VecLikeCtor>(&mut system, withdrawals_list)
-                        .expect("must process withdrawals list")
-                } else {
-                    EMPTY_ROOT_HASH
-                }
-            } else {
-                EMPTY_ROOT_HASH
-            };
+        let _handle = system
+            .start_global_frame()
+            .expect("must open frame to handle storage access");
 
-            withdrawals_root
-        };
+        let _ = Self::post_op_io_touching_impl(&mut system, block_data)
+            .expect("must process IO related part");
 
-        let _ = system
-            .get_logger()
-            .write_fmt(format_args!("Withdrawals root = {:?}\n", &withdrawals_root,));
+        system
+            .finish_global_frame(None)
+            .expect("must finish frame to handle storage access");
 
-        use crypto::sha256::Digest;
-        let mut requests_hasher = crypto::sha256::Sha256::new();
-        let mut intermediate_hasher = crypto::sha256::Sha256::new();
-        if eip6110_events_parser(&system, &mut intermediate_hasher)
-            .expect("must filter EIP-6110 deposit requests")
-        {
-            let requests_hash = intermediate_hasher.finalize_reset();
-            requests_hasher.update(requests_hash);
-        }
-        if eip7002_system_part(&mut system, &mut intermediate_hasher)
-            .expect("withdrawal requests must be processed")
-        {
-            let requests_hash = intermediate_hasher.finalize_reset();
-            requests_hasher.update(requests_hash);
-        }
-        if eip7251_system_part(&mut system, &mut intermediate_hasher)
-            .expect("consolidation requests must be processed")
-        {
-            let requests_hash = intermediate_hasher.finalize_reset();
-            requests_hasher.update(requests_hash);
-        }
-        let requests_hash = Bytes32::from_array(requests_hasher.finalize().into());
-        let _ = system
-            .get_logger()
-            .write_fmt(format_args!("Requests hash = {:?}\n", &requests_hash,));
-
-        let block_data_results = block_data.compute_header_values::<S, S::VecLikeCtor>(&system);
-
-        // Here we have to cascade everything
+        // IO related part ends here, and we can flush all our changes
 
         let mut logger = system.get_logger();
         let allocator = system.get_allocator();
@@ -118,35 +66,6 @@ where
         let System {
             mut io, metadata, ..
         } = system;
-
-        result_keeper.record_sealed_block(metadata.block_level.header);
-
-        // Now we will check that header is consistent with out claims about it
-        // - withdrawals root
-        assert_eq!(
-            withdrawals_root, metadata.block_level.header.withdrawals_root,
-            "withdrawals root diverged",
-        );
-        // - transactions root
-        assert_eq!(
-            block_data_results.transactions_root, metadata.block_level.header.transactions_root,
-            "transactions root diverged",
-        );
-        // - receipts root
-        assert_eq!(
-            block_data_results.receipts_root, metadata.block_level.header.receipts_root,
-            "receipts root diverged",
-        );
-        // - bloom
-        assert_eq!(
-            block_data_results.block_bloom, metadata.block_level.header.logs_bloom,
-            "block Bloom filter diverged",
-        );
-        // - requests
-        assert_eq!(
-            requests_hash, metadata.block_level.header.requests_hash,
-            "requests hash diverged",
-        );
 
         // peek into history, but not further than we actually need
         let num_to_verify_from_history_cache = unsafe {
@@ -167,6 +86,8 @@ where
             allocator.clone(),
         )
         .expect("chain must be consistent");
+
+        result_keeper.record_sealed_block(metadata.block_level.header);
 
         // Storage
 
@@ -216,5 +137,141 @@ where
         ));
 
         (io.oracle, metadata.block_level.computed_header_hash)
+    }
+}
+
+impl EthereumPostOp<true> {
+    fn post_op_io_touching_impl<
+        A: Allocator + Clone + Default,
+        R: Resources,
+        P: StorageAccessPolicy<R, Bytes32> + Default,
+        SC: StackCtor<N>,
+        O: IOOracle,
+        const N: usize,
+        S: EthereumLikeTypes<
+            IO = BasicStorageModel<
+                A,
+                R,
+                P,
+                SC,
+                N,
+                O,
+                EthereumStorageModel<A, R, P, SC, N, true>,
+                true,
+            >,
+            Metadata = EthereumBlockMetadata,
+        >,
+    >(
+        system: &mut System<S>,
+        block_data: <Self as PostTxLoopOp<S>>::BlockData,
+    ) -> Result<(), InternalError>
+    where
+        S::IO: IOSubsystemExt + IOTeardown<S::IOTypes, IOStateCommittment = Bytes32>,
+    {
+        // apply withdrawals
+        let withdrawals_root = {
+            // apply withdrawals - we will be lazy here and instead will allocate some bytes and parse them. We anyway will need
+            // encoding of withdrawal request for root calculation
+            let withdrawals_encoding = system
+                .get_bytes_from_query(
+                    ETHEREUM_WITHDRAWALS_BUFFER_LEN_QUERY_ID,
+                    ETHEREUM_WITHDRAWALS_BUFFER_DATA_QUERY_ID,
+                )
+                .expect("must get withdrawals bytes");
+            let withdrawals_root = if let Some(withdrawals) = withdrawals_encoding {
+                let Ok(withdrawals_list) =
+                    WithdrawalsList::try_parse_slice_in_full(withdrawals.as_slice())
+                else {
+                    panic!("Withdrawals list is invalid");
+                };
+                let Some(count) = withdrawals_list.count else {
+                    panic!("Withdrawals list was parsed without validation");
+                };
+                if count > 0 {
+                    process_withdrawals_list::<S, S::VecLikeCtor>(system, withdrawals_list)
+                        .expect("must process withdrawals list")
+                } else {
+                    EMPTY_ROOT_HASH
+                }
+            } else {
+                EMPTY_ROOT_HASH
+            };
+
+            withdrawals_root
+        };
+
+        let _ = system
+            .get_logger()
+            .write_fmt(format_args!("Withdrawals root = {:?}\n", &withdrawals_root,));
+
+        use crypto::sha256::Digest;
+        let mut requests_hasher = crypto::sha256::Sha256::new();
+        let mut intermediate_hasher = crypto::sha256::Sha256::new();
+        if eip6110_events_parser(&*system, &mut intermediate_hasher)
+            .expect("must filter EIP-6110 deposit requests")
+        {
+            let requests_hash = intermediate_hasher.finalize_reset();
+            let _ = system.get_logger().write_fmt(format_args!(
+                "EIP-6110 ops hash = {:?}\n",
+                Bytes32::from_array(requests_hash.into()),
+            ));
+            requests_hasher.update(requests_hash);
+        }
+        if eip7002_system_part(system, &mut intermediate_hasher)
+            .expect("withdrawal requests must be processed")
+        {
+            let requests_hash = intermediate_hasher.finalize_reset();
+            let _ = system.get_logger().write_fmt(format_args!(
+                "EIP-7002 ops hash = {:?}\n",
+                Bytes32::from_array(requests_hash.into()),
+            ));
+            requests_hasher.update(requests_hash);
+        }
+        if eip7251_system_part(system, &mut intermediate_hasher)
+            .expect("consolidation requests must be processed")
+        {
+            let requests_hash = intermediate_hasher.finalize_reset();
+            let _ = system.get_logger().write_fmt(format_args!(
+                "EIP-7251 ops hash = {:?}\n",
+                Bytes32::from_array(requests_hash.into()),
+            ));
+            requests_hasher.update(requests_hash);
+        }
+        let requests_hash = Bytes32::from_array(requests_hasher.finalize().into());
+        let _ = system
+            .get_logger()
+            .write_fmt(format_args!("Requests hash = {:?}\n", &requests_hash,));
+
+        let block_data_results = block_data.compute_header_values::<S, S::VecLikeCtor>(&system);
+
+        // Now we will check that header is consistent with out claims about it
+        // - withdrawals root
+        assert_eq!(
+            withdrawals_root, system.metadata.block_level.header.withdrawals_root,
+            "withdrawals root diverged",
+        );
+        // - transactions root
+        assert_eq!(
+            block_data_results.transactions_root,
+            system.metadata.block_level.header.transactions_root,
+            "transactions root diverged",
+        );
+        // - receipts root
+        assert_eq!(
+            block_data_results.receipts_root, system.metadata.block_level.header.receipts_root,
+            "receipts root diverged",
+        );
+        // - bloom
+        assert_eq!(
+            block_data_results.block_bloom, system.metadata.block_level.header.logs_bloom,
+            "block Bloom filter diverged",
+        );
+        // - requests
+        assert_eq!(
+            requests_hash, system.metadata.block_level.header.requests_hash,
+            "requests hash diverged",
+        );
+
+        Ok(())
     }
 }

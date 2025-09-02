@@ -141,7 +141,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         // here we truncate last suffix digit and replace it with a branch node
 
         let new_branch = BranchNode {
-            parent_node: NodeType::empty(),
+            parent_node: extension_to_split,
             child_nodes: [NodeType::empty(); 16],
             _marker: core::marker::PhantomData,
         };

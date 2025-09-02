@@ -1,9 +1,11 @@
-use super::SSZ_BYTES_PER_LENGTH_OFFSET;
+use core::fmt::Write;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::internal_error;
+use zk_ee::kv_markers::ExactSizeChain;
 use zk_ee::system::errors::system::SystemError;
+use zk_ee::system::logger::Logger;
 use zk_ee::system::AccountDataRequest;
 use zk_ee::system::Computational;
 use zk_ee::system::IOSubsystemExt;
@@ -98,15 +100,9 @@ where
         return Ok(false);
     }
 
-    // SSZ doesn't encode number of items in list (why make new format and avoid useful hints again?)
+    requests_hasher.update([CONSOLIDATION_REQUEST_EIP_7685_TYPE]);
 
-    requests_hasher.update([
-        CONSOLIDATION_REQUEST_EIP_7685_TYPE,
-        SSZ_BYTES_PER_LENGTH_OFFSET as u8,
-        0,
-        0,
-        0,
-    ]);
+    let mut logger = system.get_logger();
 
     for i in 0..num_dequeued {
         let queue_storage_slot = CONSOLIDATION_REQUEST_QUEUE_STORAGE_OFFSET
@@ -114,7 +110,7 @@ where
         let slot_0 = Bytes32::from_array(queue_storage_slot.to_be_bytes::<32>());
         let slot_1 = Bytes32::from_array((queue_storage_slot + U256::from(1)).to_be_bytes::<32>());
         let slot_2 = Bytes32::from_array((queue_storage_slot + U256::from(2)).to_be_bytes::<32>());
-        let slot_3 = Bytes32::from_array((queue_storage_slot + U256::from(2)).to_be_bytes::<32>());
+        let slot_3 = Bytes32::from_array((queue_storage_slot + U256::from(3)).to_be_bytes::<32>());
 
         let slot_0 = resources.with_infinite_ergs(|resources| {
             system.io.storage_read::<false>(
@@ -149,14 +145,44 @@ where
             )
         })?;
 
-        requests_hasher.update(&slot_0.as_u8_array_ref()[12..]);
-        requests_hasher.update(slot_1.as_u8_array_ref());
-        requests_hasher.update(slot_2.as_u8_array_ref());
-        requests_hasher.update(slot_3.as_u8_array_ref());
+        let _ = logger.write_fmt(format_args!(
+            "Processing EIP-7251 consolidation queue element with:"
+        ));
+
+        let _ = logger.write_fmt(format_args!("\nAddress = "));
+        let address = &slot_0.as_u8_array_ref()[12..];
+        let _ = logger.log_data(address.iter().copied());
+        requests_hasher.update(address);
+
+        let source_pubkey_part_0 = slot_1.as_u8_array_ref();
+        let source_pubkey_part_1 = &slot_2.as_u8_array_ref()[..16];
+
+        requests_hasher.update(source_pubkey_part_0);
+        requests_hasher.update(source_pubkey_part_1);
+        let _ = logger.write_fmt(format_args!("\nSource pubkey = "));
+        let _ = logger.log_data(ExactSizeChain::new(
+            source_pubkey_part_0.iter().copied(),
+            source_pubkey_part_1.iter().copied(),
+        ));
+
+        let target_pubkey_part_0 = &slot_2.as_u8_array_ref()[16..];
+        let target_pubkey_part_1 = slot_3.as_u8_array_ref();
+
+        requests_hasher.update(target_pubkey_part_0);
+        requests_hasher.update(target_pubkey_part_1);
+        let _ = logger.write_fmt(format_args!("\nTarget pubkey = "));
+        let _ = logger.log_data(ExactSizeChain::new(
+            target_pubkey_part_0.iter().copied(),
+            target_pubkey_part_1.iter().copied(),
+        ));
+
+        let _ = logger.write_fmt(format_args!("\n"));
     }
 
     let new_queue_head_index = queue_head_index + U256::from(num_dequeued as u64);
     if new_queue_head_index == queue_tail_index {
+        let _ = logger.write_fmt(format_args!("EIP-7251 consolidation queue is now empty\n"));
+
         resources.with_infinite_ergs(|resources| {
             system.io.storage_write::<false>(
                 ExecutionEnvironmentType::NoEE,

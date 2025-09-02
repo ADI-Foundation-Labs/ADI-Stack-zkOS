@@ -10,7 +10,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-alloy = { version = "1", features = ["rlp", "full"] }
+alloy = { version = "1", features = ["rlp", "full", "ssz", "eips"] }
 alloy-primitives = { version = "1", features = ["arbitrary"] }
 alloy-rpc-types-eth = { version = "*", features = ["serde"] }
 alloy-rpc-types-debug = { version = "*", default-features = false }
@@ -31,6 +31,7 @@ sled = {version = "0.34" }
 bincode = { version = "2", features = ["serde"] }
 serde_with = "3.13.0"
 csv = "1.3"
+ethereum_ssz = "*"
 
 [features]
 simulate_witness_gen = ["rig/simulate_witness_gen"]

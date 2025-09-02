@@ -23,6 +23,7 @@ pub const MIN_BASE_FEE_PER_BLOB_GAS: u64 = 1;
 pub const BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE: u64 = 5007716;
 pub const BLOB_BASE_FEE_UPDATE_FRACTION: u64 = BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE;
 
+const MAX_BLOBS_PER_BLOCK: usize = 9;
 const TARGET_BLOBS_PER_BLOCK: u64 = 6;
 const TARGET_BLOB_GAS_PER_BLOCK: u64 = GAS_PER_BLOB * TARGET_BLOBS_PER_BLOCK;
 
@@ -173,7 +174,7 @@ impl BasicBlockMetadata<EthereumIOTypesConfig> for HeaderAndHistory {
         U256::from(self.header.base_fee_per_gas)
     }
     fn max_blobs(&self) -> usize {
-        9
+        MAX_BLOBS_PER_BLOCK
     }
     fn blobs_gas_limit(&self) -> u64 {
         self.max_blobs() as u64 * GAS_PER_BLOB

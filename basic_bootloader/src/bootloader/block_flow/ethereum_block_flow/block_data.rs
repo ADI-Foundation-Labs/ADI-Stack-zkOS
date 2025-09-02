@@ -179,7 +179,7 @@ impl<A: Allocator + Clone, B: Allocator> EthereumBasicTransactionDataKeeper<A, B
             allocator.clone(),
         );
 
-        for (_, ((key, len), receipt, tx)) in tmp_map.iter() {
+        for (_i, ((key, len), receipt, tx)) in tmp_map.iter() {
             let digits = short_digits_from_key(&*key);
             let path = Path::new(&digits[..(*len * 2)]);
             let value = LeafValue::LazyEncodable {
