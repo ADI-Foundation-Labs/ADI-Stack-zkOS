@@ -47,8 +47,9 @@ impl<PS: PreimageSource, M: MemorySource> OracleQueryProcessor<M> for GenericPre
             vec![]
         } else {
             self.preimage_source.get_preimage(hash).expect(&format!(
-                "must know a preimage for hash {}",
-                hex::encode(hash.as_u8_array_ref())
+                "must know a preimage for hash {} for query ID 0x{:016x}",
+                hex::encode(hash.as_u8_array_ref()),
+                query_id,
             ))
         };
 

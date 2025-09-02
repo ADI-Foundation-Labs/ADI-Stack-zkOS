@@ -143,6 +143,7 @@ pub trait IOSubsystem: Sized {
 }
 
 pub trait Maybe<T> {
+    const IS_MATERIAL: bool;
     fn construct(f: impl FnOnce() -> T) -> Self;
     fn try_construct<E>(f: impl FnOnce() -> Result<T, E>) -> Result<Self, E>
     where
@@ -151,6 +152,7 @@ pub trait Maybe<T> {
 
 pub struct Just<T>(pub T);
 impl<T> Maybe<T> for Just<T> {
+    const IS_MATERIAL: bool = true;
     fn construct(f: impl FnOnce() -> T) -> Self {
         Self(f())
     }
@@ -165,6 +167,7 @@ impl<T> Maybe<T> for Just<T> {
 
 pub struct Nothing;
 impl<T> Maybe<T> for Nothing {
+    const IS_MATERIAL: bool = false;
     fn construct(_: impl FnOnce() -> T) -> Self {
         Self
     }

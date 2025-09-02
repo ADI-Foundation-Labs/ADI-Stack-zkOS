@@ -426,34 +426,45 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         // NOTE: we didn't yet decommit the bytecode, BUT charged for it (all properties are warm at
         // once or not), so if we do not access it ever we will not need to pollute preimages cache
 
-        let bytecode_hash_is_zero = full_data.bytecode_hash.is_zero();
+        let needs_preimage = ObservableBytecodeLen::IS_MATERIAL
+            || BytecodeLen::IS_MATERIAL
+            || ArtifactsLen::IS_MATERIAL
+            || Bytecode::IS_MATERIAL
+            || IsDelegated::IS_MATERIAL;
+        let bytecode = if needs_preimage {
+            let bytecode_hash_is_zero = full_data.bytecode_hash.is_zero();
 
-        // NOTE: deconstruction happens at the end of the TX, so even deconstructed accounts would NOT
-        // respond with empty bytecode (well, WTF)
-        let bytecode = {
-            if bytecode_hash_is_zero {
-                debug_assert!(initial_appearance == AccountInitialAppearance::Unset);
+            // NOTE: deconstruction happens at the end of the TX, so even deconstructed accounts would NOT
+            // respond with empty bytecode (well, WTF)
+            let bytecode = {
+                if bytecode_hash_is_zero {
+                    debug_assert!(initial_appearance == AccountInitialAppearance::Unset);
 
-                let res: &'static [u8] = &[];
+                    let res: &'static [u8] = &[];
 
-                res
-            } else if full_data.bytecode_hash == EMPTY_STRING_KECCAK_HASH {
-                let res: &'static [u8] = &[];
+                    res
+                } else if full_data.bytecode_hash == EMPTY_STRING_KECCAK_HASH {
+                    let res: &'static [u8] = &[];
 
-                res
-            } else {
-                // can try to get preimage
-                let preimage_type = PreimageRequestForUnknownLength {
-                    hash: full_data.bytecode_hash,
-                    preimage_type: PreimageType::Bytecode,
-                };
-                preimages_cache.get_preimage::<PROOF_ENV>(
-                    ee_type,
-                    &preimage_type,
-                    resources,
-                    oracle,
-                )?
-            }
+                    res
+                } else {
+                    // can try to get preimage
+                    let preimage_type = PreimageRequestForUnknownLength {
+                        hash: full_data.bytecode_hash,
+                        preimage_type: PreimageType::Bytecode,
+                    };
+                    preimages_cache.get_preimage::<PROOF_ENV>(
+                        ee_type,
+                        &preimage_type,
+                        resources,
+                        oracle,
+                    )?
+                }
+            };
+
+            bytecode
+        } else {
+            &[]
         };
 
         let code_length = bytecode.len() as u32;
