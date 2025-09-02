@@ -4,6 +4,8 @@ use alloc::collections::LinkedList;
 use arrayvec::ArrayVec;
 use core::alloc::Allocator;
 
+pub const PAGE_SIZE: usize = 4096;
+
 // Invariants:
 // - last element in list is never an empty array
 // - all elements in the list except for the last are full
