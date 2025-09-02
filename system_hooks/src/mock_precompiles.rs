@@ -3,6 +3,7 @@
 #[allow(clippy::module_inception)]
 pub mod mock_precompiles {
     use zk_ee::{
+        common_traits::TryExtend,
         internal_error,
         system::{
             base_system_functions::MissingSystemFunctionErrors, errors::subsystem::SubsystemError,
@@ -12,7 +13,7 @@ pub mod mock_precompiles {
 
     pub struct Blake;
     impl<R: Resources> SystemFunction<R, MissingSystemFunctionErrors> for Blake {
-        fn execute<D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
+        fn execute<D: TryExtend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
             input: &[u8],
             _output: &mut D,
             _resources: &mut R,
@@ -27,7 +28,7 @@ pub mod mock_precompiles {
 
     pub struct PointEval;
     impl<R: Resources> SystemFunction<R, MissingSystemFunctionErrors> for PointEval {
-        fn execute<D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
+        fn execute<D: TryExtend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
             input: &[u8],
             _output: &mut D,
             _resources: &mut R,

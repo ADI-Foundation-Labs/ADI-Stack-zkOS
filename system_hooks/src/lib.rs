@@ -28,6 +28,7 @@ use alloc::collections::BTreeMap;
 use core::marker::PhantomData;
 use core::{alloc::Allocator, mem::MaybeUninit};
 use precompiles::{pure_system_function_hook_impl, IdentityPrecompile, IdentityPrecompileErrors};
+use zk_ee::common_traits::TryExtend;
 use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::system::errors::system::SystemError;
 use zk_ee::{
@@ -110,7 +111,7 @@ pub trait SystemFunctionInvocation<S: SystemTypes, E: Subsystem>
 where
     S::IO: IOSubsystemExt,
 {
-    fn invoke<D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
+    fn invoke<D: TryExtend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
         oracle: &mut <S::IO as IOSubsystemExt>::IOOracle,
         logger: &mut S::Logger,
         input: &[u8],
@@ -136,7 +137,7 @@ impl<S: SystemTypes, E: Subsystem, F: SystemFunction<S::Resources, E>>
 where
     S::IO: IOSubsystemExt,
 {
-    fn invoke<D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
+    fn invoke<D: TryExtend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
         _oracle: &mut <S::IO as IOSubsystemExt>::IOOracle,
         _logger: &mut S::Logger,
         input: &[u8],
@@ -153,7 +154,7 @@ impl<S: SystemTypes, E: Subsystem, F: SystemFunctionExt<S::Resources, E>>
 where
     S::IO: IOSubsystemExt,
 {
-    fn invoke<D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
+    fn invoke<D: TryExtend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
         oracle: &mut <S::IO as IOSubsystemExt>::IOOracle,
         logger: &mut S::Logger,
         input: &[u8],
