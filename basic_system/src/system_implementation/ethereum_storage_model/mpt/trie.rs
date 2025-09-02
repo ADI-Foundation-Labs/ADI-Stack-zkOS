@@ -530,7 +530,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 Ok(node_type)
             }
             ParsedNode::Extension(mut extension) => {
-                assert_eq!(extension.path_segment.len(), 64);
+                assert!(extension.path_segment.len() < 64);
                 extension.parent_node = parent_node;
                 let node_type = self.push_extension(extension);
 
