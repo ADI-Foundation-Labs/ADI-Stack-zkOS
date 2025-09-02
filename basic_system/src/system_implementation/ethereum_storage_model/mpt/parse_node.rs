@@ -216,7 +216,6 @@ pub(crate) fn parse_node_from_bytes<'a>(
                 path_segment,
                 parent_node: NodeType::unlinked(), // will be re-linked
                 child_node: NodeType::unlinked(),  // will be re-linked
-                raw_nibbles_encoding: nibbles_encoding.full_encoding(),
                 next_node_key: next_node,
             };
 
@@ -224,7 +223,6 @@ pub(crate) fn parse_node_from_bytes<'a>(
         } else {
             let leaf_node = LeafNode {
                 path_segment,
-                raw_nibbles_encoding: nibbles_encoding.full_encoding(),
                 parent_node: NodeType::unlinked(),
                 value: LeafValue::RLPEnveloped {
                     envelope: next_node,

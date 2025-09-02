@@ -43,8 +43,7 @@ const WITHDRAWAL_REQUEST_SSZ_SERIALIZATION_LEN: usize = 20 + 48 + 8;
 pub fn eip7002_system_part<S: EthereumLikeTypes>(
     system: &mut System<S>,
     requests_hasher: &mut impl crypto::sha256::Digest,
-    // requests_hasher: &mut impl MiniDigest,
-) -> Result<(), SystemError>
+) -> Result<bool, SystemError>
 where
     S::IO: IOSubsystemExt,
 {
@@ -101,7 +100,7 @@ where
         // we do not even need to reset the queue poitners as it's a hard invariant
         assert!(queue_head_index.is_zero());
         assert!(queue_tail_index.is_zero());
-        return Ok(());
+        return Ok(false);
     }
 
     // SSZ doesn't encode number of items in list (why make new format and avoid useful hints again?)
@@ -184,5 +183,5 @@ where
         })?;
     }
 
-    Ok(())
+    Ok(true)
 }

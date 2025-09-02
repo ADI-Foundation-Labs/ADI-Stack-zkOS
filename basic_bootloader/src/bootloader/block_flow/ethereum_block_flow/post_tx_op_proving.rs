@@ -84,13 +84,25 @@ where
 
         use crypto::sha256::Digest;
         let mut requests_hasher = crypto::sha256::Sha256::new();
-        eip6110_events_parser(&system, &mut requests_hasher)
-            .expect("must filter EIP-6110 deposit requests");
-        eip7002_system_part(&mut system, &mut requests_hasher)
-            .expect("withdrawal requests must be processed");
-        eip7251_system_part(&mut system, &mut requests_hasher)
-            .expect("consolidation requests must be processed");
-
+        let mut intermediate_hasher = crypto::sha256::Sha256::new();
+        if eip6110_events_parser(&system, &mut intermediate_hasher)
+            .expect("must filter EIP-6110 deposit requests")
+        {
+            let requests_hash = intermediate_hasher.finalize_reset();
+            requests_hasher.update(requests_hash);
+        }
+        if eip7002_system_part(&mut system, &mut intermediate_hasher)
+            .expect("withdrawal requests must be processed")
+        {
+            let requests_hash = intermediate_hasher.finalize_reset();
+            requests_hasher.update(requests_hash);
+        }
+        if eip7251_system_part(&mut system, &mut intermediate_hasher)
+            .expect("consolidation requests must be processed")
+        {
+            let requests_hash = intermediate_hasher.finalize_reset();
+            requests_hasher.update(requests_hash);
+        }
         let requests_hash = Bytes32::from_array(requests_hasher.finalize().into());
         let _ = system
             .get_logger()
@@ -112,26 +124,29 @@ where
         // Now we will check that header is consistent with out claims about it
         // - withdrawals root
         assert_eq!(
-            withdrawals_root,
-            metadata.block_level.header.withdrawals_root
+            withdrawals_root, metadata.block_level.header.withdrawals_root,
+            "withdrawals root diverged",
         );
         // - transactions root
         assert_eq!(
-            block_data_results.transactions_root,
-            metadata.block_level.header.transactions_root
+            block_data_results.transactions_root, metadata.block_level.header.transactions_root,
+            "transactions root diverged",
         );
         // - receipts root
         assert_eq!(
-            block_data_results.receipts_root,
-            metadata.block_level.header.receipts_root
+            block_data_results.receipts_root, metadata.block_level.header.receipts_root,
+            "receipts root diverged",
         );
         // - bloom
         assert_eq!(
-            block_data_results.block_bloom,
-            metadata.block_level.header.logs_bloom
+            block_data_results.block_bloom, metadata.block_level.header.logs_bloom,
+            "block Bloom filter diverged",
         );
         // - requests
-        assert_eq!(requests_hash, metadata.block_level.header.requests_hash);
+        assert_eq!(
+            requests_hash, metadata.block_level.header.requests_hash,
+            "requests hash diverged",
+        );
 
         // peek into history, but not further than we actually need
         let num_to_verify_from_history_cache = unsafe {
@@ -191,8 +206,8 @@ where
         ));
 
         assert_eq!(
-            metadata.block_level.header.state_root,
-            updated_state_commitment
+            metadata.block_level.header.state_root, updated_state_commitment,
+            "state root diverged",
         );
 
         let _ = logger.write_fmt(format_args!(

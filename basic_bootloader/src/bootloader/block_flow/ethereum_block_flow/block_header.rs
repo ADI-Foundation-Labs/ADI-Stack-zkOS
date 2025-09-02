@@ -374,7 +374,14 @@ impl ChainChecker for PectraForkHeader {
             let computed_header_hash: Bytes32 =
                 crypto::MiniDigest::finalize_reset(&mut block_headers_hasher).into();
             assert_eq!(history_cache.cache_entry(depth), &computed_header_hash,);
-            assert_eq!(&parent_to_expect, &computed_header_hash);
+            assert_eq!(historical_header.number, block_number);
+            assert_eq!(
+                &parent_to_expect,
+                &computed_header_hash,
+                "parent header malformed for history depth {}",
+                depth + 1
+            );
+
             if depth == 0 {
                 initial_state_commitment = Bytes32::from_array(*historical_header.state_root);
 

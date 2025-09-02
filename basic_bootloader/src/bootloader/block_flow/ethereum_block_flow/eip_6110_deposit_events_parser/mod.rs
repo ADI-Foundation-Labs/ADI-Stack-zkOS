@@ -2,6 +2,7 @@ use ruint::aliases::B160;
 use zk_ee::common_structs::GenericEventContentWithTxRef;
 use zk_ee::kv_markers::MAX_EVENT_TOPICS;
 use zk_ee::system::errors::system::SystemError;
+use zk_ee::system::logger::Logger;
 use zk_ee::system::IOSubsystemExt;
 use zk_ee::system::System;
 use zk_ee::system::{EthereumLikeTypes, IOTeardown};
@@ -22,30 +23,30 @@ const DEPOSIT_REQUEST_SERIALIZATION_LEN: usize = 48 + 32 + 8 + 96 + 8;
 pub fn eip6110_events_parser<S: EthereumLikeTypes>(
     system: &System<S>,
     requests_hasher: &mut impl crypto::sha256::Digest,
-    // requests_hasher: &mut impl MiniDigest,
-) -> Result<(), SystemError>
+) -> Result<bool, SystemError>
 where
     S::IO: IOSubsystemExt + IOTeardown<S::IOTypes>,
 {
     // we can not easily get the number from one scan, so we will accumulate into hasher directly
 
-    let mut write_prefix = true;
+    let mut event_encountered = false;
+    let mut logger = system.get_logger();
     for event in system.io.events_iterator() {
         if event.address != &DEPOSIT_CONTRACT_ADDRESS {
             continue;
         }
         if event.topics.len() > 0 && event.topics[0] == DEPOSIT_EVENT_SIGNATURE_HASH {
-            if write_prefix {
-                write_prefix = false;
+            if event_encountered == false {
+                event_encountered = true;
                 requests_hasher.update(&[DEPOSIT_REQUEST_EIP_7685_TYPE]);
             }
-            let Ok(_) = validate_and_write_event_data(event, requests_hasher) else {
+            let Ok(_) = validate_and_write_event_data(event, requests_hasher, &mut logger) else {
                 panic!("invalid deposit event structure");
             };
         }
     }
 
-    Ok(())
+    Ok(event_encountered)
 }
 
 fn validate_u16_at_most(input: &[u8; 32], value: u16) -> Result<(), ()> {
@@ -64,9 +65,8 @@ fn validate_u16_at_most(input: &[u8; 32], value: u16) -> Result<(), ()> {
 fn validate_and_write_event_data(
     event: GenericEventContentWithTxRef<'_, MAX_EVENT_TOPICS, EthereumIOTypesConfig>,
     requests_hasher: &mut impl crypto::sha256::Digest,
-    // requests_hasher: &mut impl MiniDigest,
+    logger: &mut impl Logger,
 ) -> Result<(), ()> {
-    // correctness is asserted on top, so we can lazily parse and write down
     let data = event.data;
     if data.len() != 576 {
         return Err(());
@@ -85,11 +85,36 @@ fn validate_and_write_event_data(
     validate_u16_at_most(data[384..416].try_into().unwrap(), 96)?;
     validate_u16_at_most(data[512..544].try_into().unwrap(), 8)?;
 
-    requests_hasher.update(&data[192..][..48]);
-    requests_hasher.update(&data[288..][..32]);
-    requests_hasher.update(&data[352..][..8]);
-    requests_hasher.update(&data[416..][..96]);
-    requests_hasher.update(&data[544..][..8]);
+    let _ = logger.write_fmt(format_args!("Processing EIP-6110 deposit event with:"));
+
+    let _ = logger.write_fmt(format_args!("\nPubkey = "));
+    let pubkey = &data[192..][..48];
+    let _ = logger.log_data(pubkey.iter().copied());
+    requests_hasher.update(pubkey);
+
+    let _ = logger.write_fmt(format_args!("\nWithdrawal credentials = "));
+    let withdrawal_credentials = &data[288..][..32];
+    let _ = logger.log_data(withdrawal_credentials.iter().copied());
+    requests_hasher.update(withdrawal_credentials);
+
+    let amount = &data[352..][..8];
+    let _ = logger.write_fmt(format_args!(
+        "\nAmount = {}",
+        u64::from_le_bytes(amount.try_into().unwrap())
+    ));
+    requests_hasher.update(amount);
+
+    let _ = logger.write_fmt(format_args!("\nSignature = "));
+    let signature = &data[416..][..96];
+    let _ = logger.log_data(signature.iter().copied());
+    requests_hasher.update(signature);
+
+    let index = &data[544..][..8];
+    let _ = logger.write_fmt(format_args!(
+        "\nIndex = {}\n",
+        u64::from_le_bytes(index.try_into().unwrap())
+    ));
+    requests_hasher.update(index);
 
     Ok(())
 }

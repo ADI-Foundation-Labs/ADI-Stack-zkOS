@@ -37,8 +37,7 @@ const CONSOLIDATION_REQUEST_SSZ_SERIALIZATION_LEN: usize = 20 + 48 + 48;
 pub fn eip7251_system_part<S: EthereumLikeTypes>(
     system: &mut System<S>,
     requests_hasher: &mut impl crypto::sha256::Digest,
-    // requests_hasher: &mut impl MiniDigest,
-) -> Result<(), SystemError>
+) -> Result<bool, SystemError>
 where
     S::IO: IOSubsystemExt,
 {
@@ -60,7 +59,7 @@ where
     let is_contract = props.nonce.0 == 1 && props.observable_bytecode_len.0 > 0;
     if is_contract == false {
         return Err(SystemError::LeafDefect(internal_error!(
-            "EIP-7002 withdrawal contract is not deployed"
+            "EIP-7251 consolidation contract is not deployed"
         )));
     }
 
@@ -96,7 +95,7 @@ where
         assert!(queue_head_index.is_zero());
         assert!(queue_tail_index.is_zero());
         update_excess_consolidation_requests_and_reset_count(system)?;
-        return Ok(());
+        return Ok(false);
     }
 
     // SSZ doesn't encode number of items in list (why make new format and avoid useful hints again?)
@@ -192,7 +191,7 @@ where
 
     update_excess_consolidation_requests_and_reset_count(system)?;
 
-    Ok(())
+    Ok(true)
 }
 
 fn update_excess_consolidation_requests_and_reset_count<S: EthereumLikeTypes>(

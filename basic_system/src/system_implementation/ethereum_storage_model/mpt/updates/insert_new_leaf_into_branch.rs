@@ -15,7 +15,6 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         let leaf_node = LeafNode {
             path_segment,
             parent_node: branch_node,
-            raw_nibbles_encoding: &[], // it's a fresh one, so we do not benefit from it
             value,
         };
         let node = self.push_leaf(leaf_node);

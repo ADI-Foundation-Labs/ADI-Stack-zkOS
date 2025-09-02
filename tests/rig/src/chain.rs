@@ -23,6 +23,7 @@ use forward_system::run::test_impl::{
     InMemoryPreimageSource, InMemoryTree, NoopTxCallback, TxListSource,
 };
 use forward_system::run::*;
+use log::warn;
 use log::{debug, info, trace};
 use oracle_provider::{ReadWitnessSource, ZkEENonDeterminismSource};
 use risc_v_simulator::abstractions::memory::VectorMemoryImpl;
@@ -436,7 +437,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         use crypto::MiniDigest;
         use std::collections::BTreeMap;
 
-        let headers: Vec<Header> = witness
+        let mut headers: Vec<Header> = witness
             .headers
             .iter()
             .map(|el| {
@@ -446,7 +447,13 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             .collect();
 
         assert!(headers.len() > 0);
+        assert!(headers.is_sorted_by(|a, b| a.number < b.number));
+        headers.reverse();
         assert_eq!(headers.len(), witness.headers.len());
+
+        let mut headers_encodings: Vec<_> =
+            witness.headers.iter().map(|el| el.0.to_vec()).collect();
+        headers_encodings.reverse();
 
         let initial_root = headers[0].state_root;
 
@@ -485,13 +492,14 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
                 let hash = crypto::sha3::Keccak256::digest(el);
                 let digits = digits_from_key(&hash);
                 let path = Path::new(&digits);
-                let props = accounts_mpt
-                    .get(path, &mut oracle, &mut interner, &mut hasher)
-                    .unwrap();
-                let props = EthereumAccountProperties::parse_from_rlp_bytes(props)
-                    .expect("must parse account data");
-                let key = B160::from_be_bytes::<20>(el[..].try_into().unwrap());
-                account_properties.insert(key, props);
+                if let Ok(props) = accounts_mpt.get(path, &mut oracle, &mut interner, &mut hasher) {
+                    let props = EthereumAccountProperties::parse_from_rlp_bytes(props)
+                        .expect("must parse account data");
+                    let key = B160::from_be_bytes::<20>(el[..].try_into().unwrap());
+                    account_properties.insert(key, props);
+                } else {
+                    warn!("Account 0x{} is in preimages list, but there is no MTP witness to get it's properties", hex::encode(el));
+                }
             }
         }
 
@@ -524,7 +532,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         let cl_responder = EthereumCLResponder {
             withdrawals_list: withdrawals,
             parent_headers_list: headers,
-            parent_headers_encodings_list: witness.headers.iter().map(|el| el.0.to_vec()).collect(),
+            parent_headers_encodings_list: headers_encodings,
         };
 
         use crate::forward_system::system::system_types::ethereum::*;
@@ -564,23 +572,23 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             .expect("must succeed");
         }
 
-        if let Some(path) = witness_output_file {
-            let mut oracle = ZkEENonDeterminismSource::default();
-            oracle.add_external_processor(target_header_reponsder);
-            oracle.add_external_processor(tx_data_responder);
-            oracle.add_external_processor(preimage_responder);
-            oracle.add_external_processor(initial_account_state_responder);
-            oracle.add_external_processor(initial_values_responder);
-            oracle.add_external_processor(cl_responder);
-            oracle.add_external_processor(UARTPrintReponsder);
-            oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
-            let result = Self::run_batch_generate_witness(oracle, &app);
-            let mut file = File::create(&path).expect("should create file");
-            let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
-            let hex = hex::encode(witness);
-            file.write_all(hex.as_bytes())
-                .expect("should write to file");
-        }
+        // if let Some(path) = witness_output_file {
+        //     let mut oracle = ZkEENonDeterminismSource::default();
+        //     oracle.add_external_processor(target_header_reponsder);
+        //     oracle.add_external_processor(tx_data_responder);
+        //     oracle.add_external_processor(preimage_responder);
+        //     oracle.add_external_processor(initial_account_state_responder);
+        //     oracle.add_external_processor(initial_values_responder);
+        //     oracle.add_external_processor(cl_responder);
+        //     oracle.add_external_processor(UARTPrintReponsder);
+        //     oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
+        //     let result = Self::run_batch_generate_witness(oracle, &app);
+        //     let mut file = File::create(&path).expect("should create file");
+        //     let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
+        //     let hex = hex::encode(witness);
+        //     file.write_all(hex.as_bytes())
+        //         .expect("should write to file");
+        // }
 
         result_keeper
     }

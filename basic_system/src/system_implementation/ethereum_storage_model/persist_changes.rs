@@ -564,7 +564,7 @@ impl EthereumStoragePersister {
                         &active_address.as_uint()
                     ));
 
-                    // NOTE: this is fast NOP if no mutations happened, but we will not do it anyway
+                    // NOTE: this is fast NOP if no mutations happened
                     reusable_mpt
                         .recompute(&mut hasher)
                         .map_err(|_| internal_error!("failed to compute new root for MPT"))?;
@@ -693,19 +693,19 @@ impl EthereumStoragePersister {
                     // whatever it was - it's unobservable, we can just skip it
                     assert_eq!(initial.value(), current.value());
 
-                    let _ = logger.write_fmt(format_args!(
-                        "Will skip account state verification for address 0x{:040x}\n",
-                        addr.0.as_uint()
-                    ));
+                    // let _ = logger.write_fmt(format_args!(
+                    //     "Will skip account state verification for address 0x{:040x}\n",
+                    //     addr.0.as_uint()
+                    // ));
                 }
                 (AccountInitialAppearance::Unset, AccountCurrentAppearance::Observed)
                 | (AccountInitialAppearance::Retrieved, AccountCurrentAppearance::Observed) => {
                     // we need to check that initial value is the one we claimed in cache
 
-                    let _ = logger.write_fmt(format_args!(
-                        "Will retrieve initial account state for address 0x{:040x}\n",
-                        addr.0.as_uint()
-                    ));
+                    // let _ = logger.write_fmt(format_args!(
+                    //     "Will retrieve initial account state for address 0x{:040x}\n",
+                    //     addr.0.as_uint()
+                    // ));
 
                     let digits = Self::cache_address_as_digits(addr, &mut key_cache, &mut hasher);
                     let path = Path::new(digits);
@@ -759,13 +759,16 @@ impl EthereumStoragePersister {
                         let bytecode_hash_is_zero = current_value.bytecode_hash.is_zero();
                         if is_modified_modulo_bytecode_hash && bytecode_hash_is_zero {
                             // empty -> observed -> empty
+
+                            // let _ = logger.write_fmt(format_args!(
+                            //     "Will skip empty account insert for address 0x{:040x}\n",
+                            //     addr.0.as_uint()
+                            // ));
+                        } else {
                             let _ = logger.write_fmt(format_args!(
-                                "Will skip empty account insert for address 0x{:040x}\n",
+                                "Will insert new account at address 0x{:040x}\n",
                                 addr.0.as_uint()
                             ));
-                        } else {
-                            // let _ = logger
-                            //     .write_fmt(format_args!("Will insert new account at address 0x{:040x}\n", addr.0.as_uint()));
 
                             let mut current_value = *current_value;
                             if bytecode_hash_is_zero {
@@ -805,8 +808,10 @@ impl EthereumStoragePersister {
                         debug_assert!(current.bytecode_hash.is_zero() == false);
 
                         if initial != current {
-                            // let _ = logger
-                            //     .write_fmt(format_args!("Will update account state at address 0x{:040x}\n", addr.0.as_uint()));
+                            let _ = logger.write_fmt(format_args!(
+                                "Will update account state at address 0x{:040x}\n",
+                                addr.0.as_uint()
+                            ));
 
                             // we checked initial, and rolled-over any possible updates on it,
                             // so this step is safe to skip if it's unchanged
@@ -840,6 +845,8 @@ impl EthereumStoragePersister {
                 }
             }
         }
+
+        let _ = logger.write_fmt(format_args!("Will recompute state root\n",));
 
         accounts_mpt
             .recompute(&mut hasher)

@@ -5,7 +5,9 @@ use zk_ee::memory::vec_trait::VecLikeCtor;
 mod delete_from_branch;
 mod delete_leaf;
 mod insert_new_leaf_into_branch;
-mod make_branch_and_extension;
+mod split_existing;
+mod split_extension;
+mod split_leaf;
 mod update_leaf_value;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -29,11 +31,11 @@ pub(crate) enum ValueInsertionStrategy {
         branch: NodeType,
         branch_index: usize,
     },
-    MakeBranchAndExtension {
+    Split {
         alternative_path: NodeType,
         parent_branch_or_empty: NodeType,
         branch_index: usize,
-        extension_len: usize,
+        common_prefix_len: usize,
     },
 }
 
@@ -41,8 +43,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
     #[inline(always)]
     pub(crate) fn remove_from_cache(&mut self, node: &NodeType) {
         debug_assert!(
-            node.is_unreferenced_value_in_branch() == false,
-            "tried to delete unreferenced branch from cache",
+            node.is_unreferenced_value() == false,
+            "tried to delete unreferenced value from cache",
         );
         self.keys_cache.remove(node);
     }
@@ -110,11 +112,11 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         } else {
             return Err(());
         };
-        Ok(ValueInsertionStrategy::MakeBranchAndExtension {
+        Ok(ValueInsertionStrategy::Split {
             alternative_path: alternative_node,
             parent_branch_or_empty: parent,
             branch_index,
-            extension_len: common_prefix_len,
+            common_prefix_len,
         })
     }
 
@@ -257,27 +259,11 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 // check the branch itself node
                 let child = self.capacities.branch_nodes[branch.index()].child_nodes[branch_index];
                 if child.is_empty() {
-                    // short and rare, can do right here
-                    let new_opaque = OpaqueValue {
-                        parent_node: branch,
-                        branch_index,
-                        value: LeafValue::from_pre_encoded_with_interner(
-                            pre_encoded_value,
-                            interner,
-                        )?,
-                    };
-                    let terminal_node = self.push_branch_terminal_value(new_opaque);
-                    self.capacities.branch_nodes[branch.index()].child_nodes[branch_index] =
-                        terminal_node;
-
-                    Ok(())
-                } else if child.is_terminal_value_in_branch() {
-                    self.remove_from_cache(&child);
+                    // it must be insert instead
+                    Err(())
+                } else if child.is_leaf() {
                     // just update it
-                    let existing_opaque =
-                        &mut self.capacities.branch_terminal_values[child.index()];
-                    existing_opaque.value =
-                        LeafValue::from_pre_encoded_with_interner(pre_encoded_value, interner)?;
+                    let _ = self.update_leaf_node(child, pre_encoded_value, interner)?;
 
                     Ok(())
                 } else {
@@ -337,7 +323,6 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             let leaf_node = LeafNode {
                 path_segment,
                 parent_node: NodeType::empty(),
-                raw_nibbles_encoding: &[], // it's a fresh one, so we do not benefit from it
                 value,
             };
             self.root = self.push_leaf(leaf_node);
@@ -360,19 +345,19 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 value,
                 interner,
             ),
-            ValueInsertionStrategy::MakeBranchAndExtension {
+            ValueInsertionStrategy::Split {
                 alternative_path,
                 parent_branch_or_empty,
                 branch_index,
-                extension_len,
+                common_prefix_len,
             } => {
-                // it's recursive!()
-                let extension = &path.prefix()[(path.prefix_len - extension_len)..];
-                self.temporary_split_existing_as_extension_and_branch(
+                // it's recursive!
+                let common_prefix = &path.prefix()[(path.prefix_len - common_prefix_len)..];
+                self.temporary_split_existing(
                     parent_branch_or_empty,
                     branch_index,
                     alternative_path,
-                    extension,
+                    common_prefix,
                     interner,
                 )?;
 
@@ -381,21 +366,13 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             ValueInsertionStrategy::WriteIntoBranchValue {
                 branch,
                 branch_index,
-            } => {
-                self.remove_from_cache(&branch);
-
-                // short and rare, can do right here
-                let new_opaque = OpaqueValue {
-                    parent_node: branch,
-                    branch_index,
-                    value,
-                };
-                let terminal_value = self.push_branch_terminal_value(new_opaque);
-                self.capacities.branch_nodes[branch.index()].child_nodes[branch_index] =
-                    terminal_value;
-
-                Ok(())
-            }
+            } => self.insert_new_leaf_into_existing_branch(
+                branch,
+                branch_index,
+                path,
+                value,
+                interner,
+            ),
         }
     }
 
@@ -427,10 +404,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             self.get_extension_key(node, interner, hasher)?
         } else if node.is_branch() {
             self.get_branch_key(node, interner, hasher)?
-        } else if node.is_unreferenced_value_in_branch() {
-            self.get_unreferenced_branch_key(node)?
-        } else if node.is_terminal_value_in_branch() {
-            self.get_terminal_branch_value_key(node, interner, hasher)?
+        } else if node.is_unreferenced_value() {
+            self.get_unreferenced_value(node)?
         } else if node.is_opaque_nontrivial_root() {
             (false, self.interned_root_node_key)
         } else {
@@ -474,48 +449,39 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             Ok((false, known_key))
         } else {
             let child_node = self.capacities.extension_nodes[extension_node.index()].child_node;
-            let (_child_key_is_new, child_key) = self.get_node_key(child_node, interner, hasher)?;
+            let child_key = if child_node.is_unlinked() {
+                // child is not parsed further, so we just use it's raw value
+                let extension = &self.capacities.extension_nodes[extension_node.index()];
+                let unreferenced_key = extension.next_node_key.full_encoding();
+
+                unreferenced_key
+            } else {
+                let (_child_key_is_new, child_key) =
+                    self.get_node_key(child_node, interner, hasher)?;
+
+                child_key
+            };
 
             let extension = &self.capacities.extension_nodes[extension_node.index()];
-            let new_key = interner.make_extension_key(
-                extension.path_segment,
-                extension.raw_nibbles_encoding,
-                child_key,
-                hasher,
-            )?;
+            debug_assert!(
+                extension.path_segment.len() > 0,
+                "extension has empty path with parent {:?} and child {:?}",
+                extension.parent_node,
+                extension.child_node
+            );
+            let new_key = interner.make_extension_key(extension.path_segment, child_key, hasher)?;
             self.keys_cache.insert(extension_node, new_key);
 
             Ok((true, new_key))
         }
     }
 
-    fn get_terminal_branch_value_key(
+    fn get_unreferenced_value(
         &mut self,
-        terminal_branch_value: NodeType,
-        interner: &mut (impl Interner<'a> + 'a),
-        hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
+        unreferenced_value: NodeType,
     ) -> Result<(bool, &'a [u8]), ()> {
-        if let Some(known_key) = self.keys_cache.get(&terminal_branch_value).copied() {
-            Ok((false, known_key))
-        } else {
-            let existing_terminal_branch_value = self.capacities.branch_terminal_values
-                [terminal_branch_value.index()]
-            .value
-            .take_value();
-            let new_key =
-                interner.make_terminal_branch_value_key(existing_terminal_branch_value, hasher)?;
-            self.keys_cache.insert(terminal_branch_value, new_key);
-
-            Ok((true, new_key))
-        }
-    }
-
-    fn get_unreferenced_branch_key(
-        &mut self,
-        unreferenced_branch_value: NodeType,
-    ) -> Result<(bool, &'a [u8]), ()> {
-        let Some(known_key) = self.keys_cache.get(&unreferenced_branch_value).copied() else {
-            panic!("Unreferenced branch {unreferenced_branch_value:?} has unknown key");
+        let Some(known_key) = self.keys_cache.get(&unreferenced_value).copied() else {
+            panic!("Unreferenced branch {unreferenced_value:?} has unknown key");
         };
 
         Ok((false, known_key))

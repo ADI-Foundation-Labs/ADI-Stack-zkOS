@@ -40,12 +40,8 @@ impl core::fmt::Debug for NodeType {
             f.debug_struct("Node: Branch")
                 .field("index", &self.index())
                 .finish()
-        } else if self.is_unreferenced_value_in_branch() {
-            f.debug_struct("Node: Unreferenced value in branch")
-                .field("index", &self.index())
-                .finish()
-        } else if self.is_terminal_value_in_branch() {
-            f.debug_struct("Node: Terminal value inside of branch node")
+        } else if self.is_unreferenced_value() {
+            f.debug_struct("Node: Unreferenced value")
                 .field("index", &self.index())
                 .finish()
         } else if self.is_unlinked() {
@@ -65,9 +61,8 @@ impl NodeType {
     const LEAF_TYPE_MARKER: usize = 0b001;
     const EXTENSION_TYPE_MARKER: usize = 0b010;
     const BRANCH_TYPE_MARKER: usize = 0b011;
-    const UNREFERENCED_VALUE_IN_BRANCH_NODE: usize = 0b100;
+    const UNREFERENCED_VALUE: usize = 0b100;
     const UNLINKED_MARKER: usize = 0b101;
-    const TERMINAL_VALUE_IN_BRANCH_NODE: usize = 0b110;
     const OPAQUE_NONTRIVIAL_ROOT: usize = 0b111;
 
     pub(crate) const fn index(&self) -> usize {
@@ -96,12 +91,6 @@ impl NodeType {
         self.inner & Self::TYPE_MASK == Self::OPAQUE_NONTRIVIAL_ROOT
     }
 
-    pub(crate) const fn terminal_value_in_branch(index: usize) -> Self {
-        Self {
-            inner: (index << Self::RAW_INDEX_SHIFT) | Self::TERMINAL_VALUE_IN_BRANCH_NODE,
-        }
-    }
-
     pub(crate) const fn leaf(index: usize) -> Self {
         Self {
             inner: (index << Self::RAW_INDEX_SHIFT) | Self::LEAF_TYPE_MARKER,
@@ -120,9 +109,9 @@ impl NodeType {
         }
     }
 
-    pub(crate) const fn unreferenced_value_in_branch(index: usize) -> Self {
+    pub(crate) const fn unreferenced_value(index: usize) -> Self {
         Self {
-            inner: (index << Self::RAW_INDEX_SHIFT) | Self::UNREFERENCED_VALUE_IN_BRANCH_NODE,
+            inner: (index << Self::RAW_INDEX_SHIFT) | Self::UNREFERENCED_VALUE,
         }
     }
 
@@ -142,16 +131,12 @@ impl NodeType {
         self.inner & Self::TYPE_MASK == Self::BRANCH_TYPE_MARKER
     }
 
-    pub(crate) const fn is_unreferenced_value_in_branch(&self) -> bool {
-        self.inner & Self::TYPE_MASK == Self::UNREFERENCED_VALUE_IN_BRANCH_NODE
+    pub(crate) const fn is_unreferenced_value(&self) -> bool {
+        self.inner & Self::TYPE_MASK == Self::UNREFERENCED_VALUE
     }
 
     pub(crate) const fn is_unlinked(&self) -> bool {
         self.inner & Self::TYPE_MASK == Self::UNLINKED_MARKER
-    }
-
-    pub(crate) const fn is_terminal_value_in_branch(&self) -> bool {
-        self.inner & Self::TYPE_MASK == Self::TERMINAL_VALUE_IN_BRANCH_NODE
     }
 }
 
@@ -257,8 +242,6 @@ impl<'a> Path<'a> {
 pub(crate) struct LeafNode<'a> {
     pub(crate) path_segment: &'a [u8],
     pub(crate) parent_node: NodeType,
-    pub(crate) raw_nibbles_encoding: &'a [u8], // RLP, not even internals. Handy for updates
-    // pub(crate) value: RLPSlice<'a>,
     pub(crate) value: LeafValue<'a>,
 }
 
@@ -267,7 +250,6 @@ pub(crate) struct ExtensionNode<'a> {
     pub(crate) path_segment: &'a [u8],
     pub(crate) parent_node: NodeType,
     pub(crate) child_node: NodeType,
-    pub(crate) raw_nibbles_encoding: &'a [u8], // RLP, not even internals. Handy for updates
     pub(crate) next_node_key: RLPSlice<'a>,
 }
 
@@ -276,14 +258,6 @@ pub(crate) struct UnreferencedValue<'a> {
     pub(crate) parent_node: NodeType,
     pub(crate) branch_index: usize,
     pub(crate) value: &'a [u8],
-}
-
-// #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[derive(Debug)]
-pub(crate) struct OpaqueValue<'a> {
-    pub(crate) parent_node: NodeType,
-    pub(crate) branch_index: usize,
-    pub(crate) value: LeafValue<'a>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

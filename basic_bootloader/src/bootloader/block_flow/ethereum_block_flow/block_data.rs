@@ -187,6 +187,8 @@ impl<A: Allocator + Clone, B: Allocator> EthereumBasicTransactionDataKeeper<A, B
                 cached_encoding_len_with_metadata: 0,
             };
             // {
+            //     use basic_system::system_implementation::ethereum_storage_model::Interner;
+            //     use basic_system::system_implementation::ethereum_storage_model::InterningBuffer;
             //     let mut interner = BoxInterner::with_capacity_in(1 << 25, system.get_allocator());
             //     let mut buffer = interner.get_buffer(receipt.required_buffer_len()).unwrap();
             //     receipt.encode_into(&mut buffer);
@@ -217,7 +219,7 @@ impl<A: Allocator + Clone, B: Allocator> EthereumBasicTransactionDataKeeper<A, B
 
         transactions_mpt
             .recompute(&mut interner, &mut hasher)
-            .expect("must compute receipts root");
+            .expect("must compute transactions root");
         let transactions_root = Bytes32::from_array(transactions_mpt.root(&mut hasher));
 
         let _ = system

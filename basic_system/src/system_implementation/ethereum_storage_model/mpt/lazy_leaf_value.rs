@@ -116,17 +116,6 @@ impl<'a> LeafValue<'a> {
         }
     }
 
-    pub(crate) fn needs_extra_rlp_envelope(&self) -> bool {
-        match self {
-            Self::Slice { .. } => true,
-            Self::RLPEnveloped { .. } => false,
-            Self::LazyEncodable { .. } => true,
-            Self::Used => {
-                panic!("value was used already");
-            }
-        }
-    }
-
     // This applies encoding of slice(internal value),
     // unless internal value RLPEnveloped - then just internal value is used
     pub(crate) fn rlp_encoding_length(&mut self) -> usize {

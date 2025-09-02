@@ -33,7 +33,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             assert!(surviving_branch < 16);
             let mut surviving_node = existing_branch.child_nodes[surviving_branch];
             let parent = existing_branch.parent_node;
-            if surviving_node.is_unreferenced_value_in_branch() {
+            if surviving_node.is_unreferenced_value() {
                 // we need to remake a path
                 let Path {
                     path: raw_path,
@@ -47,7 +47,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 };
                 // we have to allocate the next one and decide
                 let key_encoding =
-                    self.capacities.branch_unreferenced_values[surviving_node.index()].value;
+                    self.capacities.unreferenced_values[surviving_node.index()].value;
                 let current_node = branch_node;
                 let parent_branch_index = surviving_branch;
                 match self.descend_through_proof(
@@ -74,9 +74,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 }
             }
 
-            if surviving_node.is_terminal_value_in_branch() {
-                todo!();
-            } else if surviving_node.is_leaf() {
+            if surviving_node.is_leaf() {
                 // we have to decide based on the parent
                 if parent.is_empty() {
                     // remake a root
@@ -201,7 +199,6 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         let leaf_node = LeafNode {
             path_segment,
             parent_node: upper_branch_node,
-            raw_nibbles_encoding: &[], // it's a fresh one, so we do not benefit from it
             value,
         };
         let new_leaf_node = self.push_leaf(leaf_node);
@@ -254,7 +251,6 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         let leaf_node = LeafNode {
             path_segment,
             parent_node: grand_parent,
-            raw_nibbles_encoding: &[], // it's a fresh one, so we do not benefit from it
             value,
         };
         let new_leaf_node = self.push_leaf(leaf_node);
@@ -303,7 +299,6 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             parent_node: grand_parent,
             path_segment,
             child_node: existing_branch,
-            raw_nibbles_encoding: &[],
             next_node_key: RLPSlice::empty(),
         };
         let extension_node = self.push_extension(extension);
@@ -352,7 +347,6 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
 
         existing_extension.parent_node = grand_parent;
         existing_extension.path_segment = path_segment;
-        existing_extension.raw_nibbles_encoding = &[];
 
         if grand_parent.is_branch() {
             self.capacities.branch_nodes[grand_parent.index()].child_nodes

@@ -64,12 +64,15 @@ pub fn ethproofs_run(block_number: u64, reth_endpoint: &str) -> anyhow::Result<(
     let witness = rpc::get_witness(reth_endpoint, block_number)
         .context(format!("Failed to fetch witness for {block_number}"))?
         .result;
-    let headers: Vec<Header> = witness
+    let mut headers: Vec<Header> = witness
         .headers
         .iter()
         .map(|el| alloy_rlp::decode_exact(&el[..]).expect("must decode headers from witness"))
         .collect();
     assert!(headers.len() > 0);
+    assert!(headers.is_sorted_by(|a, b| { a.number < b.number }));
+    headers.reverse();
+
     assert_eq!(headers[0].number, block_number - 1);
     let mut block_hashes: Vec<U256> = headers
         .iter()
