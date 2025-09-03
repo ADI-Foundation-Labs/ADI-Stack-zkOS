@@ -796,11 +796,19 @@ where
             .get_logger()
             .write_fmt(format_args!("Transaction execution completed\n"));
 
+        // After the transaction is executed, we reclaim the withheld resources.
+        // This is needed to ensure correct "gas_used" calculation, also these
+        // resources could be spent for pubdata.
+        // We do not reclaim it to the actual `resources` yet, as that would make
+        // the calculation of computational native used more complicated.
+        let mut resources_for_check = context.resources.main_resources.clone();
+        resources_for_check.reclaim_withheld(context.resources.withheld.clone());
+
         use crate::bootloader::gas_helpers::check_enough_resources_for_pubdata;
         let (has_enough, to_charge_for_pubdata, pubdata_used) = check_enough_resources_for_pubdata(
             system,
             U256::from(context.native_per_pubdata),
-            &mut context.resources.main_resources,
+            &mut resources_for_check,
             Some(context.validation_pubdata),
         )?;
         if !has_enough {
