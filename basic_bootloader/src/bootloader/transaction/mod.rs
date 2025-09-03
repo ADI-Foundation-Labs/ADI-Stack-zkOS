@@ -842,7 +842,9 @@ impl<'a> ZkSyncTransaction<'a> {
             );
         }
 
-        let encoding_length = rlp::estimate_length_encoding_len(total_list_len) + total_list_len;
+        // The extra 1 byte is for the 0x01 tag
+        let encoding_length =
+            rlp::estimate_length_encoding_len(total_list_len) + total_list_len + 1;
         charge_keccak(encoding_length, resources)?;
 
         let mut hasher = Keccak256::new();
@@ -958,7 +960,9 @@ impl<'a> ZkSyncTransaction<'a> {
             );
         }
 
-        let encoding_length = rlp::estimate_length_encoding_len(total_list_len) + total_list_len;
+        // The extra 1 byte is for the 0x02 tag
+        let encoding_length =
+            rlp::estimate_length_encoding_len(total_list_len) + total_list_len + 1;
         charge_keccak(encoding_length, resources)?;
 
         let mut hasher = Keccak256::new();
