@@ -371,10 +371,9 @@ where
             &authority,
             AccountDataRequest::empty()
                 .with_nonce()
-                .with_nominal_token_balance()
+                .with_has_bytecode()
                 .with_is_delegated()
-                .with_artifacts_len()
-                .with_unpadded_code_len(),
+                .with_nominal_token_balance(),
         )
     })?;
     // 5. Check authority is not a contract
@@ -388,7 +387,7 @@ where
     // 7. Add refund if authority is not empty.
     {
         let is_empty = account_properties.nonce.0 == 0
-            && account_properties.unpadded_code_len.0 == 0
+            && account_properties.has_bytecode.0 == false
             && account_properties.nominal_token_balance.0.is_zero();
         if !is_empty {
             system
@@ -597,10 +596,8 @@ where
                     AccountDataRequest::empty()
                         .with_ee_version()
                         .with_nonce()
-                        .with_artifacts_len()
-                        .with_unpadded_code_len()
+                        .with_has_bytecode()
                         .with_is_delegated()
-                        .with_bytecode()
                         .with_nominal_token_balance(),
                 )
             })?;

@@ -510,16 +510,14 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
 
         let AccountData {
             nonce: Just(deployee_nonce),
-            unpadded_code_len: Just(deployee_code_len),
+            has_bytecode: Just(has_bytecode),
             ..
         } = deployer_remaining_resources.with_infinite_ergs(|inf_resources| {
             system.io.read_account_properties(
                 THIS_EE_TYPE,
                 inf_resources,
                 &deployed_address,
-                AccountDataRequest::empty()
-                    .with_nonce()
-                    .with_unpadded_code_len(),
+                AccountDataRequest::empty().with_nonce().with_has_bytecode(),
             )
         })?;
 
@@ -528,7 +526,7 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
         // but we cannot perform such a check for now.
         // We need to check this here (not when we actually deploy the code)
         // because if this check fails the constructor shouldn't be executed.
-        if deployee_code_len != 0 || deployee_nonce != 0 {
+        if has_bytecode || deployee_nonce != 0 {
             let _ = system
                 .get_logger()
                 .write_fmt(format_args!("Deployment on existing account\n",));

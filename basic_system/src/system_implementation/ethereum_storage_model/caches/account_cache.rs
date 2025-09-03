@@ -376,6 +376,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         Bytecode: Maybe<&'static [u8]>,
         CodeVersion: Maybe<u8>,
         IsDelegated: Maybe<bool>,
+        HasBytecode: Maybe<bool>,
     >(
         &mut self,
         ee_type: ExecutionEnvironmentType,
@@ -394,6 +395,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                 Bytecode,
                 CodeVersion,
                 IsDelegated,
+                HasBytecode,
             >,
         >,
         preimages_cache: &mut BytecodeKeccakPreimagesStorage<R, A>,
@@ -411,6 +413,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             Bytecode,
             CodeVersion,
             IsDelegated,
+            HasBytecode,
         >,
         SystemError,
     > {
@@ -427,14 +430,14 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         // NOTE: we didn't yet decommit the bytecode, BUT charged for it (all properties are warm at
         // once or not), so if we do not access it ever we will not need to pollute preimages cache
 
+        let bytecode_hash_is_zero = full_data.bytecode_hash.is_zero();
+
         let needs_preimage = ObservableBytecodeLen::IS_MATERIAL
             || BytecodeLen::IS_MATERIAL
             || ArtifactsLen::IS_MATERIAL
             || Bytecode::IS_MATERIAL
             || IsDelegated::IS_MATERIAL;
         let bytecode = if needs_preimage {
-            let bytecode_hash_is_zero = full_data.bytecode_hash.is_zero();
-
             // NOTE: deconstruction happens at the end of the TX, so even deconstructed accounts would NOT
             // respond with empty bytecode (well, WTF)
             let bytecode = {
@@ -476,6 +479,9 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             false
         };
 
+        let has_bytecode =
+            !(bytecode_hash_is_zero || full_data.bytecode_hash == EMPTY_STRING_KECCAK_HASH);
+
         Ok(AccountData {
             ee_version: Maybe::construct(|| ExecutionEnvironmentType::EVM as u8),
             observable_bytecode_hash: Maybe::construct(|| full_data.bytecode_hash),
@@ -488,6 +494,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             bytecode: Maybe::construct(|| bytecode),
             code_version: Maybe::construct(|| 0),
             is_delegated: Maybe::construct(|| is_delegated),
+            has_bytecode: Maybe::construct(|| has_bytecode),
         })
     }
 

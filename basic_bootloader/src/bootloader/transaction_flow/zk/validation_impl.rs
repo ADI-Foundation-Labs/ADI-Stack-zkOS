@@ -350,10 +350,8 @@ where
                     AccountDataRequest::empty()
                         .with_ee_version()
                         .with_nonce()
-                        .with_artifacts_len()
-                        .with_unpadded_code_len()
+                        .with_has_bytecode()
                         .with_is_delegated()
-                        .with_bytecode()
                         .with_nominal_token_balance(),
                 )
             })?;
