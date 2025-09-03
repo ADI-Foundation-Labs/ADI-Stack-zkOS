@@ -522,7 +522,9 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         };
         let preimage_responder = GenericPreimageResponder { preimage_source };
         let initial_account_state_responder = InMemoryEthereumInitialAccountStateResponder {
+            state_root: initial_root.0,
             source: account_properties.clone(),
+            preimages_oracle: oracle.clone(),
         };
         let initial_values_responder = InMemoryEthereumInitialStorageSlotValueResponder {
             source: account_properties,
