@@ -48,11 +48,11 @@ pub mod mock_precompiles;
 
 // Temporarily disabled, only used for AA.
 // pub mod nonce_holder;
-mod contract_deployer;
+pub mod contract_deployer;
 pub mod eip_152;
 pub mod eip_2537;
-mod l1_messenger;
-mod l2_base_token;
+pub mod l1_messenger;
+pub mod l2_base_token;
 mod precompiles;
 
 pub use self::eip_2537::*;
