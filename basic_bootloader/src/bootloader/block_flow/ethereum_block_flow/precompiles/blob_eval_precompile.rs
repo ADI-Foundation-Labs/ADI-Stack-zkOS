@@ -1,4 +1,5 @@
 use alloc::boxed::Box;
+use zk_ee::common_traits::TryExtend;
 use core::fmt::Write;
 use crypto::ark_ec::pairing::Pairing;
 use crypto::ark_ec::AffineRepr;
@@ -11,7 +12,7 @@ use system_hooks::{
     addresses_constants::POINT_EVAL_HOOK_ADDRESS_LOW, StatefulImmutableSystemHook,
     StatefulImmutableSystemHookImpl,
 };
-use zk_ee::define_subsystem;
+use zk_ee::{define_subsystem, out_of_return_memory};
 use zk_ee::interface_error;
 use zk_ee::internal_error;
 use zk_ee::memory::slice_vec::SliceVec;
@@ -193,7 +194,7 @@ impl BlobEvaluationPrecompile {
                 [self.prepared_g2_generator.clone(), g2_el],
             );
             if gt_el.0 == <crypto::bls12_381::curves::Bls12_381 as crypto::ark_ec::pairing::Pairing>::TargetField::ONE {
-                output.extend(POINT_EVAL_PRECOMPILE_SUCCESS_RESPONSE);
+                output.try_extend(POINT_EVAL_PRECOMPILE_SUCCESS_RESPONSE).map_err(|_| out_of_return_memory!())?;
                 Ok(())
             } else {
                 Err(PointEvaluationPrecompileSubsystemError::LeafUsage(
