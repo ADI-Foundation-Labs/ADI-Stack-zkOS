@@ -4,29 +4,16 @@ use zk_ee::memory::vec_trait::VecLikeCtor;
 
 mod delete_from_branch;
 mod delete_leaf;
+mod delete_subtree;
 mod insert_new_leaf_into_branch;
+mod reattach;
 mod split_existing;
 mod split_extension;
 mod split_leaf;
 mod update_leaf_value;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) enum ExistingTerminalNode {
-    Branch {
-        branch: NodeType,
-        branch_index: usize,
-    },
-    Leaf {
-        leaf: NodeType,
-    },
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum ValueInsertionStrategy {
-    WriteIntoBranchValue {
-        branch: NodeType,
-        branch_index: usize,
-    },
     MakeLeafAttachedToBranch {
         branch: NodeType,
         branch_index: usize,
@@ -53,7 +40,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
     pub(crate) fn find_terminal_node_for_update_or_delete(
         &mut self,
         mut path: Path<'_>,
-    ) -> Result<ExistingTerminalNode, ()> {
+    ) -> Result<NodeType, ()> {
         let mut current_node = self.root;
         loop {
             self.remove_from_cache(&current_node);
@@ -62,18 +49,10 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 DescendPath::EmptyBranchTaken { .. } => return Err(()),
                 DescendPath::LeafReached { final_node, .. } => {
                     debug_assert_eq!(current_node, final_node);
-                    return Ok(ExistingTerminalNode::Leaf { leaf: final_node });
+                    return Ok(final_node);
                 }
-                DescendPath::BranchReached {
-                    final_branch_node,
-                    branch_index,
-                    ..
-                } => {
-                    debug_assert_eq!(current_node, final_branch_node);
-                    return Ok(ExistingTerminalNode::Branch {
-                        branch: final_branch_node,
-                        branch_index,
-                    });
+                DescendPath::EndReachedAtEmptyBranchValue { .. } => {
+                    return Err(());
                 }
                 DescendPath::UnreferencedPathEncountered { .. } => {
                     return Err(());
@@ -152,13 +131,12 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 DescendPath::LeafReached { .. } => {
                     return Err(());
                 }
-                DescendPath::BranchReached {
+                DescendPath::EndReachedAtEmptyBranchValue {
                     final_branch_node,
                     branch_index,
-                    ..
                 } => {
                     debug_assert_eq!(current_node, final_branch_node);
-                    return Ok(ValueInsertionStrategy::WriteIntoBranchValue {
+                    return Ok(ValueInsertionStrategy::MakeLeafAttachedToBranch {
                         branch: final_branch_node,
                         branch_index,
                     });
@@ -244,52 +222,16 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         interner: &mut (impl Interner<'a> + 'a),
     ) -> Result<(), ()> {
         let final_node = self.find_terminal_node_for_update_or_delete(path)?;
-        match final_node {
-            ExistingTerminalNode::Leaf { leaf } => {
-                let _ = self.update_leaf_node(leaf, pre_encoded_value, interner)?;
+        assert!(final_node.is_leaf());
+        let _ = self.update_leaf_node(final_node, pre_encoded_value, interner)?;
 
-                Ok(())
-            }
-            ExistingTerminalNode::Branch {
-                branch,
-                branch_index,
-            } => {
-                self.remove_from_cache(&branch);
-
-                // check the branch itself node
-                let child = self.capacities.branch_nodes[branch.index()].child_nodes[branch_index];
-                if child.is_empty() {
-                    // it must be insert instead
-                    Err(())
-                } else if child.is_leaf() {
-                    // just update it
-                    let _ = self.update_leaf_node(child, pre_encoded_value, interner)?;
-
-                    Ok(())
-                } else {
-                    Err(())
-                }
-            }
-        }
+        Ok(())
     }
 
-    pub fn delete(
-        &mut self,
-        mut path: Path<'_>,
-        preimages_oracle: &mut impl PreimagesOracle,
-        interner: &mut (impl Interner<'a> + 'a),
-        hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
-    ) -> Result<(), ()> {
+    pub fn delete(&mut self, path: Path<'_>) -> Result<(), ()> {
         let final_node = self.find_terminal_node_for_update_or_delete(path)?;
-        match final_node {
-            ExistingTerminalNode::Leaf { leaf } => {
-                self.delete_leaf_node(leaf, path, preimages_oracle, interner, hasher)
-            }
-            ExistingTerminalNode::Branch { branch, .. } => {
-                path.seek_to_end();
-                self.delete_from_branch_node(branch, path, preimages_oracle, interner, hasher)
-            }
-        }
+        assert!(final_node.is_leaf());
+        self.delete_leaf_node(final_node, path)
     }
 
     pub fn insert(
@@ -363,33 +305,32 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
 
                 self.insert_lazy_value(original_path, value, preimages_oracle, interner, hasher)?
             }
-            ValueInsertionStrategy::WriteIntoBranchValue {
-                branch,
-                branch_index,
-            } => self.insert_new_leaf_into_existing_branch(
-                branch,
-                branch_index,
-                path,
-                value,
-                interner,
-            )?,
         }
         debug_assert_eq!(self.ensure_linked(), ());
 
         Ok(())
     }
 
-    #[track_caller]
     pub fn recompute(
         &mut self,
+        preimages_oracle: &mut impl PreimagesOracle,
         interner: &mut (impl Interner<'a> + 'a),
         hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
     ) -> Result<(), ()> {
         debug_assert_eq!(self.ensure_linked(), ());
+
         if self.root.is_empty() {
             return Ok(());
         }
-        let (_, new_root) = self.get_node_key(self.root, interner, hasher)?;
+        if self.keys_cache.contains_key(&self.root) {
+            return Ok(());
+        }
+
+        self.relink_if_needed(preimages_oracle, interner, hasher)?;
+
+        debug_assert_eq!(self.ensure_linked(), ());
+
+        let (_, new_root) = self.get_node_key(self.root, preimages_oracle, interner, hasher)?;
 
         self.interned_root_node_key = new_root;
 
@@ -399,15 +340,16 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
     pub(crate) fn get_node_key(
         &mut self,
         node: NodeType,
+        preimages_oracle: &mut impl PreimagesOracle,
         interner: &mut (impl Interner<'a> + 'a),
         hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
     ) -> Result<(bool, &'a [u8]), ()> {
         let (is_new, key) = if node.is_leaf() {
             self.get_leaf_key(node, interner, hasher)?
         } else if node.is_extension() {
-            self.get_extension_key(node, interner, hasher)?
+            self.get_extension_key(node, preimages_oracle, interner, hasher)?
         } else if node.is_branch() {
-            self.get_branch_key(node, interner, hasher)?
+            self.get_branch_key(node, preimages_oracle, interner, hasher)?
         } else if node.is_unreferenced_value() {
             self.get_unreferenced_value(node)?
         } else if node.is_opaque_nontrivial_root() {
@@ -446,6 +388,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
     fn get_extension_key(
         &mut self,
         extension_node: NodeType,
+        preimages_oracle: &mut impl PreimagesOracle,
         interner: &mut (impl Interner<'a> + 'a),
         hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
     ) -> Result<(bool, &'a [u8]), ()> {
@@ -461,7 +404,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 unreferenced_key
             } else {
                 let (_child_key_is_new, child_key) =
-                    self.get_node_key(child_node, interner, hasher)?;
+                    self.get_node_key(child_node, preimages_oracle, interner, hasher)?;
 
                 child_key
             };
@@ -494,6 +437,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
     fn get_branch_key(
         &mut self,
         branch_node: NodeType,
+        preimages_oracle: &mut impl PreimagesOracle,
         interner: &mut (impl Interner<'a> + 'a),
         hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
     ) -> Result<(bool, &'a [u8]), ()> {
@@ -506,7 +450,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             let mut new_keys = [EMPTY_SLICE_ENCODING; 16];
             for (idx, child_node) in child_nodes.into_iter().enumerate() {
                 if child_node.is_empty() == false {
-                    let (_, child_key) = self.get_node_key(child_node, interner, hasher)?;
+                    let (_, child_key) =
+                        self.get_node_key(child_node, preimages_oracle, interner, hasher)?;
                     new_keys[idx] = child_key;
                 }
             }

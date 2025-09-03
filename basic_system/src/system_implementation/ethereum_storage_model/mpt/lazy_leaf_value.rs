@@ -160,7 +160,7 @@ impl<'a> LeafValue<'a> {
         }
     }
 
-    pub(crate) fn rlp_encode_into(self, buffer: &mut impl ByteBuffer) {
+    pub(crate) fn rlp_encode_into(&self, buffer: &mut impl ByteBuffer) {
         match self {
             Self::Slice {
                 value_without_rlp_envelope,

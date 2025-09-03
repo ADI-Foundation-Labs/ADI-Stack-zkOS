@@ -1186,16 +1186,12 @@ impl<
     ) -> Result<(), InternalError> {
         // Actually deconstructing accounts
         self.cache.apply_to_last_record_of_pending_changes(
-            |key, (head_history_record, cache_appearance)| {
-                if head_history_record
-                    .value
-                    .metadata()
-                    .is_marked_for_deconstruction
-                {
+            |key, (_initial, current), cache_appearance| {
+                if current.value.metadata().is_marked_for_deconstruction {
                     // NOTE: it can only happen if the account is initially empty,
                     // so we need to make sure that it was observed earlier - when bytecode was deployed
                     cache_appearance.assert_observed();
-                    head_history_record.value.update(|x, metadata| {
+                    current.value.update(|x, metadata| {
                         metadata.is_marked_for_deconstruction = false;
                         *x = AccountProperties::TRIVIAL_VALUE;
                         Ok(())

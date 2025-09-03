@@ -116,6 +116,18 @@ pub trait ETHMPTInternerExt<'a>: Interner<'a> {
 
             Ok(result)
         } else {
+            // {
+            //     let mut leaf_buffer = self.get_buffer(total_len)?;
+            //     let writer = &mut leaf_buffer;
+            //     encode_list_len_into_buffer(writer, total_list_concatenated_len);
+            //     if rlp_prefix_len > 0 {
+            //         writer.write_byte(0x80 + (num_bytes_to_encode_nibbles as u8));
+            //     }
+            //     write_nibbles(writer, true, path_for_nibbles);
+            //     leaf_value.rlp_encode_into(writer);
+            //     dbg!(hex::encode(leaf_buffer.flush()));
+            // }
+
             let writer = hasher;
             encode_list_len_into_buffer(writer, total_list_concatenated_len);
             if rlp_prefix_len > 0 {
@@ -176,6 +188,18 @@ pub trait ETHMPTInternerExt<'a>: Interner<'a> {
 
             Ok(result)
         } else {
+            // {
+            //     let mut extension_buffer = self.get_buffer(total_len)?;
+            //     let writer = &mut extension_buffer;
+            //     encode_list_len_into_buffer(writer, total_list_concatenated_len);
+            //     if rlp_prefix_len > 0 {
+            //         writer.write_byte(0x80 + (num_bytes_to_encode_nibbles as u8));
+            //     }
+            //     write_nibbles(writer, false, path_for_nibbles);
+            //     writer.write_slice(pre_encoded_value);
+            //     dbg!(hex::encode(extension_buffer.flush()));
+            // }
+
             let writer = hasher;
             encode_list_len_into_buffer(writer, total_list_concatenated_len);
             if rlp_prefix_len > 0 {
@@ -224,8 +248,8 @@ pub trait ETHMPTInternerExt<'a>: Interner<'a> {
             Ok(result)
         } else {
             // {
-            //     let mut t = self.get_buffer(33 * 17 + 32)?;
-            //     let writer = &mut t;
+            //     let mut branch_buffer = self.get_buffer(33 * 17 + 32)?;
+            //     let writer = &mut branch_buffer;
             //     encode_list_len_into_buffer(writer, total_list_concatenated_len);
             //     // branches
             //     for child_key in child_keys.iter() {
@@ -233,7 +257,7 @@ pub trait ETHMPTInternerExt<'a>: Interner<'a> {
             //     }
             //     // empty value
             //     writer.write_byte(0x80);
-            //     dbg!(hex::encode(t.flush()));
+            //     dbg!(hex::encode(branch_buffer.flush()));
             // }
 
             let writer = hasher;

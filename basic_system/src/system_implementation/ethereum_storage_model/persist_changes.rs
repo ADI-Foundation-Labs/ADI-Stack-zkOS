@@ -151,23 +151,19 @@ impl<'a, A: Allocator + Clone + 'a, VC: VecLikeCtor, IC: InternerCtor<A>>
 
     pub fn recompute(
         &mut self,
+        preimages_oracle: &mut impl PreimagesOracle,
         hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
     ) -> Result<(), ()> {
-        self.mpt.recompute(&mut self.interner, hasher)
+        self.mpt
+            .recompute(preimages_oracle, &mut self.interner, hasher)
     }
 
     pub fn update(&mut self, path: Path<'_>, pre_encoded_value: &[u8]) -> Result<(), ()> {
         self.mpt.update(path, pre_encoded_value, &mut self.interner)
     }
 
-    pub fn delete(
-        &mut self,
-        path: Path<'_>,
-        preimages_oracle: &mut impl PreimagesOracle,
-        hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
-    ) -> Result<(), ()> {
-        self.mpt
-            .delete(path, preimages_oracle, &mut self.interner, hasher)
+    pub fn delete(&mut self, path: Path<'_>) -> Result<(), ()> {
+        self.mpt.delete(path)
     }
 
     pub fn insert(
@@ -512,21 +508,14 @@ impl EthereumStoragePersister {
                             } else if v.current_value.is_zero() {
                                 // delete
 
-                                if format!("{:?}", addr.key) == "0x0f31c2617f19693e2cfc99de8861f2a2ec1596f5803f654aa73c2ea3420885f7" {
-                                    println!("DEBUG");
-                                    continue;
-                                }
-
                                 let _ = logger.write_fmt(format_args!(
                                     "Will delete value {:?} at slot {:?}\n",
                                     &v.initial_value, &addr.key
                                 ));
 
-                                reusable_mpt
-                                    .delete(path, &mut preimage_oracle, &mut hasher)
-                                    .map_err(|_| {
-                                        internal_error!("failed to get delete value from MPT")
-                                    })?;
+                                reusable_mpt.delete(path).map_err(|_| {
+                                    internal_error!("failed to get delete value from MPT")
+                                })?;
                             } else {
                                 // update
 
@@ -577,7 +566,7 @@ impl EthereumStoragePersister {
 
                     // NOTE: this is fast NOP if no mutations happened
                     reusable_mpt
-                        .recompute(&mut hasher)
+                        .recompute(&mut preimage_oracle, &mut hasher)
                         .map_err(|_| internal_error!("failed to compute new root for MPT"))?;
 
                     let mut e = account_cache
@@ -758,17 +747,12 @@ impl EthereumStoragePersister {
                     // let _ = logger
                     //     .write_fmt(format_args!("\n",));
 
-                    let initial_value = initial.value();
-                    let current_value = current.value();
-
                     if initial_appearance == AccountInitialAppearance::Unset {
-                        let is_modified_modulo_bytecode_hash = initial_value.nonce
-                            == current_value.nonce
-                            && initial_value.balance == current_value.balance
-                            && initial_value.storage_root == current_value.storage_root;
+                        let current = current.value();
 
-                        let bytecode_hash_is_zero = current_value.bytecode_hash.is_zero();
-                        if is_modified_modulo_bytecode_hash && bytecode_hash_is_zero {
+                        if current == &EthereumAccountProperties::EMPTY_ACCOUNT
+                            || current == &EthereumAccountProperties::EMPTY_BUT_EXISTING_ACCOUNT
+                        {
                             // empty -> observed -> empty
 
                             // let _ = logger.write_fmt(format_args!(
@@ -781,8 +765,8 @@ impl EthereumStoragePersister {
                                 addr.0.as_uint()
                             ));
 
-                            let mut current_value = *current_value;
-                            if bytecode_hash_is_zero {
+                            let mut current_value = *current;
+                            if current_value.bytecode_hash.is_zero() {
                                 // if account was created, but bytecode was never touched, then we should
                                 // put proper value instead of 0
                                 current_value.bytecode_hash = EMPTY_STRING_KECCAK_HASH;
@@ -793,14 +777,14 @@ impl EthereumStoragePersister {
                             let pre_encoded_value = current_value
                                 .rlp_encode_for_leaf(&mut account_data_encoding_buffer);
 
-                            // let _ = logger
-                            //     .write_fmt(format_args!("Leaf updated value for address 0x{:040x} is 0x", addr.0.as_uint()));
+                            // let _ = logger.write_fmt(format_args!(
+                            //     "Leaf updated value for address 0x{:040x} is 0x",
+                            //     addr.0.as_uint()
+                            // ));
 
-                            // let _ = logger
-                            //     .log_data(pre_encoded_value.iter().copied());
+                            // let _ = logger.log_data(pre_encoded_value.iter().copied());
 
-                            // let _ = logger
-                            //     .write_fmt(format_args!("\n",));
+                            // let _ = logger.write_fmt(format_args!("\n",));
 
                             result_keeper.account_state_opaque_encoding(&addr.0, pre_encoded_value);
 
@@ -811,7 +795,7 @@ impl EthereumStoragePersister {
                                 })?;
                         }
                     } else {
-                        // it's an update potentially, and initial is not empty
+                        // it's an update potentially, and initial is not empty leaf
 
                         let initial = initial.value();
                         let current = current.value();
@@ -824,27 +808,45 @@ impl EthereumStoragePersister {
                                 addr.0.as_uint()
                             ));
 
-                            // we checked initial, and rolled-over any possible updates on it,
-                            // so this step is safe to skip if it's unchanged
+                            if current == &EthereumAccountProperties::EMPTY_ACCOUNT
+                                || current == &EthereumAccountProperties::EMPTY_BUT_EXISTING_ACCOUNT
+                            {
+                                // we should delete it
 
-                            // encode - we need slice, that is over list internally
-                            let pre_encoded_value =
-                                current.rlp_encode_for_leaf(&mut account_data_encoding_buffer);
+                                let _ = logger.write_fmt(format_args!(
+                                    "Will delete leaf for address 0x{:040x}",
+                                    addr.0.as_uint()
+                                ));
 
-                            // let _ = logger
-                            //     .write_fmt(format_args!("Leaf updated value for address 0x{:040x} is 0x", addr.0.as_uint()));
+                                accounts_mpt.delete(path).map_err(|_| {
+                                    internal_error!("failed to update account value in MPT")
+                                })?;
+                            } else {
+                                // just update
 
-                            // let _ = logger
-                            //     .log_data(pre_encoded_value.iter().copied());
+                                // we checked initial, and rolled-over any possible updates on it,
+                                // so this step is safe to skip if it's unchanged
 
-                            // let _ = logger
-                            //     .write_fmt(format_args!("\n",));
+                                // encode - we need slice, that is over list internally
+                                let pre_encoded_value =
+                                    current.rlp_encode_for_leaf(&mut account_data_encoding_buffer);
 
-                            result_keeper.account_state_opaque_encoding(&addr.0, pre_encoded_value);
+                                // let _ = logger.write_fmt(format_args!(
+                                //     "Leaf updated value for address 0x{:040x} is 0x",
+                                //     addr.0.as_uint()
+                                // ));
 
-                            accounts_mpt.update(path, pre_encoded_value).map_err(|_| {
-                                internal_error!("failed to update account value in MPT")
-                            })?;
+                                // let _ = logger.log_data(pre_encoded_value.iter().copied());
+
+                                // let _ = logger.write_fmt(format_args!("\n",));
+
+                                result_keeper
+                                    .account_state_opaque_encoding(&addr.0, pre_encoded_value);
+
+                                accounts_mpt.update(path, pre_encoded_value).map_err(|_| {
+                                    internal_error!("failed to update account value in MPT")
+                                })?;
+                            }
                         } else {
                             // let _ = logger
                             //     .write_fmt(format_args!("No net modification at address 0x{:040x}\n", addr.0.as_uint()));
@@ -860,7 +862,7 @@ impl EthereumStoragePersister {
         let _ = logger.write_fmt(format_args!("Will recompute state root\n",));
 
         accounts_mpt
-            .recompute(&mut hasher)
+            .recompute(&mut preimage_oracle, &mut hasher)
             .map_err(|_| internal_error!("failed to compute new state root for MPT"))?;
 
         let _ = logger.write_fmt(format_args!("State MTP was updated\n",));

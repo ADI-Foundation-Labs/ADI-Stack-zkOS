@@ -354,7 +354,7 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
 
         *external_call_dest = Some(ExternalCall::Create(deployment_parameters));
 
-        Err(ExitCode::ExternalCall)
+        Err(ExitCode::ConstructionCall)
     }
 
     pub fn call(&mut self, external_call_dest: &mut Option<ExternalCall<S>>) -> InstructionResult {

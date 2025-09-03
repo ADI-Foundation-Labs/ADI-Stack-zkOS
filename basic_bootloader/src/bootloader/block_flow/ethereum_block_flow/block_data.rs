@@ -213,12 +213,12 @@ impl<A: Allocator + Clone, B: Allocator> EthereumBasicTransactionDataKeeper<A, B
                 .expect("must insert receipts encoder");
         }
         receipts_mpt
-            .recompute(&mut interner, &mut hasher)
+            .recompute(&mut (), &mut interner, &mut hasher)
             .expect("must compute receipts root");
         let receipts_root = Bytes32::from_array(receipts_mpt.root(&mut hasher));
 
         transactions_mpt
-            .recompute(&mut interner, &mut hasher)
+            .recompute(&mut (), &mut interner, &mut hasher)
             .expect("must compute transactions root");
         let transactions_root = Bytes32::from_array(transactions_mpt.root(&mut hasher));
 

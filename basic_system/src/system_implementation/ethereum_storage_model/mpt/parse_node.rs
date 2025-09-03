@@ -80,7 +80,7 @@ impl<'a> RLPSlice<'a> {
 pub(crate) enum ParsedNode<'a> {
     Leaf(LeafNode<'a>),
     Extension(ExtensionNode<'a>),
-    Branch(BranchNode<'a>),
+    BranchHint { num_occupied: usize },
 }
 
 fn parse_node_piece<'a>(data: &mut &'a [u8]) -> Result<&'a [u8], ()> {
@@ -244,19 +244,17 @@ pub(crate) fn parse_node_from_bytes<'a>(
         // it is a branch, and we must parse it in full, but only take a single path that we are interested in. We do not need to
         // verify well-formedness of branches too much, just to the extend that they are short enough
 
-        let child_nodes = [NodeType::unlinked(); 16];
         for branch_value in pieces[..16].iter() {
             if branch_value.len() > 33 {
                 return Err(());
             }
         }
-        let branch_node = BranchNode {
-            parent_node: NodeType::unlinked(),
-            child_nodes,
-            _marker: core::marker::PhantomData,
+
+        let parsed = ParsedNode::BranchHint {
+            num_occupied: num_non_empty_branches,
         };
 
-        Ok((ParsedNode::Branch(branch_node), pieces))
+        Ok((parsed, pieces))
     } else {
         return Err(());
     }

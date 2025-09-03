@@ -20,8 +20,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         let node = self.push_leaf(leaf_node);
 
         let parent_branch = &mut self.capacities.branch_nodes[branch_node.index()];
-        debug_assert!(parent_branch.child_nodes[branch_index].is_empty());
-        parent_branch.child_nodes[branch_index] = node;
+        parent_branch.attach(node, branch_index)?;
 
         Ok(())
     }

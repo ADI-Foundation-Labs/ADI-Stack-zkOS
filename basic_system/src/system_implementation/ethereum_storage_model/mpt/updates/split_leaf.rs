@@ -48,6 +48,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         let new_branch = BranchNode {
             parent_node: grand_parent,
             child_nodes: [NodeType::empty(); 16],
+            num_occupied: 0,
             _marker: core::marker::PhantomData,
         };
         let new_branch_node = self.push_branch(new_branch);
@@ -77,7 +78,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
 
         // and update the branch that we created earlier
         let new_branch_to_update = &mut self.capacities.branch_nodes[new_branch_node.index()];
-        new_branch_to_update.child_nodes[branch_index_for_existing_leaf] = leaf_to_split;
+        new_branch_to_update.attach(leaf_to_split, branch_index_for_existing_leaf)?;
 
         Ok(())
     }
@@ -96,6 +97,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         let new_branch = BranchNode {
             parent_node: NodeType::empty(),
             child_nodes: [NodeType::empty(); 16],
+            num_occupied: 0,
             _marker: core::marker::PhantomData,
         };
         let new_branch_node = self.push_branch(new_branch);
@@ -142,7 +144,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         // and update the branch that we created earlier
         let new_branch_to_update = &mut self.capacities.branch_nodes[new_branch_node.index()];
         new_branch_to_update.parent_node = new_prefix_extension;
-        new_branch_to_update.child_nodes[branch_index_for_existing_leaf] = leaf_to_split;
+        new_branch_to_update.attach(leaf_to_split, branch_index_for_existing_leaf)?;
 
         Ok(())
     }

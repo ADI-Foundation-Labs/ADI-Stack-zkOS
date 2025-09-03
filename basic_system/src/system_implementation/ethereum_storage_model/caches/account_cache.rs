@@ -12,6 +12,7 @@ use crate::system_implementation::ethereum_storage_model::caches::full_storage_c
 use crate::system_implementation::ethereum_storage_model::caches::preimage::BytecodeKeccakPreimagesStorage;
 use crate::system_implementation::ethereum_storage_model::caches::preimage::PreimageRequestForUnknownLength;
 use crate::system_implementation::ethereum_storage_model::caches::EMPTY_STRING_KECCAK_HASH;
+use crate::system_implementation::ethereum_storage_model::EMPTY_ROOT_HASH;
 use core::alloc::Allocator;
 use core::marker::PhantomData;
 use evm_interpreter::errors::EvmSubsystemError;
@@ -808,18 +809,38 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
     ) -> Result<(), InternalError> {
         // Actually deconstructing accounts
         self.cache.apply_to_last_record_of_pending_changes(
-            |key, (head_history_record, cache_appearance)| {
-                if head_history_record
-                    .value
-                    .metadata()
-                    .is_marked_for_deconstruction
-                {
-                    // NOTE: it can only happen if the account is initially empty,
-                    // so we need to make sure that it was observed earlier - when bytecode was deployed
+            |key, (initial, current), cache_appearance| {
+                if current.value.metadata().is_marked_for_deconstruction {
+                    // NOTE: initially account had 0 nonce, but it could be "material",
+                    // with state root being empty, and bytecode hash being hash of empty string.
+
+                    // NOTE: Balance will be zeroed out if deconstruction happens here
+                    let initially_empty =
+                        cache_appearance.initial_appearance() == AccountInitialAppearance::Unset;
                     cache_appearance.assert_observed();
-                    head_history_record.value.update(|x, metadata| {
+                    current.value.update(|x, metadata| {
                         metadata.is_marked_for_deconstruction = false;
-                        *x = EthereumAccountProperties::EMPTY_ACCOUNT;
+                        if initially_empty {
+                            debug_assert_eq!(
+                                initial.value.value(),
+                                &EthereumAccountProperties::EMPTY_ACCOUNT
+                            );
+                            x.balance = U256::ZERO;
+                            x.bytecode_hash = Bytes32::ZERO;
+                            x.nonce = 0u64;
+                        } else {
+                            //
+                            debug_assert_eq!(initial.value.value().nonce, 0);
+                            debug_assert_eq!(
+                                initial.value.value().bytecode_hash,
+                                EMPTY_STRING_KECCAK_HASH
+                            );
+                            debug_assert_eq!(initial.value.value().storage_root, EMPTY_ROOT_HASH);
+                            x.balance = U256::ZERO;
+                            x.bytecode_hash = EMPTY_STRING_KECCAK_HASH;
+                            x.nonce = 0u64;
+                        }
+
                         Ok(())
                     })?;
                     storage

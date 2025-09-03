@@ -115,7 +115,7 @@ where
         }
     }
 
-    mpt.recompute(&mut interner, &mut hasher)
+    mpt.recompute(&mut (), &mut interner, &mut hasher)
         .expect("must rebuild MPT");
     let root = Bytes32::from_array(mpt.root(&mut hasher));
 

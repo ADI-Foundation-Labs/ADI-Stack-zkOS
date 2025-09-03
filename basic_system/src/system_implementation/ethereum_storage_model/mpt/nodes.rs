@@ -264,6 +264,7 @@ pub(crate) struct UnreferencedValue<'a> {
 pub(crate) struct BranchNode<'a> {
     pub(crate) parent_node: NodeType,
     pub(crate) child_nodes: [NodeType; 16],
+    pub(crate) num_occupied: usize,
     pub(crate) _marker: core::marker::PhantomData<&'a ()>,
 }
 
@@ -272,20 +273,50 @@ impl<'a> core::fmt::Debug for BranchNode<'a> {
         f.debug_struct("BranchNode")
             .field("parent_node", &self.parent_node)
             .field("child_nodes", &self.child_nodes)
+            .field("num_occupied", &self.num_occupied)
             .finish()
     }
 }
 
 impl<'a> BranchNode<'a> {
     pub(crate) fn num_occupied(&self) -> usize {
-        let mut occupied = 0;
-        for el in self.child_nodes.iter() {
-            if el.is_empty() == false {
-                occupied += 1;
+        self.num_occupied
+    }
+
+    pub(crate) fn attach(&mut self, child: NodeType, branch_index: usize) -> Result<(), ()> {
+        if self.child_nodes[branch_index].is_empty() {
+            self.child_nodes[branch_index] = child;
+            self.num_occupied += 1;
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    pub(crate) fn delete(&mut self, branch_index: usize) -> Result<(), ()> {
+        if self.child_nodes[branch_index].is_empty() == false {
+            self.child_nodes[branch_index] = NodeType::empty();
+            self.num_occupied -= 1;
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    pub(crate) fn replace_child(&mut self, existing: NodeType, new: NodeType) -> Result<(), ()> {
+        if existing.is_empty() {
+            // should use linkage instead
+            return Err(());
+        }
+
+        for child in self.child_nodes.iter_mut() {
+            if *child == existing {
+                *child = new;
+                return Ok(());
             }
         }
 
-        occupied
+        Err(())
     }
 }
 

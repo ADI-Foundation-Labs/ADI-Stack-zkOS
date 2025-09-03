@@ -647,6 +647,16 @@ impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
             });
         }
 
+        let _ = self.system.get_logger().write_fmt(format_args!(
+            "Construction call from 0x{:040x}\n",
+            launch_params.external_call.caller.as_uint(),
+        ));
+
+        let _ = self.system.get_logger().write_fmt(format_args!(
+            "Construction call to deploy 0x{:040x}\n",
+            launch_params.external_call.callee.as_uint(),
+        ));
+
         let constructor_rollback_handle = self
             .system
             .start_global_frame()

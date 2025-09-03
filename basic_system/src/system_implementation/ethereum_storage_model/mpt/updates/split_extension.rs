@@ -72,6 +72,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         let new_branch = BranchNode {
             parent_node: grand_parent,
             child_nodes: [NodeType::empty(); 16],
+            num_occupied: 0,
             _marker: core::marker::PhantomData,
         };
         let new_branch_node = self.push_branch(new_branch);
@@ -104,7 +105,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         if child.is_branch() {
             // update parent of it
             let new_branch_to_update = &mut self.capacities.branch_nodes[new_branch_node.index()];
-            new_branch_to_update.child_nodes[branch_index] = child;
+            new_branch_to_update.attach(child, branch_index)?;
             self.capacities.branch_nodes[child.index()].parent_node = new_branch_node;
         } else if child.is_unlinked() {
             // should transform into unreferenced branch value as we have no idea what is in "key" there
@@ -118,7 +119,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             let new_unreferenced_value_node = self.push_unreferenced_value(new_unreferenced_value);
 
             let new_branch_to_update = &mut self.capacities.branch_nodes[new_branch_node.index()];
-            new_branch_to_update.child_nodes[branch_index] = new_unreferenced_value_node;
+            new_branch_to_update.attach(new_unreferenced_value_node, branch_index)?;
 
             // put it into cache - it's single exceptional case
             self.keys_cache.insert(
@@ -143,6 +144,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         let new_branch = BranchNode {
             parent_node: extension_to_split,
             child_nodes: [NodeType::empty(); 16],
+            num_occupied: 0,
             _marker: core::marker::PhantomData,
         };
         let new_branch_node = self.push_branch(new_branch);
@@ -181,7 +183,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         if child_to_move.is_branch() {
             // update parent of it
             let new_branch_to_update = &mut self.capacities.branch_nodes[new_branch_node.index()];
-            new_branch_to_update.child_nodes[child_branch_index] = child_to_move;
+            new_branch_to_update.attach(child_to_move, child_branch_index)?;
             self.capacities.branch_nodes[child_to_move.index()].parent_node = new_branch_node;
         } else if child_to_move.is_unlinked() {
             // should transform into unreferenced branch value as we have no idea what is in "key" there
@@ -195,7 +197,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             let new_unreferenced_value_node = self.push_unreferenced_value(new_unreferenced_value);
 
             let new_branch_to_update = &mut self.capacities.branch_nodes[new_branch_node.index()];
-            new_branch_to_update.child_nodes[child_branch_index] = new_unreferenced_value_node;
+            new_branch_to_update.attach(new_unreferenced_value_node, child_branch_index)?;
 
             // put it into cache - it's single exceptional case
             self.keys_cache
@@ -222,6 +224,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         let new_branch = BranchNode {
             parent_node: grand_parent,
             child_nodes: [NodeType::empty(); 16],
+            num_occupied: 0,
             _marker: core::marker::PhantomData,
         };
         let new_branch_node = self.push_branch(new_branch);
@@ -252,7 +255,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
 
         // and update the branch that we created earlier
         let new_branch_to_update = &mut self.capacities.branch_nodes[new_branch_node.index()];
-        new_branch_to_update.child_nodes[branch_index_for_existing_extension] = extension_to_split;
+        new_branch_to_update.attach(extension_to_split, branch_index_for_existing_extension)?;
 
         Ok(())
     }
@@ -274,6 +277,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         let new_branch = BranchNode {
             parent_node: NodeType::empty(),
             child_nodes: [NodeType::empty(); 16],
+            num_occupied: 0,
             _marker: core::marker::PhantomData,
         };
         let new_branch_node = self.push_branch(new_branch);
@@ -321,7 +325,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         // and update the branch that we created earlier
         let new_branch_to_update = &mut self.capacities.branch_nodes[new_branch_node.index()];
         new_branch_to_update.parent_node = new_prefix_extension;
-        new_branch_to_update.child_nodes[branch_index_for_existing_extension] = extension_to_split;
+        new_branch_to_update.attach(extension_to_split, branch_index_for_existing_extension)?;
 
         Ok(())
     }

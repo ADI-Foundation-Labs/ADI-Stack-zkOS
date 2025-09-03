@@ -5,9 +5,6 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         &mut self,
         node: NodeType,
         mut path: Path<'_>,
-        preimages_oracle: &mut impl PreimagesOracle,
-        interner: &mut (impl Interner<'a> + 'a),
-        hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
     ) -> Result<(), ()> {
         // path is no longer known
         self.remove_from_cache(&node);
@@ -29,7 +26,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             let parent_node = existing_leaf.parent_node;
             debug_assert!(parent_node.is_empty() == false);
             if parent_node.is_branch() {
-                self.delete_from_branch_node(parent_node, path, preimages_oracle, interner, hasher)
+                let branch_index = path.ascend_branch()?;
+                self.delete_from_branch_node(parent_node, branch_index)
             } else {
                 Err(())
             }
