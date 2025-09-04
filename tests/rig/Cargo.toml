@@ -11,7 +11,6 @@ categories.workspace = true
 
 [dependencies]
 basic_bootloader = { path = "../../basic_bootloader" }
-risc_v_simulator = { workspace = true , features = ["delegation"] }
 basic_system = { path = "../../basic_system" }
 evm_interpreter = { path = "../../evm_interpreter" }
 forward_system = { path = "../../forward_system" }
@@ -24,7 +23,10 @@ crypto = { path = "../../crypto" }
 cycle_marker = { path = "../../cycle_marker", optional = true }
 zksync_os_api = { path = "../../api" }
 
-prover_examples = { workspace = true, optional = true}
+risc_v_simulator = { git = "https://github.com/matter-labs/zksync-airbender", branch = "av_move_constants", features = ["delegation"] }
+prover_examples = { git = "https://github.com/matter-labs/zksync-airbender", branch = "av_move_constants", optional = true }
+trace_and_split = { git = "https://github.com/matter-labs/zksync-airbender", branch = "av_move_constants", optional = true }
+execution_utils = { git = "https://github.com/matter-labs/zksync-airbender", branch = "av_move_constants", optional = true }
 
 alloy = { version = "1", features = ["rlp", "full"] }
 alloy-primitives = { version = "1", features = ["arbitrary"] }
