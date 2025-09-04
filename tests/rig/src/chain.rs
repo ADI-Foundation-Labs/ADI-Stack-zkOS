@@ -151,7 +151,16 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         let items = copy_source.get_read_items();
         // By default - enable diagnostics is false (which makes the test run faster).
         let path = get_zksync_os_img_path(app);
-        let output = zksync_os_runner::run(path, None, 1 << 36, copy_source);
+
+        // let profiler_config = ProfilerConfig::new("flamegraph.svg".into());
+        // let diagnostics_config = Some(profiler_config).map(|cfg| {
+        //     let mut diagnostics_cfg = DiagnosticsConfig::new(get_zksync_os_sym_path(&app));
+        //     diagnostics_cfg.profiler_config = Some(cfg);
+        //     diagnostics_cfg
+        // });
+
+        let diagnostics_config = None;
+        let output = zksync_os_runner::run(path, diagnostics_config, 1 << 36, copy_source);
 
         // We return 0s in case of failure.
         assert_ne!(output, [0u32; 8]);
@@ -574,23 +583,23 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             .expect("must succeed");
         }
 
-        // if let Some(path) = witness_output_file {
-        //     let mut oracle = ZkEENonDeterminismSource::default();
-        //     oracle.add_external_processor(target_header_reponsder);
-        //     oracle.add_external_processor(tx_data_responder);
-        //     oracle.add_external_processor(preimage_responder);
-        //     oracle.add_external_processor(initial_account_state_responder);
-        //     oracle.add_external_processor(initial_values_responder);
-        //     oracle.add_external_processor(cl_responder);
-        //     oracle.add_external_processor(UARTPrintReponsder);
-        //     oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
-        //     let result = Self::run_batch_generate_witness(oracle, &app);
-        //     let mut file = File::create(&path).expect("should create file");
-        //     let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
-        //     let hex = hex::encode(witness);
-        //     file.write_all(hex.as_bytes())
-        //         .expect("should write to file");
-        // }
+        if let Some(path) = witness_output_file {
+            let mut oracle = ZkEENonDeterminismSource::default();
+            oracle.add_external_processor(target_header_reponsder);
+            oracle.add_external_processor(tx_data_responder);
+            oracle.add_external_processor(preimage_responder);
+            oracle.add_external_processor(initial_account_state_responder);
+            oracle.add_external_processor(initial_values_responder);
+            oracle.add_external_processor(cl_responder);
+            oracle.add_external_processor(UARTPrintReponsder);
+            oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
+            let result = Self::run_batch_generate_witness(oracle, &app);
+            let mut file = File::create(&path).expect("should create file");
+            let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
+            let hex = hex::encode(witness);
+            file.write_all(hex.as_bytes())
+                .expect("should write to file");
+        }
 
         result_keeper
     }

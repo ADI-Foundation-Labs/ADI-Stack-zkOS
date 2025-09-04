@@ -11,3 +11,6 @@ pub mod delegated;
 
 #[cfg(target_arch = "riscv32")]
 pub use self::delegated::Keccak256;
+
+#[cfg(test)]
+mod test;

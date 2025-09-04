@@ -1,12 +1,13 @@
 #![feature(allocator_api)]
 
+#[cfg(feature = "prover")]
 use prover_examples::prover::VectorMemoryImplWithRom;
+
 use risc_v_simulator::{
     abstractions::{memory::VectorMemoryImpl, non_determinism::NonDeterminismCSRSource},
-    cycle::IMStandardIsaConfig,
     sim::{DiagnosticsConfig, ProfilerConfig, SimulatorConfig},
 };
-use std::{alloc::Global, io::Read, path::PathBuf, str::FromStr};
+use std::{io::Read, path::PathBuf, str::FromStr};
 
 /// Runs the zksync_os binary on a simulator with a given non_determinism source for that many cycles.
 /// If you enable diagnostics, it will print the flamegraph - but the run will be a lot slower.
@@ -123,11 +124,14 @@ pub fn run_and_get_effective_cycles(
     )
 }
 
+#[cfg(feature = "prover")]
 pub fn simulate_witness_tracing(
     img_path: PathBuf,
     non_determinism_source: impl NonDeterminismCSRSource<VectorMemoryImplWithRom>,
 ) {
     println!("ZK RISC-V simulator is starting");
+    use risc_v_simulator::cycle::IMStandardIsaConfig;
+    use std::alloc::Global;
 
     // Check that the bin file is present and readable.
     let mut file = std::fs::File::open(img_path.clone())
