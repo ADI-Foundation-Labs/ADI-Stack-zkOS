@@ -4,7 +4,7 @@ use std::{path::PathBuf, str::FromStr};
 
 use forward_system::run::{
     test_impl::{InMemoryPreimageSource, InMemoryTree, TxListSource},
-    BlockContext, EthereumIOTypesConfig, ForwardRunningOracle, StorageCommitment,
+    EthereumIOTypesConfig, ForwardRunningOracle, StorageCommitment,
 };
 use oracle_provider::{BasicZkEEOracleWrapper, ReadWitnessSource, ZkEENonDeterminismSource};
 pub mod helpers;
@@ -12,6 +12,7 @@ pub mod helpers;
 /// Runs the batch, and returns the output (that contains gas usage, transaction status etc.).
 pub use forward_system::run::run_block;
 use zk_ee::common_structs::ProofData;
+use zksync_os_interface::common_types::BlockContext;
 
 /// Runs a block in riscV - using zksync_os binary - and returns the
 /// witness that can be passed to the prover subsystem.

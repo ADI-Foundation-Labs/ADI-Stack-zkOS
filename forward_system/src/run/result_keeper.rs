@@ -1,5 +1,4 @@
 use crate::run::TxResultCallback;
-use basic_bootloader::bootloader::block_header::BlockHeader;
 use basic_bootloader::bootloader::result_keeper::{ResultKeeperExt, TxProcessingOutput};
 use ruint::aliases::B160;
 use std::alloc::Global;
@@ -11,18 +10,18 @@ use zk_ee::kv_markers::MAX_EVENT_TOPICS;
 use zk_ee::system::IOResultKeeper;
 use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::utils::{Bytes32, UsizeAlignedByteBox};
-
-#[derive(Debug, Clone)]
-pub struct TxProcessingOutputOwned {
-    pub status: bool,
-    pub output: Vec<u8>,
-    pub contract_address: Option<B160>,
-    pub gas_used: u64,
-    pub gas_refunded: u64,
-    pub computational_native_used: u64,
-    pub native_used: u64,
-    pub pubdata_used: u64,
-}
+use zksync_os_interface::common_types::{BlockHeader, TxProcessingOutputOwned};
+// #[derive(Debug, Clone)]
+// pub struct TxProcessingOutputOwned {
+//     pub status: bool,
+//     pub output: Vec<u8>,
+//     pub contract_address: Option<B160>,
+//     pub gas_used: u64,
+//     pub gas_refunded: u64,
+//     pub computational_native_used: u64,
+//     pub native_used: u64,
+//     pub pubdata_used: u64,
+// }
 
 pub struct ForwardRunningResultKeeper<TR: TxResultCallback> {
     pub block_header: Option<BlockHeader>,

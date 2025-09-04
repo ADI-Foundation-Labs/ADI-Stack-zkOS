@@ -20,6 +20,7 @@ use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
+use zksync_os_interface::common_types::L2ToL1LogWithPreimage;
 
 pub const L2_TO_L1_LOG_SERIALIZE_SIZE: usize = 88;
 // Taken from the size of the Merkle tree.
@@ -583,5 +584,51 @@ impl<A: Allocator> From<&LogContent<A>> for L2ToL1Log {
             key,
             value,
         }
+    }
+}
+
+impl<A: Allocator> From<&LogContent<A>> for zksync_os_interface::common_types::L2ToL1Log {
+    fn from(m: &LogContent<A>) -> Self {
+        let (sender, key, value) = match m.data {
+            GenericLogContentData::UserMsg(UserMsgData {
+                                               address, data_hash, ..
+                                           }) => (
+                // TODO: move into const
+                B160::from_limbs([0x8008, 0, 0]),
+                address.into(),
+                data_hash,
+            ),
+            GenericLogContentData::L1TxLog(L1TxLog {
+                                               tx_hash, success, ..
+                                           }) => {
+                let data = if success { U256::from(1) } else { U256::ZERO };
+                (
+                    // TODO: move into const
+                    B160::from_limbs([0x8001, 0, 0]),
+                    tx_hash,
+                    Bytes32::from_u256_be(&data),
+                )
+            }
+        };
+        Self {
+            l2_shard_id: 0,
+            is_service: true,
+            tx_number_in_block: m.tx_number as u16,
+            sender,
+            key: zksync_os_interface::bytes32::Bytes32::from_array(key.as_u8_array()),
+            value: zksync_os_interface::bytes32::Bytes32::from_array(value.as_u8_array()),
+        }
+    }
+}
+impl From<&GenericLogContent<EthereumIOTypesConfig>> for L2ToL1LogWithPreimage {
+    fn from(value: &GenericLogContent<EthereumIOTypesConfig>) -> Self {
+        let preimage = match &value.data {
+            GenericLogContentData::UserMsg(UserMsgData { data, .. }) => {
+                Some(data.as_slice().to_vec())
+            }
+            GenericLogContentData::L1TxLog(_) => None,
+        };
+        let log = value.into();
+        Self { log, preimage }
     }
 }

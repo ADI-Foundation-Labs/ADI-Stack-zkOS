@@ -61,6 +61,17 @@ impl UsizeSerializable for BlockHashes {
     }
 }
 
+impl UsizeSerializable for zksync_os_interface::common_types::BlockHashes {
+    const USIZE_LEN: usize = <U256 as UsizeSerializable>::USIZE_LEN * 256;
+
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        super::kv_markers::ExactSizeChainN::<_, _, 256>::new(
+            core::iter::empty::<usize>(),
+            core::array::from_fn(|i| Some(self.0[i].iter())),
+        )
+    }
+}
+
 impl UsizeDeserializable for BlockHashes {
     const USIZE_LEN: usize = <U256 as UsizeDeserializable>::USIZE_LEN * 256;
 
@@ -115,6 +126,46 @@ impl BlockMetadataFromOracle {
 }
 
 impl UsizeSerializable for BlockMetadataFromOracle {
+    const USIZE_LEN: usize = <U256 as UsizeSerializable>::USIZE_LEN * (4 + 256)
+        + <u64 as UsizeSerializable>::USIZE_LEN * 5
+        + <B160 as UsizeDeserializable>::USIZE_LEN;
+
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        ExactSizeChain::new(
+            ExactSizeChain::new(
+                ExactSizeChain::new(
+                    ExactSizeChain::new(
+                        ExactSizeChain::new(
+                            ExactSizeChain::new(
+                                ExactSizeChain::new(
+                                    ExactSizeChain::new(
+                                        ExactSizeChain::new(
+                                            ExactSizeChain::new(
+                                                UsizeSerializable::iter(&self.eip1559_basefee),
+                                                UsizeSerializable::iter(&self.gas_per_pubdata),
+                                            ),
+                                            UsizeSerializable::iter(&self.native_price),
+                                        ),
+                                        UsizeSerializable::iter(&self.block_number),
+                                    ),
+                                    UsizeSerializable::iter(&self.timestamp),
+                                ),
+                                UsizeSerializable::iter(&self.chain_id),
+                            ),
+                            UsizeSerializable::iter(&self.gas_limit),
+                        ),
+                        UsizeSerializable::iter(&self.pubdata_limit),
+                    ),
+                    UsizeSerializable::iter(&self.coinbase),
+                ),
+                UsizeSerializable::iter(&self.block_hashes),
+            ),
+            UsizeSerializable::iter(&self.mix_hash),
+        )
+    }
+}
+
+impl UsizeSerializable for zksync_os_interface::common_types::BlockContext {
     const USIZE_LEN: usize = <U256 as UsizeSerializable>::USIZE_LEN * (4 + 256)
         + <u64 as UsizeSerializable>::USIZE_LEN * 5
         + <B160 as UsizeDeserializable>::USIZE_LEN;

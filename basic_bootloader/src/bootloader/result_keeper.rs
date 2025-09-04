@@ -1,5 +1,3 @@
-use crate::bootloader::block_header::BlockHeader;
-///
 /// This module contains definition of the result keeper trait.
 ///
 /// Result keeper structure that will be called during execution to save the block execution result.
@@ -11,6 +9,7 @@ use crate::bootloader::errors::InvalidTransaction;
 use ruint::aliases::B160;
 use zk_ee::system::{IOResultKeeper, NopResultKeeper};
 use zk_ee::types_config::EthereumIOTypesConfig;
+use zksync_os_interface::common_types::BlockHeader;
 
 pub struct TxProcessingOutput<'a> {
     pub status: bool,

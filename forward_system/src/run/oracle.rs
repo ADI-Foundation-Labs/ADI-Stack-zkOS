@@ -1,4 +1,5 @@
-use crate::run::{NextTxResponse, PreimageSource, ReadStorageTree, TxSource};
+use std::alloc::Global;
+use crate::run::{PreimageSource, ReadStorageTree, TxSource};
 use basic_system::system_implementation::flat_storage_model::*;
 use serde::{Deserialize, Serialize};
 use zk_ee::common_structs::derive_flat_storage_key;
@@ -12,13 +13,14 @@ use zk_ee::system_io_oracle::dyn_usize_iterator::DynUsizeIterator;
 use zk_ee::system_io_oracle::*;
 use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::utils::*;
-
+use zksync_os_interface::common_types::BlockContext;
+use zksync_os_interface::traits::NextTxResponse;
 use super::ReadStorage;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ForwardRunningOracle<T: ReadStorageTree, PS: PreimageSource, TS: TxSource> {
     pub proof_data: Option<ProofData<FlatStorageCommitment<TREE_HEIGHT>>>,
-    pub block_metadata: BlockMetadataFromOracle,
+    pub block_metadata: BlockContext,
     pub tree: T,
     pub tx_source: TS,
     pub preimage_source: PS,
@@ -111,9 +113,9 @@ impl<T: ReadStorageTree, PS: PreimageSource, TS: TxSource> ForwardRunningOracle<
                 };
                 let flat_key = derive_flat_storage_key(&address, &key);
                 let slot_data: InitialStorageSlotData<EthereumIOTypesConfig> =
-                    if let Some(cold) = self.tree.read(flat_key) {
+                    if let Some(cold) = self.tree.read(zksync_os_interface::bytes32::Bytes32::from_array(flat_key.as_u8_array())) {
                         InitialStorageSlotData {
-                            initial_value: cold,
+                            initial_value: Bytes32::from_array(cold.as_u8_array()),
                             is_new_storage_slot: false,
                         }
                     } else {
@@ -133,7 +135,7 @@ impl<T: ReadStorageTree, PS: PreimageSource, TS: TxSource> ForwardRunningOracle<
                 };
                 let preimage = self
                     .preimage_source
-                    .get_preimage(hash)
+                    .get_preimage(zksync_os_interface::bytes32::Bytes32::from_array(hash.as_u8_array()))
                     .ok_or(internal_error!("must know a preimage for hash"))?;
 
                 let iterator = DynUsizeIterator::from_constructor(preimage, |inner_ref| {
@@ -149,7 +151,7 @@ impl<T: ReadStorageTree, PS: PreimageSource, TS: TxSource> ForwardRunningOracle<
                 };
                 let existing = self
                     .tree
-                    .tree_index(flat_key)
+                    .tree_index(zksync_os_interface::bytes32::Bytes32::from_array(flat_key.as_u8_array()))
                     .expect("Reading index for key that is not in the tree");
 
                 let iterator = DynUsizeIterator::from_owned(existing);
@@ -162,6 +164,17 @@ impl<T: ReadStorageTree, PS: PreimageSource, TS: TxSource> ForwardRunningOracle<
                         .cast::<<ProofForIndexIterator as OracleIteratorTypeMarker>::Params>()
                 };
                 let existing = self.tree.merkle_proof(index);
+                let path: Vec<Bytes32> = existing.path.into_iter().map(|node| node.as_u8_array().into()).collect();
+                let path: [Bytes32; TREE_HEIGHT] = path.try_into().expect("Proof path length should match TREE_HEIGHT");
+                let existing: LeafProof<TREE_HEIGHT, Blake2sStorageHasher> = LeafProof::new(
+                    existing.index,
+                    FlatStorageLeaf {
+                        key: Bytes32::from_array(existing.leaf.key.as_u8_array()),
+                        value: Bytes32::from_array(existing.leaf.value.as_u8_array()),
+                        next: existing.leaf.next,
+                    },
+                    Box::new_in(path, Global)
+                );
                 let proof = ValueAtIndexProof {
                     proof: ExistingReadProof { existing },
                 };
@@ -175,7 +188,7 @@ impl<T: ReadStorageTree, PS: PreimageSource, TS: TxSource> ForwardRunningOracle<
                     *(&init_value as *const M::Params)
                         .cast::<<PrevIndexIterator as OracleIteratorTypeMarker>::Params>()
                 };
-                let prev_index = self.tree.prev_tree_index(flat_key);
+                let prev_index = self.tree.prev_tree_index(zksync_os_interface::bytes32::Bytes32::from_array(flat_key.as_u8_array()));
                 let iterator = DynUsizeIterator::from_owned(prev_index);
                 Ok(Box::new(iterator))
             }
@@ -205,7 +218,7 @@ impl<T: ReadStorageTree, PS: PreimageSource, TS: TxSource> IOOracle
 #[derive(Clone, Debug)]
 pub struct CallSimulationOracle<S: ReadStorage, PS: PreimageSource, TS: TxSource> {
     pub proof_data: Option<ProofData<FlatStorageCommitment<TREE_HEIGHT>>>,
-    pub block_metadata: BlockMetadataFromOracle,
+    pub block_metadata: BlockContext,
     pub storage: S,
     pub tx_source: TS,
     pub preimage_source: PS,
@@ -283,9 +296,9 @@ impl<S: ReadStorage, PS: PreimageSource, TS: TxSource> CallSimulationOracle<S, P
                 };
                 let flat_key = derive_flat_storage_key(&address, &key);
                 let slot_data: InitialStorageSlotData<EthereumIOTypesConfig> =
-                    if let Some(cold) = self.storage.read(flat_key) {
+                    if let Some(cold) = self.storage.read(zksync_os_interface::bytes32::Bytes32::from_array(flat_key.as_u8_array())) {
                         InitialStorageSlotData {
-                            initial_value: cold,
+                            initial_value: Bytes32::from_array(cold.as_u8_array()),
                             is_new_storage_slot: false,
                         }
                     } else {
@@ -305,7 +318,7 @@ impl<S: ReadStorage, PS: PreimageSource, TS: TxSource> CallSimulationOracle<S, P
                 };
                 let preimage = self
                     .preimage_source
-                    .get_preimage(hash)
+                    .get_preimage(zksync_os_interface::bytes32::Bytes32::from_array(hash.as_u8_array()))
                     .ok_or(internal_error!("must know a preimage for hash"))?;
 
                 let iterator = DynUsizeIterator::from_constructor(preimage, |inner_ref| {

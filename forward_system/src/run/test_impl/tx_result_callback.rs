@@ -1,6 +1,5 @@
-use crate::run::result_keeper::TxProcessingOutputOwned;
 use crate::run::TxResultCallback;
-use basic_bootloader::bootloader::errors::InvalidTransaction;
+use zksync_os_interface::common_types::{InvalidTransaction, TxProcessingOutputOwned};
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct NoopTxCallback;

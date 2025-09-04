@@ -128,3 +128,14 @@ where
         })
     }
 }
+
+use zksync_os_interface::constants::MAX_EVENT_TOPICS;
+impl From<&GenericEventContent<MAX_EVENT_TOPICS, EthereumIOTypesConfig>> for zksync_os_interface::common_types::Log {
+    fn from(value: &GenericEventContent<MAX_EVENT_TOPICS, EthereumIOTypesConfig>) -> Self {
+        Self {
+            address: value.address,
+            topics: value.topics.iter().map(|x| zksync_os_interface::bytes32::Bytes32::from_array(x.as_u8_array())).collect(),
+            data: value.data.as_slice().to_vec(),
+        }
+    }
+}

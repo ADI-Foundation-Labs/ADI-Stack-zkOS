@@ -11,6 +11,7 @@ categories.workspace = true
 
 [dependencies]
 
+zksync_os_interface = { path = "../interface" }
 forward_system = { path = "../forward_system"}
 oracle_provider = { path = "../oracle_provider" }
 callable_oracles = { path = "../callable_oracles/" }

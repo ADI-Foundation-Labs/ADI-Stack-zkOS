@@ -19,6 +19,7 @@ members = [
     "supporting_crates/keccak",
     "supporting_crates/solidity_abi",
     "supporting_crates/solidity_abi_derive",
+    "interface",
     "tests/rig",
     "tests/instances/transactions",
     "tests/instances/erc20",

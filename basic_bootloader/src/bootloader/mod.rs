@@ -36,7 +36,6 @@ use crypto::MiniDigest;
 use zk_ee::{internal_error, oracle::*};
 
 use crate::bootloader::account_models::{ExecutionOutput, ExecutionResult, TxProcessingResult};
-use crate::bootloader::block_header::BlockHeader;
 use crate::bootloader::config::BasicBootloaderExecutionConfig;
 use crate::bootloader::constants::TX_OFFSET;
 use crate::bootloader::errors::TxError;
@@ -45,6 +44,7 @@ use crate::bootloader::runner::RunnerMemoryBuffers;
 use system_hooks::HooksStorage;
 use zk_ee::system::*;
 use zk_ee::utils::*;
+use zksync_os_interface::common_types::BlockHeader;
 
 pub(crate) const EVM_EE_BYTE: u8 = ExecutionEnvironmentType::EVM_EE_BYTE;
 pub const DEBUG_OUTPUT: bool = false;
@@ -413,14 +413,14 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         let beneficiary = system.get_coinbase();
         let gas_limit = system.get_gas_limit();
         let timestamp = system.get_timestamp();
-        let consensus_random = Bytes32::from_u256_be(&system.get_mix_hash());
+        let consensus_random = zksync_os_interface::bytes32::Bytes32::from_u256_be(&system.get_mix_hash());
         let base_fee_per_gas = system.get_eip1559_basefee();
         // TODO: add gas_per_pubdata and native price
         let base_fee_per_gas = base_fee_per_gas
             .try_into()
             .map_err(|_| internal_error!("base_fee_per_gas exceeds max u64"))?;
         let block_header = BlockHeader::new(
-            Bytes32::from(previous_block_hash.to_be_bytes::<32>()),
+            zksync_os_interface::bytes32::Bytes32::from(previous_block_hash.to_be_bytes::<32>()),
             beneficiary,
             tx_rolling_hash.into(),
             block_number,

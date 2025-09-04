@@ -1,9 +1,10 @@
 use super::super::run::oracle::ForwardRunningOracle;
-use crate::run::{PreimageSource, ReadStorageTree, TxSource};
+// use crate::run::{PreimageSource, ReadStorageTree, TxSource};
 use crate::system::system::*;
 use basic_bootloader::bootloader::config::BasicBootloaderExecutionConfig;
 use basic_bootloader::bootloader::result_keeper::ResultKeeperExt;
 use zk_ee::system::tracer::Tracer;
+use zksync_os_interface::traits::{PreimageSource, ReadStorageTree, TxSource};
 
 ///
 /// Run bootloader with forward system with a given `oracle`.

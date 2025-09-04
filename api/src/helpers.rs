@@ -6,15 +6,14 @@ use alloy::primitives::Signature;
 use alloy::rpc::types::TransactionRequest;
 use alloy::signers::local::PrivateKeySigner;
 use basic_system::system_implementation::flat_storage_model::bytecode_padding_len;
-use basic_system::system_implementation::flat_storage_model::AccountProperties;
-use forward_system::run::PreimageSource;
 use ruint::aliases::U256;
 use std::alloc::Global;
 use std::ops::Add;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::system::EIP7702_DELEGATION_MARKER;
-use zk_ee::utils::Bytes32;
-
+use zksync_os_interface::bytes32::Bytes32;
+use zksync_os_interface::common_types::AccountProperties;
+use zksync_os_interface::traits::PreimageSource;
 // Getters
 
 /// Retrieves balance from an account.

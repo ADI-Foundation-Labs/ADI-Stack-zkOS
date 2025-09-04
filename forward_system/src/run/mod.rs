@@ -21,35 +21,28 @@ use errors::ForwardSubsystemError;
 use oracle::CallSimulationOracle;
 pub use oracle::ForwardRunningOracle;
 use zk_ee::common_structs::ProofData;
-use zk_ee::system::tracer::Tracer;
+use zk_ee::system::tracer::{NopTracer, Tracer};
 
-pub use tree::LeafProof;
-pub use tree::ReadStorage;
-pub use tree::ReadStorageTree;
 pub use zk_ee::types_config::EthereumIOTypesConfig;
 
-pub use preimage_source::PreimageSource;
 use zk_ee::wrap_error;
 
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::PathBuf;
-pub use tx_result_callback::TxResultCallback;
-pub use tx_source::NextTxResponse;
-pub use tx_source::TxSource;
 
-pub use self::output::BlockOutput;
-pub use self::output::ExecutionOutput;
-pub use self::output::ExecutionResult;
-pub use self::output::Log;
-pub use self::output::StorageWrite;
-pub use self::output::TxOutput;
-use crate::run::output::TxResult;
+// pub use self::output::ExecutionOutput;
+// pub use self::output::ExecutionResult;
+// pub use self::output::Log;
+// pub use self::output::StorageWrite;
+// pub use self::output::TxOutput;
+// use crate::run::output::TxResult;
 use crate::run::test_impl::{NoopTxCallback, TxListSource};
 pub use basic_bootloader::bootloader::errors::InvalidTransaction;
 use basic_system::system_implementation::flat_storage_model::*;
 use oracle_provider::{BasicZkEEOracleWrapper, ReadWitnessSource, ZkEENonDeterminismSource};
-pub use zk_ee::system::metadata::BlockMetadataFromOracle as BlockContext;
+use zksync_os_interface::common_types::{BlockContext, BlockOutput, TxResult};
+use zksync_os_interface::traits::{PreimageSource, ReadStorage, ReadStorageTree, TxResultCallback, TxSource};
 
 pub type StorageCommitment = FlatStorageCommitment<{ TREE_HEIGHT }>;
 
@@ -217,4 +210,28 @@ pub fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
     .map_err(wrap_error!())?;
     let mut block_output: BlockOutput = result_keeper.into();
     Ok(block_output.tx_results.remove(0))
+}
+
+
+pub struct RunBlockForward;
+
+impl zksync_os_interface::traits::RunBlock for RunBlockForward {
+    type Error = ForwardSubsystemError;
+
+    fn run_block<T: ReadStorageTree, PS: PreimageSource, TS: TxSource, TR: TxResultCallback>(
+        block_context: BlockContext,
+        tree: T,
+        preimage_source: PS,
+        tx_source: TS,
+        tx_result_callback: TR
+    ) -> Result<BlockOutput, Self::Error> {
+        run_block(
+            block_context,
+            tree,
+            preimage_source,
+            tx_source,
+            tx_result_callback,
+            &mut NopTracer::default(),
+        )
+    }
 }
