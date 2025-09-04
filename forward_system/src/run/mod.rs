@@ -214,7 +214,8 @@ pub fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
         oracle,
         &mut result_keeper,
         tracer,
-    ).map_err(wrap_error!())?;
+    )
+    .map_err(wrap_error!())?;
     let mut block_output: BlockOutput = result_keeper.into();
     Ok(block_output.tx_results.remove(0))
 }
