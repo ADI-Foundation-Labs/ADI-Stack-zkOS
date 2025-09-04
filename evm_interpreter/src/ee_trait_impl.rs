@@ -449,7 +449,8 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
             }
         }?;
 
-        use crypto::sha3::{Digest, Keccak256};
+        use crypto::sha3::Keccak256;
+        use crypto::MiniDigest;
         let deployed_address = match &scheme {
             CreateScheme::Create => {
                 let mut buffer = [0u8; crate::utils::MAX_CREATE_RLP_ENCODING_LEN];

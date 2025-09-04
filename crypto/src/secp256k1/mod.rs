@@ -64,7 +64,8 @@ pub fn ecrecover_test() {
         elliptic_curve::{group::GroupEncoding, ops::Reduce},
         Scalar,
     };
-    use crate::sha3::{Digest, Keccak256};
+    use crate::sha3::Keccak256;
+    use crate::MiniDigest;
     let message = "In the beginning the Universe was created.
     This had made many people very angry and has been widely regarded as a bad move";
     let private_key = SigningKey::from_bytes(
