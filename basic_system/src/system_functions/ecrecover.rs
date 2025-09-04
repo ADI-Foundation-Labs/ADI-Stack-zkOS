@@ -1,41 +1,45 @@
 use super::*;
 use crate::cost_constants::{ECRECOVER_COST_ERGS, ECRECOVER_NATIVE_COST};
-use zk_ee::system::errors::SystemFunctionError;
+use zk_ee::common_traits::TryExtend;
+use zk_ee::out_of_return_memory;
+use zk_ee::system::base_system_functions::{Secp256k1ECRecoverErrors, SystemFunction};
+use zk_ee::system::errors::{subsystem::SubsystemError, system::SystemError};
 use zk_ee::system::Computational;
-use zk_ee::system::SystemFunction;
 
 ///
 /// ecrecover system function implementation.
 ///
 pub struct EcRecoverImpl;
 
-impl<R: Resources> SystemFunction<R> for EcRecoverImpl {
+impl<R: Resources> SystemFunction<R, Secp256k1ECRecoverErrors> for EcRecoverImpl {
     /// If the input size is less than expected - it will be padded with zeroes.
     /// If the input size is greater - redundant bytes will be ignored.
     /// If the input is invalid(v != 27|28 or failed to recover signer) returns `Ok(0)`.
     ///
     /// Returns `OutOfGas` if not enough resources provided.
-    fn execute<D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
+    fn execute<D: TryExtend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
         input: &[u8],
         output: &mut D,
         resources: &mut R,
         _allocator: A,
-    ) -> Result<(), SystemFunctionError> {
-        cycle_marker::wrap_with_resources!("ecrecover", resources, {
-            ecrecover_as_system_function_inner(input, output, resources)
-        })
+    ) -> Result<(), SubsystemError<Secp256k1ECRecoverErrors>> {
+        Ok(cycle_marker::wrap_with_resources!(
+            "ecrecover",
+            resources,
+            { ecrecover_as_system_function_inner(input, output, resources) }
+        )?)
     }
 }
 
 fn ecrecover_as_system_function_inner<
     S: ?Sized + MinimalByteAddressableSlice,
-    D: ?Sized + Extend<u8>,
+    D: ?Sized + TryExtend<u8>,
     R: Resources,
 >(
     src: &S,
     dst: &mut D,
     resources: &mut R,
-) -> Result<(), SystemFunctionError> {
+) -> Result<(), SystemError> {
     resources.charge(&R::from_ergs_and_native(
         ECRECOVER_COST_ERGS,
         R::Native::from_computational(ECRECOVER_NATIVE_COST),
@@ -75,7 +79,8 @@ fn ecrecover_as_system_function_inner<
     use crypto::sha3::{Digest, Keccak256};
     let address_hash = Keccak256::digest(&bytes_ref[1..]);
 
-    dst.extend(core::iter::repeat_n(0, 12).chain(address_hash.into_iter().skip(12)));
+    dst.try_extend(core::iter::repeat_n(0, 12).chain(address_hash.into_iter().skip(12)))
+        .map_err(|_| out_of_return_memory!())?;
 
     Ok(())
 }

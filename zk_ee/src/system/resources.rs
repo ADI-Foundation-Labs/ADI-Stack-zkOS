@@ -3,7 +3,9 @@
 //! - EE resource: measured in ergs. Includes EVM gas, converted as 1 gas = ERGS_PER_GAS ergs.
 //! - Native resource: model for prover complexity.
 
-use super::errors::SystemError;
+use crate::out_of_ergs_error;
+
+use super::errors::system::SystemError;
 
 ///
 /// Single resource, both resources will implement this, as well as
@@ -75,7 +77,7 @@ impl Resource for Ergs {
     const FORMAL_INFINITE: Self = Ergs(u64::MAX);
 
     fn empty() -> Self {
-        Ergs(0)
+        Self(0)
     }
 
     fn is_empty(&self) -> bool {
@@ -89,7 +91,7 @@ impl Resource for Ergs {
     fn charge(&mut self, to_charge: &Self) -> Result<(), SystemError> {
         if self.0 < to_charge.0 {
             self.0 = 0;
-            return Err(SystemError::OutOfErgs);
+            return Err(out_of_ergs_error!());
         }
         self.0 -= to_charge.0;
         Ok(())

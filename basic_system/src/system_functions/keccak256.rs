@@ -1,5 +1,7 @@
-use zk_ee::system::errors::SystemFunctionError;
-use zk_ee::system::SystemFunction;
+use zk_ee::common_traits::TryExtend;
+use zk_ee::out_of_return_memory;
+use zk_ee::system::base_system_functions::{Keccak256Errors, SystemFunction};
+use zk_ee::system::errors::subsystem::SubsystemError;
 
 use super::*;
 
@@ -13,14 +15,14 @@ use crate::cost_constants::{
 ///
 pub struct Keccak256Impl;
 
-impl<R: Resources> SystemFunction<R> for Keccak256Impl {
+impl<R: Resources> SystemFunction<R, Keccak256Errors> for Keccak256Impl {
     /// Returns `OutOfGas` if not enough resources provided.
-    fn execute<D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
+    fn execute<D: TryExtend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
         input: &[u8],
         output: &mut D,
         resources: &mut R,
         _allocator: A,
-    ) -> Result<(), SystemFunctionError> {
+    ) -> Result<(), SubsystemError<Keccak256Errors>> {
         cycle_marker::wrap_with_resources!("keccak", resources, {
             keccak256_as_system_function_inner(input, output, resources)
         })
@@ -34,11 +36,11 @@ pub fn keccak256_native_cost<R: Resources>(len: usize) -> R::Native {
     R::Native::from_computational(native_cost)
 }
 
-fn keccak256_as_system_function_inner<D: ?Sized + Extend<u8>, R: Resources>(
+fn keccak256_as_system_function_inner<D: ?Sized + TryExtend<u8>, R: Resources>(
     src: &[u8],
     dst: &mut D,
     resources: &mut R,
-) -> Result<(), SystemFunctionError> {
+) -> Result<(), SubsystemError<Keccak256Errors>> {
     let words = src.len().div_ceil(32);
     let ergs_cost = KECCAK256_STATIC_COST_ERGS + KECCAK256_PER_WORD_COST_ERGS.times(words as u64);
     let native_cost = keccak256_native_cost::<R>(src.len());
@@ -49,7 +51,7 @@ fn keccak256_as_system_function_inner<D: ?Sized + Extend<u8>, R: Resources>(
     hasher.update(src);
     let hash = hasher.finalize();
 
-    dst.extend(hash);
+    dst.try_extend(hash).map_err(|_| out_of_return_memory!())?;
 
     Ok(())
 }

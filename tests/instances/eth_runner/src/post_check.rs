@@ -1,12 +1,11 @@
 use crate::prestate::*;
 use crate::receipts::TransactionReceipt;
 use alloy::hex;
-use rig::forward_system::run::BatchOutput;
-use rig::log::{debug, error, info, warn};
+use rig::forward_system::run::BlockOutput;
+use rig::log::{error, info};
 use ruint::aliases::{B160, B256, U256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use zk_ee::utils::u256_to_usize_saturated;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[allow(dead_code)]
@@ -28,8 +27,8 @@ pub enum TxId {
 impl DiffTrace {
     fn collect_diffs(self, prestate_cache: &Cache, miner: B160) -> HashMap<B160, AccountState> {
         let mut updates: HashMap<B160, AccountState> = HashMap::new();
-        self.result.into_iter().for_each(|item| {
-            item.result.post.into_iter().for_each(|(address, account)| {
+        self.result.iter().for_each(|item| {
+            item.result.post.iter().for_each(|(address, account)| {
                 if address.0 != miner {
                     let entry = updates.entry(address.0).or_default();
                     account
@@ -40,11 +39,15 @@ impl DiffTrace {
                         .nonce
                         .into_iter()
                         .for_each(|x| entry.nonce = Some(x));
-                    account.code.into_iter().for_each(|x| entry.code = Some(x));
+                    account
+                        .code
+                        .clone()
+                        .into_iter()
+                        .for_each(|x| entry.code = Some(x));
 
                     // Populate storage slot clears (slots present in pre but
                     // absent in post). Write 0 to them.
-                    if let Some(pre_account) = item.result.pre.get(&address) {
+                    if let Some(pre_account) = item.result.pre.get(address) {
                         if let Some(pre_storage) = pre_account.storage.as_ref() {
                             let cleared_keys = pre_storage.keys().filter(|k| {
                                 account
@@ -60,15 +63,26 @@ impl DiffTrace {
                     }
 
                     // Populate storage slot writes
-                    if let Some(storage) = account.storage {
+                    if let Some(storage) = account.storage.as_ref() {
                         let entry_storage = entry.storage.get_or_insert_default();
-                        storage.into_iter().for_each(|(key, value)| {
-                            entry_storage.insert(key, value);
+                        storage.iter().for_each(|(key, value)| {
+                            entry_storage.insert(*key, *value);
                         })
                     }
                 }
+            });
+            // Add account clears
+            item.result.pre.iter().for_each(|(address, _)| {
+                if address.0 != miner && !updates.contains_key(&address.0) {
+                    let acc = AccountState {
+                        balance: Some(U256::ZERO),
+                        ..Default::default()
+                    };
+                    updates.insert(address.0, acc);
+                }
             })
         });
+
         // Filter out empty diffs
         // These can be empty because their value is the same as in the initial tree
         // or the post state was empty. Note that if the account was selfdestructed,
@@ -76,7 +90,6 @@ impl DiffTrace {
         // case where the logs add an empty entry for accounts that haven't been
         // modified.
 
-        // TODO: account for selfdestruct
         updates.retain(|address, account| {
             if let Some(storage) = account.storage.as_mut() {
                 storage.retain(|key, new_val| match prestate_cache.get_slot(address, key) {
@@ -104,7 +117,7 @@ impl DiffTrace {
 
     pub fn check_storage_writes(
         self,
-        output: BatchOutput,
+        output: BlockOutput,
         prestate_cache: Cache,
         miner: B160,
     ) -> Result<(), PostCheckError> {
@@ -126,21 +139,36 @@ impl DiffTrace {
             };
             if let Some(bal) = account.balance {
                 // Balance might differ due to refunds and access list gas charging
-                if bal != zk_account.balance.unwrap() {
-                    debug!(
+                if Some(bal) != zk_account.balance {
+                    error!(
                         "Balance for {} is {:?} but expected {:?}.\n  Difference: {:?}",
                         hex::encode(address.to_be_bytes_vec()),
-                        zk_account.balance.unwrap(),
+                        zk_account.balance,
                         bal,
-                        zk_account.balance.unwrap().abs_diff(bal),
-                    )
+                        zk_account.balance.unwrap_or(U256::ZERO).abs_diff(bal),
+                    );
+                    return Err(PostCheckError::Internal);
                 };
             }
             if let Some(nonce) = account.nonce {
-                assert_eq!(nonce, zk_account.nonce.unwrap());
+                if nonce != zk_account.nonce.unwrap() {
+                    error!(
+                        "Nonce for address {} differed. ZKsync OS: {:?}, reference: {:?}",
+                        hex::encode(address.to_be_bytes_vec()),
+                        zk_account.nonce.unwrap(),
+                        nonce
+                    );
+                    return Err(PostCheckError::Internal);
+                }
             }
-            if account.code.is_some() {
-                assert_eq!(&account.code, &zk_account.code);
+            if account.code.is_some() && account.code != zk_account.code {
+                error!(
+                    "Code for address {} differed. ZKsync OS: {}, reference: {}",
+                    hex::encode(address.to_be_bytes_vec()),
+                    hex::encode(zk_account.code.as_ref().unwrap_or_default()),
+                    hex::encode(account.code.as_ref().unwrap_or_default())
+                );
+                return Err(PostCheckError::Internal);
             }
             if let Some(storage) = &account.storage {
                 for (key, value) in storage {
@@ -155,14 +183,21 @@ impl DiffTrace {
                             return Err(PostCheckError::Internal);
                         }
                     };
-                    assert_eq!(value, zksync_os_value);
+                    if value != zksync_os_value {
+                        error!(
+                          "Value for slot {} at address {} differed. ZKsync OS: {:?}, reference: {:?}",
+                          key,
+                          hex::encode(address.to_be_bytes_vec()),
+                          zksync_os_value, value);
+                        return Err(PostCheckError::Internal);
+                    }
                 }
 
                 for (k, v) in zk_account.storage.as_ref().unwrap().iter() {
                     // In the diff trace, slot clearing is not present in post,
                     // so we have to allow the case when v == 0.
                     if !(v.as_uint().is_zero() || storage.contains_key(k)) {
-                        error!("Key {:?} for {:?} not present in reference", k, address);
+                        error!("Key {k:?} for {address:?} not present in reference");
                         return Err(PostCheckError::Internal);
                     }
                 }
@@ -177,12 +212,21 @@ impl DiffTrace {
                 match diffs.get(address) {
                     Some(_) => (),
                     None => {
-                        error!(
-                            "Reference must have write for account {} {:?}",
-                            hex::encode(address.to_be_bytes_vec()),
-                            acc
-                        );
-                        return Err(PostCheckError::Internal);
+                        // For some reason, selfdestruct is not correctly reported in the
+                        // traces. We could use calltrace, but for now we just check that
+                        // the ZKsync OS diff is consistent with selfdestruct.
+                        if !zksync_os_diff_consistent_with_selfdestruct(
+                            address,
+                            acc,
+                            &prestate_cache,
+                        ) {
+                            error!(
+                                "Reference must have write for account {} {:?}",
+                                hex::encode(address.to_be_bytes_vec()),
+                                acc
+                            );
+                            return Err(PostCheckError::Internal);
+                        }
                     }
                 }
             }
@@ -191,8 +235,28 @@ impl DiffTrace {
     }
 }
 
+fn zksync_os_diff_consistent_with_selfdestruct(
+    address: &B160,
+    acc: &AccountState,
+    prestate_cache: &Cache,
+) -> bool {
+    let diff_is_empty = acc.balance.is_none_or(|b| b.is_zero())
+        && acc.nonce.is_none_or(|n| n == 0)
+        && acc.code.as_ref().is_none_or(|c| c.is_empty())
+        && acc.storage.as_ref().is_none_or(|s| s.is_empty());
+    let pre = prestate_cache.0.get(address);
+    let prestate_can_be_deployed = || {
+        pre.is_none_or(|pre| {
+            pre.storage.as_ref().is_none_or(|s| s.is_empty())
+                && pre.code.as_ref().is_none_or(|c| c.is_empty())
+                && pre.nonce.is_none_or(|n| n == 0)
+        })
+    };
+    diff_is_empty && prestate_can_be_deployed()
+}
+
 fn zksync_os_output_into_account_state(
-    output: BatchOutput,
+    output: BlockOutput,
     prestate_cache: &Cache,
 ) -> Result<HashMap<B160, AccountState>, PostCheckError> {
     use basic_system::system_implementation::flat_storage_model::AccountProperties;
@@ -216,7 +280,7 @@ fn zksync_os_output_into_account_state(
                     let encoded = match preimages.get(&w.value.as_u8_array()) {
                         Some(x) => x.clone(),
                         None => {
-                            error!("Must contain preimage for account {:#?}", address);
+                            error!("Must contain preimage for account {address:#?}");
                             return Err(PostCheckError::Internal);
                         }
                     };
@@ -226,7 +290,8 @@ fn zksync_os_output_into_account_state(
                 entry.balance = Some(props.balance);
                 entry.nonce = Some(props.nonce);
                 if let Some(bytecode) = preimages.get(&props.bytecode_hash.as_u8_array()) {
-                    let owned = bytecode.clone();
+                    let owned: Vec<u8> =
+                        bytecode[..props.observable_bytecode_len as usize].to_owned();
                     entry.code = Some(owned.into());
                 }
             }
@@ -266,48 +331,17 @@ fn zksync_os_output_into_account_state(
     Ok(updates)
 }
 
-// EVM refunds are only done in SSTORE, and they
-// can be of only 3 different values: 19900, 2800 and 4800.
-// However, gas refunds are capped at 20% of the total gas used.
-// Therefore, we use the following heuristic to check if a difference
-// in gas used is a refund:
-//  (∃a,b,c s.t. gas_difference = a * 19900 + b * 2800 + c * 4800) ∨
-//   zk_sync_os_gas_used / 5 = gas_difference
-pub fn consistent_with_refund(zksync_os_gas_used: u64, gas_difference: u64) -> bool {
-    fn has_refund_decomposition(x: u64) -> bool {
-        if x % 100 != 0 {
-            return false;
-        }
-
-        let x = x / 100; // reduce the equation: 199a + 28b + 48c = x
-        for a in 0..=x / 199 {
-            let rem = x - 199 * a;
-            if rem % 4 != 0 {
-                continue;
-            }
-
-            let r = rem / 4; // now checking 7b + 12c = r
-
-            // Try all possible c values (small loop)
-            for c in 0..=r / 12 {
-                let rem2 = r - 12 * c;
-                if rem2 % 7 == 0 {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-    has_refund_decomposition(gas_difference) || zksync_os_gas_used / 5 == gas_difference
-}
-
 pub fn post_check(
-    output: BatchOutput,
+    output: BlockOutput,
     receipts: Vec<TransactionReceipt>,
     diff_trace: DiffTrace,
     prestate_cache: Cache,
     miner: B160,
 ) -> Result<(), PostCheckError> {
+    fn u256_to_usize(src: &U256) -> usize {
+        zk_ee::utils::u256_to_u64_saturated(src) as usize
+    }
+
     for (res, receipt) in output.tx_results.iter().zip(receipts.iter()) {
         let res = match res {
             Ok(res) => res,
@@ -328,7 +362,7 @@ pub fn post_check(
                     receipt.transaction_index
                 );
                 return Err(PostCheckError::InvalidTx {
-                    id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
+                    id: TxId::Index(u256_to_usize(&receipt.transaction_index)),
                 });
             };
         } else if receipt.status == Some(alloy::primitives::U256::ZERO) && res.is_success() {
@@ -337,28 +371,21 @@ pub fn post_check(
                 receipt.transaction_index
             );
             return Err(PostCheckError::TxShouldHaveFailed {
-                id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
+                id: TxId::Index(u256_to_usize(&receipt.transaction_index)),
             });
         }
         let gas_difference =
             zk_ee::utils::u256_to_u64_saturated(&receipt.gas_used).abs_diff(res.gas_used);
         // Check gas used
         if res.gas_used != zk_ee::utils::u256_to_u64_saturated(&receipt.gas_used) {
-            debug!(
+            error!(
                     "Transaction {} has a gas mismatch: ZKsync OS used {}, reference: {}\n  Difference:{}",
                     receipt.transaction_index, res.gas_used, receipt.gas_used,
                     gas_difference,
                 );
-            if !consistent_with_refund(res.gas_used, gas_difference) {
-                warn!("Transaction {}, gas difference should be consistent with refund\n  ZKsync OS used {}, reference: {}\n    Difference:{}",
-                    receipt.transaction_index, res.gas_used, receipt.gas_used,
-                    gas_difference,
-                );
-                // TODO: do we want this case to halt the block?
-                return Err(PostCheckError::GasMismatch {
-                    id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
-                });
-            }
+            return Err(PostCheckError::GasMismatch {
+                id: TxId::Index(u256_to_usize(&receipt.transaction_index)),
+            });
         }
         // Logs check
         if res.logs.len() != receipt.logs.len() {
@@ -367,15 +394,15 @@ pub fn post_check(
                 receipt.transaction_index
             );
             return Err(PostCheckError::IncorrectLogs {
-                id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
+                id: TxId::Index(u256_to_usize(&receipt.transaction_index)),
             });
         }
         for (l, r) in res.logs.iter().zip(receipt.logs.iter()) {
             let eq = r.is_equal_to_excluding_data(l);
             if !eq {
-                error!("Not equal logs:\n {:#?} \nand\n {:?}", l, r);
+                error!("Not equal logs:\n {l:#?} \nand\n {r:?}");
                 return Err(PostCheckError::IncorrectLogs {
-                    id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
+                    id: TxId::Index(u256_to_usize(&receipt.transaction_index)),
                 });
             }
             if r.data.to_vec() != l.data {
@@ -385,7 +412,7 @@ pub fn post_check(
                     hex::encode(r.data.clone())
                 );
                 return Err(PostCheckError::IncorrectLogs {
-                    id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
+                    id: TxId::Index(u256_to_usize(&receipt.transaction_index)),
                 });
             }
         }

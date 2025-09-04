@@ -1,3 +1,5 @@
+use errors::subsystem::Subsystem;
+
 use super::*;
 pub mod base_system_functions;
 pub mod call_modifiers;
@@ -9,6 +11,7 @@ pub mod logger;
 pub mod metadata;
 pub mod resources;
 mod result_keeper;
+pub mod tracer;
 
 pub use self::base_system_functions::*;
 pub use self::call_modifiers::*;
@@ -28,7 +31,7 @@ use core::alloc::Allocator;
 use core::fmt::Write;
 
 use self::{
-    errors::{InternalError, SystemError},
+    errors::{internal::InternalError, system::SystemError},
     logger::Logger,
     metadata::{BlockMetadataFromOracle, Metadata},
 };
@@ -46,6 +49,7 @@ pub trait SystemTypes {
 
     /// Common system functions implementation(ecrecover, keccak256, ecadd, etc).
     type SystemFunctions: SystemFunctions<Self::Resources>;
+    type SystemFunctionsExt: SystemFunctionsExt<Self::Resources>;
 
     type Logger: Logger + Default;
 
@@ -84,6 +88,18 @@ impl<S: SystemTypes> System<S> {
         self.metadata.block_level_metadata.block_number
     }
 
+    pub fn get_mix_hash(&self) -> ruint::aliases::U256 {
+        #[cfg(feature = "prevrandao")]
+        {
+            self.metadata.block_level_metadata.mix_hash
+        }
+
+        #[cfg(not(feature = "prevrandao"))]
+        {
+            ruint::aliases::U256::ONE
+        }
+    }
+
     pub fn get_blockhash(&self, block_number: u64) -> ruint::aliases::U256 {
         let current_block_number = self.metadata.block_level_metadata.block_number;
         if block_number >= current_block_number
@@ -92,7 +108,7 @@ impl<S: SystemTypes> System<S> {
             // Out of range
             ruint::aliases::U256::ZERO
         } else {
-            let index = current_block_number - block_number - 1;
+            let index = 256 - (current_block_number - block_number);
             self.metadata.block_level_metadata.block_hashes.0[index as usize]
         }
     }
@@ -117,6 +133,10 @@ impl<S: SystemTypes> System<S> {
         self.metadata.block_level_metadata.gas_limit
     }
 
+    pub fn get_pubdata_limit(&self) -> u64 {
+        self.metadata.block_level_metadata.pubdata_limit
+    }
+
     pub fn get_gas_per_pubdata(&self) -> ruint::aliases::U256 {
         self.metadata.block_level_metadata.gas_per_pubdata
     }
@@ -129,7 +149,11 @@ impl<S: SystemTypes> System<S> {
         self.metadata.block_level_metadata.timestamp
     }
 
-    pub fn storage_code_version_for_execution_environment<'a, EE: ExecutionEnvironment<'a, S>>(
+    pub fn storage_code_version_for_execution_environment<
+        'a,
+        Es: Subsystem,
+        EE: ExecutionEnvironment<'a, S, Es>,
+    >(
         &self,
     ) -> Result<u8, InternalError> {
         // TODO
@@ -184,11 +208,9 @@ where
         Ok(())
     }
 
-    /// Finishes current transaction executions, returns execution stats.
-    pub fn flush_tx(&mut self) -> Result<u32, InternalError> {
-        self.io.finish_tx()?;
-
-        Ok(0)
+    /// Finishes current transaction execution
+    pub fn flush_tx(&mut self) -> Result<(), InternalError> {
+        self.io.finish_tx()
     }
 
     pub fn init_from_oracle(
@@ -215,17 +237,33 @@ where
         Ok(system)
     }
 
+    ///
+    /// Get the length of the next transaction from the oracle.
+    /// Returns None when there are no more transactions to process.
+    /// Returns Some(Err(_)) if there's an encoding error.
+    ///
     pub fn try_begin_next_tx(
         &mut self,
         tx_write_iter: &mut impl crate::oracle::SafeUsizeWritable,
-    ) -> Result<Option<usize>, ()> {
+    ) -> Option<Result<usize, NextTxSubsystemError>> {
         let next_tx_len_bytes = match self.io.oracle().try_begin_next_tx() {
-            None => return Ok(None),
+            None => return None,
             Some(size) => size.get() as usize,
         };
+        // Check to avoid usize overflow in 32-bit target.
+        // The maximum allowed length is u32::MAX - 3, as it is
+        // the last multiple of 4 (u32 byte size). Any value larger than that
+        // will overflow u32 in the next_multiple_of(USIZE_SIZE) call.
+        if next_tx_len_bytes > u32::MAX as usize - (core::mem::size_of::<u32>() - 1) {
+            return Some(Err(interface_error!(
+                crate::system::NextTxInterfaceError::TxLengthTooLarge
+            )));
+        }
         let next_tx_len_usize_words = next_tx_len_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE;
         if tx_write_iter.len() < next_tx_len_usize_words {
-            return Err(());
+            return Some(Err(interface_error!(
+                crate::system::NextTxInterfaceError::TxWriteIteratorTooSmall
+            )));
         }
         let tx_iterator = self
             .io
@@ -233,7 +271,9 @@ where
             .create_oracle_access_iterator::<NewTxContentIterator>(())
             .expect("must create iterator for the content");
         if tx_iterator.len() != next_tx_len_usize_words {
-            return Err(());
+            return Some(Err(interface_error!(
+                crate::system::NextTxInterfaceError::TxIteratorLengthMismatch
+            )));
         }
         for word in tx_iterator {
             unsafe {
@@ -243,7 +283,7 @@ where
 
         self.io.begin_next_tx();
 
-        Ok(Some(next_tx_len_bytes))
+        Some(Ok(next_tx_len_bytes))
     }
 
     pub fn deploy_bytecode(
@@ -252,21 +292,44 @@ where
         resources: &mut S::Resources,
         at_address: &<S::IOTypes as SystemIOTypesConfig>::Address,
         bytecode: &[u8],
-        bytecode_len: u32,
-        artifacts_len: u32,
-    ) -> Result<&'static [u8], SystemError> {
+    ) -> Result<
+        (
+            &'static [u8],
+            <S::IOTypes as SystemIOTypesConfig>::BytecodeHashValue,
+            u32,
+        ),
+        SystemError,
+    > {
         // IO is fully responsible to to deploy
         // and at the end we just need to remap slice
-        let bytecode = self.io.deploy_code(
-            for_ee,
+        let (bytecode, bytecode_hash, observable_bytecode_len) = self
+            .io
+            .deploy_code(for_ee, resources, at_address, &bytecode)?;
+
+        Ok((bytecode, bytecode_hash, observable_bytecode_len))
+    }
+
+    pub fn set_bytecode_details(
+        &mut self,
+        resources: &mut S::Resources,
+        at_address: &<S::IOTypes as SystemIOTypesConfig>::Address,
+        ee: ExecutionEnvironmentType,
+        bytecode_hash: Bytes32,
+        bytecode_len: u32,
+        artifacts_len: u32,
+        observable_bytecode_hash: Bytes32,
+        observable_bytecode_len: u32,
+    ) -> Result<(), SystemError> {
+        self.io.set_bytecode_details(
             resources,
             at_address,
-            &bytecode,
+            ee,
+            bytecode_hash,
             bytecode_len,
             artifacts_len,
-        )?;
-
-        Ok(bytecode)
+            observable_bytecode_hash,
+            observable_bytecode_len,
+        )
     }
 
     /// Finish system execution.
@@ -288,3 +351,11 @@ where
         )
     }
 }
+
+define_subsystem!(NextTx,
+  interface NextTxInterfaceError {
+    TxLengthTooLarge,
+    TxWriteIteratorTooSmall,
+    TxIteratorLengthMismatch,
+  }
+);

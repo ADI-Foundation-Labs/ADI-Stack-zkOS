@@ -1,20 +1,19 @@
 use crate::bootloader::account_models::{AccountModel, ExecutionOutput, ExecutionResult};
+use crate::bootloader::config::BasicBootloaderExecutionConfig;
 use crate::bootloader::constants::PREPARE_FOR_PAYMASTER_SELECTOR;
 use crate::bootloader::constants::{
     EXECUTE_SELECTOR, PAY_FOR_TRANSACTION_SELECTOR, VALIDATE_SELECTOR,
 };
-use crate::bootloader::errors::{
-    AAMethod, InvalidAA, InvalidTransaction::AAValidationError, TxError,
-};
+use crate::bootloader::errors::{AAMethod, BootloaderSubsystemError, InvalidTransaction, TxError};
 use crate::bootloader::runner::RunnerMemoryBuffers;
 use crate::bootloader::transaction::ZkSyncTransaction;
 use crate::bootloader::{BasicBootloader, Bytes32};
 use crate::require;
 use core::fmt::Write;
-use errors::FatalError;
 use ruint::aliases::B160;
 use system_hooks::HooksStorage;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
+use zk_ee::system::tracer::Tracer;
 use zk_ee::system::{logger::Logger, *};
 
 pub struct Contract;
@@ -23,7 +22,7 @@ impl<S: EthereumLikeTypes> AccountModel<S> for Contract
 where
     S::IO: IOSubsystemExt,
 {
-    fn validate(
+    fn validate<Config: BasicBootloaderExecutionConfig>(
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
         memories: RunnerMemoryBuffers,
@@ -34,6 +33,7 @@ where
         _caller_is_code: bool,
         _caller_nonce: u64,
         resources: &mut S::Resources,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<(), TxError> {
         let from = transaction.from.read();
 
@@ -43,9 +43,7 @@ where
 
         let CompletedExecution {
             resources_returned,
-            reverted,
-            return_values,
-            ..
+            result,
         } = BasicBootloader::call_account_method(
             system,
             system_functions,
@@ -56,25 +54,27 @@ where
             from,
             VALIDATE_SELECTOR,
             resources,
+            tracer,
         )
         .map_err(TxError::oon_as_validation)?;
+
+        let reverted = result.failed();
+        let return_values = result.return_values();
 
         let returndata_slice = return_values.returndata;
         *resources = resources_returned;
 
         let res: Result<(), TxError> = if reverted {
-            Err(TxError::Validation(AAValidationError(InvalidAA::Revert {
+            Err(TxError::Validation(InvalidTransaction::Revert {
                 method: AAMethod::AccountValidate,
                 output: None, // TODO
-            })))
+            }))
         } else if returndata_slice.len() != 32 {
-            Err(TxError::Validation(AAValidationError(
-                InvalidAA::InvalidReturndataLength,
-            )))
+            Err(TxError::Validation(
+                InvalidTransaction::InvalidReturndataLength,
+            ))
         } else if &returndata_slice[..4] != VALIDATE_SELECTOR {
-            Err(TxError::Validation(AAValidationError(
-                InvalidAA::InvalidMagic,
-            )))
+            Err(TxError::Validation(InvalidTransaction::InvalidMagic))
         } else {
             Ok(())
         };
@@ -93,7 +93,8 @@ where
         transaction: &mut ZkSyncTransaction,
         _current_tx_nonce: u64,
         resources: &mut S::Resources,
-    ) -> Result<ExecutionResult<'a>, FatalError> {
+        tracer: &mut impl Tracer<S>,
+    ) -> Result<ExecutionResult<'a>, BootloaderSubsystemError> {
         let _ = system
             .get_logger()
             .write_fmt(format_args!("About to start AA execution\n"));
@@ -102,9 +103,7 @@ where
 
         let CompletedExecution {
             resources_returned,
-            reverted,
-            return_values,
-            ..
+            result,
         } = BasicBootloader::call_account_method(
             system,
             system_functions,
@@ -115,7 +114,11 @@ where
             from,
             EXECUTE_SELECTOR,
             resources,
+            tracer,
         )?;
+
+        let reverted = result.failed();
+        let return_values = result.return_values();
 
         let resources_after_main_tx = resources_returned;
 
@@ -130,8 +133,7 @@ where
             .write_fmt(format_args!("Main TX body successful = {}\n", !reverted));
 
         let _ = system.get_logger().write_fmt(format_args!(
-            "Resources to refund = {:?}\n",
-            resources_after_main_tx
+            "Resources to refund = {resources_after_main_tx:?}\n"
         ));
 
         *resources = resources_after_main_tx;
@@ -155,9 +157,7 @@ where
     ///
     fn check_nonce_is_not_used(account_data_nonce: u64, tx_nonce: u64) -> Result<(), TxError> {
         if tx_nonce < account_data_nonce {
-            return Err(TxError::Validation(AAValidationError(
-                InvalidAA::NonceUsedAlready,
-            )));
+            return Err(TxError::Validation(InvalidTransaction::NonceUsedAlready));
         }
         Ok(())
     }
@@ -173,7 +173,7 @@ where
         let acc_nonce = system.io.read_nonce(caller_ee_type, resources, &from)?;
         require!(
             acc_nonce > tx_nonce,
-            TxError::Validation(AAValidationError(InvalidAA::NonceNotIncreased,)),
+            TxError::Validation(InvalidTransaction::NonceNotIncreased),
             system
         )
     }
@@ -188,6 +188,7 @@ where
         from: B160,
         _caller_ee_type: ExecutionEnvironmentType,
         resources: &mut S::Resources,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<(), TxError> {
         let _ = system
             .get_logger()
@@ -195,8 +196,7 @@ where
 
         let CompletedExecution {
             resources_returned,
-            reverted,
-            ..
+            result,
         } = BasicBootloader::call_account_method(
             system,
             system_functions,
@@ -207,16 +207,19 @@ where
             from,
             PAY_FOR_TRANSACTION_SELECTOR,
             resources,
+            tracer,
         )
         .map_err(TxError::oon_as_validation)?;
+
+        let reverted = result.failed();
 
         *resources = resources_returned;
 
         let res: Result<(), TxError> = if reverted {
-            Err(TxError::Validation(AAValidationError(InvalidAA::Revert {
+            Err(TxError::Validation(InvalidTransaction::Revert {
                 method: AAMethod::AccountPayForTransaction,
                 output: None, // TODO
-            })))
+            }))
         } else {
             Ok(())
         };
@@ -237,6 +240,7 @@ where
         _paymaster: B160,
         _caller_ee_type: ExecutionEnvironmentType,
         resources: &mut S::Resources,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<(), TxError> {
         let _ = system
             .get_logger()
@@ -244,8 +248,7 @@ where
 
         let CompletedExecution {
             resources_returned,
-            reverted,
-            ..
+            result,
         } = BasicBootloader::call_account_method(
             system,
             system_functions,
@@ -256,15 +259,18 @@ where
             from,
             PREPARE_FOR_PAYMASTER_SELECTOR,
             resources,
+            tracer,
         )
         .map_err(TxError::oon_as_validation)?;
         *resources = resources_returned;
 
+        let reverted = result.failed();
+
         let res: Result<(), TxError> = if reverted {
-            Err(TxError::Validation(AAValidationError(InvalidAA::Revert {
+            Err(TxError::Validation(InvalidTransaction::Revert {
                 method: AAMethod::AccountPrePaymaster,
                 output: None, // todo
-            })))
+            }))
         } else {
             Ok(())
         };

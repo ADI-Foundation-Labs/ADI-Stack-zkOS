@@ -10,15 +10,18 @@ use crate::bootloader::errors::TxError;
 use crate::bootloader::runner::RunnerMemoryBuffers;
 use crate::bootloader::transaction::ZkSyncTransaction;
 pub use abstract_account::AA;
-use errors::FatalError;
 use ruint::aliases::B160;
 use system_hooks::HooksStorage;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
+use zk_ee::system::tracer::Tracer;
 use zk_ee::system::EthereumLikeTypes;
 use zk_ee::system::System;
 use zk_ee::system::*;
 
+use crate::bootloader::config::BasicBootloaderExecutionConfig;
 use zk_ee::utils::Bytes32;
+
+use super::errors::BootloaderSubsystemError;
 
 /// The execution step output
 #[derive(Debug)]
@@ -60,8 +63,9 @@ pub struct TxProcessingResult<'a> {
     pub is_upgrade_tx: bool,
     pub gas_used: u64,
     pub gas_refunded: u64,
-    #[cfg(feature = "report_native")]
+    pub computational_native_used: u64,
     pub native_used: u64,
+    pub pubdata_used: u64,
 }
 
 pub trait AccountModel<S: EthereumLikeTypes>
@@ -69,7 +73,7 @@ where
     S::IO: IOSubsystemExt,
 {
     /// Validate transaction
-    fn validate(
+    fn validate<Config: BasicBootloaderExecutionConfig>(
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
         memories: RunnerMemoryBuffers,
@@ -80,6 +84,7 @@ where
         caller_is_code: bool,
         caller_nonce: u64,
         resources: &mut S::Resources,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<(), TxError>;
 
     /// Execute transaction
@@ -92,7 +97,8 @@ where
         transaction: &mut ZkSyncTransaction,
         current_tx_nonce: u64,
         resources: &mut S::Resources,
-    ) -> Result<ExecutionResult<'a>, FatalError>;
+        tracer: &mut impl Tracer<S>,
+    ) -> Result<ExecutionResult<'a>, BootloaderSubsystemError>;
 
     ///
     /// Charge any additional intrinsic gas.
@@ -131,6 +137,7 @@ where
         from: B160,
         caller_ee_type: ExecutionEnvironmentType,
         resources: &mut S::Resources,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<(), TxError>;
 
     ///
@@ -147,5 +154,6 @@ where
         paymaster: B160,
         caller_ee_type: ExecutionEnvironmentType,
         resources: &mut S::Resources,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<(), TxError>;
 }

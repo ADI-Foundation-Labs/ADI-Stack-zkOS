@@ -9,7 +9,6 @@ use cost_constants::WARM_TSTORAGE_READ_NATIVE_COST;
 use cost_constants::WARM_TSTORAGE_WRITE_NATIVE_COST;
 use crypto::blake2s::Blake2s256;
 use crypto::MiniDigest;
-use errors::SystemFunctionError;
 use evm_interpreter::gas_constants::LOG;
 use evm_interpreter::gas_constants::LOGDATA;
 use evm_interpreter::gas_constants::LOGTOPIC;
@@ -18,19 +17,20 @@ use evm_interpreter::gas_constants::TSTORE;
 use storage_models::common_structs::generic_transient_storage::GenericTransientStorage;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::StorageModel;
-use zk_ee::common_structs::BasicIOImplementerFSM;
+use zk_ee::common_structs::ProofData;
 use zk_ee::common_structs::L2_TO_L1_LOG_SERIALIZE_SIZE;
+use zk_ee::interface_error;
+use zk_ee::out_of_ergs_error;
 use zk_ee::system::metadata::BlockMetadataFromOracle;
 use zk_ee::{
     common_structs::{EventsStorage, LogsStorage},
     kv_markers::UsizeDeserializable,
     memory::ArrayBuilder,
     system::{
-        errors::{SystemError, UpdateQueryError},
-        AccountData, AccountDataRequest, EthereumLikeIOSubsystem, IOResultKeeper, IOSubsystem,
-        IOSubsystemExt, Maybe,
+        errors::system::SystemError, AccountData, AccountDataRequest, EthereumLikeIOSubsystem,
+        IOResultKeeper, IOSubsystem, IOSubsystemExt, Maybe,
     },
-    system_io_oracle::InitializeIOImplementerIterator,
+    system_io_oracle::ProofDataIterator,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::UsizeAlignedByteBox,
 };
@@ -87,8 +87,8 @@ where
     ) -> Result<<Self::IOTypes as SystemIOTypesConfig>::StorageValue, SystemError> {
         if TRANSIENT {
             let ergs = match ee_type {
+                ExecutionEnvironmentType::NoEE => Ergs::empty(),
                 ExecutionEnvironmentType::EVM => Ergs(TLOAD * ERGS_PER_GAS),
-                _ => return Err(InternalError("Unsupported EE").into()),
             };
             let native = R::Native::from_computational(WARM_TSTORAGE_READ_NATIVE_COST);
             resources.charge(&R::from_ergs_and_native(ergs, native))?;
@@ -118,8 +118,8 @@ where
     ) -> Result<(), SystemError> {
         if TRANSIENT {
             let ergs = match ee_type {
+                ExecutionEnvironmentType::NoEE => Ergs::empty(),
                 ExecutionEnvironmentType::EVM => Ergs(TSTORE * ERGS_PER_GAS),
-                _ => return Err(InternalError("Unsupported EE").into()),
             };
             let native = R::Native::from_computational(WARM_TSTORAGE_WRITE_NATIVE_COST);
             resources.charge(&R::from_ergs_and_native(ergs, native))?;
@@ -157,17 +157,15 @@ where
     ) -> Result<(), SystemError> {
         // Charge resources
         let ergs = match ee_type {
+            ExecutionEnvironmentType::NoEE => Ergs::empty(),
             ExecutionEnvironmentType::EVM => {
                 let static_cost = LOG;
                 let topic_cost = LOGTOPIC * (topics.len() as u64);
                 let len_cost = (data.len() as u64) * LOGDATA;
                 let cost = static_cost + topic_cost + len_cost;
-                let ergs = cost
-                    .checked_mul(ERGS_PER_GAS)
-                    .ok_or(SystemError::OutOfErgs)?;
+                let ergs = cost.checked_mul(ERGS_PER_GAS).ok_or(out_of_ergs_error!())?;
                 Ergs(ergs)
             }
-            _ => return Err(InternalError("Unsupported EE").into()),
         };
         let native = R::Native::from_computational(
             EVENT_STORAGE_BASE_NATIVE_COST
@@ -216,12 +214,8 @@ where
         // TODO(EVM-1078): for Era backward compatibility we may need to add events for l2 to l1 log and l1 message
 
         let mut data_hash = ArrayBuilder::default();
-        Keccak256Impl::execute(&data, &mut data_hash, resources, self.allocator.clone()).map_err(
-            |e| match e {
-                SystemFunctionError::InvalidInput => unreachable!(),
-                SystemFunctionError::System(e) => e,
-            },
-        )?;
+        Keccak256Impl::execute(&data, &mut data_hash, resources, self.allocator.clone())
+            .map_err(SystemError::from)?;
         let data_hash = Bytes32::from_array(data_hash.build());
         let data = UsizeAlignedByteBox::from_slice_in(data, self.allocator.clone());
         self.logs_storage
@@ -258,10 +252,14 @@ where
                 ee_type,
                 resources,
                 address,
-                AccountDataRequest::empty().with_bytecode(),
+                AccountDataRequest::empty()
+                    .with_bytecode()
+                    .with_unpadded_code_len(),
                 &mut self.oracle,
             )
-            .map(|account_data| account_data.bytecode.0)
+            .map(|account_data| {
+                account_data.bytecode.0[..account_data.unpadded_code_len.0 as usize].as_ref()
+            })
     }
 
     fn get_observable_bytecode_hash(
@@ -298,7 +296,7 @@ where
                     Bytes32::ZERO
                 } else {
                     // EOA case:
-                    Bytes32::from_u256_be(U256::from_limbs([
+                    Bytes32::from_u256_be(&U256::from_limbs([
                         0x7bfad8045d85a470,
                         0xe500b653ca82273b,
                         0x927e7db2dcc703c0,
@@ -344,7 +342,10 @@ where
         at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         nominal_token_beneficiary: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         in_constructor: bool,
-    ) -> Result<(), SystemError> {
+    ) -> Result<
+        <Self::IOTypes as SystemIOTypesConfig>::NominalTokenValue,
+        DeconstructionSubsystemError,
+    > {
         self.storage.mark_for_deconstruction(
             from_ee,
             resources,
@@ -387,6 +388,39 @@ where
             .finish_frame(rollback_handle.map(|x| x.events));
 
         Ok(())
+    }
+
+    fn increment_nonce(
+        &mut self,
+        ee_type: ExecutionEnvironmentType,
+        resources: &mut Self::Resources,
+        address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
+        increment_by: u64,
+    ) -> Result<u64, NonceSubsystemError> {
+        self.storage
+            .increment_nonce(ee_type, resources, address, increment_by, &mut self.oracle)
+    }
+
+    fn read_nonce(
+        &mut self,
+        ee_type: ExecutionEnvironmentType,
+        resources: &mut Self::Resources,
+        address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
+    ) -> Result<u64, SystemError> {
+        self.storage
+            .read_account_properties(
+                ee_type,
+                resources,
+                address,
+                AccountDataRequest::empty().with_nonce(),
+                &mut self.oracle,
+            )
+            .map(|account_data| account_data.nonce.0)
+    }
+
+    #[cfg(feature = "evm_refunds")]
+    fn get_refund_counter(&self) -> u32 {
+        self.storage.get_refund_counter()
     }
 }
 
@@ -449,7 +483,7 @@ where
 
 // In practice we will not use single block batches
 // This functionality is here only for the tests
-#[cfg(not(feature = "wrap-in-batch"))]
+#[cfg(all(not(feature = "wrap-in-batch"), not(feature = "multiblock-batch")))]
 impl<
         A: Allocator + Clone + Default,
         R: Resources,
@@ -471,16 +505,18 @@ where
         result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
         mut logger: impl Logger,
     ) -> Self::FinalData {
-        let mut state_commitment = {
+        let (mut state_commitment, last_block_timestamp) = {
             let mut initialization_iterator = self
                 .oracle
-                .create_oracle_access_iterator::<InitializeIOImplementerIterator>(())
+                .create_oracle_access_iterator::<ProofDataIterator>(())
                 .unwrap();
-            // TODO (EVM-989): read only state commitment
-            let fsm_state =
-                <BasicIOImplementerFSM::<FlatStorageCommitment<TREE_HEIGHT>> as UsizeDeserializable>::from_iter(&mut initialization_iterator).unwrap();
+            let proof_data =
+                <ProofData<FlatStorageCommitment<TREE_HEIGHT>> as UsizeDeserializable>::from_iter(
+                    &mut initialization_iterator,
+                )
+                .unwrap();
             assert_eq!(initialization_iterator.len(), 0);
-            fsm_state.state_root_view
+            (proof_data.state_root_view, proof_data.last_block_timestamp)
         };
 
         let mut blocks_hasher = Blake2s256::new();
@@ -494,8 +530,7 @@ where
             next_free_slot: state_commitment.next_free_slot,
             block_number: block_metadata.block_number - 1,
             last_256_block_hashes_blake: blocks_hasher.finalize().into(),
-            // TODO(EVM-1080): we should set and validate that current block timestamp >= previous
-            last_block_timestamp: 0,
+            last_block_timestamp,
         };
 
         // finishing IO, applying changes
@@ -518,7 +553,6 @@ where
             .apply_pubdata(&mut pubdata_hasher, result_keeper);
         result_keeper.logs(self.logs_storage.messages_ref_iter());
         result_keeper.events(self.events_storage.events_ref_iter());
-
         let pubdata_hash = pubdata_hasher.finalize();
         let l2_to_l1_logs_hashes_hash = l2_to_l1_logs_hasher.finalize();
 
@@ -528,14 +562,16 @@ where
         }
         blocks_hasher.update(current_block_hash.as_u8_ref());
 
+        // validate that timestamp didn't decrease
+        assert!(block_metadata.timestamp >= last_block_timestamp);
+
         // chain state after
         let chain_state_commitment_after = ChainStateCommitment {
             state_root: state_commitment.root,
             next_free_slot: state_commitment.next_free_slot,
             block_number: block_metadata.block_number,
             last_256_block_hashes_blake: blocks_hasher.finalize().into(),
-            // TODO(EVM-1080): we should set and validate that current block timestamp >= previous
-            last_block_timestamp: 0,
+            last_block_timestamp: block_metadata.timestamp,
         };
 
         // other outputs to be opened on the settlement layer/aggregation program
@@ -581,28 +617,37 @@ where
         result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
         mut logger: impl Logger,
     ) -> Self::FinalData {
-        let mut state_commitment = {
+        let (mut state_commitment, last_block_timestamp) = {
             let mut initialization_iterator = self
                 .oracle
-                .create_oracle_access_iterator::<InitializeIOImplementerIterator>(())
+                .create_oracle_access_iterator::<ProofDataIterator>(())
                 .unwrap();
-            // TODO (EVM-989): read only state commitment
-            let fsm_state =
-                <BasicIOImplementerFSM::<FlatStorageCommitment<TREE_HEIGHT>> as UsizeDeserializable>::from_iter(&mut initialization_iterator).unwrap();
+            let proof_data =
+                <ProofData<FlatStorageCommitment<TREE_HEIGHT>> as UsizeDeserializable>::from_iter(
+                    &mut initialization_iterator,
+                )
+                .unwrap();
             assert_eq!(initialization_iterator.len(), 0);
-            fsm_state.state_root_view
+            (proof_data.state_root_view, proof_data.last_block_timestamp)
         };
 
+        let mut blocks_hasher = Blake2s256::new();
+        for block_hash in block_metadata.block_hashes.0.iter() {
+            blocks_hasher.update(&block_hash.to_be_bytes::<32>());
+        }
+
         // chain state before
-        // currently we generate simplified commitment(only to state) for tests.
+        let chain_state_commitment_before = ChainStateCommitment {
+            state_root: state_commitment.root,
+            next_free_slot: state_commitment.next_free_slot,
+            block_number: block_metadata.block_number - 1,
+            last_256_block_hashes_blake: blocks_hasher.finalize().into(),
+            last_block_timestamp,
+        };
         let _ = logger.write_fmt(format_args!(
             "PI calculation: state commitment before {:?}\n",
-            state_commitment
+            chain_state_commitment_before
         ));
-        let mut chain_state_hasher = Blake2s256::new();
-        chain_state_hasher.update(state_commitment.root.as_u8_ref());
-        chain_state_hasher.update(state_commitment.next_free_slot.to_be_bytes());
-        let chain_state_commitment_before = chain_state_hasher.finalize();
 
         // finishing IO, applying changes
         let mut pubdata_hasher = crypto::sha3::Keccak256::new();
@@ -627,20 +672,29 @@ where
         full_root_hasher.update([0u8; 32]); // aggregated root 0 for now
         let full_l2_to_l1_logs_root = full_root_hasher.finalize();
         let l1_txs_commitment = self.logs_storage.l1_txs_commitment();
-
         let pubdata_hash = pubdata_hasher.finalize();
 
+        blocks_hasher = Blake2s256::new();
+        for block_hash in block_metadata.block_hashes.0.iter().skip(1) {
+            blocks_hasher.update(&block_hash.to_be_bytes::<32>());
+        }
+        blocks_hasher.update(current_block_hash.as_u8_ref());
+
+        // validate that timestamp didn't decrease
+        assert!(block_metadata.timestamp >= last_block_timestamp);
+
         // chain state after
-        // currently we generate simplified commitment(only to state) for tests.
+        let chain_state_commitment_after = ChainStateCommitment {
+            state_root: state_commitment.root,
+            next_free_slot: state_commitment.next_free_slot,
+            block_number: block_metadata.block_number,
+            last_256_block_hashes_blake: blocks_hasher.finalize().into(),
+            last_block_timestamp: block_metadata.timestamp,
+        };
         let _ = logger.write_fmt(format_args!(
             "PI calculation: state commitment after {:?}\n",
-            state_commitment
+            chain_state_commitment_after
         ));
-        let mut chain_state_hasher = Blake2s256::new();
-        chain_state_hasher.update(state_commitment.root.as_u8_ref());
-        chain_state_hasher.update(state_commitment.next_free_slot.to_be_bytes());
-        let chain_state_commitment_after = chain_state_hasher.finalize();
-
         let mut da_commitment_hasher = crypto::sha3::Keccak256::new();
         da_commitment_hasher.update([0u8; 32]); // we don't have to validate state diffs hash
         da_commitment_hasher.update(pubdata_hash); // full pubdata keccak
@@ -657,6 +711,7 @@ where
             priority_operations_hash: l1_txs_commitment.1,
             l2_logs_tree_root: full_l2_to_l1_logs_root.into(),
             upgrade_tx_hash,
+            interop_root_rolling_hash: Bytes32::from([0u8; 32]), // for now no interop roots
         };
         let _ = logger.write_fmt(format_args!(
             "PI calculation: batch output {:?}\n",
@@ -664,8 +719,8 @@ where
         ));
 
         let public_input = public_input::BatchPublicInput {
-            state_before: chain_state_commitment_before.into(),
-            state_after: chain_state_commitment_after.into(),
+            state_before: chain_state_commitment_before.hash().into(),
+            state_after: chain_state_commitment_after.hash().into(),
             batch_output: batch_output.hash().into(),
         };
         let _ = logger.write_fmt(format_args!(
@@ -679,6 +734,138 @@ where
         ));
 
         (self.oracle, public_input_hash)
+    }
+}
+
+#[cfg(feature = "multiblock-batch")]
+impl<
+        A: Allocator + Clone + Default,
+        R: Resources,
+        P: StorageAccessPolicy<R, Bytes32> + Default,
+        SC: StackCtor<SCC>,
+        SCC: const StackCtorConst,
+        O: IOOracle,
+    > FinishIO for FullIO<A, R, P, SC, SCC, O, true>
+where
+    ExtraCheck<SCC, A>:,
+{
+    type FinalData = (
+        FullIO<A, R, P, SC, SCC, O, true>,
+        BlockMetadataFromOracle,
+        Bytes32,
+        Bytes32,
+    );
+    fn finish(
+        self,
+        block_metadata: BlockMetadataFromOracle,
+        current_block_hash: Bytes32,
+        _l1_to_l2_txs_hash: Bytes32,
+        upgrade_tx_hash: Bytes32,
+        _result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
+        _logger: impl Logger,
+    ) -> Self::FinalData {
+        (self, block_metadata, current_block_hash, upgrade_tx_hash)
+    }
+}
+
+#[cfg(feature = "multiblock-batch")]
+impl<
+        A: Allocator + Clone + Default,
+        R: Resources,
+        P: StorageAccessPolicy<R, Bytes32> + Default,
+        SC: StackCtor<SCC>,
+        SCC: const StackCtorConst,
+        O: IOOracle,
+        const PROOF_ENV: bool,
+    > FullIO<A, R, P, SC, SCC, O, PROOF_ENV>
+where
+    ExtraCheck<SCC, A>:,
+    Self: FinishIO,
+{
+    pub fn apply_to_batch(
+        mut self,
+        block_metadata: BlockMetadataFromOracle,
+        current_block_hash: Bytes32,
+        upgrade_tx_hash: Bytes32,
+        builder: &mut crate::system_implementation::system::public_input::BatchPublicInputBuilder,
+    ) -> O {
+        let (mut state_commitment, last_block_timestamp) = {
+            let mut initialization_iterator = self
+                .oracle
+                .create_oracle_access_iterator::<ProofDataIterator>(())
+                .unwrap();
+            let proof_data =
+                <ProofData<FlatStorageCommitment<TREE_HEIGHT>> as UsizeDeserializable>::from_iter(
+                    &mut initialization_iterator,
+                )
+                .unwrap();
+            assert_eq!(initialization_iterator.len(), 0);
+            (proof_data.state_root_view, proof_data.last_block_timestamp)
+        };
+
+        let mut blocks_hasher = Blake2s256::new();
+        for block_hash in block_metadata.block_hashes.0.iter() {
+            blocks_hasher.update(&block_hash.to_be_bytes::<32>());
+        }
+
+        // chain state before
+        let chain_state_commitment_before = ChainStateCommitment {
+            state_root: state_commitment.root,
+            next_free_slot: state_commitment.next_free_slot,
+            block_number: block_metadata.block_number - 1,
+            last_256_block_hashes_blake: blocks_hasher.finalize().into(),
+            last_block_timestamp,
+        };
+
+        builder
+            .pubdata_hasher
+            .update(current_block_hash.as_u8_ref());
+
+        self.storage
+            .finish(
+                &mut self.oracle,
+                Some(&mut state_commitment),
+                &mut builder.pubdata_hasher,
+                &mut NopResultKeeper,
+                &mut NullLogger,
+            )
+            .expect("Failed to finish storage");
+
+        self.logs_storage
+            .apply_pubdata(&mut builder.pubdata_hasher, &mut NopResultKeeper);
+        self.logs_storage
+            .apply_to_array_vec(&mut builder.logs_storage);
+        (builder.number_of_layer_1_txs, builder.l1_txs_rolling_hash) = self
+            .logs_storage
+            .apply_l1_txs_to_commitment(builder.number_of_layer_1_txs, builder.l1_txs_rolling_hash);
+
+        blocks_hasher = Blake2s256::new();
+        for block_hash in block_metadata.block_hashes.0.iter().skip(1) {
+            blocks_hasher.update(&block_hash.to_be_bytes::<32>());
+        }
+        blocks_hasher.update(current_block_hash.as_u8_ref());
+
+        // validate that timestamp didn't decrease
+        assert!(block_metadata.timestamp >= last_block_timestamp);
+
+        // chain state after
+        let chain_state_commitment_after = ChainStateCommitment {
+            state_root: state_commitment.root,
+            next_free_slot: state_commitment.next_free_slot,
+            block_number: block_metadata.block_number,
+            last_256_block_hashes_blake: blocks_hasher.finalize().into(),
+            last_block_timestamp: block_metadata.timestamp,
+        };
+
+        builder.apply_block(
+            chain_state_commitment_before.hash().into(),
+            chain_state_commitment_after.hash().into(),
+            block_metadata.timestamp,
+            U256::try_from(block_metadata.chain_id).unwrap(),
+            upgrade_tx_hash,
+        );
+
+        self.oracle
     }
 }
 
@@ -760,34 +947,6 @@ where
         )
     }
 
-    fn read_nonce(
-        &mut self,
-        ee_type: ExecutionEnvironmentType,
-        resources: &mut Self::Resources,
-        address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
-    ) -> Result<u64, SystemError> {
-        self.storage
-            .read_account_properties(
-                ee_type,
-                resources,
-                address,
-                AccountDataRequest::empty().with_nonce(),
-                &mut self.oracle,
-            )
-            .map(|account_data| account_data.nonce.0)
-    }
-
-    fn increment_nonce(
-        &mut self,
-        ee_type: ExecutionEnvironmentType,
-        resources: &mut Self::Resources,
-        address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
-        increment_by: u64,
-    ) -> Result<u64, UpdateQueryError> {
-        self.storage
-            .increment_nonce(ee_type, resources, address, increment_by, &mut self.oracle)
-    }
-
     fn touch_account(
         &mut self,
         ee_type: ExecutionEnvironmentType,
@@ -814,6 +973,8 @@ where
         ArtifactsLen: Maybe<u32>,
         NominalTokenBalance: Maybe<<Self::IOTypes as SystemIOTypesConfig>::NominalTokenValue>,
         Bytecode: Maybe<&'static [u8]>,
+        CodeVersion: Maybe<u8>,
+        IsDelegated: Maybe<bool>,
     >(
         &mut self,
         ee_type: ExecutionEnvironmentType,
@@ -830,6 +991,8 @@ where
                 ArtifactsLen,
                 NominalTokenBalance,
                 Bytecode,
+                CodeVersion,
+                IsDelegated,
             >,
         >,
     ) -> Result<
@@ -843,6 +1006,8 @@ where
             ArtifactsLen,
             NominalTokenBalance,
             Bytecode,
+            CodeVersion,
+            IsDelegated,
         >,
         SystemError,
     > {
@@ -857,7 +1022,7 @@ where
         from: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         to: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         amount: &<Self::IOTypes as SystemIOTypesConfig>::NominalTokenValue,
-    ) -> Result<(), UpdateQueryError> {
+    ) -> Result<(), BalanceSubsystemError> {
         self.storage.transfer_nominal_token_value(
             ee_type,
             resources,
@@ -874,18 +1039,50 @@ where
         resources: &mut Self::Resources,
         at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         bytecode: &[u8],
+    ) -> Result<
+        (
+            &'static [u8],
+            <Self::IOTypes as SystemIOTypesConfig>::BytecodeHashValue,
+            u32,
+        ),
+        SystemError,
+    > {
+        self.storage
+            .deploy_code(from_ee, resources, at_address, bytecode, &mut self.oracle)
+    }
+
+    fn set_bytecode_details(
+        &mut self,
+        resources: &mut Self::Resources,
+        at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
+        ee: ExecutionEnvironmentType,
+        bytecode_hash: Bytes32,
         bytecode_len: u32,
         artifacts_len: u32,
-    ) -> Result<&'static [u8], SystemError> {
-        self.storage.deploy_code(
-            from_ee,
+        observable_bytecode_hash: Bytes32,
+        observable_bytecode_len: u32,
+    ) -> Result<(), SystemError> {
+        self.storage.set_bytecode_details(
             resources,
             at_address,
-            bytecode,
+            ee,
+            bytecode_hash,
             bytecode_len,
             artifacts_len,
+            observable_bytecode_hash,
+            observable_bytecode_len,
             &mut self.oracle,
         )
+    }
+
+    fn set_delegation(
+        &mut self,
+        resources: &mut Self::Resources,
+        at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
+        delegate: &<Self::IOTypes as SystemIOTypesConfig>::Address,
+    ) -> Result<(), SystemError> {
+        self.storage
+            .set_delegation(resources, at_address, delegate, &mut self.oracle)
     }
 
     fn finish(
@@ -914,10 +1111,14 @@ where
         _resources: &mut Self::Resources,
         tx_hash: Bytes32,
         success: bool,
+        is_priority: bool,
     ) -> Result<(), SystemError> {
-        // Resources for it charged as part of intrinsic
+        // Resources for it charged as part of intrinsic:
+        // Storage: EVENT_STORAGE_BASE_NATIVE_COST
+        // Hashing: keccak256_native_cost(L1_L2_TX_LOG_SERIALIZE_SIZE) + 2 * keccak256_native_cost(64).
+        // See emit_l1_message for more details.
         self.logs_storage
-            .push_l1_l2_tx_log(self.tx_number, tx_hash, success)
+            .push_l1_l2_tx_log(self.tx_number, tx_hash, success, is_priority)
     }
 
     fn update_account_nominal_token_balance(
@@ -927,14 +1128,17 @@ where
         address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         diff: &ruint::aliases::U256,
         should_subtract: bool,
-    ) -> Result<ruint::aliases::U256, UpdateQueryError> {
+    ) -> Result<ruint::aliases::U256, BalanceSubsystemError> {
         let update_fn = move |old_value: &ruint::aliases::U256| {
-            let new_value = if should_subtract {
-                old_value.checked_sub(*diff)
+            if should_subtract {
+                old_value
+                    .checked_sub(*diff)
+                    .ok_or(interface_error! {BalanceError::InsufficientBalance})
             } else {
-                old_value.checked_add(*diff)
-            };
-            new_value.ok_or(UpdateQueryError::NumericBoundsError)
+                old_value
+                    .checked_add(*diff)
+                    .ok_or(interface_error! {BalanceError::Overflow})
+            }
         };
         self.storage.update_nominal_token_value(
             ee_type,
@@ -943,6 +1147,16 @@ where
             update_fn,
             &mut self.oracle,
         )
+    }
+
+    fn logs_len(&self) -> u64 {
+        self.logs_storage.len()
+    }
+
+    // Add EVM refund to counter
+    #[cfg(feature = "evm_refunds")]
+    fn add_evm_refund(&mut self, refund: u32) -> Result<(), SystemError> {
+        self.storage.add_evm_refund(refund)
     }
 }
 

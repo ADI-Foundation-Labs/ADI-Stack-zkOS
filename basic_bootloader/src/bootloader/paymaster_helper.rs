@@ -1,12 +1,12 @@
 use super::transaction::ZkSyncTransaction;
 use super::*;
-use crate::bootloader::errors::InvalidTransaction::AAValidationError;
-use crate::bootloader::errors::{InvalidAA, TxError};
+use crate::bootloader::errors::TxError;
 use crate::bootloader::supported_ees::SupportedEEVMState;
 use constants::{PAYMASTER_VALIDATE_AND_PAY_SELECTOR, TX_CALLDATA_OFFSET};
+use errors::{BootloaderSubsystemError, InvalidTransaction};
 use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
 use system_hooks::HooksStorage;
-use zk_ee::system::errors::{FatalError, InternalError};
+use zk_ee::internal_error;
 use zk_ee::system::{EthereumLikeTypes, System};
 
 // Helpers for paymaster flow.
@@ -24,6 +24,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         paymaster: B160,
         _caller_ee_type: ExecutionEnvironmentType,
         resources: &mut S::Resources,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<ReturnValues<'a, S>, TxError>
     where
         S::IO: IOSubsystemExt,
@@ -34,9 +35,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
 
         let CompletedExecution {
             resources_returned,
-            reverted,
-            return_values,
-            ..
+            result,
         } = BasicBootloader::call_account_method(
             system,
             system_functions,
@@ -47,17 +46,21 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             paymaster,
             PAYMASTER_VALIDATE_AND_PAY_SELECTOR,
             resources,
+            tracer,
         )
         .map_err(TxError::oon_as_validation)?;
+
+        let reverted = result.failed();
+        let return_values = result.return_values();
 
         *resources = resources_returned;
         // Return memory isn't flushed, as it's read by
         // store_paymaster_context_and_check_magic
         if reverted {
-            Err(TxError::Validation(AAValidationError(InvalidAA::Revert {
+            Err(TxError::Validation(InvalidTransaction::Revert {
                 method: errors::AAMethod::PaymasterValidateAndPay,
                 output: None, // TODO
-            })))
+            }))
         } else {
             Ok(return_values)
         }
@@ -117,7 +120,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         //     system
         // )?;
         // let rounded_context_len = Self::length_rounded_by_words(context_len)
-        //     .ok_or(InternalError("rounding context length"))?;
+        //     .ok_or(internal_error!("rounding context length"))?;
         // require!(
         //     rounded_context_len <= U256::from(MAX_PAYMASTER_CONTEXT_LEN_BYTES),
         //     AAValidationError(InvalidAA::PaymasterReturnDataTooShort),
@@ -172,7 +175,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         _gas_per_pubdata: U256,
         _validation_pubdata: u64,
         _resources: &mut S::Resources,
-    ) -> Result<bool, FatalError>
+    ) -> Result<bool, BootloaderSubsystemError>
 where {
         todo!();
 
@@ -201,7 +204,7 @@ where {
 
         // let unpadded_context_length = U256::from_be_slice(&pre_tx_buffer[..32]);
         // let context_length = Self::length_rounded_by_words(unpadded_context_length)
-        //     .ok_or(InternalError("Rounding context length"))?;
+        //     .ok_or(internal_error!("Rounding context length"))?;
         // let context_length_u = u256_to_u64_saturated(&context_length) as usize;
         // // Selector + Initial offsets + fixed sized fields
         // let header_length = 4 + U256::BYTES * 6;
@@ -331,7 +334,8 @@ where {
         from: B160,
         selector: &[u8],
         resources: &mut S::Resources,
-    ) -> Result<CompletedExecution<'a, S>, FatalError>
+        tracer: &mut impl Tracer<S>,
+    ) -> Result<CompletedExecution<'a, S>, BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt,
     {
@@ -339,7 +343,7 @@ where {
         let calldata_start = TX_OFFSET - header_length;
         let calldata_end = calldata_start
             .checked_add(transaction.tx_body_length())
-            .ok_or(InternalError("overflow"))?;
+            .ok_or(internal_error!("overflow"))?;
 
         let pre_tx_buffer = transaction.pre_tx_buffer();
         Self::write_calldata_prefix(
@@ -365,6 +369,7 @@ where {
             resources_for_tx,
             &U256::ZERO,
             true,
+            tracer,
         )
     }
 }

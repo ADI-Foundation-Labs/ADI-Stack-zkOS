@@ -15,9 +15,18 @@
 use super::*;
 use core::fmt::Write;
 use evm_interpreter::ERGS_PER_GAS;
-use zk_ee::system::{
-    errors::{SystemError, SystemFunctionError},
-    CallModifier, Resources, System,
+use zk_ee::{
+    define_subsystem, internal_error, out_of_return_memory,
+    system::{
+        errors::{
+            root_cause::{GetRootCause, RootCause},
+            runtime::RuntimeError,
+            subsystem::SubsystemError,
+            system::SystemError,
+        },
+        CallModifier, Resources, System,
+    },
+    utils::cheap_clone::CheapCloneRiscV as _,
 };
 
 ///
@@ -27,22 +36,28 @@ use zk_ee::system::{
 /// NOTE: "pure" here means that we do not expect to trigger any state changes (and calling with static flag is ok),
 /// so for all the purposes we remain in the callee frame in terms of memory for efficiency
 ///
-pub fn pure_system_function_hook_impl<'a, F: SystemFunction<S::Resources>, S: EthereumLikeTypes>(
+pub fn pure_system_function_hook_impl<'a, F, E, S>(
     request: ExternalCallRequest<S>,
     _caller_ee: u8,
     system: &mut System<S>,
     return_memory: &'a mut [MaybeUninit<u8>],
-) -> Result<(CompletedExecution<'a, S>, &'a mut [MaybeUninit<u8>]), FatalError> {
+) -> Result<(CompletedExecution<'a, S>, &'a mut [MaybeUninit<u8>]), SystemError>
+where
+    F: SystemFunctionInvocation<S, E>,
+    S: EthereumLikeTypes,
+    S::IO: IOSubsystemExt,
+    E: Subsystem,
+{
     let ExternalCallRequest {
         available_resources,
-        calldata,
+        input: calldata,
         modifier,
         ..
     } = request;
 
     // We allow static calls as we are "pure" hook
     if modifier == CallModifier::Constructor {
-        return Err(InternalError("precompile called with constructor modifier").into());
+        return Err(internal_error!("precompile called with constructor modifier").into());
     }
 
     let mut resources = available_resources;
@@ -50,7 +65,15 @@ pub fn pure_system_function_hook_impl<'a, F: SystemFunction<S::Resources>, S: Et
     let allocator = system.get_allocator();
 
     let mut return_vec = SliceVec::new(return_memory);
-    let result = F::execute(&calldata, &mut return_vec, &mut resources, allocator);
+    let mut logger = system.get_logger();
+    let result = F::invoke(
+        system.io.oracle(),
+        &mut logger,
+        &calldata,
+        &mut return_vec,
+        &mut resources,
+        allocator,
+    );
 
     match result {
         Ok(()) => {
@@ -60,37 +83,41 @@ pub fn pure_system_function_hook_impl<'a, F: SystemFunction<S::Resources>, S: Et
                 rest,
             ))
         }
-        Err(SystemFunctionError::System(SystemError::OutOfErgs))
-        | Err(SystemFunctionError::InvalidInput) => {
-            let _ = system
-                .get_logger()
-                .write_fmt(format_args!("Out of gas during system hook\n"));
-            resources.exhaust_ergs();
-            let (_, rest) = return_vec.destruct();
-            Ok((make_error_return_state(resources), rest))
-        }
-        Err(SystemFunctionError::System(SystemError::OutOfNativeResources)) => {
-            Err(FatalError::OutOfNativeResources)
-        }
-        Err(SystemFunctionError::System(SystemError::Internal(e))) => Err(e.into()),
+        Err(e) => match e.root_cause() {
+            RootCause::Runtime(RuntimeError::OutOfErgs(_))
+            | RootCause::Internal(_)
+            | RootCause::Usage(_) => {
+                let _ = system
+                    .get_logger()
+                    .write_fmt(format_args!("Out of gas during system hook\nError:{e:?}"));
+                resources.exhaust_ergs();
+                let (_, rest) = return_vec.destruct();
+                Ok((make_error_return_state(resources), rest))
+            }
+            RootCause::Runtime(e @ RuntimeError::FatalRuntimeError(_)) => {
+                Err(Into::<SystemError>::into(e.clone_or_copy()))
+            }
+        },
     }
 }
 
-/// as there is no system function for identity(memcopy)
-/// we define one following the system functions interface
-/// to use same logic as for other hooks
+// as there is no system function for identity(memcopy)
+// we define one following the system functions interface
+// to use same logic as for other hooks
+define_subsystem!(IdentityPrecompile);
+
 pub struct IdentityPrecompile;
 const ID_STATIC_COST_ERGS: Ergs = Ergs(15 * ERGS_PER_GAS);
 const ID_WORD_COST_ERGS: Ergs = Ergs(3 * ERGS_PER_GAS);
 const ID_BASE_NATIVE_COST: u64 = 20;
 const ID_BYTE_NATIVE_COST: u64 = 10;
-impl<R: Resources> SystemFunction<R> for IdentityPrecompile {
-    fn execute<D: Extend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
+impl<R: Resources> SystemFunction<R, IdentityPrecompileErrors> for IdentityPrecompile {
+    fn execute<D: TryExtend<u8> + ?Sized, A: core::alloc::Allocator + Clone>(
         src: &[u8],
         dst: &mut D,
         resources: &mut R,
         _: A,
-    ) -> Result<(), SystemFunctionError> {
+    ) -> Result<(), SubsystemError<IdentityPrecompileErrors>> {
         cycle_marker::wrap_with_resources!("id", resources, {
             let cost_ergs =
                 ID_STATIC_COST_ERGS + ID_WORD_COST_ERGS.times((src.len() as u64).div_ceil(32));
@@ -99,7 +126,8 @@ impl<R: Resources> SystemFunction<R> for IdentityPrecompile {
                 cost_ergs,
                 <R::Native as zk_ee::system::Computational>::from_computational(cost_native),
             ))?;
-            dst.extend(src.iter().cloned());
+            dst.try_extend(src.iter().cloned())
+                .map_err(|_| out_of_return_memory!())?;
             Ok(())
         })
     }

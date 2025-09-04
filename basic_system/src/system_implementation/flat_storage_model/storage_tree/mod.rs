@@ -8,6 +8,8 @@ use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::collections::BTreeSet;
 use alloc::vec::Vec;
+use zk_ee::internal_error;
+use zk_ee::system::errors::internal::InternalError;
 use core::alloc::Allocator;
 use crypto::MiniDigest;
 use either::Either;
@@ -17,7 +19,7 @@ use zk_ee::common_structs::{WarmStorageKey, WarmStorageValue};
 use zk_ee::{
     kv_markers::{ExactSizeChain, ExactSizeChainN, UsizeDeserializable, UsizeSerializable},
     memory::stack_trait::Stack,
-    system::{errors::InternalError, logger::Logger},
+    system::logger::Logger,
     system_io_oracle::*,
     types_config::EthereumIOTypesConfig,
     utils::Bytes32,
@@ -1483,7 +1485,7 @@ impl<const N: usize, H: FlatStorageHasher, A: Allocator + Default> UsizeDeserial
                 };
                 Ok(new)
             }
-            _ => Err(InternalError("ReadValueWithProof deserialization failed")),
+            _ => Err(internal_error!("ReadValueWithProof deserialization failed").into()),
         }
     }
 }
@@ -1535,7 +1537,7 @@ impl<const N: usize, H: FlatStorageHasher, A: Allocator + Default> UsizeDeserial
                 let new = Self::Insert { proof };
                 Ok(new)
             }
-            _ => Err(InternalError("WriteValueWithProof deserialization failed")),
+            _ => Err(internal_error!("WriteValueWithProof deserialization failed").into()),
         }
     }
 }
@@ -2022,7 +2024,7 @@ impl<const N: usize, H: FlatStorageHasher, A: Allocator + Clone, const RANDOMIZE
         }
     }
 
-    fn insert(
+    pub fn insert(
         &mut self,
         key: &Bytes32,
         value: &Bytes32,
@@ -2325,7 +2327,7 @@ mod test {
     }
 
     fn to_be_bytes(value: u64) -> Bytes32 {
-        Bytes32::from_u256_be(U256::try_from(value).unwrap())
+        Bytes32::from_u256_be(&U256::try_from(value).unwrap())
     }
 
     #[test]

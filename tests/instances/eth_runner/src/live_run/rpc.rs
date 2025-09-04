@@ -1,5 +1,6 @@
 use crate::{
     block::Block,
+    calltrace::CallTrace,
     prestate::{DiffTrace, PrestateTrace},
     receipts::BlockReceipts,
 };
@@ -12,12 +13,12 @@ use ureq::json;
 
 /// Converts u64 to hex string with "0x" prefix.
 fn to_hex(n: u64) -> String {
-    format!("0x{:x}", n)
+    format!("0x{n:x}")
 }
 
 /// Fetches the full block data with transactions.
 pub fn get_block(endpoint: &str, block_number: u64) -> Result<Block> {
-    debug!("RPC: get_block({})", block_number);
+    debug!("RPC: get_block({block_number})");
     let body = json!({
         "method": "eth_getBlockByNumber",
         "params": [to_hex(block_number), true],
@@ -31,7 +32,7 @@ pub fn get_block(endpoint: &str, block_number: u64) -> Result<Block> {
 
 /// Fetches the block hash.
 pub fn get_block_hash(endpoint: &str, block_number: u64) -> Result<B256> {
-    debug!("RPC: get_block_hash({})", block_number);
+    debug!("RPC: get_block_hash({block_number})");
 
     let body = json!({
         "method": "eth_getBlockByNumber",
@@ -50,7 +51,7 @@ pub fn get_block_hash(endpoint: &str, block_number: u64) -> Result<B256> {
 
 /// Fetches the block receipts.
 pub fn get_receipts(endpoint: &str, block_number: u64) -> Result<BlockReceipts> {
-    debug!("RPC: get_receipts({})", block_number);
+    debug!("RPC: get_receipts({block_number})");
     let body = json!({
         "method": "eth_getBlockReceipts",
         "params": [to_hex(block_number)],
@@ -64,7 +65,7 @@ pub fn get_receipts(endpoint: &str, block_number: u64) -> Result<BlockReceipts> 
 
 /// Fetches the prestate trace.
 pub fn get_prestate(endpoint: &str, block_number: u64) -> Result<PrestateTrace> {
-    debug!("RPC: get_prestate({})", block_number);
+    debug!("RPC: get_prestate({block_number})");
     let body = json!({
         "method": "debug_traceBlockByNumber",
         "params": [to_hex(block_number), { "tracer": "prestateTracer" }],
@@ -78,7 +79,7 @@ pub fn get_prestate(endpoint: &str, block_number: u64) -> Result<PrestateTrace> 
 
 /// Fetches the diff trace.
 pub fn get_difftrace(endpoint: &str, block_number: u64) -> Result<DiffTrace> {
-    debug!("RPC: get_difftrace({})", block_number);
+    debug!("RPC: get_difftrace({block_number})");
     let body = json!({
         "method": "debug_traceBlockByNumber",
         "params": [to_hex(block_number), {
@@ -91,6 +92,28 @@ pub fn get_difftrace(endpoint: &str, block_number: u64) -> Result<DiffTrace> {
     let res = send(endpoint, body)?;
     let v = serde_json::from_str(&res)?;
     Ok(v)
+}
+
+pub fn get_calltrace(endpoint: &str, block_number: u64) -> Result<CallTrace> {
+    debug!("RPC: get_calltrace({block_number})");
+    use serde::Deserialize;
+    use serde_json::Deserializer;
+
+    let body = json!({
+        "method": "debug_traceBlockByNumber",
+        "params": [to_hex(block_number), {
+            "tracer": "callTracer",
+        }],
+        "id": 1,
+        "jsonrpc": "2.0"
+    });
+    let res = send(endpoint, body)?;
+
+    let mut de = Deserializer::from_str(&res);
+    de.disable_recursion_limit();
+
+    let calltrace = CallTrace::deserialize(&mut de)?;
+    Ok(calltrace)
 }
 
 fn send(endpoint: &str, body: serde_json::Value) -> Result<String> {

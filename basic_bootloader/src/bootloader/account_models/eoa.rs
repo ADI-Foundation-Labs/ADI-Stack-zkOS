@@ -2,30 +2,37 @@ use crate::bootloader::account_models::{AccountModel, ExecutionOutput, Execution
 use crate::bootloader::constants::ERC20_APPROVE_SELECTOR;
 use crate::bootloader::constants::PAYMASTER_APPROVAL_BASED_SELECTOR;
 use crate::bootloader::constants::PAYMASTER_GENERAL_SELECTOR;
+use crate::bootloader::constants::TX_OFFSET;
 use crate::bootloader::constants::{DEPLOYMENT_TX_EXTRA_INTRINSIC_GAS, ERC20_ALLOWANCE_SELECTOR};
-use crate::bootloader::constants::{SPECIAL_ADDRESS_TO_WASM_DEPLOY, TX_OFFSET};
-use crate::bootloader::errors::InvalidTransaction::AAValidationError;
 use crate::bootloader::errors::InvalidTransaction::CreateInitCodeSizeLimit;
-use crate::bootloader::errors::{AAMethod, InvalidAA};
+use crate::bootloader::errors::{AAMethod, BootloaderSubsystemError};
 use crate::bootloader::errors::{InvalidTransaction, TxError};
 use crate::bootloader::runner::{run_till_completion, RunnerMemoryBuffers};
+use crate::bootloader::supported_ees::errors::EESubsystemError;
 use crate::bootloader::supported_ees::SystemBoundEVMInterpreter;
 use crate::bootloader::transaction::ZkSyncTransaction;
+use crate::bootloader::BasicBootloaderExecutionConfig;
 use crate::bootloader::{BasicBootloader, Bytes32};
+use basic_system::cost_constants::{ECRECOVER_COST_ERGS, ECRECOVER_NATIVE_COST};
 use core::fmt::Write;
-use errors::FatalError;
+use crypto::secp256k1::SECP256K1N_HALF;
+use evm_interpreter::interpreter::CreateScheme;
 use evm_interpreter::{ERGS_PER_GAS, MAX_INITCODE_SIZE};
 use ruint::aliases::{B160, U256};
 use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
 use system_hooks::HooksStorage;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::memory::ArrayBuilder;
+use zk_ee::system::errors::interface::InterfaceError;
+use zk_ee::system::errors::subsystem::SubsystemError;
+use zk_ee::system::tracer::Tracer;
 use zk_ee::system::{
-    errors::{InternalError, SystemError, UpdateQueryError},
+    errors::{runtime::RuntimeError, system::SystemError},
     logger::Logger,
     EthereumLikeTypes, System, SystemTypes, *,
 };
 use zk_ee::utils::{b160_to_u256, u256_to_b160_checked};
+use zk_ee::{internal_error, out_of_native_resources, wrap_error};
 
 macro_rules! require_or_revert {
     ($b:expr, $m:expr, $s:expr, $system:expr) => {
@@ -35,22 +42,13 @@ macro_rules! require_or_revert {
             let _ = $system
                 .get_logger()
                 .write_fmt(format_args!("Reverted: {}\n", $s));
-            Err(TxError::Validation(AAValidationError(InvalidAA::Revert {
+            Err(TxError::Validation(InvalidTransaction::Revert {
                 method: $m,
                 output: None,
-            })))
+            }))
         }
     };
 }
-
-/// The order of the secp256k1 curve, divided by two. Signatures that should be checked according
-/// to EIP-2 should have an S value less than or equal to this.
-///
-/// `57896044618658097711785492504343953926418782139537452191302581570759080747168`
-const SECP256K1N_HALF: U256 = U256::from_be_bytes([
-    0x7F, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-    0x5D, 0x57, 0x6E, 0x73, 0x57, 0xA4, 0x50, 0x1D, 0xDF, 0xE9, 0x2F, 0x46, 0x68, 0x1B, 0x20, 0xA0,
-]);
 
 pub struct EOA;
 
@@ -58,7 +56,7 @@ impl<S: EthereumLikeTypes> AccountModel<S> for EOA
 where
     S::IO: IOSubsystemExt,
 {
-    fn validate(
+    fn validate<Config: BasicBootloaderExecutionConfig>(
         system: &mut System<S>,
         _system_functions: &mut HooksStorage<S, S::Allocator>,
         _memories: RunnerMemoryBuffers,
@@ -69,6 +67,7 @@ where
         caller_is_code: bool,
         caller_nonce: u64,
         resources: &mut S::Resources,
+        _tracer: &mut impl Tracer<S>,
     ) -> Result<(), TxError> {
         // safe to panic, validated by the structure
         let from = transaction.from.read();
@@ -95,58 +94,69 @@ where
                     ));
                 }
             }
-            Err(SystemError::OutOfErgs) => {
-                return Err(TxError::Validation(InvalidTransaction::AAValidationError(
-                    InvalidAA::OutOfGasDuringValidation,
-                )))
+            Err(SystemError::LeafRuntime(RuntimeError::OutOfErgs(_))) => {
+                return Err(TxError::Validation(
+                    InvalidTransaction::OutOfGasDuringValidation,
+                ))
             }
-            Err(SystemError::OutOfNativeResources) => {
-                return Err(TxError::Validation(InvalidTransaction::AAValidationError(
-                    InvalidAA::OutOfNativeResourcesDuringValidation,
-                )))
+            Err(SystemError::LeafRuntime(RuntimeError::FatalRuntimeError(_))) => {
+                return Err(TxError::Validation(
+                    InvalidTransaction::OutOfNativeResourcesDuringValidation,
+                ))
             }
-            Err(SystemError::Internal(e)) => return Err(TxError::Internal(e)),
+            Err(SystemError::LeafDefect(e)) => return Err(TxError::Internal(e.into())),
         }
 
-        let signature = transaction.signature();
-        let r = &signature[..32];
-        let s = &signature[32..64];
-        let v = &signature[64];
-        if U256::from_be_slice(s) > SECP256K1N_HALF {
-            return Err(InvalidTransaction::MalleableSignature.into());
-        }
-
-        let mut ecrecover_input = [0u8; 128];
-        ecrecover_input[0..32].copy_from_slice(suggested_signed_hash.as_u8_array_ref());
-        ecrecover_input[63] = *v;
-        ecrecover_input[64..96].copy_from_slice(r);
-        ecrecover_input[96..128].copy_from_slice(s);
-
-        let mut ecrecover_output = ArrayBuilder::default();
-        S::SystemFunctions::secp256k1_ec_recover(
-            ecrecover_input.as_slice(),
-            &mut ecrecover_output,
-            resources,
-            system.get_allocator(),
-        )?;
-
-        if ecrecover_output.is_empty() {
-            return Err(InvalidTransaction::IncorrectFrom {
-                recovered: B160::ZERO,
-                tx: from,
+        // Even if we don't validate a signature, we still need to charge for ecrecover for equivalent behavior
+        if !Config::VALIDATE_EOA_SIGNATURE | Config::SIMULATION {
+            resources.charge(&Resources::from_ergs_and_native(
+                ECRECOVER_COST_ERGS,
+                <<S as SystemTypes>::Resources as Resources>::Native::from_computational(
+                    ECRECOVER_NATIVE_COST,
+                ),
+            ))?;
+        } else {
+            let signature = transaction.signature();
+            let r = &signature[..32];
+            let s = &signature[32..64];
+            let v = &signature[64];
+            if U256::from_be_slice(s) > U256::from_be_bytes(SECP256K1N_HALF) {
+                return Err(InvalidTransaction::MalleableSignature.into());
             }
-            .into());
-        }
 
-        let recovered_from = B160::try_from_be_slice(&ecrecover_output.build()[12..])
-            .ok_or(InternalError("Invalid ecrecover return value"))?;
+            let mut ecrecover_input = [0u8; 128];
+            ecrecover_input[0..32].copy_from_slice(suggested_signed_hash.as_u8_array_ref());
+            ecrecover_input[63] = *v;
+            ecrecover_input[64..96].copy_from_slice(r);
+            ecrecover_input[96..128].copy_from_slice(s);
 
-        if recovered_from != from {
-            return Err(InvalidTransaction::IncorrectFrom {
-                recovered: recovered_from,
-                tx: from,
+            let mut ecrecover_output = ArrayBuilder::default();
+            S::SystemFunctions::secp256k1_ec_recover(
+                ecrecover_input.as_slice(),
+                &mut ecrecover_output,
+                resources,
+                system.get_allocator(),
+            )
+            .map_err(SystemError::from)?;
+
+            if ecrecover_output.is_empty() {
+                return Err(InvalidTransaction::IncorrectFrom {
+                    recovered: B160::ZERO,
+                    tx: from,
+                }
+                .into());
             }
-            .into());
+
+            let recovered_from = B160::try_from_be_slice(&ecrecover_output.build()[12..])
+                .ok_or(internal_error!("Invalid ecrecover return value"))?;
+
+            if recovered_from != from {
+                return Err(InvalidTransaction::IncorrectFrom {
+                    recovered: recovered_from,
+                    tx: from,
+                }
+                .into());
+            }
         }
 
         let old_nonce = match system
@@ -154,12 +164,12 @@ where
             .increment_nonce(caller_ee_type, resources, &from, 1u64)
         {
             Ok(x) => Ok(x),
-            Err(UpdateQueryError::NumericBoundsError) => {
+            Err(SubsystemError::LeafUsage(InterfaceError(NonceError::NonceOverflow, _))) => {
                 return Err(TxError::Validation(
                     InvalidTransaction::NonceOverflowInTransaction,
                 ))
             }
-            Err(UpdateQueryError::System(e)) => Err(e),
+            Err(e) => Err(wrap_error!(e)),
         }?;
 
         assert_eq!(caller_nonce, old_nonce);
@@ -177,7 +187,8 @@ where
         // This data is read before bumping nonce
         current_tx_nonce: u64,
         resources: &mut S::Resources,
-    ) -> Result<ExecutionResult<'a>, FatalError> {
+        tracer: &mut impl Tracer<S>,
+    ) -> Result<ExecutionResult<'a>, BootloaderSubsystemError> {
         // panic is not reachable, validated by the structure
         let from = transaction.from.read();
 
@@ -190,8 +201,6 @@ where
 
         let to_ee_type = if !transaction.reserved[1].read().is_zero() {
             Some(ExecutionEnvironmentType::EVM)
-        } else if to == SPECIAL_ADDRESS_TO_WASM_DEPLOY {
-            Some(ExecutionEnvironmentType::IWasm)
         } else {
             None
         };
@@ -212,6 +221,7 @@ where
                 from,
                 nominal_token_value,
                 current_tx_nonce,
+                tracer,
             )?,
             None => {
                 let final_state = BasicBootloader::run_single_interaction(
@@ -224,14 +234,16 @@ where
                     resources.clone(),
                     &nominal_token_value,
                     true,
+                    tracer,
                 )?;
 
                 let CompletedExecution {
-                    return_values,
                     resources_returned,
-                    reverted,
-                    ..
+                    result,
                 } = final_state;
+
+                let reverted = result.failed();
+                let return_values = result.return_values();
 
                 TxExecutionResult {
                     return_values,
@@ -255,8 +267,7 @@ where
             .write_fmt(format_args!("Main TX body successful = {}\n", !reverted));
 
         let _ = system.get_logger().write_fmt(format_args!(
-            "Resources to refund = {:?}\n",
-            resources_after_main_tx
+            "Resources to refund = {resources_after_main_tx:?}\n"
         ));
         *resources = resources_after_main_tx;
 
@@ -322,12 +333,13 @@ where
         from: B160,
         caller_ee_type: ExecutionEnvironmentType,
         resources: &mut S::Resources,
+        _tracer: &mut impl Tracer<S>,
     ) -> Result<(), TxError> {
         let amount = transaction
             .max_fee_per_gas
             .read()
             .checked_mul(transaction.gas_limit.read() as u128)
-            .ok_or(InternalError("mfpg*gl"))?;
+            .ok_or(internal_error!("mfpg*gl"))?;
         let amount = U256::from(amount);
         system
             .io
@@ -339,7 +351,10 @@ where
                 &amount,
             )
             .map_err(|e| match e {
-                UpdateQueryError::NumericBoundsError => {
+                SubsystemError::LeafUsage(interface_error) => {
+                    let _ = system
+                        .get_logger()
+                        .write_fmt(format_args!("{interface_error:?}"));
                     match system
                         .io
                         .get_nominal_token_balance(caller_ee_type, resources, &from)
@@ -353,13 +368,16 @@ where
                         Err(e) => e.into(),
                     }
                 }
-                UpdateQueryError::System(SystemError::OutOfErgs) => TxError::Validation(
-                    InvalidTransaction::AAValidationError(InvalidAA::OutOfGasDuringValidation),
-                ),
-                UpdateQueryError::System(SystemError::OutOfNativeResources) => {
-                    TxError::oon_as_validation(FatalError::OutOfNativeResources)
-                }
-                UpdateQueryError::System(SystemError::Internal(e)) => e.into(),
+                SubsystemError::LeafDefect(internal_error) => internal_error.into(),
+                SubsystemError::LeafRuntime(runtime_error) => match runtime_error {
+                    RuntimeError::FatalRuntimeError(_) => {
+                        TxError::oon_as_validation(out_of_native_resources!().into())
+                    }
+                    RuntimeError::OutOfErgs(_) => {
+                        TxError::Validation(InvalidTransaction::OutOfGasDuringValidation)
+                    }
+                },
+                SubsystemError::Cascaded(cascaded_error) => match cascaded_error {},
             })?;
         Ok(())
     }
@@ -375,6 +393,7 @@ where
         paymaster: B160,
         _caller_ee_type: ExecutionEnvironmentType,
         resources: &mut S::Resources,
+        tracer: &mut impl Tracer<S>,
     ) -> Result<(), TxError> {
         let paymaster_input = transaction.paymaster_input();
         require_or_revert!(
@@ -423,6 +442,7 @@ where
                 paymaster,
                 token,
                 resources,
+                tracer,
             )?;
             if current_allowance < min_allowance {
                 // Some tokens, e.g. USDT require that the allowance is
@@ -437,6 +457,7 @@ where
                     token,
                     U256::ZERO,
                     resources,
+                    tracer,
                 )?;
                 require_or_revert!(
                     success == U256::from(1),
@@ -454,6 +475,7 @@ where
                     token,
                     min_allowance,
                     resources,
+                    tracer,
                 )?;
                 require_or_revert!(
                     success == U256::from(1),
@@ -481,30 +503,49 @@ where
         resources: &mut S::Resources,
         transaction: &ZkSyncTransaction,
     ) -> Result<(), TxError> {
-        let to = transaction.to.read();
-        let is_deployment =
-            !transaction.reserved[1].read().is_zero() || to == SPECIAL_ADDRESS_TO_WASM_DEPLOY;
+        let is_deployment = !transaction.reserved[1].read().is_zero();
         if is_deployment {
             let calldata_len = transaction.calldata().len() as u64;
             if calldata_len > MAX_INITCODE_SIZE as u64 {
                 return Err(TxError::Validation(CreateInitCodeSizeLimit));
             }
             let initcode_gas_cost = evm_interpreter::gas_constants::INITCODE_WORD_COST
-                * (calldata_len.next_multiple_of(32) / 32);
+                * (calldata_len.next_multiple_of(32) / 32)
+                + DEPLOYMENT_TX_EXTRA_INTRINSIC_GAS;
             let ergs_to_spend = Ergs(initcode_gas_cost.saturating_mul(ERGS_PER_GAS));
             match resources.charge(&S::Resources::from_ergs(ergs_to_spend)) {
                 Ok(_) => (),
-                Err(SystemError::OutOfErgs) => {
-                    return Err(TxError::Validation(InvalidTransaction::AAValidationError(
-                        InvalidAA::OutOfGasDuringValidation,
-                    )))
+                Err(SystemError::LeafRuntime(RuntimeError::OutOfErgs(_))) => {
+                    return Err(TxError::Validation(
+                        InvalidTransaction::OutOfGasDuringValidation,
+                    ))
                 }
-                Err(SystemError::OutOfNativeResources) => {
-                    return Err(TxError::oon_as_validation(FatalError::OutOfNativeResources))
+                Err(e @ SystemError::LeafRuntime(RuntimeError::FatalRuntimeError(_))) => {
+                    return Err(TxError::oon_as_validation(e.into()))
                 }
-                Err(SystemError::Internal(e)) => return Err(TxError::Internal(e)),
+                Err(SystemError::LeafDefect(e)) => return Err(TxError::Internal(e.into())),
             };
         }
+        #[cfg(feature = "pectra")]
+        {
+            let authorization_list_length = transaction.parse_authorization_list_length()?;
+            let authorization_list_gas_cost = authorization_list_length
+                .saturating_mul(evm_interpreter::gas_constants::NEWACCOUNT);
+            let ergs_to_spend = Ergs(authorization_list_gas_cost.saturating_mul(ERGS_PER_GAS));
+            match resources.charge(&S::Resources::from_ergs(ergs_to_spend)) {
+                Ok(_) => (),
+                Err(SystemError::LeafRuntime(RuntimeError::OutOfErgs(_))) => {
+                    return Err(TxError::Validation(
+                        InvalidTransaction::OutOfGasDuringValidation,
+                    ))
+                }
+                Err(e @ SystemError::LeafRuntime(RuntimeError::FatalRuntimeError(_))) => {
+                    return Err(TxError::oon_as_validation(e.into()))
+                }
+                Err(SystemError::LeafDefect(e)) => return Err(TxError::Internal(e.into())),
+            };
+        }
+
         Ok(())
     }
 }
@@ -535,26 +576,11 @@ fn process_deployment<'a, S: EthereumLikeTypes>(
     from: B160,
     nominal_token_value: U256,
     existing_nonce: u64,
-) -> Result<TxExecutionResult<'a, S>, FatalError>
+    tracer: &mut impl Tracer<S>,
+) -> Result<TxExecutionResult<'a, S>, BootloaderSubsystemError>
 where
     S::IO: IOSubsystemExt,
 {
-    // First, charge extra cost for deployment
-    let extra_gas_cost = DEPLOYMENT_TX_EXTRA_INTRINSIC_GAS as u64;
-    let ergs_to_spend = Ergs(extra_gas_cost.saturating_mul(ERGS_PER_GAS));
-    match resources.charge(&S::Resources::from_ergs(ergs_to_spend)) {
-        Ok(_) => (),
-        Err(SystemError::OutOfErgs) => {
-            return Ok(TxExecutionResult {
-                return_values: ReturnValues::empty(),
-                resources_returned: S::Resources::empty(),
-                reverted: true,
-                deployed_address: DeployedAddress::RevertedNoAddress,
-            })
-        }
-        Err(SystemError::OutOfNativeResources) => return Err(FatalError::OutOfNativeResources),
-        Err(SystemError::Internal(e)) => return Err(e.into()),
-    };
     // Next check max initcode size
     if main_calldata.len() > MAX_INITCODE_SIZE {
         return Ok(TxExecutionResult {
@@ -564,23 +590,39 @@ where
             deployed_address: DeployedAddress::RevertedNoAddress,
         });
     }
-    let ee_specific_deployment_processing_data = match to_ee_type {
-        ExecutionEnvironmentType::EVM => {
-            SystemBoundEVMInterpreter::<S>::default_ee_deployment_options(system)
+
+    let deployed_address = match to_ee_type {
+        ExecutionEnvironmentType::NoEE => {
+            return Err(internal_error!("Deployment cannot target NoEE").into())
         }
-        _ => return Err(InternalError("Unsupported EE").into()),
+        ExecutionEnvironmentType::EVM => {
+            SystemBoundEVMInterpreter::<S>::derive_address_for_deployment(
+                system,
+                resources,
+                CreateScheme::Create,
+                &from,
+                existing_nonce,
+                main_calldata,
+            )
+            .map_err(|e| {
+                let ee_error: EESubsystemError = wrap_error!(e);
+                wrap_error!(ee_error)
+            })?
+        }
     };
 
-    let deployment_parameters = DeploymentPreparationParameters {
-        address_of_deployer: from,
-        call_scratch_space: None,
-        constructor_parameters: &[],
+    let deployment_request = ExternalCallRequest {
+        available_resources: resources.clone(),
+        ergs_to_pass: resources.ergs(),
+        caller: from,
+        callee: deployed_address,
+        callers_caller: Default::default(), // Fine to use placeholder, should not be used
+        modifier: CallModifier::Constructor,
+        input: main_calldata,
         nominal_token_value,
-        deployment_code: main_calldata,
-        ee_specific_deployment_processing_data,
-        deployer_full_resources: resources.clone(),
-        deployer_nonce: Some(existing_nonce),
+        call_scratch_space: None,
     };
+
     let rollback_handle = system.start_global_frame()?;
 
     let final_state = run_till_completion(
@@ -588,23 +630,31 @@ where
         system,
         system_functions,
         to_ee_type,
-        ExecutionEnvironmentSpawnRequest::RequestedDeployment(deployment_parameters),
+        deployment_request,
+        tracer,
     )?;
-    let TransactionEndPoint::CompletedDeployment(CompletedDeployment {
-        resources_returned,
-        deployment_result,
-    }) = final_state
-    else {
-        return Err(InternalError("attempt to deploy ended up in invalid state").into());
-    };
+
+    let CompletedExecution {
+        mut resources_returned,
+        result: deployment_result,
+    } = final_state;
 
     let (deployment_success, reverted, return_values, at) = match deployment_result {
-        DeploymentResult::Successful {
-            return_values,
-            deployed_at,
-            ..
-        } => (true, false, return_values, Some(deployed_at)),
-        DeploymentResult::Failed { return_values, .. } => (false, true, return_values, None),
+        CallResult::Successful { mut return_values } => {
+            // In commonly used Ethereum clients it is expected that top-level deployment returns deployed bytecode as the returndata
+            let deployed_bytecode = resources_returned.with_infinite_ergs(|inf_resources| {
+                system
+                    .io
+                    .get_observable_bytecode(to_ee_type, inf_resources, &deployed_address)
+            })?;
+            return_values.returndata = deployed_bytecode;
+
+            (true, false, return_values, Some(deployed_address))
+        }
+        CallResult::Failed { return_values, .. } => (false, true, return_values, None),
+        CallResult::PreparationStepFailed => {
+            return Err(internal_error!("Preparation step failed in root call").into())
+        } // Should not happen
     };
     // Do not forget to reassign it back after potential copy when finishing frame
     system.finish_global_frame(reverted.then_some(&rollback_handle))?;
@@ -612,8 +662,7 @@ where
     // TODO: debug implementation for Bits uses global alloc, which panics in ZKsync OS
     #[cfg(not(target_arch = "riscv32"))]
     let _ = system.get_logger().write_fmt(format_args!(
-        "Deployment at {:?} ended with success = {}\n",
-        at, deployment_success
+        "Deployment at {at:?} ended with success = {deployment_success}\n"
     ));
     let returndata_iter = return_values.returndata.iter().copied();
     let _ = system.get_logger().write_fmt(format_args!("Returndata = "));
@@ -641,6 +690,7 @@ fn erc20_allowance<S: EthereumLikeTypes>(
     paymaster: B160,
     token: B160,
     resources: &mut S::Resources,
+    tracer: &mut impl Tracer<S>,
 ) -> Result<U256, TxError>
 where
     S::IO: IOSubsystemExt,
@@ -672,9 +722,7 @@ where
 
     let CompletedExecution {
         resources_returned,
-        return_values,
-        reverted,
-        ..
+        result,
     } = BasicBootloader::run_single_interaction(
         system,
         system_functions,
@@ -685,8 +733,12 @@ where
         resources.clone(),
         &U256::ZERO,
         true,
+        tracer,
     )
     .map_err(TxError::oon_as_validation)?;
+
+    let reverted = result.failed();
+    let return_values = result.return_values();
 
     let returndata_region = return_values.returndata;
     let returndata_slice = &returndata_region;
@@ -694,14 +746,14 @@ where
     *resources = resources_returned;
 
     let res: Result<U256, TxError> = if reverted {
-        Err(TxError::Validation(AAValidationError(InvalidAA::Revert {
+        Err(TxError::Validation(InvalidTransaction::Revert {
             method: AAMethod::AccountPrePaymaster,
             output: None, // TODO
-        })))
+        }))
     } else if returndata_slice.len() != 32 {
-        Err(TxError::Validation(AAValidationError(
-            InvalidAA::InvalidReturndataLength,
-        )))
+        Err(TxError::Validation(
+            InvalidTransaction::InvalidReturndataLength,
+        ))
     } else {
         Ok(U256::from_be_slice(returndata_slice))
     };
@@ -722,6 +774,7 @@ fn erc20_approve<S: EthereumLikeTypes>(
     token: B160,
     amount: U256,
     resources: &mut S::Resources,
+    tracer: &mut impl Tracer<S>,
 ) -> Result<U256, TxError>
 where
     S::IO: IOSubsystemExt,
@@ -752,9 +805,7 @@ where
 
     let CompletedExecution {
         resources_returned,
-        return_values,
-        reverted,
-        ..
+        result,
     } = BasicBootloader::run_single_interaction(
         system,
         system_functions,
@@ -765,8 +816,12 @@ where
         resources.clone(),
         &U256::ZERO,
         true,
+        tracer,
     )
     .map_err(TxError::oon_as_validation)?;
+
+    let reverted = result.failed();
+    let return_values = result.return_values();
 
     let returndata_region = return_values.returndata;
     let returndata_slice = &returndata_region;
@@ -774,14 +829,14 @@ where
     *resources = resources_returned;
 
     let res: Result<U256, TxError> = if reverted {
-        Err(TxError::Validation(AAValidationError(InvalidAA::Revert {
+        Err(TxError::Validation(InvalidTransaction::Revert {
             method: AAMethod::AccountPrePaymaster,
             output: None, // TODO
-        })))
+        }))
     } else if returndata_slice.len() != 32 {
-        Err(TxError::Validation(AAValidationError(
-            InvalidAA::InvalidReturndataLength,
-        )))
+        Err(TxError::Validation(
+            InvalidTransaction::InvalidReturndataLength,
+        ))
     } else {
         Ok(U256::from_be_slice(returndata_slice))
     };

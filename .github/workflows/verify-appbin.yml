@@ -19,7 +19,6 @@ jobs:
       - name: Build fresh app bin
         run: |
           zksync_os/reproduce/reproduce.sh
-
       - name: Fail if any files were modified
         run: |
           git status --porcelain

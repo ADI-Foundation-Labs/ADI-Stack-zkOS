@@ -1,9 +1,12 @@
 use crate::bootloader::EVM_EE_BYTE;
-use errors::FatalError;
+use errors::{EESubsystemError, InterfaceError};
 use zk_ee::{
+    common_structs::CalleeAccountProperties,
     execution_environment_type::ExecutionEnvironmentType,
+    interface_error,
     memory::slice_vec::SliceVec,
-    system::{errors::InternalError, *},
+    system::{tracer::Tracer, *},
+    wrap_error,
 };
 
 #[allow(type_alias_bounds)]
@@ -33,26 +36,59 @@ impl<'ee, S: EthereumLikeTypes> SupportedEEVMState<'ee, S> {
         }
     }
 
-    pub fn clarify_and_take_passed_resources(
+    pub fn calculate_resources_passed_in_external_call(
         ee_version: ExecutionEnvironmentType,
-        resources_available_in_caller_frame: &mut S::Resources,
-        desired_ergs_to_pass: Ergs,
-    ) -> Result<S::Resources, FatalError> {
+        resources_in_caller_frame: &mut S::Resources,
+        call_request: &ExternalCallRequest<S>,
+        callee_account_properties: &CalleeAccountProperties,
+    ) -> Result<S::Resources, EESubsystemError> {
         match ee_version {
             ExecutionEnvironmentType::EVM => {
-                SystemBoundEVMInterpreter::<S>::clarify_and_take_passed_resources(
-                    resources_available_in_caller_frame,
-                    desired_ergs_to_pass,
+                SystemBoundEVMInterpreter::<S>::calculate_resources_passed_in_external_call(
+                    resources_in_caller_frame,
+                    call_request,
+                    callee_account_properties,
                 )
+                .map_err(wrap_error!())
             }
-            _ => Err(InternalError("Unsupported EE").into()),
+            ExecutionEnvironmentType::NoEE => Err(interface_error!(
+                InterfaceError::UnsupportedExecutionEnvironment
+            )),
         }
     }
 
-    pub fn create_initial(ee_version: u8, system: &mut System<S>) -> Result<Self, InternalError> {
+    pub fn create_initial(
+        ee_type: ExecutionEnvironmentType,
+        system: &mut System<S>,
+    ) -> Result<Self, EESubsystemError> {
+        match ee_type {
+            ExecutionEnvironmentType::EVM => SystemBoundEVMInterpreter::new(system)
+                .map(Self::EVM)
+                .map_err(wrap_error!()),
+            ExecutionEnvironmentType::NoEE => Err(interface_error!(
+                InterfaceError::UnsupportedExecutionEnvironment
+            )),
+        }
+    }
+
+    /// Pre-checks and operations that should not be rolled back if call fails
+    pub fn before_executing_frame<'a, 'i: 'ee, 'h: 'ee>(
+        ee_version: ExecutionEnvironmentType,
+        system: &mut System<S>,
+        frame_state: &mut ExecutionEnvironmentLaunchParams<'i, S>,
+        tracer: &mut impl Tracer<S>,
+    ) -> Result<bool, EESubsystemError>
+    where
+        S::IO: IOSubsystemExt,
+    {
         match ee_version {
-            a if a == EVM_EE_BYTE => SystemBoundEVMInterpreter::new(system).map(Self::EVM),
-            _ => Err(InternalError("Unknown EE")),
+            ExecutionEnvironmentType::EVM => {
+                SystemBoundEVMInterpreter::<S>::before_executing_frame(system, frame_state, tracer)
+                    .map_err(wrap_error!())
+            }
+            ExecutionEnvironmentType::NoEE => Err(interface_error!(
+                InterfaceError::UnsupportedExecutionEnvironment
+            )),
         }
     }
 
@@ -63,67 +99,57 @@ impl<'ee, S: EthereumLikeTypes> SupportedEEVMState<'ee, S> {
         system: &mut System<S>,
         initial_state: ExecutionEnvironmentLaunchParams<'i, S>,
         heap: SliceVec<'h, u8>,
-    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, FatalError> {
+        tracer: &mut impl Tracer<S>,
+    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, EESubsystemError>
+    where
+        S::IO: IOSubsystemExt,
+    {
         match self {
-            Self::EVM(evm_frame) => evm_frame.start_executing_frame(system, initial_state, heap),
+            Self::EVM(evm_frame) => evm_frame
+                .start_executing_frame(system, initial_state, heap, tracer)
+                .map_err(wrap_error!()),
         }
     }
 
-    pub fn continue_after_external_call<'a, 'res: 'ee>(
+    pub fn continue_after_preemption<'a, 'res: 'ee>(
         &'a mut self,
         system: &mut System<S>,
         returned_resources: S::Resources,
         call_result: CallResult<'res, S>,
-    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, FatalError> {
-        match self {
-            Self::EVM(evm_frame) => {
-                evm_frame.continue_after_external_call(system, returned_resources, call_result)
-            }
-        }
-    }
-
-    pub fn continue_after_deployment<'a, 'res: 'ee>(
-        &'a mut self,
-        system: &mut System<S>,
-        returned_resources: S::Resources,
-        deployment_result: DeploymentResult<'res, S>,
-    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, FatalError> {
-        match self {
-            Self::EVM(evm_frame) => {
-                evm_frame.continue_after_deployment(system, returned_resources, deployment_result)
-            }
-        }
-    }
-
-    pub fn prepare_for_deployment<'a>(
-        ee_version: ExecutionEnvironmentType,
-        system: &mut System<S>,
-        deployment_parameters: DeploymentPreparationParameters<'a, S>,
-    ) -> Result<
-        (
-            S::Resources,
-            Option<ExecutionEnvironmentLaunchParams<'a, S>>,
-        ),
-        FatalError,
-    >
+        tracer: &mut impl Tracer<S>,
+    ) -> Result<ExecutionEnvironmentPreemptionPoint<'a, S>, EESubsystemError>
     where
         S::IO: IOSubsystemExt,
     {
-        match ee_version {
-            ExecutionEnvironmentType::EVM => {
-                SystemBoundEVMInterpreter::<S>::prepare_for_deployment(
-                    system,
-                    deployment_parameters,
-                )
-            }
-            _ => Err(InternalError("Unsupported EE").into()),
+        match self {
+            Self::EVM(evm_frame) => evm_frame
+                .continue_after_preemption(system, returned_resources, call_result, tracer)
+                .map_err(wrap_error!()),
         }
     }
 
     pub fn give_back_ergs(&mut self, resources: S::Resources) {
         assert!(resources.native().as_u64() == 0);
         match self {
-            Self::EVM(evm_frame) => evm_frame.resources.reclaim(resources),
+            Self::EVM(evm_frame) => evm_frame.gas.reclaim_resources(resources),
         }
     }
+}
+
+pub mod errors {
+    use evm_interpreter::errors::EvmSubsystemError;
+    use zk_ee::define_subsystem;
+
+    // TODO: This will eventually be extracted to a  separate EE subsystem, one to
+    // rule interactions between EEs and bootloader.
+    //
+    define_subsystem!(
+        EE,
+        interface InterfaceError {
+            UnsupportedExecutionEnvironment,
+        },
+        cascade WrappedError {
+            EvmError(EvmSubsystemError),
+        }
+    );
 }

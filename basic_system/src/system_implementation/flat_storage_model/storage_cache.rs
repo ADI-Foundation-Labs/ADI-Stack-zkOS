@@ -9,14 +9,18 @@ use ruint::aliases::B160;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::{AccountAggregateDataHash, StorageCacheModel};
 use zk_ee::common_structs::cache_record::{Appearance, CacheRecord};
+#[cfg(feature = "evm_refunds")]
+use zk_ee::common_structs::history_counter::HistoryCounter;
+#[cfg(feature = "evm_refunds")]
+use zk_ee::common_structs::history_counter::HistoryCounterSnapshotId;
 use zk_ee::common_traits::key_like_with_bounds::{KeyLikeWithBounds, TyEq};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::system::errors::InternalError;
+use zk_ee::system::errors::internal::InternalError;
 use zk_ee::{
     common_structs::{WarmStorageKey, WarmStorageValue},
     kv_markers::{StorageAddress, UsizeDeserializable},
     memory::stack_trait::{StackCtor, StackCtorConst},
-    system::{errors::SystemError, Resources},
+    system::{errors::system::SystemError, Resources},
     system_io_oracle::{IOOracle, InitialStorageSlotData, InitialStorageSlotDataIterator},
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::Bytes32,
@@ -31,6 +35,12 @@ type AddressItem<'a, K, V, A> =
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
 pub struct TransactionId(pub u32);
+
+pub struct StorageSnapshotId {
+    pub cache: CacheSnapshotId,
+    #[cfg(feature = "evm_refunds")]
+    pub evm_refunds_counter: HistoryCounterSnapshotId,
+}
 
 /// EE-specific IO charging.
 pub trait StorageAccessPolicy<R: Resources, V>: 'static + Sized {
@@ -96,6 +106,8 @@ pub struct GenericPubdataAwarePlainStorage<
     pub(crate) resources_policy: P,
     pub(crate) current_tx_number: TransactionId,
     pub(crate) initial_values: BTreeMap<K, (V, TransactionId), A>, // Used to cache initial values at the beginning of the tx (For EVM gas model)
+    #[cfg(feature = "evm_refunds")]
+    pub(crate) evm_refunds_counter: HistoryCounter<u32, SC, SCC, A>, // Used to keep track of EVM gas refunds
     alloc: A,
     pub(crate) _marker: core::marker::PhantomData<(R, SC, SCC)>,
 }
@@ -124,6 +136,8 @@ where
             current_tx_number: TransactionId(0),
             resources_policy,
             initial_values: BTreeMap::new_in(allocator.clone()),
+            #[cfg(feature = "evm_refunds")]
+            evm_refunds_counter: HistoryCounter::new(allocator.clone()),
             alloc: allocator.clone(),
             _marker: core::marker::PhantomData,
         }
@@ -131,23 +145,35 @@ where
 
     pub fn begin_new_tx(&mut self) {
         self.cache.commit();
+        #[cfg(feature = "evm_refunds")]
+        {
+            self.evm_refunds_counter = HistoryCounter::new(self.alloc.clone());
+        }
+    }
 
+    pub fn finish_tx(&mut self) {
         self.current_tx_number.0 += 1;
     }
 
     #[track_caller]
-    pub fn start_frame(&mut self) -> CacheSnapshotId {
-        self.cache.snapshot()
+    pub fn start_frame(&mut self) -> StorageSnapshotId {
+        StorageSnapshotId {
+            cache: self.cache.snapshot(),
+            #[cfg(feature = "evm_refunds")]
+            evm_refunds_counter: self.evm_refunds_counter.snapshot(),
+        }
     }
 
     #[track_caller]
     #[must_use]
     pub fn finish_frame_impl(
         &mut self,
-        rollback_handle: Option<&CacheSnapshotId>,
+        rollback_handle: Option<&StorageSnapshotId>,
     ) -> Result<(), InternalError> {
         if let Some(x) = rollback_handle {
-            self.cache.rollback(*x)
+            #[cfg(feature = "evm_refunds")]
+            self.evm_refunds_counter.rollback(x.evm_refunds_counter);
+            self.cache.rollback(x.cache)
         } else {
             Ok(())
         }
@@ -255,7 +281,7 @@ where {
         new_value: &V,
         oracle: &mut impl IOOracle,
         resources: &mut R,
-    ) -> Result<V, SystemError>
+    ) -> Result<(V, &V), SystemError>
 where {
         let (mut addr_data, is_warm_read) = Self::materialize_element(
             &mut self.cache,
@@ -306,10 +332,10 @@ where {
             })
         })?;
 
-        Ok(old_value)
+        Ok((old_value, val_at_tx_start))
     }
 
-    /// Cleae state at specified address
+    /// Clear state at specified address
     pub fn clear_state_impl(&mut self, address: impl AsRef<B160>) -> Result<(), SystemError>
     where
         K::Subspace: TyEq<B160>,
@@ -420,7 +446,7 @@ where
         key: &<Self::IOTypes as SystemIOTypesConfig>::StorageKey,
         new_value: &<Self::IOTypes as SystemIOTypesConfig>::StorageValue,
         oracle: &mut impl IOOracle,
-    ) -> Result<<Self::IOTypes as SystemIOTypesConfig>::StorageKey, SystemError> {
+    ) -> Result<<Self::IOTypes as SystemIOTypesConfig>::StorageValue, SystemError> {
         let sa = StorageAddress {
             address: *address,
             key: *key,
@@ -431,9 +457,48 @@ where
             key: *key,
         };
 
-        let old_value = self
+        #[allow(unused_variables)]
+        let (old_value, val_at_tx_start) = self
             .0
             .apply_write_impl(ee_type, &sa, &key, new_value, oracle, resources)?;
+
+        if ee_type == ExecutionEnvironmentType::EVM {
+            // EVM specific refunds calculation
+            #[cfg(feature = "evm_refunds")]
+            if old_value != *new_value {
+                let val_at_tx_start = *val_at_tx_start;
+
+                let mut gas_refunds = self
+                    .0
+                    .evm_refunds_counter
+                    .value()
+                    .copied()
+                    .unwrap_or_default();
+
+                if old_value == val_at_tx_start {
+                    if !val_at_tx_start.is_zero() && new_value.is_zero() {
+                        gas_refunds += 4800
+                    }
+                } else {
+                    if !val_at_tx_start.is_zero() {
+                        if old_value.is_zero() {
+                            gas_refunds -= 4800
+                        } else if new_value.is_zero() {
+                            gas_refunds += 4800
+                        }
+                    }
+                    if *new_value == val_at_tx_start {
+                        if val_at_tx_start.is_zero() {
+                            gas_refunds += 20000 - 100
+                        } else {
+                            gas_refunds += 5000 - 2100 - 100
+                        }
+                    }
+                }
+
+                self.0.evm_refunds_counter.update(gas_refunds);
+            }
+        }
 
         Ok(old_value)
     }
@@ -508,7 +573,7 @@ where
             core::ptr::read((new_value as *const T::Value).cast::<Bytes32>())
         };
 
-        let old_value = self
+        let (old_value, _) = self
             .0
             .apply_write_impl(ee_type, &sa, &key, &new_value, oracle, resources)?;
 
@@ -531,10 +596,15 @@ impl<
 where
     ExtraCheck<SCC, A>:,
 {
-    type StateSnapshot = CacheSnapshotId;
+    type StateSnapshot = StorageSnapshotId;
 
     fn begin_new_tx(&mut self) {
         self.0.begin_new_tx();
+    }
+
+    fn finish_tx(&mut self) -> Result<(), InternalError> {
+        self.0.finish_tx();
+        Ok(())
     }
 
     fn start_frame(&mut self) -> Self::StateSnapshot {

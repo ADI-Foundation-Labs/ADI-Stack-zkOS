@@ -3,6 +3,7 @@
 #![feature(generic_const_exprs)]
 
 use prover_examples::prover::VectorMemoryImplWithRom;
+use risc_v_simulator::sim::BinarySource;
 use risc_v_simulator::{
     abstractions::{memory::VectorMemoryImpl, non_determinism::NonDeterminismCSRSource},
     cycle::IMStandardIsaConfig,
@@ -88,18 +89,18 @@ pub fn run_and_get_effective_cycles(
 
     // Check that the bin file is present and readable.
     let mut file = std::fs::File::open(img_path.clone())
-        .unwrap_or_else(|_| panic!("ZKsync OS bin file missing: {:?}", img_path));
+        .unwrap_or_else(|_| panic!("ZKsync OS bin file missing: {img_path:?}"));
     let mut buffer = vec![];
     file.read_to_end(&mut buffer).expect("must read the file");
 
     let config = SimulatorConfig {
-        bin_path: img_path,
+        bin: BinarySource::Path(img_path),
         cycles,
         entry_point: 0,
         diagnostics,
     };
 
-    let (_non_determinism_source, final_state) =
+    let run_result =
         risc_v_simulator::runner::run_simple_with_entry_point_and_non_determimism_source(
             config,
             non_determinism_source,
@@ -120,7 +121,7 @@ pub fn run_and_get_effective_cycles(
     // TODO: move to new simulator
     #[allow(deprecated)]
     (
-        final_state.registers[10..18].try_into().unwrap(),
+        run_result.state.registers[10..18].try_into().unwrap(),
         block_effective,
     )
 }
@@ -133,13 +134,14 @@ pub fn simulate_witness_tracing(
 
     // Check that the bin file is present and readable.
     let mut file = std::fs::File::open(img_path.clone())
-        .unwrap_or_else(|_| panic!("ZKsync OS bin file missing: {:?}", img_path));
+        .unwrap_or_else(|_| panic!("ZKsync OS bin file missing: {img_path:?}"));
     let mut buffer = vec![];
     file.read_to_end(&mut buffer).expect("must read the file");
 
     let num_instances_upper_bound = 1 << 14;
     let binary = execution_utils::get_padded_binary(&buffer);
-    let worker = trace_and_split::setups::prover::worker::Worker::new();
+
+    let worker = prover_examples::prover::worker::Worker::new();
 
     let now = std::time::Instant::now();
     let (all_witness_instances, _, _, _) =
@@ -147,6 +149,7 @@ pub fn simulate_witness_tracing(
             num_instances_upper_bound,
             &binary,
             non_determinism_source,
+            1 << 22,
             &worker,
         );
     let elapsed = now.elapsed();
@@ -154,8 +157,7 @@ pub fn simulate_witness_tracing(
         all_witness_instances.len() * all_witness_instances[0].num_cycles_chunk_size;
     let speed = (cycles_upper_bound as f64) / elapsed.as_secs_f64() / 1_000_000f64;
     println!(
-        "Simulator witness gen speed is roughly {} MHz: ran {} cycles over {:?}",
-        speed, cycles_upper_bound, elapsed
+        "Simulator witness gen speed is roughly {speed} MHz: ran {cycles_upper_bound} cycles over {elapsed:?}"
     );
 }
 

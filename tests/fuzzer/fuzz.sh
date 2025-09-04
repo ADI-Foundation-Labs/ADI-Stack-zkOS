@@ -4,6 +4,9 @@ FUZZ_LOGS="./fuzz_logs"
 FUZZ_ARTIFACTS="./fuzz/artifacts"
 FUZZ_CORPUS="./fuzz/corpus"
 FUZZ_SEEDS="./fuzz/seeds"
+# Resolve absolute path for zksync-os
+OVERRIDE_ZKSYNC_OS_PATH="../../zksync_os"
+export OVERRIDE_ZKSYNC_OS_PATH
 
 function usage() {
     echo "
@@ -254,6 +257,8 @@ function smoke() {
     parse_args "$@"
 
     timeout="${timeout:-60}"
+    jobs="${jobs:-8}"
+
     FUZZ_TARGETS=(
         "bootloader_run_single_interaction"
         "bootloader_supported_ees"
@@ -263,6 +268,13 @@ function smoke() {
         "precompiles_ecpairing"
         "precompiles_ecrecover"
         "precompiles_modexp"
+        "precompiles_modexplen"
+        "precompiles_ripemd160"
+        "precompiles_sha256"
+        "precompiles_id"
+        "precompiles_ecadd"
+        "precompiles_ecmul"
+        "precompiles_p256"
     )
 
     for TARGET in "${FUZZ_TARGETS[@]}"; do
@@ -270,7 +282,7 @@ function smoke() {
         echo "Running fuzz target: $TARGET"
         echo "Duration: $timeout seconds"
         echo "============================================"
-        cargo fuzz run -D "$TARGET" -- -max_total_time="$timeout" -rss_limit_mb=8192 -close_fd_mask=3
+        cargo fuzz run -D "$TARGET" -- -max_total_time="$timeout" -jobs="$jobs" -rss_limit_mb=8192 -close_fd_mask=3
         exit_code=$?
         if [ $exit_code -eq 0 ]; then
           echo "$TARGET: finished fuzz target"
@@ -298,6 +310,7 @@ function regression() {
 
     prepare
 
+    cargo fuzz build
     echo "Running regression tests on all fuzz targets..."
 
     # Get the list of fuzz targets
@@ -308,6 +321,9 @@ function regression() {
         exit 1
     fi
 
+    # detect the Rust host triple correctly
+    TRIPLE=$(rustc -Vv | sed -n 's/^host: //p')
+
     # For each fuzz target, find corresponding corpus files
     for TARGET in $FUZZ_TARGETS; do
         CORPUS_DIR="${FUZZ_CORPUS}/${TARGET}"
@@ -317,6 +333,8 @@ function regression() {
             continue
         fi
 
+        BIN="target/${TRIPLE}/release/${TARGET}"
+
         # Loop through each file in the corpus directory
         for CORPUS_FILE in "$CORPUS_DIR"/*; do
             # Ensure the file exists before testing
@@ -325,13 +343,14 @@ function regression() {
                 continue
             fi
 
+
             echo "============================================"
             echo "Running regression test for target: $TARGET"
             echo "Using corpus file: $CORPUS_FILE"
             echo "============================================"
 
             # Run the target against the corpus file
-            cargo fuzz run -D "$TARGET" "$CORPUS_FILE" -- -rss_limit_mb=8192 -close_fd_mask=3
+            "$BIN" "$CORPUS_FILE" -rss_limit_mb=8192 -close_fd_mask=3
             exit_code=$?
             if [ $exit_code -eq 0 ]; then
                 echo "$TARGET: finished fuzz target"
@@ -392,7 +411,7 @@ function cov_coverage() {
             tee /dev/stderr | \
             grep 'Coverage data merged and saved in' | \
             sed 's/Coverage data merged and saved in "\(.*\)"./\1/')
-        
+
         if [ -z "$profdata" ]; then
             echo "⚠️ Failed to generate coverage data"
             exit 1
@@ -477,7 +496,7 @@ function coverage() {
             tee /dev/stderr | \
             grep 'Coverage data merged and saved in' | \
             sed 's/Coverage data merged and saved in "\(.*\)"./\1/')
-        
+
         if [ -z "$profdata" ]; then
             echo "⚠️ Failed to generate coverage data"
             exit 1

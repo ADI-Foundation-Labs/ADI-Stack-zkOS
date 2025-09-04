@@ -1,4 +1,4 @@
-os.elf
-app.elf
-app.text
+*.elf
+*.text
+app_debug.bin
 /target
