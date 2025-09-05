@@ -5,7 +5,7 @@ use prover_examples::prover::VectorMemoryImplWithRom;
 
 use risc_v_simulator::{
     abstractions::{memory::VectorMemoryImpl, non_determinism::NonDeterminismCSRSource},
-    sim::{DiagnosticsConfig, ProfilerConfig, SimulatorConfig},
+    sim::{BinarySource, DiagnosticsConfig, ProfilerConfig, SimulatorConfig},
 };
 use std::{io::Read, path::PathBuf, str::FromStr};
 
@@ -91,18 +91,20 @@ pub fn run_and_get_effective_cycles(
     let mut buffer = vec![];
     file.read_to_end(&mut buffer).expect("must read the file");
 
-    let config = SimulatorConfig {
-        bin_path: img_path,
+    let config = SimulatorConfig::new(
+        BinarySource::Path(img_path),
+        0,
         cycles,
-        entry_point: 0,
         diagnostics,
-    };
+    );
 
-    let (_non_determinism_source, final_state) =
+    let run_result =
         risc_v_simulator::runner::run_simple_with_entry_point_and_non_determimism_source(
             config,
             non_determinism_source,
         );
+
+    let final_state = run_result.state;
 
     risc_v_simulator::cycle::state::output_opcode_stats();
 
