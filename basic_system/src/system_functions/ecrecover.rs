@@ -6,6 +6,8 @@ use zk_ee::system::base_system_functions::{Secp256k1ECRecoverErrors, SystemFunct
 use zk_ee::system::errors::{subsystem::SubsystemError, system::SystemError};
 use zk_ee::system::Computational;
 
+use alloc::format;
+
 ///
 /// ecrecover system function implementation.
 ///

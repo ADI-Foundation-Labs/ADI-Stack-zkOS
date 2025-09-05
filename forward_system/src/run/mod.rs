@@ -42,7 +42,11 @@ pub use basic_bootloader::bootloader::errors::InvalidTransaction;
 use basic_system::system_implementation::flat_storage_model::*;
 use oracle_provider::{BasicZkEEOracleWrapper, ReadWitnessSource, ZkEENonDeterminismSource};
 use zksync_os_interface::common_types::{BlockContext, BlockOutput, TxResult};
-use zksync_os_interface::traits::{PreimageSource, ReadStorage, ReadStorageTree, TxResultCallback, TxSource};
+use zksync_os_interface::traits::{
+    PreimageSource, ReadStorage, ReadStorageTree, TxResultCallback, TxSource,
+};
+
+pub use tree::LeafProof;
 
 pub type StorageCommitment = FlatStorageCommitment<{ TREE_HEIGHT }>;
 
@@ -212,7 +216,6 @@ pub fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
     Ok(block_output.tx_results.remove(0))
 }
 
-
 pub struct RunBlockForward;
 
 impl zksync_os_interface::traits::RunBlock for RunBlockForward {
@@ -223,7 +226,7 @@ impl zksync_os_interface::traits::RunBlock for RunBlockForward {
         tree: T,
         preimage_source: PS,
         tx_source: TS,
-        tx_result_callback: TR
+        tx_result_callback: TR,
     ) -> Result<BlockOutput, Self::Error> {
         run_block(
             block_context,

@@ -17,6 +17,8 @@ use zk_ee::{
     },
 };
 
+use alloc::format;
+
 #[cfg(any(all(target_arch = "riscv32", feature = "proving"), test))]
 mod delegation;
 

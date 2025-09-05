@@ -1,5 +1,3 @@
-use std::alloc::Allocator;
-use alloy::consensus::private::serde;
 use arrayvec::ArrayVec;
 use ruint::aliases::{B160, U256};
 use serde::{Deserialize, Serialize};
@@ -156,32 +154,6 @@ impl<const N: u8, const DELEGATED: u8> core::fmt::Debug for VersioningData<N, DE
 pub const DEFAULT_ADDRESS_SPECIFIC_IMMUTABLE_DATA_VERSION: u8 = 1;
 // Used as deployment_status for accounts with code delegation (EIP-7702)
 pub const DEFAULT_DELEGATED_VERSION: u8 = 2;
-
-///
-/// Encoding layout:
-/// versioningData:               u64, BE @ [0..8] (see above)
-/// nonce:                        u64, BE @ [8..16]
-/// balance:                     U256, BE @ [16..48]
-/// bytecode_hash:            Bytes32,    @ [48..80]
-/// unpadded_code_len:                 u32, BE @ [80..84]
-/// artifacts_len:                u32, BE @ [84..88]
-/// observable_bytecode_hash: Bytes32,    @ [88..120]
-/// observable_bytecode_len:      u32, BE @ [120..124]
-///
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(C)]
-pub struct AccountProperties {
-    pub versioning_data:
-        VersioningData<DEFAULT_ADDRESS_SPECIFIC_IMMUTABLE_DATA_VERSION, DEFAULT_DELEGATED_VERSION>,
-    pub nonce: u64,
-    pub balance: U256,
-    pub bytecode_hash: Bytes32,
-    pub unpadded_code_len: u32,
-    pub artifacts_len: u32,
-    pub observable_bytecode_hash: Bytes32,
-    // TODO(EVM-1116): document the need for observable_bytecode_len
-    pub observable_bytecode_len: u32,
-}
 
 #[derive(Debug, Clone)]
 pub struct BlockOutput {
@@ -526,30 +498,6 @@ impl core::fmt::Display for InvalidTransaction {
     }
 }
 
-impl From<(B160, Bytes32, Bytes32)> for StorageWrite {
-    fn from(value: (B160, Bytes32, Bytes32)) -> Self {
-        let flat_key = derive_flat_storage_key(&value.0, &value.1);
-        Self {
-            key: flat_key,
-            value: value.2,
-            account: value.0,
-            account_key: value.1,
-        }
-    }
-}
-
-pub fn derive_flat_storage_key(address: &B160, key: &Bytes32) -> Bytes32 {
-    use blake2::{Blake2s256, Digest};
-    let mut hasher = Blake2s256::new();
-    let mut extended_address = Bytes32::ZERO;
-    extended_address.as_u8_array_mut()[12..]
-        .copy_from_slice(&address.to_be_bytes::<{ B160::BYTES }>());
-    hasher.update(extended_address.as_u8_array_ref());
-    hasher.update(key.as_u8_array_ref());
-    let hash = hasher.finalize();
-    Bytes32::from_array(hash.as_slice().try_into().unwrap())
-}
-
 // Keccak256(RLP([])) = 0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347
 pub const EMPTY_OMMER_ROOT_HASH: [u8; 32] = [
     0x1d, 0xcc, 0x4d, 0xe8, 0xde, 0xc7, 0x5d, 0x7a, 0xab, 0x85, 0xb5, 0x67, 0xb6, 0xcc, 0xd4, 0x1a,
@@ -654,82 +602,6 @@ pub const fn bytecode_padding_len(deployed_len: usize) -> usize {
         0
     } else {
         word - rem
-    }
-}
-
-impl AccountProperties {
-    pub const TRIVIAL_VALUE: Self = Self {
-        versioning_data: VersioningData::empty_non_deployed(),
-        nonce: 0,
-        balance: U256::ZERO,
-        bytecode_hash: Bytes32::ZERO,
-        unpadded_code_len: 0,
-        artifacts_len: 0,
-        observable_bytecode_hash: Bytes32::ZERO,
-        observable_bytecode_len: 0,
-    };
-
-    pub fn full_bytecode_len(&self) -> u32 {
-        let padding = bytecode_padding_len(self.unpadded_code_len as usize);
-        self.unpadded_code_len + (padding as u32) + self.artifacts_len
-    }
-}
-
-impl Default for AccountProperties {
-    fn default() -> Self {
-        Self::TRIVIAL_VALUE
-    }
-}
-
-impl AccountProperties {
-    pub const ENCODED_SIZE: usize = 124;
-
-    pub fn encoding(&self) -> [u8; Self::ENCODED_SIZE] {
-        let mut buffer = [0u8; Self::ENCODED_SIZE];
-        buffer[0..8].copy_from_slice(&self.versioning_data.into_u64().to_be_bytes());
-        buffer[8..16].copy_from_slice(&self.nonce.to_be_bytes());
-        buffer[16..48].copy_from_slice(&self.balance.to_be_bytes::<32>());
-        buffer[48..80].copy_from_slice(self.bytecode_hash.as_u8_ref());
-        buffer[80..84].copy_from_slice(&self.unpadded_code_len.to_be_bytes());
-        buffer[84..88].copy_from_slice(&self.artifacts_len.to_be_bytes());
-        buffer[88..120].copy_from_slice(self.observable_bytecode_hash.as_u8_ref());
-        buffer[120..124].copy_from_slice(&self.observable_bytecode_len.to_be_bytes());
-        buffer
-    }
-
-    pub fn decode(input: &[u8; Self::ENCODED_SIZE]) -> Self {
-        Self {
-            versioning_data: VersioningData::from_u64(u64::from_be_bytes(
-                <&[u8] as TryInto<[u8; 8]>>::try_into(&input[0..8]).unwrap(),
-            )),
-            nonce: u64::from_be_bytes(input[8..16].try_into().unwrap()),
-            balance: U256::from_be_slice(&input[16..48]),
-            bytecode_hash: Bytes32::from(
-                <&[u8] as TryInto<[u8; 32]>>::try_into(&input[48..80]).unwrap(),
-            ),
-            unpadded_code_len: u32::from_be_bytes(input[80..84].try_into().unwrap()),
-            artifacts_len: u32::from_be_bytes(input[84..88].try_into().unwrap()),
-            observable_bytecode_hash: Bytes32::from(
-                <&[u8] as TryInto<[u8; 32]>>::try_into(&input[88..120]).unwrap(),
-            ),
-            observable_bytecode_len: u32::from_be_bytes(input[120..124].try_into().unwrap()),
-        }
-    }
-
-    pub fn compute_hash(&self) -> Bytes32 {
-        use blake2::{Blake2s256, Digest};
-        // efficient hashing without copying
-        let mut hasher = Blake2s256::new();
-        hasher.update(self.versioning_data.into_u64().to_be_bytes());
-        hasher.update(self.nonce.to_be_bytes());
-        hasher.update(self.balance.to_be_bytes::<32>());
-        hasher.update(self.bytecode_hash.as_u8_ref());
-        hasher.update(self.unpadded_code_len.to_be_bytes());
-        hasher.update(self.artifacts_len.to_be_bytes());
-        hasher.update(self.observable_bytecode_hash.as_u8_ref());
-        hasher.update(self.observable_bytecode_len.to_be_bytes());
-        let b: [u8; 32] = hasher.finalize().try_into().unwrap();
-        b.into()
     }
 }
 

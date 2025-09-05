@@ -10,6 +10,8 @@ use zk_ee::system::base_system_functions::{RipeMd160Errors, SystemFunction};
 use zk_ee::system::errors::{subsystem::SubsystemError, system::SystemError};
 use zk_ee::system::Computational;
 
+use alloc::format;
+
 ///
 /// ripemd-160 system function implementation.
 ///

@@ -10,6 +10,8 @@ use crate::cost_constants::{
     KECCAK256_ROUND_NATIVE_COST, KECCAK256_STATIC_COST_ERGS,
 };
 
+use alloc::format;
+
 ///
 /// keccak256 system function implementation.
 ///

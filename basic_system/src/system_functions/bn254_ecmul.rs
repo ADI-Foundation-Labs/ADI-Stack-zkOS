@@ -12,6 +12,8 @@ use zk_ee::system::base_system_functions::{
 use zk_ee::system::errors::subsystem::SubsystemError;
 use zk_ee::{interface_error, out_of_return_memory};
 
+use alloc::format;
+
 ///
 /// bn254 ecmul system function implementation.
 ///

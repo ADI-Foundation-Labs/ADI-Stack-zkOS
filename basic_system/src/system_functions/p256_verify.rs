@@ -9,6 +9,8 @@ use zk_ee::system::{
 };
 use zk_ee::{interface_error, out_of_return_memory};
 
+use alloc::format;
+
 // TODO(EVM-1072): think about error cases, as others follow evm specs
 /// p256 verify system function implementation.
 /// Returns the size in bytes of output.

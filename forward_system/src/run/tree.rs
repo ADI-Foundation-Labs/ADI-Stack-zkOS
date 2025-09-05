@@ -2,7 +2,7 @@ use basic_system::system_implementation::flat_storage_model::LeafProof as Generi
 use basic_system::system_implementation::flat_storage_model::*;
 use zk_ee::utils::Bytes32;
 
-// pub type LeafProof = GenericLeafProof<TREE_HEIGHT, Blake2sStorageHasher>;
+pub type LeafProof = GenericLeafProof<TREE_HEIGHT, Blake2sStorageHasher>;
 
 // pub trait ReadStorage: 'static {
 //     fn read(&mut self, key: Bytes32) -> Option<Bytes32>;

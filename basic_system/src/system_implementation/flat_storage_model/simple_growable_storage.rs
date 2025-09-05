@@ -35,7 +35,7 @@ use zk_ee::{
     types_config::EthereumIOTypesConfig,
     utils::Bytes32,
 };
-
+use zksync_os_interface::traits::AnyLeafProof;
 // we use u64 types below, but in practice smaller depth will be used
 
 pub const MIN_KEY_LEAF_MARKER_IDX: u64 = 0;
@@ -915,6 +915,28 @@ pub struct LeafProof<const N: usize, H: FlatStorageHasher, A: Allocator = Global
     pub leaf: FlatStorageLeaf<N>,
     pub path: Box<[Bytes32; N], A>,
     _marker: core::marker::PhantomData<H>,
+}
+
+impl<H: FlatStorageHasher> AnyLeafProof for LeafProof<64, H, Global> {
+    fn index(&self) -> u64 {
+        self.index
+    }
+
+    fn key(&self) -> zksync_os_interface::bytes32::Bytes32 {
+        zksync_os_interface::bytes32::Bytes32::from_array(self.leaf.key.as_u8_array())
+    }
+
+    fn value(&self) -> zksync_os_interface::bytes32::Bytes32 {
+        zksync_os_interface::bytes32::Bytes32::from_array(self.leaf.value.as_u8_array())
+    }
+
+    fn next(&self) -> u64 {
+        self.leaf.next
+    }
+
+    fn path(&self) -> &[zksync_os_interface::bytes32::Bytes32; 64] {
+        todo!()
+    }
 }
 
 impl<const N: usize, H: FlatStorageHasher, A: Allocator> LeafProof<N, H, A> {

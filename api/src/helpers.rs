@@ -6,13 +6,13 @@ use alloy::primitives::Signature;
 use alloy::rpc::types::TransactionRequest;
 use alloy::signers::local::PrivateKeySigner;
 use basic_system::system_implementation::flat_storage_model::bytecode_padding_len;
+use basic_system::system_implementation::flat_storage_model::AccountProperties;
 use ruint::aliases::U256;
 use std::alloc::Global;
 use std::ops::Add;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::system::EIP7702_DELEGATION_MARKER;
 use zksync_os_interface::bytes32::Bytes32;
-use zksync_os_interface::common_types::AccountProperties;
 use zksync_os_interface::traits::PreimageSource;
 // Getters
 
@@ -37,7 +37,7 @@ pub fn get_code<P: PreimageSource>(
     preimage_source: &mut P,
     account: &AccountProperties,
 ) -> Vec<u8> {
-    match preimage_source.get_preimage(account.bytecode_hash) {
+    match preimage_source.get_preimage(account.bytecode_hash.as_u8_array().into()) {
         None => vec![],
         Some(full_bytecode) => get_unpadded_code(&full_bytecode, account).to_vec(),
     }
@@ -100,8 +100,8 @@ pub fn set_properties_code(account: &mut AccountProperties, evm_code: &[u8]) -> 
         (bytecode_hash, artifacts_len, bytecode_and_artifacts)
     };
 
-    account.observable_bytecode_hash = observable_bytecode_hash;
-    account.bytecode_hash = bytecode_hash;
+    account.observable_bytecode_hash = observable_bytecode_hash.as_u8_array().into();
+    account.bytecode_hash = bytecode_hash.as_u8_array().into();
     account
         .versioning_data
         .set_ee_version(ExecutionEnvironmentType::EVM as u8);

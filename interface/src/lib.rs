@@ -6,4 +6,3 @@ pub mod constants;
 pub mod util;
 pub mod traits;
 mod rlp;
-pub mod leaf_proof;

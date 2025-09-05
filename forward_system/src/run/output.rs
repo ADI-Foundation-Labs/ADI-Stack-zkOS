@@ -1,3 +1,4 @@
+use ruint::aliases::B160;
 use zksync_os_interface::bytes32::Bytes32;
 // // Includes code adapted from https://github.com/bluealloy/revm/blob/fb80087996dfbd6c74eaf308538cfa707ecb763c/crates/context/interface/src/result.rs
 //
@@ -159,7 +160,9 @@ use crate::run::result_keeper::ForwardRunningResultKeeper;
 //     }
 // }
 
-use zksync_os_interface::common_types::{BlockOutput, ExecutionOutput, ExecutionResult, TxOutput};
+use zksync_os_interface::common_types::{
+    BlockOutput, ExecutionOutput, ExecutionResult, StorageWrite, TxOutput,
+};
 use zksync_os_interface::traits::TxResultCallback;
 
 impl<TR: TxResultCallback> From<ForwardRunningResultKeeper<TR>> for BlockOutput {
@@ -226,27 +229,61 @@ impl<TR: TxResultCallback> From<ForwardRunningResultKeeper<TR>> for BlockOutput 
             })
             .collect();
 
-        let storage_writes = storage_writes.into_iter().map(|s| (
-                s.0,
-                Bytes32::from_array(s.1.as_u8_array()),
-                Bytes32::from_array(s.2.as_u8_array()),
-            ).into()).collect();
+        let storage_writes = storage_writes
+            .into_iter()
+            .map(|(address, key, value)| {
+                derive_flat_storage_key(
+                    address,
+                    Bytes32::from_array(key.as_u8_array()),
+                    Bytes32::from_array(value.as_u8_array()),
+                )
+            })
+            .collect();
 
         Self {
             header: block_header.unwrap(),
             tx_results,
             storage_writes,
-            published_preimages: new_preimages.into_iter().map(|x| (
-                zksync_os_interface::bytes32::Bytes32::from_array(x.0.as_u8_array()),
-                x.1,
-                match x.2 {
-                    zk_ee::common_structs::PreimageType::AccountData => zksync_os_interface::common_types::PreimageType::AccountData,
-                    zk_ee::common_structs::PreimageType::Bytecode => zksync_os_interface::common_types::PreimageType::Bytecode,
-                }
-            )).collect(),
+            published_preimages: new_preimages
+                .into_iter()
+                .map(|x| {
+                    (
+                        zksync_os_interface::bytes32::Bytes32::from_array(x.0.as_u8_array()),
+                        x.1,
+                        match x.2 {
+                            zk_ee::common_structs::PreimageType::AccountData => {
+                                zksync_os_interface::common_types::PreimageType::AccountData
+                            }
+                            zk_ee::common_structs::PreimageType::Bytecode => {
+                                zksync_os_interface::common_types::PreimageType::Bytecode
+                            }
+                        },
+                    )
+                })
+                .collect(),
             pubdata,
             computaional_native_used: block_computaional_native_used,
         }
+    }
+}
+
+fn derive_flat_storage_key(address: B160, key: Bytes32, value: Bytes32) -> StorageWrite {
+    use blake2::{Blake2s256, Digest};
+
+    let mut hasher = Blake2s256::new();
+    let mut extended_address = Bytes32::ZERO;
+    extended_address.as_u8_array_mut()[12..]
+        .copy_from_slice(&address.to_be_bytes::<{ B160::BYTES }>());
+    hasher.update(extended_address.as_u8_array_ref());
+    hasher.update(key.as_u8_array_ref());
+    let hash = hasher.finalize();
+    let flat_key = Bytes32::from_array(hash.as_slice().try_into().unwrap());
+
+    StorageWrite {
+        key: flat_key,
+        value,
+        account: address,
+        account_key: key,
     }
 }
 

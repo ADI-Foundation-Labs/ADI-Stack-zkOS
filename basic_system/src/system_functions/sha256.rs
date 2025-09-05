@@ -8,6 +8,8 @@ use zk_ee::system::base_system_functions::{Sha256Errors, SystemFunction};
 use zk_ee::system::errors::{subsystem::SubsystemError, system::SystemError};
 use zk_ee::system::{Computational, Resources};
 
+use alloc::format;
+
 ///
 /// SHA-256 system function implementation.
 ///
