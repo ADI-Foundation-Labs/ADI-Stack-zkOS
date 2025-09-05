@@ -231,7 +231,7 @@ dependencies = [
 [[package]]
 name = "blake2s_u32"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?branch=av_move_constants#96c4d172e93c5cfceec7f07c5a39320563b1ba3e"
+source = "git+https://github.com/matter-labs/zksync-airbender?branch=dev#64ca7a3e090625dc52831f162711025f3ec70fbe"
 dependencies = [
  "common_constants",
  "unroll",
@@ -265,7 +265,7 @@ checksum = "2fd1289c04a9ea8cb22300a459a72a385d7c73d3259e2ed7dcb2af674838cfa9"
 [[package]]
 name = "common_constants"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?branch=av_move_constants#96c4d172e93c5cfceec7f07c5a39320563b1ba3e"
+source = "git+https://github.com/matter-labs/zksync-airbender?branch=dev#64ca7a3e090625dc52831f162711025f3ec70fbe"
 
 [[package]]
 name = "const-hex"
@@ -829,7 +829,7 @@ dependencies = [
 [[package]]
 name = "riscv_common"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?branch=av_move_constants#96c4d172e93c5cfceec7f07c5a39320563b1ba3e"
+source = "git+https://github.com/matter-labs/zksync-airbender?branch=dev#64ca7a3e090625dc52831f162711025f3ec70fbe"
 
 [[package]]
 name = "ruint"
