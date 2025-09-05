@@ -11,10 +11,11 @@ categories.workspace = true
 
 [dependencies]
 zk_ee = { path = "../zk_ee", default-features = false }
-ruint = { version = "1.16", default-features = false }
 crypto = { path = "../crypto", default-features = false }
 oracle_provider = { path = "../oracle_provider" }
 basic_system = { path = "../basic_system", default-features = false }
+
+ruint = { workspace = true, default-features = false }
 
 risc_v_simulator = { git = "https://github.com/matter-labs/zksync-airbender", branch = "av_move_constants", optional = true }
 num-bigint = { version = "*", optional = true }

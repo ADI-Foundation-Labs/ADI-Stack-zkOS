@@ -196,7 +196,7 @@ name = "basic_system"
 version = "0.1.0"
 dependencies = [
  "arrayvec",
- "cc-traits 0.1.0",
+ "cc-traits",
  "cfg-if",
  "const_for",
  "crypto",
@@ -255,12 +255,6 @@ checksum = "1fd0f2584146f6f2ef48085050886acf353beff7305ebd1ae69500e27c67f64b"
 [[package]]
 name = "cc-traits"
 version = "0.1.0"
-
-[[package]]
-name = "cc-traits"
-version = "2.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "060303ef31ef4a522737e1b1ab68c67916f2a787bb2f4f54f383279adba962b5"
 
 [[package]]
 name = "cfg-if"
@@ -708,7 +702,7 @@ dependencies = [
  "arrayvec",
  "basic_bootloader",
  "basic_system",
- "cc-traits 2.0.0",
+ "cc-traits",
  "cfg-if",
  "crypto",
  "evm_interpreter",
@@ -742,12 +736,6 @@ checksum = "1885c039570dc00dcb4ff087a89e185fd56bae234ddc7f056a945bf36467248d"
 dependencies = [
  "proc-macro2",
 ]
-
-[[package]]
-name = "r0"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd7a31eed1591dcbc95d92ad7161908e72f4677f8fabf2a32ca49b4237cbf211"
 
 [[package]]
 name = "rand"
@@ -1112,7 +1100,7 @@ version = "0.1.0"
 dependencies = [
  "arrayvec",
  "bitflags",
- "cc-traits 0.1.0",
+ "cc-traits",
  "cfg-if",
  "crypto",
  "cycle_marker",
@@ -1130,7 +1118,6 @@ dependencies = [
  "crypto",
  "heapless",
  "proof_running_system",
- "r0",
  "riscv",
  "riscv_common",
 ]

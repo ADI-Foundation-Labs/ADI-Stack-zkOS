@@ -12,17 +12,19 @@ categories.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ruint = { version = "1.16", default-features = false }
-cfg-if = "*"
 crypto = { path = "../crypto", default-features = false }
-arrayvec = { version = "0.7.4", default-features = false }
-bitflags = { version = "2.6.0", default-features = false }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
+cc-traits = { path = "../supporting_crates/cc-traits/", default-features = false, features = ["allocator_api"] }
 cycle_marker = { path = "../cycle_marker" }
+
+ruint = { workspace = true, default-features = false  }
+arrayvec = { workspace = true, default-features = false }
+serde = { workspace = true, default-features = false, features = ["derive"] }
+
+cfg-if = "*"
+bitflags = { version = "2.6.0", default-features = false }
 strum_macros = "0.27.1"
 paste = "1.0.15"
 serde-big-array = "0.5"
-cc-traits = { path = "../supporting_crates/cc-traits/", default-features = false, features = ["allocator_api"] }
 
 [features]
 testing = ["ruint/serde"]

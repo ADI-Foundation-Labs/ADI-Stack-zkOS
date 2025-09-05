@@ -12,7 +12,6 @@ categories = ["cryptography"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-r0 = "1.0.0"
 riscv = "0.11"
 heapless = { version = "*", default-features = false }
 proof_running_system = { path = "../proof_running_system", default-features = false}
