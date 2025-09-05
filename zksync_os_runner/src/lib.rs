@@ -91,12 +91,7 @@ pub fn run_and_get_effective_cycles(
     let mut buffer = vec![];
     file.read_to_end(&mut buffer).expect("must read the file");
 
-    let config = SimulatorConfig::new(
-        BinarySource::Path(img_path),
-        0,
-        cycles,
-        diagnostics,
-    );
+    let config = SimulatorConfig::new(BinarySource::Path(img_path), 0, cycles, diagnostics);
 
     let run_result =
         risc_v_simulator::runner::run_simple_with_entry_point_and_non_determimism_source(

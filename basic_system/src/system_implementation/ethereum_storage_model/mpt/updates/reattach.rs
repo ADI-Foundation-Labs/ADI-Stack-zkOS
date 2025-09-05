@@ -5,46 +5,34 @@ enum ReattachControlFlow<'b> {
         node: NodeType,
         prefix_scratch: &'b mut [u8],
         offset: usize,
-        last_child: NodeType,
     },
     CreateExtension {
         branch: NodeType,
         prefix_scratch: &'b mut [u8],
         offset: usize,
-        last_child: NodeType,
     },
 }
 
 impl<'b> ReattachControlFlow<'b> {
-    fn add_prefix(&mut self, prefix: &[u8], prefix_origin_node: NodeType) -> Result<(), ()> {
-        let (dst, offset, last_child) = match self {
+    fn add_prefix(&mut self, prefix: &[u8]) -> Result<(), ()> {
+        let (dst, offset) = match self {
             Self::ExtendExisting {
                 prefix_scratch,
                 offset,
-                last_child,
                 ..
-            } => (prefix_scratch, offset, last_child),
+            } => (prefix_scratch, offset),
             Self::CreateExtension {
                 prefix_scratch,
                 offset,
-                last_child,
                 ..
-            } => (prefix_scratch, offset, last_child),
+            } => (prefix_scratch, offset),
         };
         if *offset < prefix.len() {
             Err(())
         } else {
             dst[(*offset - prefix.len())..*offset].copy_from_slice(prefix);
             *offset -= prefix.len();
-            *last_child = prefix_origin_node;
             Ok(())
-        }
-    }
-
-    fn get_last_child(&self) -> NodeType {
-        match self {
-            Self::ExtendExisting { last_child, .. } => *last_child,
-            Self::CreateExtension { last_child, .. } => *last_child,
         }
     }
 }
@@ -131,7 +119,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 self.detach_and_propagate(child, preimages_oracle, interner, hasher)?
             {
                 let extension = &self.capacities.extension_nodes[extension_node.index()];
-                attachment_form_child.add_prefix(extension.path_segment, extension_node)?;
+                attachment_form_child.add_prefix(extension.path_segment)?;
                 Ok(Some(attachment_form_child))
             } else {
                 Ok(None)
@@ -151,7 +139,6 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             node: leaf_node,
             prefix_scratch: scratch,
             offset: 64,
-            last_child: leaf_node,
         };
         // NOTE: we do not need to add prefix as it's in the leaf itself
 
@@ -168,7 +155,6 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             node: extension_node,
             prefix_scratch: scratch,
             offset: 64,
-            last_child: extension_node,
         };
         // NOTE: we do not need to add prefix as it's in the leaf itself
 
@@ -185,7 +171,6 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             branch: branch_node,
             prefix_scratch: scratch,
             offset: 64,
-            last_child: branch_node,
         };
 
         Ok(attachment)
@@ -204,7 +189,6 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 branch,
                 prefix_scratch,
                 offset,
-                last_child,
             } => {
                 // we need to make extension node
                 let path = &prefix_scratch[offset..];
@@ -224,7 +208,6 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 node,
                 prefix_scratch,
                 offset,
-                last_child,
             } => {
                 if node.is_extension() {
                     let path = &prefix_scratch[offset..];
@@ -367,15 +350,15 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
 
                 if child.is_leaf() {
                     let mut attachment = self.make_detached_leaf(child, interner)?;
-                    attachment.add_prefix(&[child_idx as u8], branch_node)?;
+                    attachment.add_prefix(&[child_idx as u8])?;
                     return Ok(Some(attachment));
                 } else if child.is_extension() {
                     let mut attachment = self.make_detached_extension(child, interner)?;
-                    attachment.add_prefix(&[child_idx as u8], branch_node)?;
+                    attachment.add_prefix(&[child_idx as u8])?;
                     return Ok(Some(attachment));
                 } else if child.is_branch() {
                     let mut attachment = self.make_detached_branch(child, interner)?;
-                    attachment.add_prefix(&[child_idx as u8], branch_node)?;
+                    attachment.add_prefix(&[child_idx as u8])?;
                     return Ok(Some(attachment));
                 } else {
                     return Err(());
