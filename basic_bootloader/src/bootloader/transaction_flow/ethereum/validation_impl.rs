@@ -752,7 +752,7 @@ where
         .checked_add(fee_for_blob_gas)
         .ok_or(internal_error!("transaction fee + blob gas"))?;
 
-    let tx_hash = *transaction.transaction_hash();
+    // let tx_hash = *transaction.transaction_hash();
 
     let tx_level_metadata = EthereumTransactionMetadata {
         tx_gas_price: effective_gas_price,
@@ -766,7 +766,7 @@ where
         priority_fee_per_gas,
         minimal_gas_to_charge: minimal_gas_used,
         originator_nonce_to_use: old_nonce,
-        tx_hash,
+        // tx_hash,
         tx_gas_limit,
         gas_used: 0,
         blob_gas_used,

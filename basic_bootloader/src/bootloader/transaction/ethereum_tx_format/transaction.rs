@@ -96,9 +96,9 @@ impl<A: Allocator> EthereumTransactionWithBuffer<A> {
         &self.sig_hash
     }
 
-    pub fn transaction_hash(&self) -> &Bytes32 {
-        &self.tx_hash
-    }
+    // pub fn transaction_hash(&self) -> &Bytes32 {
+    //     &self.tx_hash
+    // }
 
     pub fn tx_type(&self) -> u8 {
         match &self.inner {
@@ -321,9 +321,9 @@ impl<'a> EthereumTransaction<'a> {
         &self.sig_hash
     }
 
-    pub fn transaction_hash(&self) -> &Bytes32 {
-        &self.tx_hash
-    }
+    // pub fn transaction_hash(&self) -> &Bytes32 {
+    //     &self.tx_hash
+    // }
 
     pub fn calldata(&self) -> &'a [u8] {
         match &self.inner {
