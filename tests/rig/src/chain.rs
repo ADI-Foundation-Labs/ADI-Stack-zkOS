@@ -357,11 +357,9 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             self.state_tree
                 .cold_storage
                 .insert(storage_write.key, storage_write.value);
-            self.state_tree.storage_tree.insert(
-                &storage_write.key,
-                &storage_write.value,
-                &mut BTreeSet::new(),
-            );
+            self.state_tree
+                .storage_tree
+                .insert_dense_or_update(&storage_write.key, &storage_write.value);
         }
 
         for (hash, preimage, _preimage_type) in block_output.published_preimages.iter() {
