@@ -32,7 +32,8 @@ mod tests {
             for (pos, opcode) in unsupported_opcodes.into_iter() {
                 println!(
                     "Potentially unsupported opcode 0x{:08x} at PC = 0x{:08x}",
-                    opcode, pos * core::mem::size_of::<u32>()
+                    opcode,
+                    pos * core::mem::size_of::<u32>()
                 );
             }
             panic!("Unsupported opcodes in binary");
