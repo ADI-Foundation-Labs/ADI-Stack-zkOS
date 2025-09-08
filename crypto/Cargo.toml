@@ -18,7 +18,7 @@ k256 =  { version = "0.13", default-features = false, features = ["ecdsa-core", 
 p256 =  { version = "0.13", default-features = false, features = ["ecdsa-core", "ecdsa", "arithmetic"] }
 blake2s_u32 = { workspace = true, optional = true }
 ripemd = { version = "0.1", default-features = false }
-ruint = { workspace = true, default-features = false, optional = true }
+ruint = { workspace = true, default-features = false }
 
 seq-macro = "*"
 cfg-if = "1.0.0"
@@ -74,4 +74,4 @@ blake2s_tests = []
 secp256k1-static-context = []
 alloc = []
 sha3_tests = []
-testing = ["ruint"]
+testing = []
