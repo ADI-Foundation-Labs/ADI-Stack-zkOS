@@ -231,7 +231,7 @@ dependencies = [
 [[package]]
 name = "blake2s_u32"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?branch=dev#64ca7a3e090625dc52831f162711025f3ec70fbe"
+source = "git+https://github.com/matter-labs/zksync-airbender?branch=dev#346d163c70e64cc293a74cda46c07713d50b23f9"
 dependencies = [
  "common_constants",
  "unroll",
@@ -265,7 +265,7 @@ checksum = "2fd1289c04a9ea8cb22300a459a72a385d7c73d3259e2ed7dcb2af674838cfa9"
 [[package]]
 name = "common_constants"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?branch=dev#64ca7a3e090625dc52831f162711025f3ec70fbe"
+source = "git+https://github.com/matter-labs/zksync-airbender?branch=dev#346d163c70e64cc293a74cda46c07713d50b23f9"
 
 [[package]]
 name = "const-hex"
@@ -830,7 +830,7 @@ dependencies = [
 [[package]]
 name = "riscv_common"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?branch=dev#64ca7a3e090625dc52831f162711025f3ec70fbe"
+source = "git+https://github.com/matter-labs/zksync-airbender?branch=dev#346d163c70e64cc293a74cda46c07713d50b23f9"
 
 [[package]]
 name = "ruint"
@@ -1057,18 +1057,18 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "zerocopy"
-version = "0.8.26"
+version = "0.8.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1039dd0d3c310cf05de012d8a39ff557cb0d23087fd44cad61df08fc31907a2f"
+checksum = "0894878a5fa3edfd6da3f88c4805f4c8558e2b996227a3d864f47fe11e38282c"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.8.26"
+version = "0.8.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9ecf5b4cc5364572d7f4c329661bcc82724222973f2cab6f050a4e5c22f75181"
+checksum = "88d2b8d9c68ad2b9e4340d7832716a4d21a22a1154777ad56ea55c51a9cf3831"
 dependencies = [
  "proc-macro2",
  "quote",
