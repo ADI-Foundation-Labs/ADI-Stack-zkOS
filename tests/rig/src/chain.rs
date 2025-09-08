@@ -19,7 +19,6 @@ use log::{debug, info, trace};
 use oracle_provider::{BasicZkEEOracleWrapper, ReadWitnessSource, ZkEENonDeterminismSource};
 use risc_v_simulator::sim::{DiagnosticsConfig, ProfilerConfig};
 use ruint::aliases::{B160, B256, U256};
-use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Write;

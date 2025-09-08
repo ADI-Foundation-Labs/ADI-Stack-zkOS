@@ -81,8 +81,8 @@ impl<const N: usize> FlatStorageLeafWithNextKey<N> {
 }
 
 pub trait DigestFriendlyLeaf {
-    fn persistent_digest_fn<D: MiniDigest>(&'_ self) -> Option<impl FnOnce(&mut D) -> () + '_>;
-    fn updated_digest_fn<D: MiniDigest>(&'_ self) -> impl FnOnce(&mut D) -> () + '_;
+    fn persistent_digest_fn<D: MiniDigest>(&'_ self) -> Option<impl FnOnce(&mut D) + '_>;
+    fn updated_digest_fn<D: MiniDigest>(&'_ self) -> impl FnOnce(&mut D) + '_;
 }
 
 pub trait FlatStorageHasher: 'static + Send + Sync + Default + core::fmt::Debug {
@@ -92,10 +92,10 @@ pub trait FlatStorageHasher: 'static + Send + Sync + Default + core::fmt::Debug 
 }
 
 impl<const N: usize> DigestFriendlyLeaf for FlatStorageLeafWithNextKey<N> {
-    fn persistent_digest_fn<D: MiniDigest>(&'_ self) -> Option<impl FnOnce(&mut D) -> () + '_> {
+    fn persistent_digest_fn<D: MiniDigest>(&'_ self) -> Option<impl FnOnce(&mut D) + '_> {
         Some(self.updated_digest_fn())
     }
-    fn updated_digest_fn<D: MiniDigest>(&'_ self) -> impl FnOnce(&mut D) -> () + '_ {
+    fn updated_digest_fn<D: MiniDigest>(&'_ self) -> impl FnOnce(&mut D) + '_ {
         |digest: &mut D| {
             digest.update(self.key.as_u8_array_ref());
             digest.update(self.value.as_u8_array_ref());
@@ -395,7 +395,7 @@ impl<const N: usize, A: Allocator + Clone> LeafCacheRecord<N, A> {
 }
 
 impl<const N: usize, A: Allocator + Clone> DigestFriendlyLeaf for LeafCacheRecord<N, A> {
-    fn persistent_digest_fn<D: MiniDigest>(&'_ self) -> Option<impl FnOnce(&mut D) -> () + '_> {
+    fn persistent_digest_fn<D: MiniDigest>(&'_ self) -> Option<impl FnOnce(&mut D) + '_> {
         self.persisted_leaf.as_ref().map(|el| {
             |digest: &mut D| {
                 digest.update(el.leaf.key.as_u8_array_ref());
@@ -404,7 +404,7 @@ impl<const N: usize, A: Allocator + Clone> DigestFriendlyLeaf for LeafCacheRecor
             }
         })
     }
-    fn updated_digest_fn<D: MiniDigest>(&'_ self) -> impl FnOnce(&mut D) -> () + '_ {
+    fn updated_digest_fn<D: MiniDigest>(&'_ self) -> impl FnOnce(&mut D) + '_ {
         |digest: &mut D| {
             digest.update(self.current_key().as_u8_array_ref());
             digest.update(self.current_value().as_u8_array_ref());
@@ -454,9 +454,7 @@ fn get_or_insert_previous_for_flat_key<
         let existing = key_to_index_cache.insert(leaf.leaf.key, previous_idx);
         assert!(existing.is_none());
 
-        let cache_record = LeafCacheRecord::new_from_persisted(leaf);
-
-        cache_record
+        LeafCacheRecord::new_from_persisted(leaf)
     });
     assert!(entry.current_key() < flat_key);
 
@@ -486,9 +484,7 @@ fn get_for_existing_flat_key<'a, const N: usize, A: Allocator + Clone + Default,
         let existing = key_to_index_cache.insert(leaf.leaf.key, index);
         assert!(existing.is_none());
 
-        let cache_record = LeafCacheRecord::new_from_persisted(leaf);
-
-        cache_record
+        LeafCacheRecord::new_from_persisted(leaf)
     });
 
     (entry, index)
@@ -515,9 +511,7 @@ fn remove_for_existing_flat_key<'a, const N: usize, A: Allocator + Clone + Defau
         // check the key upon inserting into cache
         assert_eq!(&leaf.leaf.key, flat_key);
 
-        let cache_record = LeafCacheRecord::new_from_persisted(leaf);
-
-        cache_record
+        LeafCacheRecord::new_from_persisted(leaf)
     });
 
     (entry, index)
@@ -1485,7 +1479,7 @@ impl<const N: usize, H: FlatStorageHasher, A: Allocator + Default> UsizeDeserial
                 };
                 Ok(new)
             }
-            _ => Err(internal_error!("ReadValueWithProof deserialization failed").into()),
+            _ => Err(internal_error!("ReadValueWithProof deserialization failed")),
         }
     }
 }
@@ -1537,7 +1531,9 @@ impl<const N: usize, H: FlatStorageHasher, A: Allocator + Default> UsizeDeserial
                 let new = Self::Insert { proof };
                 Ok(new)
             }
-            _ => Err(internal_error!("WriteValueWithProof deserialization failed").into()),
+            _ => Err(internal_error!(
+                "WriteValueWithProof deserialization failed"
+            )),
         }
     }
 }
@@ -1824,7 +1820,7 @@ impl<const N: usize, H: FlatStorageHasher, A: Allocator + Clone, const RANDOMIZE
 
     pub fn get_index_for_existing(&self, key: &Bytes32) -> u64 {
         let Some(existing) = self.key_lookup.get(key).copied() else {
-            panic!("expected existing leaf for key {:?}", key);
+            panic!("expected existing leaf for key {key:?}");
         };
 
         existing
@@ -1837,8 +1833,7 @@ impl<const N: usize, H: FlatStorageHasher, A: Allocator + Clone, const RANDOMIZE
     ) -> (Bytes32, u64) {
         assert!(
             current_state.is_zero() == false,
-            "trying to request preimage for state {:?}",
-            current_state
+            "trying to request preimage for state {current_state:?}"
         );
         assert!(current_num_elements > 0);
         assert!(current_num_elements <= self.empty_elements_stack.len() as u64);
@@ -1993,7 +1988,7 @@ impl<const N: usize, H: FlatStorageHasher, A: Allocator + Clone, const RANDOMIZE
 
     fn delete(&mut self, key: &Bytes32, batch_bound_empty_slots: &mut BTreeSet<u64, A>) {
         let Some(existing_pos) = self.key_lookup.remove(key) else {
-            panic!("Trying to delete non-existent key {:?}", key);
+            panic!("Trying to delete non-existent key {key:?}");
         };
 
         // delete via update
@@ -2073,7 +2068,7 @@ impl<const N: usize, H: FlatStorageHasher, A: Allocator + Clone, const RANDOMIZE
         for (k, v) in batch {
             let is_unique = set.insert(k);
             if is_unique == false {
-                panic!("Batch contains duplicate entries for key {:?}", k);
+                panic!("Batch contains duplicate entries for key {k:?}");
             }
             ops.push((k, v));
         }
@@ -2116,8 +2111,7 @@ impl<const N: usize, H: FlatStorageHasher, A: Allocator + Clone, const RANDOMIZE
                 }
                 assert!(
                     v.is_zero() == false,
-                    "trying to insert a zero-value for key {:?}",
-                    k
+                    "trying to insert a zero-value for key {k:?}"
                 );
 
                 true

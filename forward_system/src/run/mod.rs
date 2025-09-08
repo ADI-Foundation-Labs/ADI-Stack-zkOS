@@ -29,7 +29,6 @@ pub use tree::ReadStorageTree;
 pub use zk_ee::types_config::EthereumIOTypesConfig;
 
 pub use preimage_source::PreimageSource;
-use zk_ee::utils::Bytes32;
 use zk_ee::wrap_error;
 
 use std::fs::File;
