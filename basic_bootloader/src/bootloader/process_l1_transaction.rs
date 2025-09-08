@@ -311,7 +311,7 @@ where
             gas_used,
             gas_refunded: evm_refund,
             computational_native_used,
-            pubdata_used: pubdata_used + L1_TX_INTRINSIC_PUBDATA as u64,
+            pubdata_used: pubdata_used + L1_TX_INTRINSIC_PUBDATA,
         })
     }
 

@@ -260,9 +260,9 @@ where
         transaction.is_deployment(),
         calldata.len() as u64,
         calldata_tokens,
-        L2_TX_INTRINSIC_GAS as u64, // it DOES include signature verification that will happen below, and reading originator account properties
-        L2_TX_INTRINSIC_PUBDATA as u64,
-        L2_TX_INTRINSIC_NATIVE_COST as u64,
+        L2_TX_INTRINSIC_GAS, // it DOES include signature verification that will happen below, and reading originator account properties
+        L2_TX_INTRINSIC_PUBDATA,
+        L2_TX_INTRINSIC_NATIVE_COST,
     )?;
 
     let _ = system.get_logger().write_fmt(format_args!(
