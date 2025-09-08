@@ -127,7 +127,7 @@ impl<S: SystemTypes> System<S> {
             // Out of range
             Bytes32::ZERO
         } else {
-            let index = current_block_number - block_number - 1;
+            let index = 256 - (current_block_number - block_number);
             self.metadata
                 .block_historical_hash(index)
                 .expect("historical hash of limited depth must be provided")

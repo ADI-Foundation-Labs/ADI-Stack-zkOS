@@ -2,7 +2,6 @@ use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::{B160, U256};
 
 pub const SPECIAL_ADDRESS_SPACE_BOUND: u64 = 0x010000;
-pub const SPECIAL_ADDRESS_TO_WASM_DEPLOY: B160 = B160::from_limbs([0x9000, 0, 0]);
 
 /// We want to have a buffer before the transaction, it may be useful to encode calls calldata for account absatraction.
 /// The size is calculated for `postOp` operation calldata, the biggest in zkSync Era account abstranction model.
