@@ -1,5 +1,5 @@
 use crate::bootloader::rlp;
-use alloy::consensus::Header;
+use alloy::consensus::{Header, Sealed};
 use alloy::primitives::B64;
 use arrayvec::ArrayVec;
 use crypto::sha3::Keccak256;
@@ -164,9 +164,10 @@ impl BlockHeader {
     }
 }
 
-impl From<BlockHeader> for Header {
+impl From<BlockHeader> for Sealed<Header> {
     fn from(value: BlockHeader) -> Self {
-        Self {
+        let hash = value.hash();
+        let header = Header {
             parent_hash: value.parent_hash.as_u8_array().into(),
             ommers_hash: value.ommers_hash.as_u8_array().into(),
             beneficiary: value.beneficiary.to_be_bytes().into(),
@@ -188,6 +189,7 @@ impl From<BlockHeader> for Header {
             excess_blob_gas: None,
             parent_beacon_block_root: None,
             requests_hash: None,
-        }
+        };
+        Sealed::new_unchecked(header, hash.into())
     }
 }
