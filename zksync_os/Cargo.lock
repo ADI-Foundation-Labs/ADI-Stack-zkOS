@@ -326,6 +326,7 @@ dependencies = [
  "num-traits",
  "p256",
  "ripemd",
+ "ruint",
  "seq-macro",
  "sha2",
  "sha3",

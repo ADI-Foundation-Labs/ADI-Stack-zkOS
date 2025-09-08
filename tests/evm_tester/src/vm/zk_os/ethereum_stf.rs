@@ -279,26 +279,17 @@ impl ZKsyncOSEthereumSTF {
         let preimage_responder = GenericPreimageResponder { preimage_source };
         let initial_account_state_responder = InMemoryEthereumInitialAccountStateResponder {
             source: self.account_properties.clone(),
+            state_root: [0u8; 32],
+            preimages_oracle: BTreeMap::new(),
         };
         let initial_values_responder = InMemoryInitialStorageSlotValueResponder {
             values_map: self.cold_storage.clone(),
         };
 
-        let mut blob_hashes = BTreeMap::new();
-        // for blob in blobs.into_iter() {
-        //     let versioned_hash = blob.to_kzg_versioned_hash();
-        //     let point =
-        //         crypto::bls12_381::G1Affine::deserialize_compressed(&blob.kzg_commitment.0[..])
-        //             .unwrap();
-
-        //     blob_hashes.insert(Bytes32::from_array(versioned_hash), point);
-        // }
-
         let cl_responder = EthereumCLResponder {
             withdrawals_list: vec![],
             parent_headers_list: vec![],
             parent_headers_encodings_list: vec![],
-            blob_hashes,
         };
 
         let mut oracle = ZkEENonDeterminismSource::default();

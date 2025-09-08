@@ -97,6 +97,8 @@ rm -f "$BIN_NAME" "$ELF_NAME" "$TEXT_NAME"
 # Build
 cargo build --features "$FEATURES" --release
 
+# cargo objdump --features "$FEATURES" --release -v -- -d
+
 # Produce and rename outputs
 cargo objcopy --features "$FEATURES" --release -- -O binary "$BIN_NAME"
 cargo objcopy --features "$FEATURES" --release -- -R .text "$ELF_NAME"
