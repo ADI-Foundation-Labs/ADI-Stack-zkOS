@@ -8,13 +8,8 @@ use super::{
     history_map::{CacheSnapshotId, HistoryMap, HistoryMapItemRef},
 };
 
-#[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum PreimageType {
-    Bytecode = 0,
-    AccountData = 1,
-}
+// Re-export for backwards compatibility
+pub use zksync_os_interface::types::PreimageType;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub struct PreimagesPublicationStorageValue {

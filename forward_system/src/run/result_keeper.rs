@@ -5,24 +5,16 @@ use ruint::aliases::B160;
 use std::alloc::Global;
 use zk_ee::common_structs::{
     GenericEventContent, GenericEventContentWithTxRef, GenericLogContent,
-    GenericLogContentWithTxRef, PreimageType,
+    GenericLogContentWithTxRef,
 };
 use zk_ee::kv_markers::MAX_EVENT_TOPICS;
 use zk_ee::system::IOResultKeeper;
 use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::utils::{Bytes32, UsizeAlignedByteBox};
+use zksync_os_interface::types::PreimageType;
 
-#[derive(Debug, Clone)]
-pub struct TxProcessingOutputOwned {
-    pub status: bool,
-    pub output: Vec<u8>,
-    pub contract_address: Option<B160>,
-    pub gas_used: u64,
-    pub gas_refunded: u64,
-    pub computational_native_used: u64,
-    pub native_used: u64,
-    pub pubdata_used: u64,
-}
+// Use interface type as the direct place-in, can be changed in the future.
+pub use zksync_os_interface::types::TxProcessingOutputOwned;
 
 pub struct ForwardRunningResultKeeper<TR: TxResultCallback> {
     pub block_header: Option<BlockHeader>,
@@ -110,7 +102,7 @@ impl<TR: TxResultCallback> ResultKeeperExt for ForwardRunningResultKeeper<TR> {
         let owned_result = tx_result.map(|output| TxProcessingOutputOwned {
             status: output.status,
             output: output.output.to_vec(),
-            contract_address: output.contract_address,
+            contract_address: output.contract_address.map(|a| a.to_be_bytes().into()),
             gas_used: output.gas_used,
             gas_refunded: output.gas_refunded,
             computational_native_used: output.computational_native_used,

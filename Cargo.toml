@@ -60,6 +60,8 @@ keywords = ["blockchain", "zksync", "zk", "risc-v"]
 categories = ["cryptography"]
 
 [workspace.dependencies]
+zksync_os_interface = { git = "ssh://git@github.com/matter-labs/zksync-os-interface.git", rev = "3705e211060f2fc07372ee95ea990d2b2e278924" }
+
 risc_v_simulator = { git = "https://github.com/matter-labs/zksync-airbender", tag = "v0.4.3"}
 blake2s_u32 = { git = "https://github.com/matter-labs/zksync-airbender", tag = "v0.4.3"}
 prover_examples = { git = "https://github.com/matter-labs/zksync-airbender", tag = "v0.4.3"}
