@@ -13,10 +13,7 @@
 // - Inserts somewhere near the leaf - convert to branch, but types of nodes do not change
 // - Inserts somewhere near the extension - convert to branch too, potentially eliminating extension itself
 
-use crate::system_implementation::ethereum_storage_model::{
-    mpt::{LeafValue, RLPSlice},
-    ByteBuffer,
-};
+use crate::system_implementation::ethereum_storage_model::{mpt::LeafValue, ByteBuffer};
 
 // Stable index. We assume that number of nodes is small enough
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -40,8 +37,8 @@ impl core::fmt::Debug for NodeType {
             f.debug_struct("Node: Branch")
                 .field("index", &self.index())
                 .finish()
-        } else if self.is_unreferenced_value() {
-            f.debug_struct("Node: Unreferenced value")
+        } else if self.is_unreferenced_key() {
+            f.debug_struct("Node: Unreferenced key")
                 .field("index", &self.index())
                 .finish()
         } else if self.is_unlinked() {
@@ -61,7 +58,7 @@ impl NodeType {
     const LEAF_TYPE_MARKER: usize = 0b001;
     const EXTENSION_TYPE_MARKER: usize = 0b010;
     const BRANCH_TYPE_MARKER: usize = 0b011;
-    const UNREFERENCED_VALUE: usize = 0b100;
+    const UNREFERENCED_KEY: usize = 0b100;
     const UNLINKED_MARKER: usize = 0b101;
     const OPAQUE_NONTRIVIAL_ROOT: usize = 0b111;
 
@@ -111,7 +108,7 @@ impl NodeType {
 
     pub(crate) const fn unreferenced_value(index: usize) -> Self {
         Self {
-            inner: (index << Self::RAW_INDEX_SHIFT) | Self::UNREFERENCED_VALUE,
+            inner: (index << Self::RAW_INDEX_SHIFT) | Self::UNREFERENCED_KEY,
         }
     }
 
@@ -131,8 +128,8 @@ impl NodeType {
         self.inner & Self::TYPE_MASK == Self::BRANCH_TYPE_MARKER
     }
 
-    pub(crate) const fn is_unreferenced_value(&self) -> bool {
-        self.inner & Self::TYPE_MASK == Self::UNREFERENCED_VALUE
+    pub(crate) const fn is_unreferenced_key(&self) -> bool {
+        self.inner & Self::TYPE_MASK == Self::UNREFERENCED_KEY
     }
 
     pub(crate) const fn is_unlinked(&self) -> bool {
@@ -240,28 +237,42 @@ impl<'a> Path<'a> {
 // #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[derive(Debug)]
 pub(crate) struct LeafNode<'a> {
+    pub(crate) cached_key: &'a [u8],
     pub(crate) path_segment: &'a [u8],
     pub(crate) parent_node: NodeType,
     pub(crate) value: LeafValue<'a>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct ExtensionNode<'a> {
-    pub(crate) path_segment: &'a [u8],
-    pub(crate) parent_node: NodeType,
-    pub(crate) child_node: NodeType,
-    pub(crate) next_node_key: RLPSlice<'a>,
+impl<'a> LeafNode<'a> {
+    pub(crate) fn invalidate_cache(&mut self) {
+        self.cached_key = &[];
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct UnreferencedValue<'a> {
+pub(crate) struct ExtensionNode<'a> {
+    pub(crate) cached_key: &'a [u8],
+    pub(crate) path_segment: &'a [u8],
+    pub(crate) parent_node: NodeType,
+    pub(crate) child_node: NodeType,
+}
+
+impl<'a> ExtensionNode<'a> {
+    pub(crate) fn invalidate_cache(&mut self) {
+        self.cached_key = &[];
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct UnreferencedKey<'a> {
+    pub(crate) cached_key: &'a [u8],
     pub(crate) parent_node: NodeType,
     pub(crate) branch_index: usize,
-    pub(crate) value: &'a [u8],
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct BranchNode<'a> {
+    pub(crate) cached_key: &'a [u8],
     pub(crate) parent_node: NodeType,
     pub(crate) child_nodes: [NodeType; 16],
     pub(crate) num_occupied: usize,
@@ -301,6 +312,10 @@ impl<'a> BranchNode<'a> {
         } else {
             Err(())
         }
+    }
+
+    pub(crate) fn invalidate_cache(&mut self) {
+        self.cached_key = &[];
     }
 
     pub(crate) fn replace_child(&mut self, existing: NodeType, new: NodeType) -> Result<(), ()> {

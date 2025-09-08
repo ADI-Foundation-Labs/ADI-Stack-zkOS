@@ -6,10 +6,9 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         branch_node: NodeType,
         branch_index: usize,
     ) -> Result<(), ()> {
-        self.remove_from_cache(&branch_node);
-
         let existing_branch = &mut self.capacities.branch_nodes[branch_node.index()];
         existing_branch.delete(branch_index)?;
+        existing_branch.invalidate_cache();
 
         if existing_branch.num_occupied() == 0 {
             // we will handle it right away - it is easier to recreate later,

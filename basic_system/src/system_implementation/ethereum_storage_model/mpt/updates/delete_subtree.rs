@@ -14,11 +14,9 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             // Must not delete root itself
             return Err(());
         } else if node_to_delete.is_extension() {
-            self.remove_from_cache(&node_to_delete);
             let extension = &self.capacities.extension_nodes[node_to_delete.index()];
             extension.parent_node
         } else if node_to_delete.is_branch() {
-            self.remove_from_cache(&node_to_delete);
             let branch_node = &self.capacities.branch_nodes[node_to_delete.index()];
             branch_node.parent_node
         } else {
@@ -30,10 +28,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             self.root = NodeType::empty();
             Ok(SubtreeDeletionControlFlow::Break)
         } else if parent.is_extension() {
-            self.remove_from_cache(&parent);
             Ok(SubtreeDeletionControlFlow::Continue { node: parent })
         } else if parent.is_branch() {
-            self.remove_from_cache(&parent);
             let branch = &mut self.capacities.branch_nodes[parent.index()];
             let mut found_child_idx = 16;
             for (child_idx, child_node) in branch.child_nodes.iter().enumerate() {
@@ -59,13 +55,14 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         mut node_to_delete: NodeType,
     ) -> Result<(), ()> {
         loop {
-            self.keys_cache.remove(&node_to_delete);
-
             match self.cascade_delete_subtree_step(node_to_delete)? {
                 SubtreeDeletionControlFlow::Continue { node } => {
                     node_to_delete = node;
                 }
-                SubtreeDeletionControlFlow::Break => return Ok(()),
+                SubtreeDeletionControlFlow::Break => {
+                    self.remove_from_cache(node_to_delete);
+                    return Ok(());
+                }
             }
         }
     }

@@ -19,7 +19,7 @@ pub struct EthereumTransactionWithBuffer<A: Allocator> {
     inner: EthereumTxInner<'static>,
     chain_id: u64,
     sig_hash: Bytes32,
-    tx_hash: Bytes32,
+    // tx_hash: Bytes32,
     signer: B160,
 }
 
@@ -30,7 +30,7 @@ impl<A: Allocator> core::fmt::Debug for EthereumTransactionWithBuffer<A> {
             .field("inner", &self.inner)
             .field("chain_id", &self.chain_id)
             .field("sig_hash", &self.sig_hash)
-            .field("tx_hash", &self.tx_hash)
+            // .field("tx_hash", &self.tx_hash)
             .field("signer", &self.signer)
             .finish()
     }
@@ -50,7 +50,7 @@ impl<A: Allocator> EthereumTransactionWithBuffer<A> {
         // address of the slice that we will use to parse a transaction, so we will not make a long code with
         // partial init and drop guards, but instead will parse via 'static transmute
 
-        let ((inner, sig_hash), tx_hash): ((EthereumTxInner<'static>, Bytes32), Bytes32) =
+        let ((inner, sig_hash), _tx_hash): ((EthereumTxInner<'static>, Bytes32), Bytes32) =
             EthereumTxInner::parse_and_compute_hashes(
                 unsafe { core::mem::transmute(buffer.as_slice()) },
                 expected_chain_id,
@@ -60,7 +60,7 @@ impl<A: Allocator> EthereumTransactionWithBuffer<A> {
             inner,
             chain_id: expected_chain_id as u64,
             sig_hash,
-            tx_hash,
+            // tx_hash,
             signer: B160::ZERO,
         })
     }
@@ -271,19 +271,19 @@ pub struct EthereumTransaction<'a> {
     inner: EthereumTxInner<'a>,
     chain_id: u64,
     sig_hash: Bytes32,
-    tx_hash: Bytes32,
+    // tx_hash: Bytes32,
     signer: B160,
 }
 
 impl<'a> EthereumTransaction<'a> {
     pub fn parse(input: &'a [u8], expected_chain_id: u32) -> Result<Self, ()> {
-        let ((inner, sig_hash), tx_hash) =
+        let ((inner, sig_hash), _tx_hash) =
             EthereumTxInner::parse_and_compute_hashes(input, expected_chain_id)?;
         let new = Self {
             inner,
             chain_id: expected_chain_id as u64,
             sig_hash,
-            tx_hash,
+            // tx_hash,
             signer: B160::ZERO,
         };
 

@@ -13,7 +13,6 @@ use crate::require;
 use core::alloc::Allocator;
 use core::fmt::Write;
 use core::u64;
-use crypto::secp256k1::SECP256K1N_HALF;
 use evm_interpreter::{ERGS_PER_GAS, MAX_INITCODE_SIZE};
 use ruint::aliases::{B160, U256};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
@@ -345,7 +344,7 @@ where
     let (_, _, auth_s) = auth_sig_data;
     let s = U256::try_from_be_slice(auth_s)
         .ok_or::<TxError>(InvalidTransaction::InvalidStructure.into())?;
-    if s > U256::from_be_bytes(crypto::secp256k1::SECP256K1N_HALF) {
+    if s > crypto::secp256k1::SECP256K1N_HALF_U256 {
         return Ok(false);
     }
     let msg = resources.with_infinite_ergs(|inf_ergs| {
@@ -543,7 +542,7 @@ where
             let signed_hash = tx.hash_for_signature_verification();
             let (parity, r, s) = tx.sig_parity_r_s();
 
-            if U256::from_be_slice(s) > U256::from_be_bytes(SECP256K1N_HALF) {
+            if U256::from_be_slice(s) > crypto::secp256k1::SECP256K1N_HALF_U256 {
                 return Err(TxError::Validation(InvalidTransaction::MalleableSignature));
             }
 

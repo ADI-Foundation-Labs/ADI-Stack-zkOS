@@ -65,11 +65,12 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         grand_parent_branch_index: usize,
         extension_to_replace: NodeType,
     ) -> Result<(), ()> {
-        self.remove_from_cache(&grand_parent);
-        self.remove_from_cache(&extension_to_replace);
+        self.remove_from_cache(grand_parent);
+        self.remove_from_cache(extension_to_replace);
 
         // very incomplete yet
         let new_branch = BranchNode {
+            cached_key: &[],
             parent_node: grand_parent,
             child_nodes: [NodeType::empty(); 16],
             num_occupied: 0,
@@ -107,25 +108,10 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             let new_branch_to_update = &mut self.capacities.branch_nodes[new_branch_node.index()];
             new_branch_to_update.attach(child, branch_index)?;
             self.capacities.branch_nodes[child.index()].parent_node = new_branch_node;
-        } else if child.is_unlinked() {
-            // should transform into unreferenced branch value as we have no idea what is in "key" there
-
-            // it'll go into newly created branch as opaque
-            let new_unreferenced_value = UnreferencedValue {
-                parent_node: new_branch_node,
-                branch_index,
-                value: existing_extension.next_node_key.full_encoding(),
-            };
-            let new_unreferenced_value_node = self.push_unreferenced_value(new_unreferenced_value);
-
+        } else if child.is_unreferenced_key() {
             let new_branch_to_update = &mut self.capacities.branch_nodes[new_branch_node.index()];
-            new_branch_to_update.attach(new_unreferenced_value_node, branch_index)?;
-
-            // put it into cache - it's single exceptional case
-            self.keys_cache.insert(
-                new_unreferenced_value_node,
-                existing_extension.next_node_key.full_encoding(),
-            );
+            new_branch_to_update.attach(child, branch_index)?;
+            new_branch_to_update.invalidate_cache();
         } else {
             return Err(());
         }
@@ -142,6 +128,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         // here we truncate last suffix digit and replace it with a branch node
 
         let new_branch = BranchNode {
+            cached_key: &[],
             parent_node: extension_to_split,
             child_nodes: [NodeType::empty(); 16],
             num_occupied: 0,
@@ -149,8 +136,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         };
         let new_branch_node = self.push_branch(new_branch);
 
-        self.remove_from_cache(&grand_parent);
-        self.remove_from_cache(&extension_to_split);
+        self.remove_from_cache(grand_parent);
+        self.remove_from_cache(extension_to_split);
 
         let existing_extension = &mut self.capacities.extension_nodes[extension_to_split.index()];
         debug_assert_eq!(existing_extension.parent_node, grand_parent);
@@ -171,7 +158,6 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             .last()
             .copied()
             .expect("must be non-empty path") as usize;
-        let child_key = existing_extension.next_node_key.full_encoding();
 
         existing_extension.child_node = new_branch_node;
         existing_extension.path_segment =
@@ -185,23 +171,10 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             let new_branch_to_update = &mut self.capacities.branch_nodes[new_branch_node.index()];
             new_branch_to_update.attach(child_to_move, child_branch_index)?;
             self.capacities.branch_nodes[child_to_move.index()].parent_node = new_branch_node;
-        } else if child_to_move.is_unlinked() {
-            // should transform into unreferenced branch value as we have no idea what is in "key" there
-
-            // it'll go into newly created branch as opaque
-            let new_unreferenced_value = UnreferencedValue {
-                parent_node: new_branch_node,
-                branch_index: child_branch_index,
-                value: child_key,
-            };
-            let new_unreferenced_value_node = self.push_unreferenced_value(new_unreferenced_value);
-
+        } else if child_to_move.is_unreferenced_key() {
             let new_branch_to_update = &mut self.capacities.branch_nodes[new_branch_node.index()];
-            new_branch_to_update.attach(new_unreferenced_value_node, child_branch_index)?;
-
-            // put it into cache - it's single exceptional case
-            self.keys_cache
-                .insert(new_unreferenced_value_node, child_key);
+            new_branch_to_update.attach(child_to_move, child_branch_index)?;
+            new_branch_to_update.invalidate_cache();
         } else {
             return Err(());
         }
@@ -218,10 +191,11 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         // here we take an existing extension, and trim it's prefix by creating another extension
         // and a branch node
 
-        self.remove_from_cache(&grand_parent);
-        self.remove_from_cache(&extension_to_split);
+        self.remove_from_cache(grand_parent);
+        self.remove_from_cache(extension_to_split);
 
         let new_branch = BranchNode {
+            cached_key: &[],
             parent_node: grand_parent,
             child_nodes: [NodeType::empty(); 16],
             num_occupied: 0,
@@ -271,10 +245,11 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         // here we take an existing extension, and trim it's prefix by creating another extension
         // and a branch node
 
-        self.remove_from_cache(&grand_parent);
-        self.remove_from_cache(&extension_to_split);
+        self.remove_from_cache(grand_parent);
+        self.remove_from_cache(extension_to_split);
 
         let new_branch = BranchNode {
+            cached_key: &[],
             parent_node: NodeType::empty(),
             child_nodes: [NodeType::empty(); 16],
             num_occupied: 0,
@@ -298,10 +273,10 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             let extension_path = interner.intern_slice(new_extension_prefix)?;
             // make an extension
             let new_extension = ExtensionNode {
+                cached_key: &[],
                 path_segment: extension_path,
                 parent_node: grand_parent,
                 child_node: new_branch_node,
-                next_node_key: RLPSlice::empty(),
             };
             let new_extension_node = self.push_extension(new_extension);
             if grand_parent.is_branch() {

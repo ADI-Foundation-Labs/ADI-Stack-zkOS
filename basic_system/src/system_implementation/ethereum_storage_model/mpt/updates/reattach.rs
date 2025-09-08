@@ -66,7 +66,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             }
 
             Ok(())
-        } else if self.root.is_unreferenced_value() {
+        } else if self.root.is_unreferenced_key() {
             Err(())
         } else if self.root.is_opaque_nontrivial_root() {
             Ok(())
@@ -82,7 +82,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         interner: &mut (impl Interner<'a> + 'a),
         hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
     ) -> Result<Option<ReattachControlFlow<'a>>, ()> {
-        if self.keys_cache.contains_key(&node) {
+        if self.get_cached_key(node).is_empty() == false {
             // bail if cached
             return Ok(None);
         }
@@ -93,7 +93,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             self.detach_extension_node(node, preimages_oracle, interner, hasher)
         } else if node.is_branch() {
             self.detach_branch_node(node, preimages_oracle, interner, hasher)
-        } else if node.is_unreferenced_value() {
+        } else if node.is_unreferenced_key() {
             Err(())
         } else if node.is_opaque_nontrivial_root() {
             Err(())
@@ -182,7 +182,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         parent: NodeType,
         interner: &mut (impl Interner<'a> + 'a),
     ) -> Result<NodeType, ()> {
-        self.remove_from_cache(&parent);
+        self.remove_from_cache(parent);
 
         match attachment {
             ReattachControlFlow::CreateExtension {
@@ -194,10 +194,10 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 let path = &prefix_scratch[offset..];
                 assert!(path.len() > 0);
                 let extension = ExtensionNode {
+                    cached_key: &[],
                     path_segment: path,
                     parent_node: parent,
                     child_node: branch,
-                    next_node_key: RLPSlice::empty(),
                 };
                 let extension_node = self.push_extension(extension);
                 self.capacities.branch_nodes[branch.index()].parent_node = extension_node;
@@ -238,7 +238,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                     detached_extension.parent_node = parent;
                     detached_extension.path_segment = path_segment;
 
-                    self.remove_from_cache(&node);
+                    self.remove_from_cache(node);
 
                     Ok(node)
                 } else if node.is_leaf() {
@@ -270,7 +270,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                     detached_leaf.parent_node = parent;
                     detached_leaf.path_segment = path_segment;
 
-                    self.remove_from_cache(&node);
+                    self.remove_from_cache(node);
 
                     Ok(node)
                 } else {
@@ -296,7 +296,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
 
         let occupied_before = branch.num_occupied();
         for child in branch.child_nodes.iter_mut() {
-            if child.is_empty() || child.is_unreferenced_value() || child.is_leaf() {
+            if child.is_empty() || child.is_unreferenced_key() || child.is_leaf() {
                 continue;
             } else {
                 if let Some(attachment_form_child) =
@@ -316,8 +316,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                     continue;
                 }
                 let mut child = child;
-                if child.is_unreferenced_value() {
-                    let key_encoding = self.capacities.unreferenced_values[child.index()].value;
+                if child.is_unreferenced_key() {
+                    let key_encoding = self.capacities.unreferenced_keys[child.index()].cached_key;
                     // path is not important here - just something large enough
                     let mut path = Path {
                         path: &[0u8; 64],
