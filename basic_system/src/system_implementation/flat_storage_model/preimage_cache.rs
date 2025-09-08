@@ -1,8 +1,9 @@
+use crate::system_implementation::flat_storage_model::cost_constants::blake2s_native_cost;
 use alloc::{alloc::Global, collections::BTreeMap};
 use core::{alloc::Allocator, marker::PhantomData};
 use storage_models::common_structs::{snapshottable_io::SnapshottableIo, PreimageCacheModel};
 use zk_ee::{
-    common_structs::{history_map::CacheSnapshotId, NewPreimagesPublicationStorage, PreimageType},
+    common_structs::{history_map::CacheSnapshotId, NewPreimagesPublicationStorage},
     execution_environment_type::ExecutionEnvironmentType,
     internal_error,
     system::{
@@ -13,8 +14,7 @@ use zk_ee::{
     types_config::EthereumIOTypesConfig,
     utils::{Bytes32, UsizeAlignedByteBox},
 };
-
-use crate::system_implementation::flat_storage_model::cost_constants::blake2s_native_cost;
+use zksync_os_interface::types::PreimageType;
 
 use super::cost_constants::PREIMAGE_CACHE_GET_NATIVE_COST;
 

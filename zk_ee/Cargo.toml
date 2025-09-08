@@ -12,9 +12,10 @@ categories.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+crypto = { path = "../crypto", default-features = false }
+zksync_os_interface = { path = "../interface" }
 ruint = { version = "1.12.3", default-features = false, features = ["alloc"] }
 cfg-if = "*"
-crypto = { path = "../crypto", default-features = false }
 arrayvec = { version = "0.7.4", default-features = false }
 bitflags = { version = "2.6.0", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true }

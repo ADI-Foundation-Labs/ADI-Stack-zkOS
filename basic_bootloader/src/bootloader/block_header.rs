@@ -1,4 +1,6 @@
 use crate::bootloader::rlp;
+use alloy::consensus::Header;
+use alloy::primitives::B64;
 use arrayvec::ArrayVec;
 use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
@@ -159,5 +161,33 @@ impl BlockHeader {
         rlp::apply_number_encoding_to_hash(&self.base_fee_per_gas.to_be_bytes(), &mut hasher);
 
         hasher.finalize()
+    }
+}
+
+impl From<BlockHeader> for Header {
+    fn from(value: BlockHeader) -> Self {
+        Self {
+            parent_hash: value.parent_hash.as_u8_array().into(),
+            ommers_hash: value.ommers_hash.as_u8_array().into(),
+            beneficiary: value.beneficiary.to_be_bytes().into(),
+            state_root: value.state_root.as_u8_array().into(),
+            transactions_root: value.transactions_root.as_u8_array().into(),
+            receipts_root: value.receipts_root.as_u8_array().into(),
+            logs_bloom: value.logs_bloom.into(),
+            difficulty: value.difficulty,
+            number: value.number,
+            gas_limit: value.gas_limit,
+            gas_used: value.gas_used,
+            timestamp: value.timestamp,
+            extra_data: value.extra_data.to_vec().into(),
+            mix_hash: value.mix_hash.as_u8_array().into(),
+            nonce: B64::from(value.nonce),
+            base_fee_per_gas: Some(value.base_fee_per_gas),
+            withdrawals_root: None,
+            blob_gas_used: None,
+            excess_blob_gas: None,
+            parent_beacon_block_root: None,
+            requests_hash: None,
+        }
     }
 }

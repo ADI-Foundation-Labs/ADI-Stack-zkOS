@@ -13,6 +13,7 @@ use crate::bootloader::supported_ees::SystemBoundEVMInterpreter;
 use crate::bootloader::transaction::ZkSyncTransaction;
 use crate::bootloader::BasicBootloaderExecutionConfig;
 use crate::bootloader::{BasicBootloader, Bytes32};
+use alloy::primitives::Address;
 use basic_system::cost_constants::{ECRECOVER_COST_ERGS, ECRECOVER_NATIVE_COST};
 use core::fmt::Write;
 use crypto::secp256k1::SECP256K1N_HALF;
@@ -141,8 +142,8 @@ where
 
             if ecrecover_output.is_empty() {
                 return Err(InvalidTransaction::IncorrectFrom {
-                    recovered: B160::ZERO,
-                    tx: from,
+                    recovered: Address::ZERO,
+                    tx: from.to_be_bytes().into(),
                 }
                 .into());
             }
@@ -152,8 +153,8 @@ where
 
             if recovered_from != from {
                 return Err(InvalidTransaction::IncorrectFrom {
-                    recovered: recovered_from,
-                    tx: from,
+                    recovered: recovered_from.to_be_bytes().into(),
+                    tx: from.to_be_bytes().into(),
                 }
                 .into());
             }

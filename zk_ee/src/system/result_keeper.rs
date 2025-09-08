@@ -6,11 +6,10 @@
 ///
 /// Since we will not use it during the proving, we are using regular types, no need to serialize/deserialize.
 ///
-use crate::common_structs::{
-    GenericEventContentWithTxRef, GenericLogContentWithTxRef, PreimageType,
-};
+use crate::common_structs::{GenericEventContentWithTxRef, GenericLogContentWithTxRef};
 use crate::kv_markers::MAX_EVENT_TOPICS;
 use crate::types_config::SystemIOTypesConfig;
+use zksync_os_interface::types::PreimageType;
 
 pub trait IOResultKeeper<IOTypes: SystemIOTypesConfig> {
     fn events<'a>(

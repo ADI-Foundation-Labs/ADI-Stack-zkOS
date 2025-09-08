@@ -5,7 +5,7 @@ use alloc::alloc::Allocator;
 use crypto::MiniDigest;
 use ruint::aliases::U256;
 use storage_models::common_structs::PreimageCacheModel;
-use zk_ee::common_structs::{PreimageType, ValueDiffCompressionStrategy};
+use zk_ee::common_structs::ValueDiffCompressionStrategy;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::internal_error;
 use zk_ee::system::errors::{internal::InternalError, runtime::RuntimeError, system::SystemError};
@@ -13,6 +13,7 @@ use zk_ee::system::{IOResultKeeper, Resources};
 use zk_ee::system_io_oracle::IOOracle;
 use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::utils::Bytes32;
+use zksync_os_interface::types::PreimageType;
 
 #[repr(C)]
 #[derive(Clone, Copy, PartialEq, Eq, Default, PartialOrd, Ord, Hash)]

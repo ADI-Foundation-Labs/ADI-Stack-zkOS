@@ -26,7 +26,6 @@ use zk_ee::common_structs::cache_record::CacheRecord;
 use zk_ee::common_structs::history_map::CacheSnapshotId;
 use zk_ee::common_structs::history_map::HistoryMap;
 use zk_ee::common_structs::history_map::HistoryMapItemRefMut;
-use zk_ee::common_structs::PreimageType;
 use zk_ee::define_subsystem;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::interface_error;
@@ -51,6 +50,7 @@ use zk_ee::{
     system_io_oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
 };
+use zksync_os_interface::types::PreimageType;
 
 pub type BitsOrd160 = BitsOrd<{ B160::BITS }, { B160::LIMBS }>;
 type AddressItem<'a, A> = HistoryMapItemRefMut<
