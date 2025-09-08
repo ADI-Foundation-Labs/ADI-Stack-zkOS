@@ -109,8 +109,8 @@ pub(crate) fn create_quasi_rlp(address: &B160, nonce: u64) -> impl ExactSizeIter
     let address_bytes = address.to_be_bytes::<{ B160::BYTES }>();
 
     let nonce_bytes = nonce.to_be_bytes();
-    let skip_nonce_len = nonce_bytes.iter().take_while(|el| **el == 0).count();
-    let nonce_len = 8 - skip_nonce_len;
+    let skip_nonce_len = (nonce.leading_zeros() / 8) as usize;
+    let nonce_len = core::mem::size_of::<u64>() - skip_nonce_len;
 
     // manual encoding of the list
     use either::Either;

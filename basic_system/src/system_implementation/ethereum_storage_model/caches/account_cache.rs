@@ -105,7 +105,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                 if is_access_list {
                     // For access lists, EVM charges the full cost as many
                     // times as an account is in the list.
-                    Ergs(2400 * ERGS_PER_GAS)
+                    ACCESS_LIST_TOUCH_ACCESS_COST_ERGS
                 } else {
                     Ergs::empty()
                 }

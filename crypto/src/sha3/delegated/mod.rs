@@ -169,7 +169,8 @@ impl<const SHA3: bool> MiniDigest for Keccak256Core<SHA3> {
         }
     }
 
-    #[inline(always)]
+    // #[inline(always)]
+    #[inline(never)]
     fn update(&mut self, input: impl AsRef<[u8]>) {
         let mut input = input.as_ref();
 

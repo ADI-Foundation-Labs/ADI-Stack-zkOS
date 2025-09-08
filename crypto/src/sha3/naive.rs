@@ -9,7 +9,8 @@ impl crate::MiniDigest for Keccak256 {
         <Keccak256 as Digest>::new()
     }
 
-    #[inline(always)]
+    // #[inline(always)]
+    #[inline(never)]
     fn digest(input: impl AsRef<[u8]>) -> Self::HashOutput {
         let mut hasher = <Keccak256 as Digest>::new();
         <Keccak256 as Digest>::update(&mut hasher, input);
