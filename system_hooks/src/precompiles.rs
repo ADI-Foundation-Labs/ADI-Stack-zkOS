@@ -60,7 +60,7 @@ where
 {
     let ExternalCallRequest {
         available_resources,
-        calldata,
+        input,
         modifier,
         ..
     } = request;
@@ -75,7 +75,7 @@ where
 
     let mut return_vec = SliceVec::new(return_memory);
     let result = P::invoke(
-        &calldata,
+        &input,
         caller_ee,
         &mut return_vec,
         &mut resources,
@@ -129,7 +129,7 @@ where
 {
     let ExternalCallRequest {
         available_resources,
-        calldata,
+        input: calldata,
         modifier,
         ..
     } = request;

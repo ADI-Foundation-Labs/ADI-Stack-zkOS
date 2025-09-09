@@ -7,6 +7,7 @@ use libfuzzer_sys::fuzz_target;
 use rig::forward_system::run::test_impl::{InMemoryPreimageSource, InMemoryTree, TxListSource};
 use rig::forward_system::system::system::ForwardRunningSystem;
 use rig::ruint::aliases::{B160, U256};
+use zk_ee::common_structs::CalleeAccountProperties;
 use zk_ee::memory::slice_vec::SliceVec;
 use zk_ee::reference_implementations::{BaseResources, DecreasingNative};
 use zk_ee::system::CallModifier;
@@ -72,12 +73,23 @@ fn fuzz(input: FuzzInput) {
     let callee = B160::from_be_bytes(input.address3);
     let nominal_token_value = U256::from_be_bytes(input.amount);
 
+    let callee_account_properties
+    = CalleeAccountProperties {
+        ee_type: 0,
+        nonce: 0,
+        nominal_token_balance: U256::ZERO,
+        bytecode: &[],
+        code_version: 0,
+        unpadded_code_len: 0,
+        artifacts_len: 0,
+    };
     // Pack everything into ExecutionEnvironmentLaunchParams
     let ee_launch_params: ExecutionEnvironmentLaunchParams<ForwardRunningSystem> =
         ExecutionEnvironmentLaunchParams {
             environment_parameters: EnvironmentParameters {
-                bytecode: zk_ee::system::Bytecode::Constructor(&bytecode),
                 scratch_space_len: 0,
+                callstack_depth: 1, // to not trigger any special cases for root frame
+                callee_account_properties
             },
             external_call: ExternalCallRequest {
                 available_resources: inf_resources.clone(),
@@ -85,8 +97,8 @@ fn fuzz(input: FuzzInput) {
                 callers_caller,
                 caller,
                 callee,
-                modifier: CallModifier::NoModifier,
-                calldata,
+                modifier: CallModifier::Constructor,
+                input: &bytecode,
                 call_scratch_space: None,
                 nominal_token_value,
             },
@@ -96,7 +108,7 @@ fn fuzz(input: FuzzInput) {
     let mut heaps = Box::new_uninit_slice_in(MAX_HEAP_BUFFER_SIZE, system.get_allocator());
     let heap = SliceVec::new(&mut heaps);
 
-    let Ok(mut vm_state) = SupportedEEVMState::create_initial(input.ee_version, &mut system) else {
+    let Ok(mut vm_state) = SupportedEEVMState::create_initial(zk_ee::execution_environment_type::ExecutionEnvironmentType::parse_ee_version_byte(input.ee_version).expect("Should succeed"), &mut system) else {
         return;
     };
 

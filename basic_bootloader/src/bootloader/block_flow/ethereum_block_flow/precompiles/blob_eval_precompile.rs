@@ -223,7 +223,7 @@ where
     > {
         let ExternalCallRequest {
             available_resources,
-            calldata,
+            input,
             modifier,
             ..
         } = request;
@@ -236,7 +236,7 @@ where
         let mut resources = available_resources;
         let mut return_vec = SliceVec::new(return_memory);
 
-        let result = self.evaluate::<S::Resources>(calldata, &mut return_vec, &mut resources);
+        let result = self.evaluate::<S::Resources>(input, &mut return_vec, &mut resources);
 
         match result {
             Ok(()) => {

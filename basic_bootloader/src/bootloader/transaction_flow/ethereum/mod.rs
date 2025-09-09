@@ -6,9 +6,11 @@ use crate::bootloader::transaction::ethereum_tx_format::EthereumTransactionMetad
 use crate::bootloader::transaction::ethereum_tx_format::EthereumTransactionWithBuffer;
 use crate::bootloader::transaction_flow::BasicTransactionFlow;
 use crate::bootloader::BasicBootloader;
+use crate::bootloader::supported_ees::errors::EESubsystemError;
 use core::fmt::Write;
 use core::ptr::addr_of_mut;
 use crypto::MiniDigest;
+use evm_interpreter::interpreter::CreateScheme;
 use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::U256;
 use zk_ee::common_structs::GenericEventContentRef;
@@ -24,6 +26,7 @@ use zk_ee::system::*;
 use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::utils::Bytes32;
 use zk_ee::utils::UsizeAlignedByteBox;
+use zk_ee::wrap_error;
 
 pub struct EthereumTransactionFlow<S: EthereumLikeTypes> {
     _marker: core::marker::PhantomData<S>,
@@ -613,11 +616,13 @@ where
         )?;
 
         let CompletedExecution {
-            return_values,
             resources_returned,
-            reverted,
+            result,
             ..
         } = final_state;
+
+        let reverted = result.failed();
+        let return_values = result.return_values();
 
         let _ = system.get_logger().write_fmt(format_args!(
             "Resources to refund = {resources_returned:?}\n",
@@ -650,33 +655,46 @@ where
         // we did pre-charge for deployment being the entry-point for the transaction,
         // and validated input length. So we just need to move into EE
 
-        let ee_specific_deployment_processing_data = match to_ee_type {
-            ExecutionEnvironmentType::NoEE => {
-                return Err(internal_error!("Deployment cannot target NoEE").into());
-            }
-            ExecutionEnvironmentType::EVM => {
-                SystemBoundEVMInterpreter::<S>::default_ee_deployment_options(system)
-            }
-        };
-
         assert!(transaction.destination().is_none());
 
         let from = transaction.signer();
         let main_calldata = transaction.calldata();
         let nominal_token_value = *transaction.value();
 
-        let resources = context.resources.main_resources.take();
+        let mut resources = context.resources.main_resources.take();
 
-        let deployment_parameters = DeploymentPreparationParameters {
-            address_of_deployer: *from,
-            call_scratch_space: None,
-            constructor_parameters: &[],
-            nominal_token_value,
-            deployment_code: main_calldata,
-            ee_specific_deployment_processing_data,
-            deployer_full_resources: resources,
-            deployer_nonce: Some(context.originator_nonce_to_use),
+        let deployed_address = match to_ee_type {
+            ExecutionEnvironmentType::NoEE => {
+                return Err(internal_error!("Deployment cannot target NoEE").into())
+            }
+            ExecutionEnvironmentType::EVM => {
+                SystemBoundEVMInterpreter::<S>::derive_address_for_deployment(
+                    system,
+                    &mut resources,
+                    CreateScheme::Create,
+                    &from,
+                    context.originator_nonce_to_use,
+                    main_calldata,
+                )
+                .map_err(|e| {
+                    let ee_error: EESubsystemError = wrap_error!(e);
+                    wrap_error!(ee_error)
+                })?
+            }
         };
+
+        let deployment_request = ExternalCallRequest {
+            available_resources: resources.clone(),
+            ergs_to_pass: resources.ergs(),
+            caller: from.clone(),
+            callee: deployed_address,
+            callers_caller: Default::default(), // Fine to use placeholder, should not be used
+            modifier: CallModifier::Constructor,
+            input: main_calldata,
+            nominal_token_value,
+            call_scratch_space: None,
+        };
+
         let rollback_handle = system.start_global_frame()?;
 
         let final_state = run_till_completion(
@@ -684,16 +702,13 @@ where
             system,
             system_functions,
             to_ee_type,
-            ExecutionEnvironmentSpawnRequest::RequestedDeployment(deployment_parameters),
+            deployment_request,
             tracer,
         )?;
-        let TransactionEndPoint::CompletedDeployment(CompletedDeployment {
+        let CompletedExecution {
             resources_returned,
-            deployment_result,
-        }) = final_state
-        else {
-            return Err(internal_error!("attempt to deploy ended up in invalid state").into());
-        };
+            result: deployment_result
+        } = final_state;
 
         let _ = system.get_logger().write_fmt(format_args!(
             "Resources to refund = {resources_returned:?}\n",
@@ -701,12 +716,13 @@ where
         context.resources.main_resources.reclaim(resources_returned);
 
         let (deployment_success, reverted, return_values, at) = match deployment_result {
-            DeploymentResult::Successful {
-                return_values,
-                deployed_at,
-                ..
-            } => (true, false, return_values, Some(deployed_at)),
-            DeploymentResult::Failed { return_values, .. } => (false, true, return_values, None),
+            CallResult::Successful { return_values } => {
+                (true, false, return_values, Some(deployed_address))
+            }
+            CallResult::Failed { return_values, .. } => (false, true, return_values, None),
+            CallResult::PreparationStepFailed => {
+                return Err(internal_error!("Preparation step failed in root call").into())
+            } // Should not happen
         };
         // Do not forget to reassign it back after potential copy when finishing frame
         system.finish_global_frame(reverted.then_some(&rollback_handle))?;

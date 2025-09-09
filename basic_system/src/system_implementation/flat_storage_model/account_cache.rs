@@ -725,6 +725,7 @@ impl<
         }
     }
 
+    /// Note: it is the caller's responsibility to check that the address is can be used for deployment (e.g. it is empty)
     pub fn deploy_code<const PROOF_ENV: bool>(
         &mut self,
         from_ee: ExecutionEnvironmentType,
@@ -748,7 +749,6 @@ impl<
         }
 
         // we charged for everything, and so all IO below will use infinite ergs
-        // We've checked that this account is empty in `prepare_for_deployment`.
 
         let cur_tx = self.current_tx_number;
 
