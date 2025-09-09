@@ -26,6 +26,7 @@ pub use zksync_os_interface::types::BlockOutput;
 pub type TxResult = Result<TxOutput, InvalidTransaction>;
 
 trait StorageWriteExt {
+    #[allow(clippy::new_ret_no_self)]
     fn new(address: B160, key: Bytes32, value: Bytes32) -> StorageWrite;
 }
 
@@ -112,7 +113,7 @@ impl<TR: TxResultCallback> From<ForwardRunningResultKeeper<TR>> for BlockOutput 
             .collect();
         let published_preimages = new_preimages
             .into_iter()
-            .map(|(hash, data, typ)| (hash.as_u8_array().into(), data, typ))
+            .map(|(hash, data, preimage_type)| (hash.as_u8_array().into(), data, preimage_type))
             .collect();
 
         Self {
@@ -159,7 +160,7 @@ pub fn extract_account_diffs(
     for (address, key, value) in storage_writes {
         if address == &ACCOUNT_PROPERTIES_STORAGE_ADDRESS {
             if let Some(properties) = account_properties_preimages.get(value) {
-                let flat_key = derive_flat_storage_key(&address, &key);
+                let flat_key = derive_flat_storage_key(address, key);
                 result.push(AccountDiff {
                     address: Address::from_slice(&flat_key.as_u8_array_ref()[12..]),
                     nonce: properties.nonce,

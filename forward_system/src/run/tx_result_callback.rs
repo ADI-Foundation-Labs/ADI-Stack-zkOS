@@ -13,6 +13,6 @@ impl<T: zksync_os_interface::traits::TxResultCallback> TxResultCallback for T {
         &mut self,
         tx_execution_result: Result<TxProcessingOutputOwned, InvalidTransaction>,
     ) {
-        self.tx_executed(tx_execution_result.map(Into::into))
+        self.tx_executed(tx_execution_result)
     }
 }
