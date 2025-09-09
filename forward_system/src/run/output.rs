@@ -48,9 +48,9 @@ pub struct TxOutput {
     pub gas_used: u64,
     /// Amount of refunded gas
     pub gas_refunded: u64,
-
+    /// Amount of native resource used in the entire transaction for computation.
     pub computational_native_used: u64,
-
+    /// Amount of pubdata used in the entire transaction.
     pub pubdata_used: u64,
     /// Deployed contract address
     /// - `Some(address)` for the deployment transaction
@@ -133,6 +133,7 @@ pub struct BlockOutput {
     pub account_diffs: Vec<(B160, (u64, U256, Bytes32))>,
     pub published_preimages: Vec<(Bytes32, Vec<u8>, PreimageType)>,
     pub pubdata: Vec<u8>,
+    pub computaional_native_used: u64,
 }
 
 impl From<&GenericEventContent<MAX_EVENT_TOPICS, EthereumIOTypesConfig>> for Log {
@@ -229,6 +230,8 @@ impl<TR: TxResultCallback, T: 'static + Sized> From<ForwardRunningResultKeeper<T
             ..
         } = value;
 
+        let mut block_computaional_native_used = 0;
+
         let tx_results = tx_results
             .into_iter()
             .enumerate()
@@ -243,12 +246,11 @@ impl<TR: TxResultCallback, T: 'static + Sized> From<ForwardRunningResultKeeper<T
                     } else {
                         ExecutionResult::Revert(output.output)
                     };
+                    block_computaional_native_used += output.computational_native_used;
                     TxOutput {
                         gas_used: output.gas_used,
                         gas_refunded: output.gas_refunded,
-
                         computational_native_used: output.computational_native_used,
-
                         pubdata_used: output.pubdata_used,
                         contract_address: output.contract_address,
                         logs: events
@@ -287,6 +289,7 @@ impl<TR: TxResultCallback, T: 'static + Sized> From<ForwardRunningResultKeeper<T
             account_diffs,
             published_preimages: new_preimages,
             pubdata,
+            computaional_native_used: block_computaional_native_used,
         }
     }
 }

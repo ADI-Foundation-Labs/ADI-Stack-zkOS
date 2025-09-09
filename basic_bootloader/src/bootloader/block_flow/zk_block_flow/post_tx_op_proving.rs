@@ -41,7 +41,11 @@ where
         let block_gas_used = block_data.block_gas_used;
 
         let block_number = system.get_block_number();
-        let previous_block_hash = system.get_blockhash(block_number);
+        let previous_block_hash = if block_number == 0 {
+            ruint::aliases::U256::ZERO
+        } else {
+            system.get_blockhash(block_number - 1)
+        };
         let beneficiary = system.get_coinbase();
         // TODO: Gas limit should be constant
         let gas_limit = system.get_gas_limit();
