@@ -14,10 +14,12 @@ pub struct RunBlockForward {
 }
 
 impl RunBlock for RunBlockForward {
+    type Config = ();
     type Error = ForwardSubsystemError;
 
     fn run_block<T: ReadStorage, PS: PreimageSource, TS: TxSource, TR: TxResultCallback>(
         &self,
+        _config: (),
         block_context: BlockContext,
         storage: T,
         preimage_source: PS,
@@ -36,10 +38,12 @@ impl RunBlock for RunBlockForward {
 }
 
 impl SimulateTx for RunBlockForward {
+    type Config = ();
     type Error = ForwardSubsystemError;
 
     fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
         &self,
+        _config: (),
         transaction: Vec<u8>,
         block_context: BlockContext,
         storage: S,
