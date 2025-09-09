@@ -6,12 +6,12 @@
 use alloy::primitives::TxKind;
 use rig::alloy::primitives::address;
 use rig::alloy::rpc::types::TransactionRequest;
-use rig::zksync_os_interface::types::ExecutionResult;
 use rig::ruint::aliases::B160;
 use rig::utils::{
     address_into_special_storage_key, AccountProperties, ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
 };
 use rig::zk_ee::utils::Bytes32;
+use rig::zksync_os_interface::types::ExecutionResult;
 use rig::{alloy, Chain};
 
 #[test]
@@ -71,7 +71,8 @@ fn test_set_bytecode_details_evm() {
         .find(|write| {
             write.account.0 == ACCOUNT_PROPERTIES_STORAGE_ADDRESS.to_be_bytes()
                 && write.account_key.0
-                    == address_into_special_storage_key(&B160::from_limbs([0x10002, 0, 0])).as_u8_array()
+                    == address_into_special_storage_key(&B160::from_limbs([0x10002, 0, 0]))
+                        .as_u8_array()
         })
         .expect("Corresponding write for force deploy not found")
         .value;

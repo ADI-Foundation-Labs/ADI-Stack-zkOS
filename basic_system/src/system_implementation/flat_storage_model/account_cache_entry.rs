@@ -461,7 +461,6 @@ mod tests {
     use ruint::aliases::U256;
     use std::alloc::Global;
     use storage_models::common_structs::PreimageCacheModel;
-    use zksync_os_interface::types::PreimageType;
     use zk_ee::execution_environment_type::ExecutionEnvironmentType;
     use zk_ee::reference_implementations::{BaseResources, DecreasingNative};
     use zk_ee::system::errors::internal::InternalError;
@@ -470,6 +469,7 @@ mod tests {
     use zk_ee::system_io_oracle::{IOOracle, OracleIteratorTypeMarker};
     use zk_ee::types_config::EthereumIOTypesConfig;
     use zk_ee::utils::*;
+    use zksync_os_interface::types::PreimageType;
 
     struct TestResultKeeper {
         pub pubdata: Vec<u8>,

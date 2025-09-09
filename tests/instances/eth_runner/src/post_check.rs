@@ -1,8 +1,8 @@
 use crate::prestate::*;
 use crate::receipts::TransactionReceipt;
 use alloy::hex;
-use rig::zksync_os_interface::types::BlockOutput;
 use rig::log::{error, info};
+use rig::zksync_os_interface::types::BlockOutput;
 use ruint::aliases::{B160, B256, U256};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -299,7 +299,9 @@ fn zksync_os_output_into_account_state(
             // populate slot
             let address = w.account;
             let key = U256::from_be_bytes(w.account_key.0);
-            let entry = updates.entry(B160::from_be_bytes(address.into_array())).or_default();
+            let entry = updates
+                .entry(B160::from_be_bytes(address.into_array()))
+                .or_default();
             let value = B256::from_be_bytes(w.value.0);
             entry.storage.get_or_insert_default().insert(key, value);
         }

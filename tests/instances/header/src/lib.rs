@@ -5,11 +5,10 @@
 
 use basic_bootloader::bootloader::block_header::EMPTY_OMMER_ROOT_HASH;
 use basic_bootloader::bootloader::constants::MAX_BLOCK_GAS_LIMIT;
+use rig::alloy::primitives::{Address, B256};
 use rig::ruint::aliases::{B160, U256};
 use rig::utils::run_block_of_erc20;
 use rig::{zk_ee::utils::Bytes32, Chain};
-use rig::alloy::primitives::{B256, Address};
-
 
 // Run a block of ERC20 transactions and check invariants on the block header.
 #[test]
@@ -75,5 +74,8 @@ fn test_block_header_invariants() {
                 .sum::<u64>()
     );
     assert_eq!(header.timestamp, 43);
-    assert_eq!(U256::from(header.base_fee_per_gas.unwrap()), eip1559_basefee);
+    assert_eq!(
+        U256::from(header.base_fee_per_gas.unwrap()),
+        eip1559_basefee
+    );
 }

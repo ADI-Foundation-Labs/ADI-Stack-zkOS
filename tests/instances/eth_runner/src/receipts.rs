@@ -38,8 +38,7 @@ pub struct Log {
 
 impl Log {
     pub fn is_equal_to_excluding_data(&self, log: &rig::zksync_os_interface::types::Log) -> bool {
-        let address_check =
-            || self.address == log.address;
+        let address_check = || self.address == log.address;
         let topics_length_check = || self.topics.len() == log.topics().len();
         let topics_check = || {
             self.topics

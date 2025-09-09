@@ -14,7 +14,6 @@ use forward_system::run::test_impl::{
     InMemoryPreimageSource, InMemoryTree, NoopTxCallback, TxListSource,
 };
 use forward_system::run::ForwardRunningOracle;
-use zksync_os_interface::types::{BlockOutput, BlockHashes};
 use forward_system::system::bootloader::run_forward;
 use log::{debug, info, trace};
 use oracle_provider::{BasicZkEEOracleWrapper, ReadWitnessSource, ZkEENonDeterminismSource};
@@ -25,10 +24,11 @@ use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use zk_ee::common_structs::{derive_flat_storage_key, ProofData};
-use zk_ee::system::metadata::{BlockMetadataFromOracle};
+use zk_ee::system::metadata::BlockMetadataFromOracle;
 use zk_ee::system::tracer::NopTracer;
 use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::utils::Bytes32;
+use zksync_os_interface::types::{BlockHashes, BlockOutput};
 
 ///
 /// In memory chain state, mainly to be used in tests.
@@ -358,7 +358,9 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         }
 
         for (hash, preimage, _preimage_type) in block_output.published_preimages.iter() {
-            self.preimage_source.inner.insert(hash.0.into(), preimage.clone());
+            self.preimage_source
+                .inner
+                .insert(hash.0.into(), preimage.clone());
         }
 
         let proof_input = if let Some(path) = witness_output_file {
