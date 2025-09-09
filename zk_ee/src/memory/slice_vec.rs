@@ -171,7 +171,8 @@ mod test {
         slice_vec.try_extend(5..10).unwrap();
         assert_eq!(*slice_vec, [5, 6, 7, 8, 9]);
         slice_vec.clear();
-        assert_eq!(*slice_vec, []);
+        let arr: [i32; 0] = [];
+        assert_eq!(*slice_vec, arr);
     }
 
     #[test]

@@ -2,7 +2,7 @@
 use alloy::consensus::{TxEip1559, TxEip2930};
 use alloy::primitives::{address, TxKind, U256};
 use alloy::signers::local::PrivateKeySigner;
-use rig::forward_system::run::BlockOutput;
+use rig::zksync_os_interface::types::BlockOutput;
 use rig::ruint::aliases::B160;
 use rig::{alloy, ruint};
 use std::collections::HashSet;
@@ -78,7 +78,7 @@ fn run_forge_test_create_many_contracts() {
         vec![encoded_deployment_tx, encoded_run_tx],
     );
 
-    let sset: HashSet<Bytes32> = output.storage_writes.iter().map(|x| x.key).collect();
+    let sset: HashSet<Bytes32> = output.storage_writes.iter().map(|x| x.key.0.into()).collect();
 
     // These are addresses taken from tests/forge/broadcast file.
     let addresses = [
@@ -141,7 +141,7 @@ fn run_forge_test_create_in_constructor() {
         vec![encoded_deployment_tx, encoded_run_tx],
     );
 
-    let sset: HashSet<Bytes32> = output.storage_writes.iter().map(|x| x.key).collect();
+    let sset: HashSet<Bytes32> = output.storage_writes.iter().map(|x| x.key.0.into()).collect();
 
     // These are addresses taken from tests/forge/broadcast file.
     let addresses = [

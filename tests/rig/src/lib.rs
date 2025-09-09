@@ -23,6 +23,7 @@ pub use ruint;
 pub use zk_ee;
 pub use zksync_os_api;
 pub use zksync_web3_rs;
+pub use zksync_os_interface;
 
 static INIT_LOGGER_ONCE: Once = Once::new();
 pub fn init_logger() {

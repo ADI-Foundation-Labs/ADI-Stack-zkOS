@@ -12,7 +12,7 @@ use alloy::signers::local::PrivateKeySigner;
 use ethers::abi::AbiEncode;
 use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::U256;
-use forward_system::run::BlockOutput;
+use zksync_os_interface::types::BlockOutput;
 use std::io::Read;
 use std::path::PathBuf;
 use std::str::FromStr;
