@@ -7,18 +7,24 @@ use zksync_os_interface::traits::{
 };
 use zksync_os_interface::types::{BlockContext, BlockOutput};
 
-pub struct RunBlockForward;
+pub struct RunBlockForward {
+    pub panic_on_start: bool,
+}
 
 impl RunBlock for RunBlockForward {
     type Error = ForwardSubsystemError;
 
     fn run_block<T: ReadStorage, PS: PreimageSource, TS: TxSource, TR: TxResultCallback>(
+        &self,
         block_context: BlockContext,
         storage: T,
         preimage_source: PS,
         tx_source: TS,
         tx_result_callback: TR,
     ) -> Result<BlockOutput, Self::Error> {
+        if self.panic_on_start {
+            panic!("configuration requested panic on start");
+        }
         run_block(
             block_context.into(),
             storage,
@@ -34,11 +40,15 @@ impl SimulateTx for RunBlockForward {
     type Error = ForwardSubsystemError;
 
     fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
+        &self,
         transaction: Vec<u8>,
         block_context: BlockContext,
         storage: S,
         preimage_source: PS,
     ) -> Result<TxResult, Self::Error> {
+        if self.panic_on_start {
+            panic!("configuration requested panic on start");
+        }
         simulate_tx(
             transaction,
             block_context.into(),
