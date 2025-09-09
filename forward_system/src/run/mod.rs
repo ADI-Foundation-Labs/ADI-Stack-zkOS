@@ -5,6 +5,7 @@ mod tree;
 mod tx_result_callback;
 mod tx_source;
 
+mod interface_impl;
 pub(crate) mod query_processors;
 pub mod result_keeper;
 pub mod test_impl;
@@ -37,24 +38,18 @@ pub use tx_result_callback::TxResultCallback;
 pub use tx_source::NextTxResponse;
 pub use tx_source::TxSource;
 
-pub use self::output::BlockOutput;
-pub use self::output::ExecutionOutput;
-pub use self::output::ExecutionResult;
-pub use self::output::Log;
-pub use self::output::StorageWrite;
-pub use self::output::TxOutput;
-pub use self::output::TxResult;
+use self::output::BlockOutput;
+pub use self::query_processors::*;
+use crate::run::output::TxResult;
 use crate::run::test_impl::{NoopTxCallback, TxListSource};
 pub use basic_bootloader::bootloader::errors::InvalidTransaction;
 use basic_system::system_implementation::flat_storage_model::*;
 use oracle_provider::{ReadWitnessSource, ZkEENonDeterminismSource};
 pub use zk_ee::system::metadata::BlockMetadataFromOracle as BatchContext;
 
-pub use self::query_processors::*;
-
 pub type StorageCommitment = FlatStorageCommitment<{ TREE_HEIGHT }>;
 
-pub fn run_batch<T: ReadStorageTree, PS: PreimageSource, TS: TxSource, TR: TxResultCallback>(
+pub fn run_block<T: ReadStorageTree, PS: PreimageSource, TS: TxSource, TR: TxResultCallback>(
     batch_context: BatchContext,
     tree: T,
     preimage_source: PS,

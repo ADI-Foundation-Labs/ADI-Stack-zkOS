@@ -8,12 +8,7 @@ use super::{
     history_map::{CacheSnapshotId, HistoryMap, HistoryMapItemRef},
 };
 
-#[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub enum PreimageType {
-    Bytecode = 0,
-    AccountData = 1,
-}
+pub use zksync_os_interface::types::PreimageType;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub struct PreimagesPublicationStorageValue {

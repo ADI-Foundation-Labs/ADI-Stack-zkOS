@@ -7,6 +7,7 @@ use crate::bootloader::transaction::ZkSyncTransaction;
 use crate::bootloader::BasicBootloaderExecutionConfig;
 use crate::bootloader::{BasicBootloader, Bytes32};
 use crate::require;
+use alloy::primitives::Address;
 use core::fmt::Write;
 use crypto::secp256k1::SECP256K1N_HALF;
 use evm_interpreter::{ERGS_PER_GAS, MAX_INITCODE_SIZE};
@@ -315,8 +316,8 @@ where
 
         if ecrecover_output.is_empty() {
             return Err(InvalidTransaction::IncorrectFrom {
-                recovered: B160::ZERO,
-                tx: from,
+                recovered: Address::ZERO,
+                tx: from.to_be_bytes().into(),
             }
             .into());
         }
@@ -326,8 +327,8 @@ where
 
         if recovered_from != from {
             return Err(InvalidTransaction::IncorrectFrom {
-                recovered: recovered_from,
-                tx: from,
+                recovered: recovered_from.to_be_bytes().into(),
+                tx: from.to_be_bytes().into(),
             }
             .into());
         }

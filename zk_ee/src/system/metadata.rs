@@ -9,6 +9,8 @@ use crate::types_config::EthereumIOTypesConfig;
 use crate::utils::Bytes32;
 use ruint::aliases::{B160, U256};
 
+pub use zksync_os_interface::types::{BlockContext, BlockHashes};
+
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Metadata {
     pub tx_origin: B160,
@@ -97,19 +99,6 @@ impl ZkSpecificPricingMetadata for Metadata {
     }
     fn get_pubdata_limit(&self) -> u64 {
         self.block_level_metadata.pubdata_limit
-    }
-}
-
-/// Array of previous block hashes.
-/// Hash for block number N will be at index [current_block_number - N - 1]
-/// (most recent will be at the start) if N is one of the most recent
-/// 256 blocks.
-#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct BlockHashes(#[serde(with = "serde_big_array::BigArray")] pub [U256; 256]);
-
-impl Default for BlockHashes {
-    fn default() -> Self {
-        Self([U256::ZERO; 256])
     }
 }
 
@@ -245,6 +234,24 @@ impl UsizeDeserializable for BlockMetadataFromOracle {
         };
 
         Ok(new)
+    }
+}
+
+impl From<BlockContext> for BlockMetadataFromOracle {
+    fn from(value: BlockContext) -> Self {
+        Self {
+            chain_id: value.chain_id,
+            block_number: value.block_number,
+            block_hashes: value.block_hashes,
+            timestamp: value.timestamp,
+            eip1559_basefee: value.eip1559_basefee,
+            gas_per_pubdata: value.gas_per_pubdata,
+            native_price: value.native_price,
+            coinbase: B160::from_be_bytes(value.coinbase.0 .0),
+            gas_limit: value.gas_limit,
+            pubdata_limit: value.pubdata_limit,
+            mix_hash: value.mix_hash,
+        }
     }
 }
 

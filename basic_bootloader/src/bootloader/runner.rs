@@ -958,7 +958,7 @@ where
             .write_fmt(format_args!("Bytecode for `callee` = "));
         let _ = system
             .get_logger()
-            .log_data(callee_account_properties.bytecode.as_ref().iter().copied());
+            .log_data(callee_account_properties.bytecode.iter().copied());
     }
 
     let external_call_launch_params = ExecutionEnvironmentLaunchParams {
