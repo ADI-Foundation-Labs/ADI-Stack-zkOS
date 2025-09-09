@@ -16,7 +16,7 @@ crypto = { path = "../crypto", default-features = false, features = ["secp256k1-
 storage_models = { path = "../storage_models", default-features = false }
 modexp = { path = "../supporting_crates/modexp" }
 cycle_marker = { path = "../cycle_marker" }
-zksync_os_interface = { path = "../interface" }
+zksync_os_interface = { workspace = true }
 
 ruint = { version = "1.12.3", default-features = false, features = ["alloc"] }
 arrayvec = { version = "0.7.4", default-features = false }

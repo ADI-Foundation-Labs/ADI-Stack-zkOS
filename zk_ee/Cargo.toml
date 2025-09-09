@@ -13,7 +13,7 @@ categories.workspace = true
 
 [dependencies]
 crypto = { path = "../crypto", default-features = false }
-zksync_os_interface = { path = "../interface" }
+zksync_os_interface = { workspace = true }
 ruint = { version = "1.12.3", default-features = false, features = ["alloc"] }
 cfg-if = "*"
 arrayvec = { version = "0.7.4", default-features = false }
