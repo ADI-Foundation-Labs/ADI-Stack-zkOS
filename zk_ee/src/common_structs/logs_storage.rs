@@ -479,7 +479,7 @@ where
     }
 }
 
-trait L2ToL1LogExt {
+pub trait L2ToL1LogExt {
     /// Encode L2 to l1 log using solidity abi packed encoding.
     fn encode(&self) -> [u8; L2_TO_L1_LOG_SERIALIZE_SIZE];
     /// Returns keccak hash of the l2 to l1 log solidity abi packed encoding.

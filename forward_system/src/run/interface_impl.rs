@@ -1,8 +1,9 @@
 use crate::run::errors::ForwardSubsystemError;
-use crate::run::run_block;
+use crate::run::output::TxResult;
+use crate::run::{run_block, simulate_tx};
 use zk_ee::system::tracer::NopTracer;
 use zksync_os_interface::traits::{
-    PreimageSource, ReadStorage, RunBlock, TxResultCallback, TxSource,
+    PreimageSource, ReadStorage, RunBlock, SimulateTx, TxResultCallback, TxSource,
 };
 use zksync_os_interface::types::{BlockContext, BlockOutput};
 
@@ -26,6 +27,24 @@ impl RunBlock for RunBlockForward {
             tx_result_callback,
             &mut NopTracer::default(),
         )
-        .map(Into::into)
+    }
+}
+
+impl SimulateTx for RunBlockForward {
+    type Error = ForwardSubsystemError;
+
+    fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
+        transaction: Vec<u8>,
+        block_context: BlockContext,
+        storage: S,
+        preimage_source: PS,
+    ) -> Result<TxResult, Self::Error> {
+        simulate_tx(
+            transaction,
+            block_context.into(),
+            storage,
+            preimage_source,
+            &mut NopTracer::default(),
+        )
     }
 }

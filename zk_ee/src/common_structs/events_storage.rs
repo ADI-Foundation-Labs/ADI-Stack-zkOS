@@ -1,3 +1,4 @@
+use super::history_list::HistoryList;
 use crate::{
     memory::stack_trait::{StackCtor, StackCtorConst},
     system::errors::system::SystemError,
@@ -9,7 +10,6 @@ use arrayvec::ArrayVec;
 use core::alloc::Allocator;
 use ruint::aliases::*;
 use zksync_os_interface::types::Log;
-use super::history_list::HistoryList;
 
 ///
 /// Generic event content to be saved in the storage
@@ -133,8 +133,13 @@ impl From<&GenericEventContent<4, EthereumIOTypesConfig>> for Log {
     fn from(value: &GenericEventContent<4, EthereumIOTypesConfig>) -> Self {
         Log::new(
             value.address.to_be_bytes().into(),
-            value.topics.iter().map(|t| t.as_u8_array().into()).collect(),
-            value.data.as_slice().to_vec().into()
-        ).unwrap()
+            value
+                .topics
+                .iter()
+                .map(|t| t.as_u8_array().into())
+                .collect(),
+            value.data.as_slice().to_vec().into(),
+        )
+        .unwrap()
     }
 }

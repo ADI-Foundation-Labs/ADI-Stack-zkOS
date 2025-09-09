@@ -24,6 +24,7 @@ pub use oracle::ForwardRunningOracle;
 use zk_ee::common_structs::ProofData;
 use zk_ee::system::tracer::Tracer;
 
+pub use interface_impl::RunBlockForward;
 pub use tree::LeafProof;
 pub use tree::ReadStorage;
 pub use tree::ReadStorageTree;
