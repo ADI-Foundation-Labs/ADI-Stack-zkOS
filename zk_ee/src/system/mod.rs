@@ -29,7 +29,7 @@ pub const MAX_GLOBAL_CALLS_STACK_DEPTH: usize = 1024; // even though we do not h
 
 use core::alloc::Allocator;
 use core::fmt::Write;
-
+use crypto::MiniDigest;
 use self::{
     errors::{internal::InternalError, system::SystemError},
     logger::Logger,
@@ -215,9 +215,12 @@ where
 
     pub fn init_from_oracle(
         mut oracle: <S::IO as IOSubsystemExt>::IOOracle,
+        pubdata_hasher: &mut impl MiniDigest,
+        result_keeper: &mut impl IOResultKeeper<S::IOTypes>,
     ) -> Result<Self, InternalError> {
         // get metadata for block
         let block_level_metadata: BlockMetadataFromOracle = oracle.get_block_level_metadata();
+        block_level_metadata.apply_to_pubdata(pubdata_hasher, result_keeper);
         let io = S::IO::init_from_oracle(oracle)?;
 
         let metadata = Metadata {
@@ -338,6 +341,7 @@ where
         block_hash: Bytes32,
         l1_to_l2_txs_hash: Bytes32,
         upgrade_tx_hash: Bytes32,
+        pubdata_hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
         result_keeper: &mut impl IOResultKeeper<S::IOTypes>,
     ) -> <S::IO as IOSubsystemExt>::FinalData {
         let logger = self.get_logger();
@@ -346,6 +350,7 @@ where
             block_hash,
             l1_to_l2_txs_hash,
             upgrade_tx_hash,
+            pubdata_hasher,
             result_keeper,
             logger,
         )

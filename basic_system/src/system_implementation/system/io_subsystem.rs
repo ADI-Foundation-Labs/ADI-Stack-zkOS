@@ -433,11 +433,13 @@ pub trait FinishIO {
         current_block_hash: Bytes32,
         l1_to_l2_txs_hash: Bytes32,
         upgrade_tx_hash: Bytes32,
+        pubdata_hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
         result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
         logger: impl Logger,
     ) -> Self::FinalData;
 }
 
+// forward run
 impl<
         A: Allocator + Clone + Default,
         R: Resources,
@@ -456,6 +458,7 @@ where
         current_block_hash: Bytes32,
         _l1_to_l2_txs_hash: Bytes32,
         _upgrade_tx_hash: Bytes32,
+        _pubdata_hasher: &mut impl MiniDigest,
         result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
         mut logger: impl Logger,
     ) -> Self::FinalData {
@@ -472,8 +475,8 @@ where
                 &mut logger,
             )
             .expect("Failed to finish storage");
-        self.logs_storage
-            .apply_pubdata(&mut NopHasher, result_keeper);
+        // self.logs_storage
+        //     .apply_pubdata(&mut NopHasher, result_keeper);
         result_keeper.logs(self.logs_storage.messages_ref_iter());
         result_keeper.events(self.events_storage.events_ref_iter());
 
@@ -502,6 +505,7 @@ where
         current_block_hash: Bytes32,
         l1_to_l2_txs_hash: Bytes32,
         upgrade_tx_hash: Bytes32,
+        pubdata_hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
         result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
         mut logger: impl Logger,
     ) -> Self::FinalData {
@@ -534,26 +538,26 @@ where
         };
 
         // finishing IO, applying changes
-        let mut pubdata_hasher = Blake2s256::new();
-        pubdata_hasher.update(current_block_hash.as_u8_ref());
+        // let mut pubdata_hasher = Blake2s256::new();
+        // pubdata_hasher.update(current_block_hash.as_u8_ref());
         let mut l2_to_l1_logs_hasher = Blake2s256::new();
 
         self.storage
             .finish(
                 &mut self.oracle,
                 Some(&mut state_commitment),
-                &mut pubdata_hasher,
+                &mut NopHasher,
                 result_keeper,
                 &mut logger,
             )
             .expect("Failed to finish storage");
         self.logs_storage
             .apply_l2_to_l1_logs_hashes_to_hasher(&mut l2_to_l1_logs_hasher);
-        self.logs_storage
-            .apply_pubdata(&mut pubdata_hasher, result_keeper);
+        // self.logs_storage
+        //     .apply_pubdata(&mut NopHasher, result_keeper);
         result_keeper.logs(self.logs_storage.messages_ref_iter());
         result_keeper.events(self.events_storage.events_ref_iter());
-        let pubdata_hash = pubdata_hasher.finalize();
+        let pubdata_hash = pubdata_hasher.finalize_reset();
         let l2_to_l1_logs_hashes_hash = l2_to_l1_logs_hasher.finalize();
 
         blocks_hasher = Blake2s256::new();
@@ -614,6 +618,7 @@ where
         current_block_hash: Bytes32,
         _l1_to_l2_txs_hash: Bytes32,
         upgrade_tx_hash: Bytes32,
+        pubdata_hasher: &mut impl MiniDigest,
         result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
         mut logger: impl Logger,
     ) -> Self::FinalData {
@@ -650,21 +655,21 @@ where
         ));
 
         // finishing IO, applying changes
-        let mut pubdata_hasher = crypto::sha3::Keccak256::new();
-        pubdata_hasher.update(current_block_hash.as_u8_ref());
+        // let mut pubdata_hasher = crypto::sha3::Keccak256::new();
+        // pubdata_hasher.update(current_block_hash.as_u8_ref());
 
         self.storage
             .finish(
                 &mut self.oracle,
                 Some(&mut state_commitment),
-                &mut pubdata_hasher,
+                &mut NopHasher,
                 result_keeper,
                 &mut logger,
             )
             .expect("Failed to finish storage");
 
-        self.logs_storage
-            .apply_pubdata(&mut pubdata_hasher, result_keeper);
+        // self.logs_storage
+        //     .apply_pubdata(&mut NopHasher, result_keeper);
         result_keeper.logs(self.logs_storage.messages_ref_iter());
         result_keeper.events(self.events_storage.events_ref_iter());
         let mut full_root_hasher = crypto::sha3::Keccak256::new();
@@ -761,6 +766,7 @@ where
         current_block_hash: Bytes32,
         _l1_to_l2_txs_hash: Bytes32,
         upgrade_tx_hash: Bytes32,
+        _pubdata_hasher: &mut impl MiniDigest,
         _result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
         _logger: impl Logger,
     ) -> Self::FinalData {
@@ -817,22 +823,22 @@ where
             last_block_timestamp,
         };
 
-        builder
-            .pubdata_hasher
-            .update(current_block_hash.as_u8_ref());
+        // builder
+        //     .pubdata_hasher
+        //     .update(current_block_hash.as_u8_ref());
 
         self.storage
             .finish(
                 &mut self.oracle,
                 Some(&mut state_commitment),
-                &mut builder.pubdata_hasher,
+                &mut NopHasher,
                 &mut NopResultKeeper,
                 &mut NullLogger,
             )
             .expect("Failed to finish storage");
 
-        self.logs_storage
-            .apply_pubdata(&mut builder.pubdata_hasher, &mut NopResultKeeper);
+        // self.logs_storage
+        //     .apply_pubdata(&mut builder.pubdata_hasher, &mut NopResultKeeper);
         self.logs_storage
             .apply_to_array_vec(&mut builder.logs_storage);
         (builder.number_of_layer_1_txs, builder.l1_txs_rolling_hash) = self
@@ -1091,6 +1097,7 @@ where
         current_block_hash: Bytes32,
         l1_to_l2_txs_hash: Bytes32,
         upgrade_tx_hash: Bytes32,
+        pubdata_hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
         result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
         logger: impl Logger,
     ) -> Self::FinalData {
@@ -1100,6 +1107,7 @@ where
             current_block_hash,
             l1_to_l2_txs_hash,
             upgrade_tx_hash,
+            pubdata_hasher,
             result_keeper,
             logger,
         )

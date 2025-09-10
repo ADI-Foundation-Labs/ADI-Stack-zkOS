@@ -28,6 +28,7 @@ use zk_ee::system::errors::internal::InternalError;
 use zk_ee::system::BalanceSubsystemError;
 use zk_ee::system::DeconstructionSubsystemError;
 use zk_ee::system::NonceSubsystemError;
+use zk_ee::system::NopResultKeeper;
 use zk_ee::system::Resources;
 use zk_ee::{
     common_structs::{
@@ -157,7 +158,7 @@ where
         let encdoded_state_diffs_count =
             (storage_cache.net_diffs_iter().count() as u32).to_be_bytes();
         pubdata_hasher.update(&encdoded_state_diffs_count);
-        result_keeper.pubdata(&encdoded_state_diffs_count);
+        // result_keeper.pubdata(&encdoded_state_diffs_count);
 
         let mut hasher = crypto::blake2s::Blake2s256::new();
         storage_cache
@@ -167,8 +168,8 @@ where
                 // TODO(EVM-1074): use tree index instead of key for repeated writes
                 let derived_key =
                     derive_flat_storage_key_with_hasher(&k.address, &k.key, &mut hasher);
-                pubdata_hasher.update(derived_key.as_u8_ref());
-                result_keeper.pubdata(derived_key.as_u8_ref());
+                // pubdata_hasher.update(derived_key.as_u8_ref());
+                // result_keeper.pubdata(derived_key.as_u8_ref());
 
                 if l.value() == r.value() {
                     return Ok(());
@@ -185,17 +186,17 @@ where
                         r.value(),
                         r.metadata().not_publish_bytecode,
                         pubdata_hasher,
-                        result_keeper,
+                        &mut NopResultKeeper,
                         &mut preimages_cache,
                         oracle,
                     )
                     .map_err(|_| ())?;
                 } else {
-                    ValueDiffCompressionStrategy::optimal_compression(
+                    ValueDiffCompressionStrategy::optimal_compression::<EthereumIOTypesConfig>(
                         l.value(),
                         r.value(),
                         pubdata_hasher,
-                        result_keeper,
+                        &mut NopResultKeeper,
                     );
                 }
                 Ok(())

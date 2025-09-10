@@ -8,6 +8,8 @@ use zk_ee::memory::ZSTAllocator;
 use zk_ee::system::tracer::NopTracer;
 use zk_ee::system::{logger::Logger, NopResultKeeper};
 use zk_ee::system_io_oracle::{DisconnectOracleFormalIterator, IOOracle};
+use crypto::sha3::Keccak256;
+use crypto::MiniDigest;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct ProxyAllocator;
@@ -180,7 +182,7 @@ pub fn run_proving_inner<
     // Load all transactions from oracle and apply them.
     let (mut oracle, public_input) = ProvingBootloader::<O, L>::run_prepared::<
         BasicBootloaderProvingExecutionConfig,
-    >(oracle, &mut NopResultKeeper, &mut NopTracer::default())
+    >(oracle, &mut NopResultKeeper, &mut NopTracer::default(), &mut Keccak256::new())
     .expect("Tried to prove a failing batch");
 
     // disconnect oracle before returning
@@ -209,12 +211,18 @@ pub fn run_proving_inner<
     let count = I::csr_read_impl();
     let mut batch_pi_builder =
         basic_system::system_implementation::system::BatchPublicInputBuilder::new();
+    let mut hasher = Keccak256::new();
     for _ in 0..count {
+        // Special delimiter to ensure we can recognize new block start in the pubdata.
+        // IT SHOULDN'T COLLIDE WITH TX TYPES!
+        // in future possibly better to include tx count in the pubdata for each block
+        hasher.update(&[0xAA]);
         let (io, block_metadata, current_block_hash, upgrade_tx_hash) =
             ProvingBootloader::<O, L>::run_prepared::<BasicBootloaderProvingExecutionConfig>(
                 oracle,
                 &mut NopResultKeeper,
                 &mut NopTracer::default(),
+                &mut hasher,
             )
             .expect("Tried to prove a failing batch");
         oracle = io.apply_to_batch(
@@ -230,6 +238,7 @@ pub fn run_proving_inner<
             .create_oracle_access_iterator::<DisconnectOracleFormalIterator>(())
             .expect("must disconnect an oracle before performing arbitrary CSR access");
     }
+    batch_pi_builder.pubdata_hasher = hasher;
 
     zk_ee::utils::Bytes32::from_array(batch_pi_builder.into_public_input(L::default()).hash())
         .as_u32_array()

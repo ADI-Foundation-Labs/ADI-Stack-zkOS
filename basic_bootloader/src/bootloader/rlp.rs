@@ -10,7 +10,8 @@
 //! - Apply encoded elements.
 //!
 
-use crypto::sha3::Digest;
+use crypto::MiniDigest;
+use crate::bootloader::result_keeper::ResultKeeperExt;
 
 /// Addresses are encoded as 20 bytes
 pub const ADDRESS_ENCODING_LEN: usize = 21;
@@ -59,33 +60,35 @@ pub fn estimate_length_encoding_len(length: usize) -> usize {
 ///
 /// Applies the number rlp encoding to the hasher.
 ///
-pub fn apply_number_encoding_to_hash(value: &[u8], hasher: &mut impl Digest) {
+pub fn apply_number_encoding_to_hash(value: &[u8], hasher: &mut impl MiniDigest, result_keeper: &mut impl ResultKeeperExt) {
     // if the value is 0, then it should be encoded as empty bytes
     let first_non_zero_byte = value
         .iter()
         .position(|&byte| byte != 0)
         .unwrap_or(value.len());
-    apply_bytes_encoding_to_hash(&value[first_non_zero_byte..], hasher);
+    apply_bytes_encoding_to_hash(&value[first_non_zero_byte..], hasher, result_keeper);
 }
 
 ///
 /// Applies the bytes rlp encoding to the hasher.
 ///
-pub fn apply_bytes_encoding_to_hash(value: &[u8], hasher: &mut impl Digest) {
+pub fn apply_bytes_encoding_to_hash(value: &[u8], hasher: &mut impl MiniDigest, result_keeper: &mut impl ResultKeeperExt) {
     if value.len() == 1 && value[0] < 128 {
         hasher.update(value);
+        result_keeper.pubdata(value);
         return;
     }
 
-    apply_length_encoding_to_hash(value.len(), 128, hasher);
+    apply_length_encoding_to_hash(value.len(), 128, hasher, result_keeper);
     hasher.update(value);
+    result_keeper.pubdata(value);
 }
 
 ///
 /// Applies the list rlp encoding to the hasher.
 ///
-pub fn apply_list_length_encoding_to_hash(length: usize, hasher: &mut impl Digest) {
-    apply_length_encoding_to_hash(length, 192, hasher);
+pub fn apply_list_length_encoding_to_hash(length: usize, hasher: &mut impl MiniDigest, result_keeper: &mut impl ResultKeeperExt) {
+    apply_length_encoding_to_hash(length, 192, hasher, result_keeper);
 }
 
 ///
@@ -94,13 +97,16 @@ pub fn apply_list_length_encoding_to_hash(length: usize, hasher: &mut impl Diges
 ///
 /// Note that it shouldn't be used for a single byte less than 128.
 ///
-fn apply_length_encoding_to_hash(length: usize, offset: u8, hasher: &mut impl Digest) {
+fn apply_length_encoding_to_hash(length: usize, offset: u8, hasher: &mut impl MiniDigest, result_keeper: &mut impl ResultKeeperExt) {
     if length < 56 {
-        hasher.update(&[offset + length as u8])
+        hasher.update(&[offset + length as u8]);
+        result_keeper.pubdata(&[offset + length as u8]);
     } else {
         let length_bytes = length.to_be_bytes();
         let non_zero_byte = length_bytes.iter().position(|&byte| byte != 0).unwrap();
         hasher.update(&[offset + 55 + (length_bytes.len() - non_zero_byte) as u8]);
         hasher.update(&length_bytes[non_zero_byte..]);
+        result_keeper.pubdata(&[offset + 55 + (length_bytes.len() - non_zero_byte) as u8]);
+        result_keeper.pubdata(&length_bytes[non_zero_byte..]);
     }
 }

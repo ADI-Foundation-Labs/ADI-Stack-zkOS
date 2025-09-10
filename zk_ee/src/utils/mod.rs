@@ -19,13 +19,13 @@ pub use self::type_assert::*;
 pub struct NopHasher;
 
 impl MiniDigest for NopHasher {
-    type HashOutput = ();
+    type HashOutput = [u8;32];
 
     fn new() -> Self {
         Self
     }
-    fn digest(_input: impl AsRef<[u8]>) -> Self::HashOutput {}
+    fn digest(_input: impl AsRef<[u8]>) -> Self::HashOutput {[0u8;32]}
     fn update(&mut self, _input: impl AsRef<[u8]>) {}
-    fn finalize(self) -> Self::HashOutput {}
-    fn finalize_reset(&mut self) -> Self::HashOutput {}
+    fn finalize(self) -> Self::HashOutput {[0u8;32]}
+    fn finalize_reset(&mut self) -> Self::HashOutput {[0u8;32]}
 }

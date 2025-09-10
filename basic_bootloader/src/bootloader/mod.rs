@@ -170,6 +170,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         oracle: <S::IO as IOSubsystemExt>::IOOracle,
         result_keeper: &mut impl ResultKeeperExt,
         tracer: &mut impl Tracer<S>,
+        pubdata_hasher: &mut impl MiniDigest<HashOutput = [u8; 32]>,
     ) -> Result<<S::IO as IOSubsystemExt>::FinalData, BootloaderSubsystemError>
     where
         S::IO: IOSubsystemExt,
@@ -177,7 +178,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
         cycle_marker::start!("run_prepared");
         // we will model initial calldata buffer as just another "heap"
         let mut system: System<S> =
-            System::init_from_oracle(oracle).expect("system must be able to initialize itself");
+            System::init_from_oracle(oracle, pubdata_hasher, result_keeper).expect("system must be able to initialize itself");
 
         let mut initial_calldata_buffer = TxDataBuffer::new(system.get_allocator());
 
@@ -263,6 +264,8 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
                         memories.reborrow(),
                         first_tx,
                         tracer,
+                        pubdata_hasher,
+                        result_keeper
                     );
 
                     cycle_marker::end!("process_transaction");
@@ -453,7 +456,7 @@ impl<S: EthereumLikeTypes> BasicBootloader<S> {
             "Bootloader execution is complete, will proceed with applying changes\n"
         ));
 
-        let r = system.finish(block_hash, l1_to_l2_tx_hash, upgrade_tx_hash, result_keeper);
+        let r = system.finish(block_hash, l1_to_l2_tx_hash, upgrade_tx_hash, pubdata_hasher, result_keeper);
         cycle_marker::end!("run_prepared");
         #[allow(clippy::let_and_return)]
         Ok(r)

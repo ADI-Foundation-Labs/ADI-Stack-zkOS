@@ -4,6 +4,7 @@ use crate::system::system::*;
 use basic_bootloader::bootloader::config::BasicBootloaderExecutionConfig;
 use basic_bootloader::bootloader::result_keeper::ResultKeeperExt;
 use zk_ee::system::tracer::Tracer;
+use zk_ee::utils::NopHasher;
 
 ///
 /// Run bootloader with forward system with a given `oracle`.
@@ -19,7 +20,7 @@ pub fn run_forward<
     result_keeper: &mut impl ResultKeeperExt,
     tracer: &mut impl Tracer<ForwardRunningSystem<T, PS, TS>>,
 ) {
-    if let Err(err) = ForwardBootloader::run_prepared::<Config>(oracle, result_keeper, tracer) {
+    if let Err(err) = ForwardBootloader::run_prepared::<Config>(oracle, result_keeper, tracer, &mut NopHasher) {
         panic!("Forward run failed with: {err}")
     };
 }

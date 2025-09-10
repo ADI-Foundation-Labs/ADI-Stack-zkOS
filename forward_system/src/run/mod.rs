@@ -29,6 +29,7 @@ pub use tree::ReadStorageTree;
 pub use zk_ee::types_config::EthereumIOTypesConfig;
 
 pub use preimage_source::PreimageSource;
+use zk_ee::utils::NopHasher;
 use zk_ee::wrap_error;
 
 use std::fs::File;
@@ -213,6 +214,7 @@ pub fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
         oracle,
         &mut result_keeper,
         tracer,
+        &mut NopHasher
     )
     .map_err(wrap_error!())?;
     let mut block_output: BlockOutput = result_keeper.into();

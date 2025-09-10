@@ -351,6 +351,7 @@ impl<'a> ZkSyncTransaction<'a> {
 
         // Authorization list is empty except for txs that support it
         // For EIP 7702, authorization list cannot be empty
+        // TODO: fixme, second branch not only for pectra
         #[cfg(feature = "pectra")]
         match tx_type {
             Self::EIP_7702_TX_TYPE => {
@@ -437,6 +438,7 @@ impl<'a> ZkSyncTransaction<'a> {
     pub fn pre_tx_buffer(&mut self) -> &mut [u8] {
         unsafe { self.underlying_buffer.get_unchecked_mut(0..TX_OFFSET) }
     }
+
     ///
     /// Calculate the signed transaction hash.
     /// i.e. the one should be signed for the EOA accounts.
@@ -447,17 +449,48 @@ impl<'a> ZkSyncTransaction<'a> {
         resources: &mut R,
     ) -> Result<[u8; 32], TxError> {
         let tx_type = self.tx_type.read();
-        match tx_type {
-            Self::LEGACY_TX_TYPE => self.legacy_tx_calculate_hash(chain_id, true, resources),
-            Self::EIP_2930_TX_TYPE => self.eip2930_tx_calculate_hash(chain_id, true, resources),
-            Self::EIP_1559_TX_TYPE => self.eip1559_tx_calculate_hash(chain_id, true, resources),
-            #[cfg(feature = "pectra")]
-            Self::EIP_7702_TX_TYPE => self.eip7702_tx_calculate_hash(chain_id, true, resources),
-            Self::EIP_712_TX_TYPE => self.eip712_tx_calculate_signed_hash(chain_id, resources),
-            _ => Err(
+        if tx_type == Self::L1_L2_TX_TYPE || tx_type == Self::UPGRADE_TX_TYPE {
+            return Err(
                 internal_error!("Invalid type for signed hash, most likely l1 or upgrade").into(),
-            ),
+            );
         }
+        let mut hasher = Keccak256::new();
+        match tx_type {
+            Self::LEGACY_TX_TYPE => {
+                self.apply_legacy_tx_encoding_to_hasher(
+                    chain_id,
+                    false,
+                    &mut hasher,
+                    resources,
+                    &mut NopResultKeeper
+                )?;
+            },
+            Self::EIP_2930_TX_TYPE | Self::EIP_1559_TX_TYPE => {
+                self.apply_eip2718_tx_encoding_to_hasher(
+                    chain_id,
+                    false,
+                    &mut hasher,
+                    resources,
+                    &mut NopResultKeeper
+                )?;
+            },
+            #[cfg(feature = "pectra")]
+            Self::EIP_7702_TX_TYPE => {
+                self.apply_eip2718_tx_encoding_to_hasher(
+                    chain_id,
+                    false,
+                    &mut hasher,
+                    resources,
+                    &mut NopResultKeeper
+                )?;
+            },
+            _ => {
+                return Err(
+                    internal_error!("Invalid tx type").into(),
+                );
+            }
+        }
+        Ok(hasher.finalize())
     }
 
     ///
@@ -470,34 +503,120 @@ impl<'a> ZkSyncTransaction<'a> {
         resources: &mut R,
     ) -> Result<[u8; 32], TxError> {
         let tx_type = self.tx_type.read();
+        if tx_type == Self::L1_L2_TX_TYPE || tx_type == Self::UPGRADE_TX_TYPE {
+            return self.l1_tx_calculate_hash(resources);
+        }
+        let mut hasher = Keccak256::new();
         match tx_type {
-            Self::LEGACY_TX_TYPE => self.legacy_tx_calculate_hash(chain_id, false, resources),
-            Self::EIP_2930_TX_TYPE => self.eip2930_tx_calculate_hash(chain_id, false, resources),
-            Self::EIP_1559_TX_TYPE => self.eip1559_tx_calculate_hash(chain_id, false, resources),
+            Self::LEGACY_TX_TYPE => {
+                self.apply_legacy_tx_encoding_to_hasher(
+                    chain_id,
+                    true,
+                    &mut hasher,
+                    resources,
+                    &mut NopResultKeeper
+                )?;
+            },
+            Self::EIP_2930_TX_TYPE | Self::EIP_1559_TX_TYPE => {
+                self.apply_eip2718_tx_encoding_to_hasher(
+                    chain_id,
+                    true,
+                    &mut hasher,
+                    resources,
+                    &mut NopResultKeeper
+                )?;
+            },
             #[cfg(feature = "pectra")]
-            Self::EIP_7702_TX_TYPE => self.eip7702_tx_calculate_hash(chain_id, false, resources),
-            Self::EIP_712_TX_TYPE => self.eip712_tx_calculate_hash(chain_id, resources),
-            Self::L1_L2_TX_TYPE => self.l1_tx_calculate_hash(resources),
-            Self::UPGRADE_TX_TYPE => self.l1_tx_calculate_hash(resources),
-            _ => Err(internal_error!("Type should be validated").into()),
+            Self::EIP_7702_TX_TYPE => {
+                self.apply_eip2718_tx_encoding_to_hasher(
+                    chain_id,
+                    true,
+                    &mut hasher,
+                    resources,
+                    &mut NopResultKeeper
+                )?;
+            },
+            _ => {
+                return Err(
+                    internal_error!("Invalid tx type").into(),
+                );
+            }
+        }
+        Ok(hasher.finalize())
+    }
+
+    pub fn apply_tx_to_pubdata<R: Resources>(
+        &self,
+        chain_id: u64,
+        hasher: &mut impl MiniDigest,
+        resources: &mut R,
+        result_keeper: &mut impl ResultKeeperExt,
+    ) -> Result<(), TxError> {
+        let tx_type = self.tx_type.read();
+        // such transactions are published on the settlement layer
+        // we only encode its type
+        // TODO: is it ok to present this hashing?
+        if tx_type == Self::L1_L2_TX_TYPE || tx_type == Self::UPGRADE_TX_TYPE {
+            hasher.update([tx_type]);
+            result_keeper.pubdata(&[tx_type]);
+            return Ok(());
+        }
+        match tx_type {
+            Self::LEGACY_TX_TYPE => {
+                self.apply_legacy_tx_encoding_to_hasher(
+                    chain_id,
+                    true,
+                    hasher,
+                    resources,
+                    result_keeper
+                )
+            },
+            Self::EIP_2930_TX_TYPE | Self::EIP_1559_TX_TYPE => {
+                self.apply_eip2718_tx_encoding_to_hasher(
+                    chain_id,
+                    true,
+                    hasher,
+                    resources,
+                    result_keeper
+                )
+            },
+            #[cfg(feature = "pectra")]
+            Self::EIP_7702_TX_TYPE => {
+                self.apply_eip2718_tx_encoding_to_hasher(
+                    chain_id,
+                    true,
+                    hasher,
+                    resources,
+                    result_keeper
+                )
+            },
+            _ => {
+                Err(
+                    internal_error!("Invalid tx type").into(),
+                )
+            }
         }
     }
 
     ///
-    /// If signed == `false` calculate tx hash with signature(to be used in the explorer):
-    /// Keccak256(RLP(nonce, gasPrice, gasLimit, to, value, data, r, s, v)),
-    /// note that`v` is set to 35 + y + 2 * chainId for EIP-155 txs.
-    ///
-    /// If signed == `true` calculate signed tx hash(the one that should be signed by the sender):
+    /// If signed == `false` calculate signed tx hash(the one that should be signed by the sender):
     /// - RLP(nonce, gasPrice, gasLimit, to, value, data, chainId, 0, 0) for EIP-155 txs
     /// - RLP(nonce, gasPrice, gasLimit, to, value, data) for pre EIP-155 txs
     ///
-    fn legacy_tx_calculate_hash<R: Resources>(
+    /// If with_signature == `true` calculate tx hash with signature(to be used in the explorer):
+    /// Keccak256(RLP(nonce, gasPrice, gasLimit, to, value, data, r, s, v)),
+    /// note that`v` is set to 35 + y + 2 * chainId for EIP-155 txs.
+    ///
+    /// Please note that it's a responsibility of the caller to make sure that tx type is legacy.
+    ///
+    fn apply_legacy_tx_encoding_to_hasher<R: Resources>(
         &self,
         chain_id: u64,
-        signed: bool,
+        with_signature: bool,
+        hasher: &mut impl MiniDigest,
         resources: &mut R,
-    ) -> Result<[u8; 32], TxError> {
+        result_keeper: &mut impl ResultKeeperExt,
+    ) -> Result<(), TxError> {
         let mut total_list_len =
             rlp::estimate_number_encoding_len(self.nonce.encoding(&self.underlying_buffer))
                 + rlp::estimate_number_encoding_len(
@@ -519,13 +638,13 @@ impl<'a> ZkSyncTransaction<'a> {
                 + rlp::estimate_bytes_encoding_len(self.data.encoding(&self.underlying_buffer));
 
         // Encode `chainId` for signed hash according to EIP-155, but only if the `chainId` is specified in the transaction.
-        if signed && !self.reserved[0].read().is_zero() {
+        if !with_signature && !self.reserved[0].read().is_zero() {
             total_list_len += rlp::estimate_number_encoding_len(&chain_id.to_be_bytes());
             total_list_len += 2;
         }
 
-        // Add signature if not signed hash
-        if !signed {
+        // Add signature if needed
+        if with_signature {
             // r
             total_list_len += rlp::estimate_number_encoding_len(
                 &self.signature.encoding(&self.underlying_buffer)[0..32],
@@ -545,62 +664,69 @@ impl<'a> ZkSyncTransaction<'a> {
         let encoding_length = rlp::estimate_length_encoding_len(total_list_len) + total_list_len;
         charge_keccak(encoding_length, resources)?;
 
-        let mut hasher = Keccak256::new();
-        rlp::apply_list_length_encoding_to_hash(total_list_len, &mut hasher);
+        rlp::apply_list_length_encoding_to_hash(total_list_len, hasher, result_keeper);
         rlp::apply_number_encoding_to_hash(
             self.nonce.encoding(&self.underlying_buffer),
-            &mut hasher,
+            hasher,
+            result_keeper
         );
         rlp::apply_number_encoding_to_hash(
             self.max_fee_per_gas.encoding(&self.underlying_buffer),
-            &mut hasher,
+            hasher,
+            result_keeper
         );
         rlp::apply_number_encoding_to_hash(
             self.gas_limit.encoding(&self.underlying_buffer),
-            &mut hasher,
+            hasher,
+            result_keeper
         );
 
         if self.reserved[1].read().is_zero() {
             rlp::apply_bytes_encoding_to_hash(
                 &self.to.encoding(&self.underlying_buffer)[12..],
-                &mut hasher,
+                hasher,
+                result_keeper
             );
         } else {
-            rlp::apply_bytes_encoding_to_hash(&[], &mut hasher);
+            rlp::apply_bytes_encoding_to_hash(&[], hasher, result_keeper);
         }
 
         rlp::apply_number_encoding_to_hash(
             self.value.encoding(&self.underlying_buffer),
-            &mut hasher,
+            hasher,
+            result_keeper
         );
-        rlp::apply_bytes_encoding_to_hash(self.data.encoding(&self.underlying_buffer), &mut hasher);
+        rlp::apply_bytes_encoding_to_hash(self.data.encoding(&self.underlying_buffer), hasher, result_keeper);
 
-        if signed && !self.reserved[0].read().is_zero() {
-            rlp::apply_number_encoding_to_hash(&chain_id.to_be_bytes(), &mut hasher);
-            rlp::apply_number_encoding_to_hash(&[], &mut hasher);
-            rlp::apply_number_encoding_to_hash(&[], &mut hasher);
+        if !with_signature && !self.reserved[0].read().is_zero() {
+            rlp::apply_number_encoding_to_hash(&chain_id.to_be_bytes(), hasher, result_keeper);
+            rlp::apply_number_encoding_to_hash(&[], hasher, result_keeper);
+            rlp::apply_number_encoding_to_hash(&[], hasher, result_keeper);
         }
 
-        // Add signature if not signed hash
-        if !signed {
+        // Add signature if needed
+        if with_signature {
             // r
             rlp::apply_number_encoding_to_hash(
                 &self.signature.encoding(&self.underlying_buffer)[0..32],
-                &mut hasher,
+                hasher,
+                result_keeper
             );
             // s
             rlp::apply_number_encoding_to_hash(
                 &self.signature.encoding(&self.underlying_buffer)[32..64],
-                &mut hasher,
+                hasher,
+                result_keeper
             );
             // v
             let mut v = self.signature.encoding(&self.underlying_buffer)[64] as u128;
             if !self.reserved[0].read().is_zero() {
                 v += 8 + chain_id as u128 * 2;
             }
-            rlp::apply_number_encoding_to_hash(&v.to_be_bytes(), &mut hasher);
+            rlp::apply_number_encoding_to_hash(&v.to_be_bytes(), hasher, result_keeper);
         };
-        Ok(hasher.finalize())
+
+        Ok(())
     }
 
     ///
@@ -625,27 +751,28 @@ impl<'a> ZkSyncTransaction<'a> {
     fn apply_access_list_encoding_to_hash(
         &self,
         total_access_list_length: usize,
-        hasher: &mut Keccak256,
+        hasher: &mut impl MiniDigest,
+        result_keeper: &mut impl ResultKeeperExt,
     ) -> Result<(), ()> {
         let iter = self
             .reserved_dynamic
             .access_list_iter(&self.underlying_buffer)?;
         // Length of access list
-        apply_list_length_encoding_to_hash(total_access_list_length, hasher);
+        apply_list_length_encoding_to_hash(total_access_list_length, hasher, result_keeper);
         for res in iter {
             let (address, keys) = res?;
             let (_, item_raw_length, keys_raw_length) =
                 estimate_access_list_item_length(keys.count);
             // Length of [address, [keys]]
-            apply_list_length_encoding_to_hash(item_raw_length, hasher);
+            apply_list_length_encoding_to_hash(item_raw_length, hasher, result_keeper);
             // Address
-            rlp::apply_bytes_encoding_to_hash(&address.to_be_bytes::<{ B160::BYTES }>(), hasher);
+            rlp::apply_bytes_encoding_to_hash(&address.to_be_bytes::<{ B160::BYTES }>(), hasher, result_keeper);
             // Length of [keys]
-            apply_list_length_encoding_to_hash(keys_raw_length, hasher);
+            apply_list_length_encoding_to_hash(keys_raw_length, hasher, result_keeper);
             // Keys
             for key in keys {
                 let key = key?;
-                rlp::apply_bytes_encoding_to_hash(key.as_u8_ref(), hasher);
+                rlp::apply_bytes_encoding_to_hash(key.as_u8_ref(), hasher, result_keeper);
             }
         }
         Ok(())
@@ -678,16 +805,17 @@ impl<'a> ZkSyncTransaction<'a> {
         &self,
         total_authorization_list_length: usize,
         hasher: &mut Keccak256,
+        result_keeper: &mut impl ResultKeeperExt,
     ) -> Result<(), ()> {
         let iter = self
             .reserved_dynamic
             .authorization_list_iter(&self.underlying_buffer)?;
         // Length of authorization list
-        apply_list_length_encoding_to_hash(total_authorization_list_length, hasher);
+        apply_list_length_encoding_to_hash(total_authorization_list_length, hasher, result_keeper);
         for res in iter {
             let item = res?;
             let item_raw_length = estimate_authorization_list_item_length(&item);
-            apply_list_length_encoding_to_hash(item_raw_length, hasher);
+            apply_list_length_encoding_to_hash(item_raw_length, hasher, result_keeper);
             let AuthorizationListItem {
                 chain_id,
                 address,
@@ -696,12 +824,12 @@ impl<'a> ZkSyncTransaction<'a> {
                 r,
                 s,
             } = item;
-            rlp::apply_number_encoding_to_hash(&chain_id.to_be_bytes::<32>(), hasher);
-            rlp::apply_bytes_encoding_to_hash(&address.to_be_bytes::<{ B160::BYTES }>(), hasher);
-            rlp::apply_number_encoding_to_hash(&nonce.to_be_bytes(), hasher);
-            rlp::apply_number_encoding_to_hash(&y_parity.to_be_bytes(), hasher);
-            rlp::apply_number_encoding_to_hash(&r.to_be_bytes::<32>(), hasher);
-            rlp::apply_number_encoding_to_hash(&s.to_be_bytes::<32>(), hasher);
+            rlp::apply_number_encoding_to_hash(&chain_id.to_be_bytes::<32>(), hasher, result_keeper);
+            rlp::apply_bytes_encoding_to_hash(&address.to_be_bytes::<{ B160::BYTES }>(), hasher, result_keeper);
+            rlp::apply_number_encoding_to_hash(&nonce.to_be_bytes(), hasher, result_keeper);
+            rlp::apply_number_encoding_to_hash(&y_parity.to_be_bytes(), hasher, result_keeper);
+            rlp::apply_number_encoding_to_hash(&r.to_be_bytes::<32>(), hasher, result_keeper);
+            rlp::apply_number_encoding_to_hash(&s.to_be_bytes::<32>(), hasher, result_keeper);
         }
         Ok(())
     }
@@ -742,282 +870,86 @@ impl<'a> ZkSyncTransaction<'a> {
     }
 
     ///
-    /// If signed == `false` calculate tx hash with signature(to be used in the explorer):
-    /// Keccak256(0x01 || RLP(chain_id, nonce, gas_price, gas_limit, destination, amount, data, access_list, r, s, v))
+    /// Applies EIP-2718 ethereum transactions encoding to hash.
+    /// Currently, there are 3 supported EIP-2718 types:
+    /// 1. EIP-2930: `0x01 || RLP(chain_id, nonce, gas_price, gas_limit, destination, amount, data, access_list)`
+    /// 2. EIP-1559: `0x02 || RLP(chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, destination, amount, data, access_list)`
+    /// 3. EIP-7702: `0x04 || RLP(chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, destination, amount, data, access_list, authorization_list)`
     ///
-    /// If signed == `true` calculate signed tx hash(the one that should be signed by the sender):
-    /// Keccak256(0x01 || RLP(chain_id, nonce, gas_price, gas_limit, destination, amount, data, access_list))
+    /// If the `with_signature` flag set true signature(`r, s, v`) will be added to rlp encoded tuple.
     ///
-    pub fn eip2930_tx_calculate_hash<R: Resources>(
+    /// Please note that it's a responsibility of the caller to make sure that tx has proper type.
+    ///
+    fn apply_eip2718_tx_encoding_to_hasher<R: Resources>(
         &self,
         chain_id: u64,
-        signed: bool,
+        with_signature: bool,
+        hasher: &mut impl MiniDigest,
         resources: &mut R,
-    ) -> Result<[u8; 32], TxError> {
-        let mut total_list_len = rlp::estimate_number_encoding_len(&chain_id.to_be_bytes())
-            + rlp::estimate_number_encoding_len(self.nonce.encoding(&self.underlying_buffer))
-            + rlp::estimate_number_encoding_len(
-                self.max_fee_per_gas.encoding(&self.underlying_buffer),
-            )
-            + rlp::estimate_number_encoding_len(self.gas_limit.encoding(&self.underlying_buffer));
+        result_keeper: &mut impl ResultKeeperExt,
+    ) -> Result<(), TxError> {
+        let tx_type = self.tx_type.read();
 
-        // Handle `to` == null, indicates EVM deployment transaction
+        let mut total_list_len = 0;
+        total_list_len += rlp::estimate_number_encoding_len(&chain_id.to_be_bytes());
+        total_list_len += rlp::estimate_number_encoding_len(self.nonce.encoding(&self.underlying_buffer));
+
+        // For EIP-2930 we encode only `gas_price`
+        // For EIP-1559 and EIP-7702 we encode `max_priority_fee_per_gas` and `max_fee_per_gas`
+        match tx_type {
+            Self::EIP_2930_TX_TYPE => total_list_len += rlp::estimate_number_encoding_len(
+                self.max_fee_per_gas.encoding(&self.underlying_buffer),
+            ),
+            _ => {
+                total_list_len += rlp::estimate_number_encoding_len(
+                    self.max_priority_fee_per_gas
+                        .encoding(&self.underlying_buffer),
+                );
+                total_list_len += rlp::estimate_number_encoding_len(
+                    self.max_fee_per_gas.encoding(&self.underlying_buffer),
+                );
+            }
+        };
+
+        total_list_len += rlp::estimate_number_encoding_len(self.gas_limit.encoding(&self.underlying_buffer));
+
+        // `reserved[1]` set to true indicates that to == null
         if self.reserved[1].read().is_zero() {
             total_list_len += rlp::ADDRESS_ENCODING_LEN;
         } else {
             total_list_len += rlp::estimate_bytes_encoding_len(&[]);
         }
 
-        let access_list_raw_length = self
-            .estimate_access_list_raw_length()
-            .map_err(|()| TxError::Validation(InvalidTransaction::InvalidEncoding))?;
+        total_list_len += rlp::estimate_number_encoding_len(self.value.encoding(&self.underlying_buffer));
+        total_list_len += rlp::estimate_bytes_encoding_len(self.data.encoding(&self.underlying_buffer));
 
-        total_list_len +=
-            rlp::estimate_number_encoding_len(self.value.encoding(&self.underlying_buffer))
-                + rlp::estimate_bytes_encoding_len(self.data.encoding(&self.underlying_buffer))
-                + rlp::estimate_length_encoding_len(access_list_raw_length)
-                + access_list_raw_length;
+        // access list
+        let access_list_raw_length = {
+            let access_list_raw_length = self
+                .estimate_access_list_raw_length()
+                .map_err(|()| TxError::Validation(InvalidTransaction::InvalidEncoding))?;
+             total_list_len += rlp::estimate_length_encoding_len(access_list_raw_length)
+            + access_list_raw_length;
 
-        // Add signature if not signed hash
-        if !signed {
-            // r
-            total_list_len += rlp::estimate_number_encoding_len(
-                &self.signature.encoding(&self.underlying_buffer)[0..32],
-            );
-            // s
-            total_list_len += rlp::estimate_number_encoding_len(
-                &self.signature.encoding(&self.underlying_buffer)[32..64],
-            );
-            // v
-            total_list_len += rlp::estimate_number_encoding_len(
-                &self.signature.encoding(&self.underlying_buffer)[64..65],
-            );
-        }
+            access_list_raw_length
+        };
 
-        let encoding_length = rlp::estimate_length_encoding_len(total_list_len) + total_list_len;
-        charge_keccak(encoding_length, resources)?;
-
-        let mut hasher = Keccak256::new();
-        hasher.update([0x01]);
-        rlp::apply_list_length_encoding_to_hash(total_list_len, &mut hasher);
-        rlp::apply_number_encoding_to_hash(&chain_id.to_be_bytes(), &mut hasher);
-        rlp::apply_number_encoding_to_hash(
-            self.nonce.encoding(&self.underlying_buffer),
-            &mut hasher,
-        );
-        rlp::apply_number_encoding_to_hash(
-            self.max_fee_per_gas.encoding(&self.underlying_buffer),
-            &mut hasher,
-        );
-        rlp::apply_number_encoding_to_hash(
-            self.gas_limit.encoding(&self.underlying_buffer),
-            &mut hasher,
-        );
-
-        if self.reserved[1].read().is_zero() {
-            rlp::apply_bytes_encoding_to_hash(
-                &self.to.encoding(&self.underlying_buffer)[12..],
-                &mut hasher,
-            );
-        } else {
-            rlp::apply_bytes_encoding_to_hash(&[], &mut hasher);
-        }
-
-        rlp::apply_number_encoding_to_hash(
-            self.value.encoding(&self.underlying_buffer),
-            &mut hasher,
-        );
-        rlp::apply_bytes_encoding_to_hash(self.data.encoding(&self.underlying_buffer), &mut hasher);
-        self.apply_access_list_encoding_to_hash(access_list_raw_length, &mut hasher)
-            .map_err(|()| TxError::Validation(InvalidTransaction::InvalidEncoding))?;
-
-        // Add signature if not signed hash
-        if !signed {
-            // r
-            rlp::apply_number_encoding_to_hash(
-                &self.signature.encoding(&self.underlying_buffer)[0..32],
-                &mut hasher,
-            );
-            // s
-            rlp::apply_number_encoding_to_hash(
-                &self.signature.encoding(&self.underlying_buffer)[32..64],
-                &mut hasher,
-            );
-            // v
-            rlp::apply_number_encoding_to_hash(
-                &self.signature.encoding(&self.underlying_buffer)[64..65],
-                &mut hasher,
-            );
-        }
-
-        Ok(hasher.finalize())
-    }
-
-    ///
-    /// If signed == `false` calculate tx hash with signature(to be used in the explorer):
-    /// Keccak256(0x02 || RLP(chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, destination, amount, data, access_list, r, s, v))
-    ///
-    /// If signed == `true` calculate signed tx hash(the one that should be signed by the sender):
-    /// Keccak256(0x02 || RLP(chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, destination, amount, data, access_list))
-    ///
-    pub fn eip1559_tx_calculate_hash<R: Resources>(
-        &self,
-        chain_id: u64,
-        signed: bool,
-        resources: &mut R,
-    ) -> Result<[u8; 32], TxError> {
-        let mut total_list_len = rlp::estimate_number_encoding_len(&chain_id.to_be_bytes())
-            + rlp::estimate_number_encoding_len(self.nonce.encoding(&self.underlying_buffer))
-            + rlp::estimate_number_encoding_len(
-                self.max_priority_fee_per_gas
-                    .encoding(&self.underlying_buffer),
-            )
-            + rlp::estimate_number_encoding_len(
-                self.max_fee_per_gas.encoding(&self.underlying_buffer),
-            )
-            + rlp::estimate_number_encoding_len(self.gas_limit.encoding(&self.underlying_buffer));
-
-        // Handle `to` == null, indicates EVM deployment transaction
-        if self.reserved[1].read().is_zero() {
-            total_list_len += rlp::ADDRESS_ENCODING_LEN;
-        } else {
-            total_list_len += rlp::estimate_bytes_encoding_len(&[]);
-        }
-
-        let access_list_raw_length = self
-            .estimate_access_list_raw_length()
-            .map_err(|()| TxError::Validation(InvalidTransaction::InvalidEncoding))?;
-
-        total_list_len +=
-            rlp::estimate_number_encoding_len(self.value.encoding(&self.underlying_buffer))
-                + rlp::estimate_bytes_encoding_len(self.data.encoding(&self.underlying_buffer))
-                + rlp::estimate_length_encoding_len(access_list_raw_length)
-                + access_list_raw_length;
-
-        // Add signature if not signed hash
-        if !signed {
-            // r
-            total_list_len += rlp::estimate_number_encoding_len(
-                &self.signature.encoding(&self.underlying_buffer)[0..32],
-            );
-            // s
-            total_list_len += rlp::estimate_number_encoding_len(
-                &self.signature.encoding(&self.underlying_buffer)[32..64],
-            );
-            // v
-            total_list_len += rlp::estimate_number_encoding_len(
-                &self.signature.encoding(&self.underlying_buffer)[64..65],
-            );
-        }
-
-        let encoding_length = rlp::estimate_length_encoding_len(total_list_len) + total_list_len;
-        charge_keccak(encoding_length, resources)?;
-
-        let mut hasher = Keccak256::new();
-        hasher.update([0x02]);
-        rlp::apply_list_length_encoding_to_hash(total_list_len, &mut hasher);
-        rlp::apply_number_encoding_to_hash(&chain_id.to_be_bytes(), &mut hasher);
-        rlp::apply_number_encoding_to_hash(
-            self.nonce.encoding(&self.underlying_buffer),
-            &mut hasher,
-        );
-        rlp::apply_number_encoding_to_hash(
-            self.max_priority_fee_per_gas
-                .encoding(&self.underlying_buffer),
-            &mut hasher,
-        );
-        rlp::apply_number_encoding_to_hash(
-            self.max_fee_per_gas.encoding(&self.underlying_buffer),
-            &mut hasher,
-        );
-        rlp::apply_number_encoding_to_hash(
-            self.gas_limit.encoding(&self.underlying_buffer),
-            &mut hasher,
-        );
-
-        if self.reserved[1].read().is_zero() {
-            rlp::apply_bytes_encoding_to_hash(
-                &self.to.encoding(&self.underlying_buffer)[12..],
-                &mut hasher,
-            );
-        } else {
-            rlp::apply_bytes_encoding_to_hash(&[], &mut hasher);
-        }
-
-        rlp::apply_number_encoding_to_hash(
-            self.value.encoding(&self.underlying_buffer),
-            &mut hasher,
-        );
-        rlp::apply_bytes_encoding_to_hash(self.data.encoding(&self.underlying_buffer), &mut hasher);
-        self.apply_access_list_encoding_to_hash(access_list_raw_length, &mut hasher)
-            .map_err(|()| TxError::Validation(InvalidTransaction::InvalidEncoding))?;
-        // Add signature if not signed hash
-        if !signed {
-            // r
-            rlp::apply_number_encoding_to_hash(
-                &self.signature.encoding(&self.underlying_buffer)[0..32],
-                &mut hasher,
-            );
-            // s
-            rlp::apply_number_encoding_to_hash(
-                &self.signature.encoding(&self.underlying_buffer)[32..64],
-                &mut hasher,
-            );
-            // v
-            rlp::apply_number_encoding_to_hash(
-                &self.signature.encoding(&self.underlying_buffer)[64..65],
-                &mut hasher,
-            );
-        }
-
-        Ok(hasher.finalize())
-    }
-
-    ///
-    /// If signed == `false` calculate tx hash with signature(to be used in the explorer):
-    /// Keccak256(0x04 || RLP(chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, destination, amount, data, access_list, authorization_list, r, s, v))
-    ///
-    /// If signed == `true` calculate signed tx hash(the one that should be signed by the sender):
-    /// Keccak256(0x04 || RLP(chain_id, nonce, max_priority_fee_per_gas, max_fee_per_gas, gas_limit, destination, amount, data, access_list, access_list))
-    ///
-    #[cfg(feature = "pectra")]
-    pub fn eip7702_tx_calculate_hash<R: Resources>(
-        &self,
-        chain_id: u64,
-        signed: bool,
-        resources: &mut R,
-    ) -> Result<[u8; 32], TxError> {
-        let mut total_list_len = rlp::estimate_number_encoding_len(&chain_id.to_be_bytes())
-            + rlp::estimate_number_encoding_len(self.nonce.encoding(&self.underlying_buffer))
-            + rlp::estimate_number_encoding_len(
-                self.max_priority_fee_per_gas
-                    .encoding(&self.underlying_buffer),
-            )
-            + rlp::estimate_number_encoding_len(
-                self.max_fee_per_gas.encoding(&self.underlying_buffer),
-            )
-            + rlp::estimate_number_encoding_len(self.gas_limit.encoding(&self.underlying_buffer));
-
-        total_list_len += rlp::ADDRESS_ENCODING_LEN;
-
-        let access_list_raw_length = self
-            .estimate_access_list_raw_length()
-            .map_err(|()| TxError::Validation(InvalidTransaction::InvalidEncoding))?;
-
-        let authorization_list_raw_length = self
-            .estimate_authorization_list_raw_length()
-            .map_err(|()| TxError::Validation(InvalidTransaction::InvalidEncoding))?;
-
-        total_list_len +=
-            rlp::estimate_number_encoding_len(self.value.encoding(&self.underlying_buffer))
-                + rlp::estimate_bytes_encoding_len(self.data.encoding(&self.underlying_buffer))
-                + rlp::estimate_length_encoding_len(access_list_raw_length)
-                + access_list_raw_length
-                + rlp::estimate_length_encoding_len(authorization_list_raw_length)
+        // authorization list
+        #[cfg(feature = "pectra")]
+        let authorization_list_raw_length = if tx_type == Self::EIP_7702_TX_TYPE {
+            // TODO: validation earlier?
+            let authorization_list_raw_length = self
+                .estimate_authorization_list_raw_length()
+                .map_err(|()| TxError::Validation(InvalidTransaction::InvalidEncoding))?;
+            total_list_len += rlp::estimate_length_encoding_len(authorization_list_raw_length)
                 + authorization_list_raw_length;
+            Some(authorization_list_raw_length)
+        } else {
+            None
+        };
 
-        // Add signature if not signed hash
-        if !signed {
+        // Signature if needed
+        if with_signature {
             // r
             total_list_len += rlp::estimate_number_encoding_len(
                 &self.signature.encoding(&self.underlying_buffer)[0..32],
@@ -1035,65 +967,85 @@ impl<'a> ZkSyncTransaction<'a> {
         let encoding_length = rlp::estimate_length_encoding_len(total_list_len) + total_list_len;
         charge_keccak(encoding_length, resources)?;
 
-        let mut hasher = Keccak256::new();
-        hasher.update([0x04]);
-        rlp::apply_list_length_encoding_to_hash(total_list_len, &mut hasher);
-        rlp::apply_number_encoding_to_hash(&chain_id.to_be_bytes(), &mut hasher);
-        rlp::apply_number_encoding_to_hash(
-            self.nonce.encoding(&self.underlying_buffer),
-            &mut hasher,
-        );
-        rlp::apply_number_encoding_to_hash(
-            self.max_priority_fee_per_gas
-                .encoding(&self.underlying_buffer),
-            &mut hasher,
-        );
-        rlp::apply_number_encoding_to_hash(
-            self.max_fee_per_gas.encoding(&self.underlying_buffer),
-            &mut hasher,
-        );
-        rlp::apply_number_encoding_to_hash(
-            self.gas_limit.encoding(&self.underlying_buffer),
-            &mut hasher,
-        );
+        hasher.update([tx_type]);
+        result_keeper.pubdata(&[tx_type]);
+        rlp::apply_list_length_encoding_to_hash(total_list_len, hasher, result_keeper);
 
+        rlp::apply_number_encoding_to_hash(&chain_id.to_be_bytes(), hasher, result_keeper);
+        rlp::apply_number_encoding_to_hash(self.nonce.encoding(&self.underlying_buffer), hasher, result_keeper);
+
+        // For EIP-2930 we encode only `gas_price`
+        // For EIP-1559 and EIP-7702 we encode `max_priority_fee_per_gas` and `max_fee_per_gas`
+        match tx_type {
+            Self::EIP_2930_TX_TYPE => rlp::apply_number_encoding_to_hash(
+                self.max_fee_per_gas.encoding(&self.underlying_buffer),
+                hasher,
+                result_keeper
+            ),
+            _ => {
+                rlp::apply_number_encoding_to_hash(
+                    self.max_priority_fee_per_gas
+                        .encoding(&self.underlying_buffer),
+                    hasher,
+                    result_keeper
+                );
+                rlp::apply_number_encoding_to_hash(
+                    self.max_fee_per_gas.encoding(&self.underlying_buffer),
+                    hasher,
+                    result_keeper
+                );
+            }
+        };
+
+        rlp::apply_number_encoding_to_hash(self.gas_limit.encoding(&self.underlying_buffer), hasher, result_keeper);
+
+        // `reserved[1]` set to true indicates that to == nul
         if self.reserved[1].read().is_zero() {
             rlp::apply_bytes_encoding_to_hash(
                 &self.to.encoding(&self.underlying_buffer)[12..],
-                &mut hasher,
+                hasher,
+                result_keeper
             );
         } else {
-            rlp::apply_bytes_encoding_to_hash(&[], &mut hasher);
+            rlp::apply_bytes_encoding_to_hash(&[], hasher, result_keeper);
         }
 
-        rlp::apply_number_encoding_to_hash(
-            self.value.encoding(&self.underlying_buffer),
-            &mut hasher,
-        );
-        rlp::apply_bytes_encoding_to_hash(self.data.encoding(&self.underlying_buffer), &mut hasher);
-        self.apply_access_list_encoding_to_hash(access_list_raw_length, &mut hasher)
+        rlp::apply_number_encoding_to_hash(self.value.encoding(&self.underlying_buffer), hasher, result_keeper);
+        rlp::apply_bytes_encoding_to_hash(self.data.encoding(&self.underlying_buffer), hasher, result_keeper);
+
+        // access list
+        self.apply_access_list_encoding_to_hash(access_list_raw_length, hasher, result_keeper)
             .map_err(|()| TxError::Validation(InvalidTransaction::InvalidEncoding))?;
-        self.apply_authorization_list_encoding_to_hash(authorization_list_raw_length, &mut hasher)
-            .map_err(|()| TxError::Validation(InvalidTransaction::InvalidEncoding))?;
-        // Add signature if not signed hash
-        if !signed {
+
+        // authorization list
+        #[cfg(feature = "pectra")]
+        if tx_type == Self::EIP_7702_TX_TYPE {
+            self.apply_authorization_list_encoding_to_hash(authorization_list_raw_length.expect("Always some"), hasher, result_keeper)
+                .map_err(|()| TxError::Validation(InvalidTransaction::InvalidEncoding))?;
+        }
+
+        // Signature if needed
+        if with_signature {
             // r
             rlp::apply_number_encoding_to_hash(
                 &self.signature.encoding(&self.underlying_buffer)[0..32],
-                &mut hasher,
+                hasher,
+                result_keeper
             );
             // s
             rlp::apply_number_encoding_to_hash(
                 &self.signature.encoding(&self.underlying_buffer)[32..64],
-                &mut hasher,
+                hasher,
+                result_keeper
             );
             // v
             rlp::apply_number_encoding_to_hash(
                 &self.signature.encoding(&self.underlying_buffer)[64..65],
-                &mut hasher,
+                hasher,
+                result_keeper
             );
         }
-        Ok(hasher.finalize())
+        Ok(())
     }
 
     // Keccak256 of:
@@ -1137,7 +1089,7 @@ impl<'a> ZkSyncTransaction<'a> {
         hasher.update(Self::DOMAIN_NAME_HASH);
         hasher.update(Self::DOMAIN_VERSION_HASH);
         hasher.update(U256::from(chain_id).to_be_bytes::<32>());
-        Ok(*hasher.finalize().split_first_chunk::<32>().unwrap().0)
+        Ok(hasher.finalize())
     }
 
     // Keccak256 of:

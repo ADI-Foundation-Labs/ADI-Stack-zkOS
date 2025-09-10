@@ -60,6 +60,8 @@ where
         memories: RunnerMemoryBuffers<'a>,
         is_first_tx: bool,
         tracer: &mut impl Tracer<S>,
+        pubdata_hasher: &mut impl MiniDigest,
+        result_keeper: &mut impl ResultKeeperExt,
     ) -> Result<TxProcessingResult<'a>, TxError> {
         let transaction = ZkSyncTransaction::try_from_slice(initial_calldata_buffer)
             .map_err(|_| TxError::Validation(InvalidTransaction::InvalidEncoding))?;
@@ -80,6 +82,8 @@ where
                         transaction,
                         false,
                         tracer,
+                        pubdata_hasher,
+                        result_keeper
                     )
                 }
             }
@@ -90,6 +94,8 @@ where
                 transaction,
                 true,
                 tracer,
+                pubdata_hasher,
+                result_keeper
             ),
             _ => Self::process_l2_transaction::<Config>(
                 system,
@@ -97,6 +103,8 @@ where
                 memories,
                 transaction,
                 tracer,
+                pubdata_hasher,
+                result_keeper
             ),
         }
     }
@@ -108,6 +116,8 @@ where
         transaction: ZkSyncTransaction,
         is_priority_op: bool,
         tracer: &mut impl Tracer<S>,
+        pubdata_hasher: &mut impl MiniDigest,
+        result_keeper: &mut impl ResultKeeperExt,
     ) -> Result<TxProcessingResult<'a>, TxError> {
         // The work done by the bootloader (outside of EE or EOA specific
         // computation) is charged as part of the intrinsic gas cost.
@@ -203,6 +213,10 @@ where
                 }
             }
         };
+    
+        // Apply tx to pubdata
+        // TODO: we need to charge for pubdata and make sure it's covered on the settlement layer
+        transaction.apply_tx_to_pubdata(chain_id, pubdata_hasher, &mut resources, result_keeper)?;
 
         // pubdata_info = (pubdata_used, to_charge_for_pubdata) can be cached
         // to used in the refund step only if the execution succeeded.
@@ -517,6 +531,8 @@ where
         mut memories: RunnerMemoryBuffers<'a>,
         mut transaction: ZkSyncTransaction,
         tracer: &mut impl Tracer<S>,
+        pubdata_hasher: &mut impl MiniDigest,
+        result_keeper: &mut impl ResultKeeperExt,
     ) -> Result<TxProcessingResult<'a>, TxError> {
         let from = transaction.from.read();
         let gas_limit = transaction.gas_limit.read();
@@ -635,6 +651,10 @@ where
             &mut resources,
             tracer,
         )?;
+
+        // Apply tx to pubdata
+        // TODO: we need to charge for pubdata
+        transaction.apply_tx_to_pubdata(chain_id, pubdata_hasher, &mut resources, result_keeper)?;
 
         // Parse, validate and apply authorization list, following EIP-7702
         #[cfg(feature = "pectra")]

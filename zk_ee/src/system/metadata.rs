@@ -1,9 +1,6 @@
-use super::{
-    errors::internal::InternalError,
-    kv_markers::{ExactSizeChain, UsizeDeserializable, UsizeSerializable},
-    types_config::SystemIOTypesConfig,
-};
+use super::{errors::internal::InternalError, IOResultKeeper, kv_markers::{ExactSizeChain, UsizeDeserializable, UsizeSerializable}, types_config::SystemIOTypesConfig};
 use ruint::aliases::{B160, U256};
+use crypto::MiniDigest;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Metadata<IOTypes: SystemIOTypesConfig> {
@@ -111,6 +108,27 @@ impl BlockMetadataFromOracle {
             block_hashes: BlockHashes::default(),
             mix_hash: U256::ONE,
         }
+    }
+
+    pub fn apply_to_pubdata<IOTypes: SystemIOTypesConfig>(&self, hasher: &mut impl MiniDigest, result_keeper: &mut impl IOResultKeeper<IOTypes>) {
+        // chain id, block number, and hashes are not needed in pubdata
+        hasher.update(self.timestamp.to_be_bytes());
+        hasher.update(self.eip1559_basefee.to_be_bytes::<32>());
+        hasher.update(self.gas_per_pubdata.to_be_bytes::<32>());
+        hasher.update(self.native_price.to_be_bytes::<32>());
+        hasher.update(self.coinbase.to_be_bytes::<20>());
+        hasher.update(self.gas_limit.to_be_bytes());
+        hasher.update(self.pubdata_limit.to_be_bytes());
+        hasher.update(self.mix_hash.to_be_bytes::<32>());
+
+        result_keeper.pubdata(&self.timestamp.to_be_bytes());
+        result_keeper.pubdata(&self.eip1559_basefee.to_be_bytes::<32>());
+        result_keeper.pubdata(&self.gas_per_pubdata.to_be_bytes::<32>());
+        result_keeper.pubdata(&self.native_price.to_be_bytes::<32>());
+        result_keeper.pubdata(&self.coinbase.to_be_bytes::<20>());
+        result_keeper.pubdata(&self.gas_limit.to_be_bytes());
+        result_keeper.pubdata(&self.pubdata_limit.to_be_bytes());
+        result_keeper.pubdata(&self.mix_hash.to_be_bytes::<32>());
     }
 }
 

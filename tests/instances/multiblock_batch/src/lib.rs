@@ -56,9 +56,11 @@ fn run_many_blocks_proof_run() {
         rig::utils::sign_and_encode_alloy_tx(mint_tx, &wallet)
     };
 
-    let proof_input_1 = chain
-        .run_block_with_extra_stats(vec![encoded_mint_tx], None, None, None, None)
-        .2;
+    let (block_output_1, _, proof_input_1) = chain
+        .run_block_with_extra_stats(vec![encoded_mint_tx], None, None, None, None);
+
+    println!("block 1 pubdata");
+    println!("{:?}", block_output_1.pubdata);
     let encoded_transfer_tx = {
         let transfer_tx = TxEip1559 {
             chain_id: 37u64,
@@ -74,9 +76,11 @@ fn run_many_blocks_proof_run() {
         rig::utils::sign_and_encode_alloy_tx(transfer_tx, &wallet)
     };
 
-    let proof_input_2 = chain
-        .run_block_with_extra_stats(vec![encoded_transfer_tx], None, None, None, None)
-        .2;
+    let (block_output_2, _, proof_input_2) = chain
+        .run_block_with_extra_stats(vec![encoded_transfer_tx], None, None, None, None);
+
+    println!("block 2 pubdata");
+    println!("{:?}", block_output_2.pubdata);
 
     let mut batch_input = Vec::with_capacity(1 + proof_input_1.len() + proof_input_2.len());
     batch_input.push(2);
