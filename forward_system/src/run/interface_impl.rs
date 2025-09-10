@@ -2,10 +2,11 @@ use crate::run::errors::ForwardSubsystemError;
 use crate::run::output::TxResult;
 use crate::run::{run_block, simulate_tx};
 use zk_ee::system::tracer::NopTracer;
+use zksync_os_interface::output::BlockOutput;
 use zksync_os_interface::traits::{
     PreimageSource, ReadStorage, RunBlock, SimulateTx, TxResultCallback, TxSource,
 };
-use zksync_os_interface::types::{BlockContext, BlockOutput};
+use zksync_os_interface::types::BlockContext;
 
 pub struct RunBlockForward {
     // Empty struct for now, but it can contain some configuration in the future.

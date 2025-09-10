@@ -4,10 +4,10 @@ use super::{
     types_config::SystemIOTypesConfig,
 };
 use ruint::aliases::{B160, U256};
-use zksync_os_interface::types::BlockContext;
+use zksync_os_types::BlockContext;
 
 // Re-export for backwards compatibility
-pub use zksync_os_interface::types::BlockHashes;
+pub use zksync_os_types::BlockHashes;
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Metadata<IOTypes: SystemIOTypesConfig> {

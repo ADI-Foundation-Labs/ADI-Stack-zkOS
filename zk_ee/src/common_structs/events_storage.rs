@@ -8,7 +8,7 @@ use alloc::alloc::Global;
 use arrayvec::ArrayVec;
 use core::alloc::Allocator;
 use ruint::aliases::*;
-use zksync_os_interface::types::Log;
+use zksync_os_types::Log;
 
 use super::history_list::HistoryList;
 

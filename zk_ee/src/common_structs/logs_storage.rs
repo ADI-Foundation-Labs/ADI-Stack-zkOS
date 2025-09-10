@@ -20,14 +20,14 @@ use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
-use zksync_os_interface::types::L2ToL1LogWithPreimage;
+use zksync_os_types::L2ToL1LogWithPreimage;
 
 pub const L2_TO_L1_LOG_SERIALIZE_SIZE: usize = 88;
 // Taken from the size of the Merkle tree.
 pub const MAX_NUMBER_OF_LOGS: u64 = 16_384;
 
 // Re-export for backwards compatibility
-pub use zksync_os_interface::types::L2ToL1Log;
+pub use zksync_os_types::L2ToL1Log;
 
 ///
 /// Message/log content to be saved in the storage.

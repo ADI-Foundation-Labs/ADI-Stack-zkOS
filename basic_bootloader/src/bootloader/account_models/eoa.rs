@@ -13,7 +13,6 @@ use crate::bootloader::supported_ees::SystemBoundEVMInterpreter;
 use crate::bootloader::transaction::ZkSyncTransaction;
 use crate::bootloader::BasicBootloaderExecutionConfig;
 use crate::bootloader::{BasicBootloader, Bytes32};
-use alloy::primitives::Address;
 use basic_system::cost_constants::{ECRECOVER_COST_ERGS, ECRECOVER_NATIVE_COST};
 use core::fmt::Write;
 use crypto::secp256k1::SECP256K1N_HALF;
@@ -34,6 +33,7 @@ use zk_ee::system::{
 };
 use zk_ee::utils::{b160_to_u256, u256_to_b160_checked};
 use zk_ee::{internal_error, out_of_native_resources, wrap_error};
+use zksync_os_types::primitives::Address;
 
 macro_rules! require_or_revert {
     ($b:expr, $m:expr, $s:expr, $system:expr) => {

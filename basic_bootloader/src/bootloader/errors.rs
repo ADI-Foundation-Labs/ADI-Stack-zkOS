@@ -10,7 +10,7 @@ use zk_ee::system::{
 };
 
 // Re-export for backwards compatibility
-pub use zksync_os_interface::error::{AAMethod, InvalidTransaction};
+pub use zksync_os_types::error::{AAMethod, InvalidTransaction};
 
 ///
 /// The transaction processing error.

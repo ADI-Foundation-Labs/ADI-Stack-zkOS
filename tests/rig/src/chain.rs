@@ -28,7 +28,8 @@ use zk_ee::system::metadata::BlockMetadataFromOracle;
 use zk_ee::system::tracer::NopTracer;
 use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::utils::Bytes32;
-use zksync_os_interface::types::{BlockHashes, BlockOutput};
+use zksync_os_interface::output::BlockOutput;
+use zksync_os_interface::types::BlockHashes;
 
 ///
 /// In memory chain state, mainly to be used in tests.

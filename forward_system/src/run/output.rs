@@ -2,6 +2,7 @@
 
 use crate::run::result_keeper::ForwardRunningResultKeeper;
 use crate::run::TxResultCallback;
+use alloy::consensus::{Header, Sealed};
 use alloy::primitives::Address;
 pub use basic_bootloader::bootloader::block_header::BlockHeader;
 use ruint::aliases::B160;
@@ -10,18 +11,17 @@ use zk_ee::common_structs::derive_flat_storage_key;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::utils::Bytes32;
 use zksync_os_interface::error::InvalidTransaction;
-use zksync_os_interface::types::{
-    AccountDiff, ExecutionOutput, ExecutionResult, PreimageType, StorageWrite,
-};
+use zksync_os_interface::output::{AccountDiff, ExecutionOutput, ExecutionResult, StorageWrite};
+use zksync_os_interface::types::PreimageType;
 
 // Use interface type as the direct place-in, can be changed in the future.
-pub use zksync_os_interface::types::TxOutput;
+pub use zksync_os_interface::output::TxOutput;
 
 // Use interface type as the direct place-in, can be changed in the future.
 use basic_system::system_implementation::flat_storage_model::{
     AccountProperties, ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
 };
-pub use zksync_os_interface::types::BlockOutput;
+pub use zksync_os_interface::output::BlockOutput;
 
 pub type TxResult = Result<TxOutput, InvalidTransaction>;
 
@@ -117,7 +117,7 @@ impl<TR: TxResultCallback> From<ForwardRunningResultKeeper<TR>> for BlockOutput 
             .collect();
 
         Self {
-            header: block_header.unwrap().into(),
+            header: convert_header(block_header.unwrap()),
             tx_results,
             storage_writes,
             account_diffs,
@@ -174,6 +174,34 @@ pub fn extract_account_diffs(
     }
 
     result
+}
+
+fn convert_header(value: BlockHeader) -> Sealed<Header> {
+    let hash = value.hash();
+    let header = Header {
+        parent_hash: value.parent_hash.as_u8_array().into(),
+        ommers_hash: value.ommers_hash.as_u8_array().into(),
+        beneficiary: value.beneficiary.to_be_bytes().into(),
+        state_root: value.state_root.as_u8_array().into(),
+        transactions_root: value.transactions_root.as_u8_array().into(),
+        receipts_root: value.receipts_root.as_u8_array().into(),
+        logs_bloom: value.logs_bloom.into(),
+        difficulty: value.difficulty,
+        number: value.number,
+        gas_limit: value.gas_limit,
+        gas_used: value.gas_used,
+        timestamp: value.timestamp,
+        extra_data: value.extra_data.to_vec().into(),
+        mix_hash: value.mix_hash.as_u8_array().into(),
+        nonce: value.nonce.into(),
+        base_fee_per_gas: Some(value.base_fee_per_gas),
+        withdrawals_root: None,
+        blob_gas_used: None,
+        excess_blob_gas: None,
+        parent_beacon_block_root: None,
+        requests_hash: None,
+    };
+    Sealed::new_unchecked(header, hash.into())
 }
 
 #[allow(dead_code)]

@@ -14,7 +14,7 @@ use zk_ee::utils::{Bytes32, UsizeAlignedByteBox};
 use zksync_os_interface::types::PreimageType;
 
 // Use interface type as the direct place-in, can be changed in the future.
-pub use zksync_os_interface::types::TxProcessingOutputOwned;
+pub use zksync_os_interface::output::TxProcessingOutputOwned;
 
 pub struct ForwardRunningResultKeeper<TR: TxResultCallback> {
     pub block_header: Option<BlockHeader>,

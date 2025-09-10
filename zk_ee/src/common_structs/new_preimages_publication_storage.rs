@@ -9,7 +9,7 @@ use super::{
 };
 
 // Re-export for backwards compatibility
-pub use zksync_os_interface::types::PreimageType;
+pub use zksync_os_types::PreimageType;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub struct PreimagesPublicationStorageValue {
