@@ -132,4 +132,5 @@ impl<O: IOOracle, L: Logger + Default> EthereumLikeBasicSTF
 {
 }
 
-pub type ProvingEthereumBootloader<O, L> = BasicBootloader<EthereumStorageSystemTypesWithPostOps<O, L>>;
+pub type ProvingEthereumBootloader<O, L> =
+    BasicBootloader<EthereumStorageSystemTypesWithPostOps<O, L>>;
