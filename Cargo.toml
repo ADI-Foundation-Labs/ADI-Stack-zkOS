@@ -60,11 +60,8 @@ keywords = ["blockchain", "zksync", "zk", "risc-v"]
 categories = ["cryptography"]
 
 [workspace.dependencies]
-zksync_os_interface = { git = "https://github.com/matter-labs/zksync-os-interface", rev = "48a318216686405a8466601ffe47cbd99b70d749", default-features = false }
+zksync_os_interface = { git = "https://github.com/matter-labs/zksync-os-interface", rev = "7befeab7fbd45a94cc0caaa343fff2bf44a54a5b", default-features = false }
 #zksync_os_interface = { path = "../zksync-os-interface/crates/interface", default-features = false }
-
-zksync_os_types = { git = "https://github.com/matter-labs/zksync-os-interface", rev = "48a318216686405a8466601ffe47cbd99b70d749", default-features = false }
-#zksync_os_types = { path = "../zksync-os-interface/crates/types", default-features = false }
 
 risc_v_simulator = { git = "https://github.com/matter-labs/zksync-airbender", tag = "v0.4.3"}
 blake2s_u32 = { git = "https://github.com/matter-labs/zksync-airbender", tag = "v0.4.3"}
