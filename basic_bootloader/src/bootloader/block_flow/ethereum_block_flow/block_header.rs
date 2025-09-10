@@ -48,7 +48,7 @@ pub struct PectraForkHeader {
     pub gas_limit: u64,
     pub gas_used: u64,
     pub timestamp: u64,
-    // 32 bytes or less, but variable lenth
+    // 32 bytes or less, but variable length
     pub extra_data: (Bytes32, usize),
     pub mix_hash: Bytes32,
     // fixed length
@@ -276,7 +276,7 @@ impl<'a> RLPParsable<'a> for PectraForkHeaderReflection<'a> {
         let gas_limit = RLPParsable::try_parse(&mut list_parser)?;
         let gas_used = RLPParsable::try_parse(&mut list_parser)?;
         let timestamp = RLPParsable::try_parse(&mut list_parser)?;
-        // 32 bytes or less, but variable lenth
+        // 32 bytes or less, but variable length
         let extra_data: &'a [u8] = RLPParsable::try_parse(&mut list_parser)?;
         if extra_data.len() > 32 {
             return Err(());

@@ -498,7 +498,7 @@ where
         transaction: Self::Transaction<'_>,
         context: Self::TransactionContext,
         result: ExecutionResult<'a, S::IOTypes>,
-        transaciton_data_collector: &mut impl BlockTransactionsDataCollector<S, Self>,
+        transaction_data_collector: &mut impl BlockTransactionsDataCollector<S, Self>,
         _tracer: &mut impl Tracer<S>,
     ) -> Self::ExecutionResult<'a> {
         // Add back the intrinsic native charged in get_resources_for_tx,
@@ -524,7 +524,7 @@ where
             format!("Spent native for [process_transaction]: {computational_native_used}").as_str(),
         );
 
-        transaciton_data_collector.record_transaction_results(
+        transaction_data_collector.record_transaction_results(
             &*system,
             transaction,
             &context,

@@ -214,7 +214,7 @@ where
     use crate::bootloader::transaction::ethereum_tx_format::AuthorizationEntry;
     let mut hasher = crypto::sha3::Keccak256::new();
 
-    let count = auth_list.count.expect("prevalidated list containts count");
+    let count = auth_list.count.expect("prevalidated list contains count");
     if count == 0 {
         return Err(TxError::Validation(InvalidTransaction::AuthListIsEmpty));
     }
@@ -582,7 +582,7 @@ where
     // any IO starts here
     let from = transaction.signer();
 
-    // now we can perfor IO related parts. Getting originator's properties is included into the
+    // now we can perform IO related parts. Getting originator's properties is included into the
     // intrinsic cost charnged above
     let originator_account_data =
         tx_resources

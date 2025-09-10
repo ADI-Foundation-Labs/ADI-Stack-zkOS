@@ -17,7 +17,7 @@ pub fn process_single_intrinsic_transaction<
     system_functions: &mut HooksStorage<S, S::Allocator>,
     memories: RunnerMemoryBuffers<'a>,
     transaction_buffer: F::TransactionBuffer<'a>,
-    transaciton_data_collector: &mut impl BlockTransactionsDataCollector<S, F>,
+    transaction_data_collector: &mut impl BlockTransactionsDataCollector<S, F>,
     tracer: &mut impl Tracer<S>,
 ) -> Result<F::ExecutionResult<'a>, TxError>
 where
@@ -112,7 +112,7 @@ where
         transaction,
         tx_context,
         execution_result,
-        transaciton_data_collector,
+        transaction_data_collector,
         tracer,
     );
 

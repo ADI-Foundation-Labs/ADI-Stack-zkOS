@@ -558,10 +558,10 @@ where
         transaction: Self::Transaction<'_>,
         context: Self::TransactionContext,
         result: ExecutionResult<'a, <S as SystemTypes>::IOTypes>,
-        transaciton_data_collector: &mut impl BlockTransactionsDataCollector<S, Self>,
+        transaction_data_collector: &mut impl BlockTransactionsDataCollector<S, Self>,
         _tracer: &mut impl Tracer<S>,
     ) -> Self::ExecutionResult<'a> {
-        transaciton_data_collector.record_transaction_results(
+        transaction_data_collector.record_transaction_results(
             &*system,
             transaction,
             &context,

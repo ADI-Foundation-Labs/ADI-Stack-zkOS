@@ -13,7 +13,7 @@ fn parse_blake2_state(
     (u64, u64),
     u8,
 ) {
-    // length is pre-checked, so we should just check that we are in good endianess, and
+    // length is pre-checked, so we should just check that we are in good endianness, and
     // "read unaligned" almost everything
 
     #[cfg(target_endian = "big")]
@@ -110,7 +110,7 @@ impl crate::PurePrecompileInvocation for Blake2FPrecompile {
         #[cfg(target_endian = "big")]
         compile_error!("big endian archs are not supported");
 
-        // write back - no endianess changes
+        // write back - no endianness changes
         unsafe {
             output.extend_from_slice(core::slice::from_raw_parts(
                 state.as_ptr().cast::<u8>(),

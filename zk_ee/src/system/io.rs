@@ -535,7 +535,7 @@ pub struct StorageDiffRef<'a, IOTypes: SystemIOTypesConfig> {
 // - logs
 // - l2 to l1 logs (if any)
 pub trait IOTeardown<IOTypes: SystemIOTypesConfig>: IOSubsystemExt<IOTypes = IOTypes> {
-    type IOStateCommittment: Clone + UsizeDeserializable + UsizeDeserializable + core::fmt::Debug;
+    type IOStateCommitment: Clone + UsizeDeserializable + UsizeDeserializable + core::fmt::Debug;
 
     fn flush_caches(&mut self, result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>);
 
@@ -583,7 +583,7 @@ pub trait IOTeardown<IOTypes: SystemIOTypesConfig>: IOSubsystemExt<IOTypes = IOT
 
     fn update_commitment(
         &mut self,
-        state_commitment: Option<&mut Self::IOStateCommittment>,
+        state_commitment: Option<&mut Self::IOStateCommitment>,
         logger: &mut impl Logger,
         result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
     );

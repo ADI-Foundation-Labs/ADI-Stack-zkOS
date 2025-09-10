@@ -46,7 +46,7 @@ impl<A: Allocator> EthereumTransactionWithBuffer<A> {
         expected_chain_id: u32,
     ) -> Result<Self, ()> {
         // ideally we want partial initialization to be available here, but let's do without. Note that
-        // we are free to move this structure as UsizeAlignedByteBox has a box inside and guaratees stable
+        // we are free to move this structure as UsizeAlignedByteBox has a box inside and guarantees stable
         // address of the slice that we will use to parse a transaction, so we will not make a long code with
         // partial init and drop guards, but instead will parse via 'static transmute
 
