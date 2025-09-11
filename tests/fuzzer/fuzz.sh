@@ -226,7 +226,6 @@ function corpus() {
 function install() {
     rustup set profile minimal
     rustup target add riscv32i-unknown-none-elf
-    rustup target add wasm32-unknown-unknown
     cargo install cargo-binutils
     rustup component add llvm-tools-preview
     rustup component add rust-src
