@@ -1,5 +1,6 @@
 use crate::system_implementation::system::public_input;
 use arrayvec::ArrayVec;
+use crypto::sha3::digest::core_api::CoreWrapper;
 use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
 use ruint::aliases::{B160, U256};
@@ -276,11 +277,29 @@ impl BatchPublicInputBuilder {
         full_root_hasher.update([0u8; 32]); // aggregated root 0 for now
         let full_l2_to_l1_logs_root = full_root_hasher.finalize();
 
+        let (core, pubdata) = self.pubdata_hasher.decompose();
+        let mut pubdata_hasher: Keccak256 = CoreWrapper::from_core(core);
+
+        let linear_hashes = pubdata
+            .get_data()
+            .chunks(126976)
+            .flat_map(|blob| {
+                let mut full_blob = [0u8; 126976];
+                full_blob[0..blob.len()].copy_from_slice(blob);
+                let linear_hash: [u8; 32] = Keccak256::digest(full_blob).into();
+                linear_hash
+            })
+            .collect::<Vec<u8>>();
+
+        let num_blobs = (linear_hashes.len() / 126976) as u8;
+
+        pubdata_hasher.update(pubdata.get_data());
+
         let mut da_commitment_hasher = crypto::sha3::Keccak256::new();
         da_commitment_hasher.update([0u8; 32]); // we don't have to validate state diffs hash
-        da_commitment_hasher.update(self.pubdata_hasher.finalize().as_slice()); // full pubdata keccak
-        da_commitment_hasher.update([1u8]); // with calldata we should provide 1 blob
-        da_commitment_hasher.update([0u8; 32]); // its hash will be ignored on the settlement layer
+        da_commitment_hasher.update(pubdata_hasher.finalize().as_slice()); // full pubdata keccak
+        da_commitment_hasher.update([num_blobs]); // with calldata we should provide 1 blob
+        da_commitment_hasher.update(&linear_hashes); // its hash will be ignored on the settlement layer
         let da_commitment = da_commitment_hasher.finalize();
 
         let batch_output = public_input::BatchOutput {
