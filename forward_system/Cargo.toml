@@ -23,6 +23,8 @@ system_hooks = { path = "../system_hooks", default-features = false }
 callable_oracles = { path = "../callable_oracles", default-features = false }
 crypto = { path = "../crypto", default-features = false }
 
+zksync_os_interface = { workspace = true, default-features = false }
+
 ruint = { workspace = true, default-features = false }
 arrayvec = { workspace = true, default-features = false }
 serde = { workspace = true, default-features = false, features = ["derive", "alloc"] }

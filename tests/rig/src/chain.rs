@@ -20,8 +20,8 @@ use forward_system::run::result_keeper::ForwardRunningResultKeeper;
 use forward_system::run::test_impl::{
     InMemoryPreimageSource, InMemoryTree, NoopTxCallback, TxListSource,
 };
-use forward_system::run::*;
-use log::warn;
+use forward_system::run::ForwardRunningOracle;
+use forward_system::system::bootloader::run_forward;
 use log::{debug, info, trace};
 use oracle_provider::{ReadWitnessSource, ZkEENonDeterminismSource};
 use risc_v_simulator::abstractions::memory::VectorMemoryImpl;
@@ -37,6 +37,7 @@ use zk_ee::memory::vec_trait::VecCtor;
 use zk_ee::system::metadata::{BlockHashes, BlockMetadataFromOracle};
 use zk_ee::system::tracer::NopTracer;
 use zk_ee::utils::Bytes32;
+use zksync_os_interface::types::BlockOutput;
 
 ///
 /// In memory chain state, mainly to be used in tests.
@@ -352,19 +353,21 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         for i in 0..255 {
             self.block_hashes[i] = self.block_hashes[i + 1];
         }
-        self.block_hashes[255] = U256::from_be_bytes(block_output.header.hash());
+        self.block_hashes[255] = U256::from_be_bytes(block_output.header.hash().0);
 
         for storage_write in block_output.storage_writes.iter() {
             self.state_tree
                 .cold_storage
-                .insert(storage_write.key, storage_write.value);
+                .insert(storage_write.key.0.into(), storage_write.value.0.into());
             self.state_tree
                 .storage_tree
-                .insert(&storage_write.key, &storage_write.value);
+                .insert(&storage_write.key.0.into(), &storage_write.value.0.into());
         }
 
-        for (hash, preimage, _preimage_type) in block_output.published_preimages.iter() {
-            self.preimage_source.inner.insert(*hash, preimage.clone());
+        for (hash, preimage) in block_output.published_preimages.iter() {
+            self.preimage_source
+                .inner
+                .insert(hash.0.into(), preimage.clone());
         }
 
         if let Some(path) = witness_output_file {

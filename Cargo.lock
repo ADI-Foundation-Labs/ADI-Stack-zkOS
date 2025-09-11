@@ -3825,6 +3825,7 @@ dependencies = [
  "strum_macros 0.27.2",
  "system_hooks",
  "zk_ee",
+ "zksync_os_interface",
  "zksync_os_runner",
 ]
 
@@ -6952,6 +6953,7 @@ dependencies = [
  "zk_ee",
  "zksync-web3-rs",
  "zksync_os_api",
+ "zksync_os_interface",
  "zksync_os_runner",
 ]
 
@@ -9815,6 +9817,16 @@ dependencies = [
  "ruint",
  "zk_ee",
  "zksync_os_runner",
+]
+
+[[package]]
+name = "zksync_os_interface"
+version = "0.0.2"
+source = "git+https://github.com/matter-labs/zksync-os-interface?tag=v0.0.2#598bc713a2b87996ac2b6d8d01c3ef5bcbcd2ff8"
+dependencies = [
+ "alloy-consensus",
+ "alloy-primitives",
+ "serde",
 ]
 
 [[package]]
