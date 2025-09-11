@@ -134,3 +134,9 @@ impl<O: IOOracle, L: Logger + Default> EthereumLikeBasicSTF
 
 pub type ProvingEthereumBootloader<O, L> =
     BasicBootloader<EthereumStorageSystemTypesWithPostOps<O, L>>;
+
+#[cfg(feature = "ethereum_stf")]
+pub type ProvingBootloader<O, L> = ProvingEthereumBootloader<O, L>;
+
+#[cfg(not(feature = "ethereum_stf"))]
+pub type ProvingBootloader<O, L> = ProvingZkBootloader<O, L>;

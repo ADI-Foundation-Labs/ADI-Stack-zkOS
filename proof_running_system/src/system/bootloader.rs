@@ -193,8 +193,9 @@ pub fn run_proving_inner<
     let _ = L::default().write_fmt(format_args!("IO implementer init is complete\n"));
 
     // Load all transactions from oracle and apply them.
+
     let (mut oracle, public_input) =
-        ProvingZkBootloader::<O, L>::run::<BasicBootloaderProvingExecutionConfig>(
+        ProvingBootloader::<O, L>::run::<BasicBootloaderProvingExecutionConfig>(
             oracle,
             &mut NopResultKeeper::default(),
             &mut NopTracer::default(),
