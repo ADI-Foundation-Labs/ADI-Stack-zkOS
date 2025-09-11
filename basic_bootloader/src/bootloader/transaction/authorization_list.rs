@@ -157,7 +157,7 @@ impl AuthorizationListItem {
         }
         // 3. Signature
         // EIP-2 check
-        if self.s > U256::from_be_bytes(crypto::secp256k1::SECP256K1N_HALF) {
+        if self.s > crypto::secp256k1::SECP256K1N_HALF_U256 {
             return Ok(false);
         }
         let msg = resources.with_infinite_ergs(|inf_ergs| self.compute_message::<S>(inf_ergs))?;

@@ -6,9 +6,6 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         node: NodeType,
         mut path: Path<'_>,
     ) -> Result<(), ()> {
-        // path is no longer known
-        self.remove_from_cache(&node);
-
         path.seek_to_end();
         let existing_leaf = &self.capacities.leaf_nodes[node.index()];
         path.ascend(&existing_leaf.path_segment);

@@ -6,7 +6,8 @@ use crypto::{
         elliptic_curve::group::GroupEncoding,
         Scalar,
     },
-    sha3::{Digest, Keccak256},
+    sha3::Keccak256,
+    MiniDigest,
 };
 
 use proptest::{

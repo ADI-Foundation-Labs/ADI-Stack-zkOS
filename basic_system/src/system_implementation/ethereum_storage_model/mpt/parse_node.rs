@@ -196,10 +196,12 @@ fn parse_initial<'a>(raw_encoding: &'a [u8]) -> Result<(usize, [&'a [u8]; 17], u
     }
 }
 
+// returns note type hints, list pieces, and
 pub(crate) fn parse_node_from_bytes<'a>(
+    key: &'a [u8],
     raw_encoding: &'a [u8],
     interner: &'_ mut (impl Interner<'a> + 'a),
-) -> Result<(ParsedNode<'a>, [&'a [u8]; 17]), ()> {
+) -> Result<(ParsedNode<'a>, [&'a [u8]; 17], &'a [u8]), ()> {
     let (num_filled, pieces, num_non_empty_branches) = parse_initial(raw_encoding)?;
 
     if num_filled == 2 {
@@ -207,29 +209,32 @@ pub(crate) fn parse_node_from_bytes<'a>(
         // nibbles bytes(!) have to be re-interpreted at hex-chars(!), and then matched against the path
         // we reparse a little
         let nibbles_encoding = RLPSlice::from_slice(pieces[0])?;
-        let next_node = RLPSlice::from_slice(pieces[1])?;
         let nibbles = nibbles_encoding.data();
         let (path_segment, is_leaf) = interner.intern_nibbles(nibbles)?;
         if is_leaf == false {
             // extension
             let extension_node = ExtensionNode {
+                cached_key: key,
                 path_segment,
                 parent_node: NodeType::unlinked(), // will be re-linked
                 child_node: NodeType::unlinked(),  // will be re-linked
-                next_node_key: next_node,
             };
 
-            Ok((ParsedNode::Extension(extension_node), pieces))
+            Ok((
+                ParsedNode::Extension(extension_node),
+                pieces,
+                pieces[1], // will parse later on if we will descend
+            ))
         } else {
+            let value = RLPSlice::from_slice(pieces[1])?;
             let leaf_node = LeafNode {
+                cached_key: key,
                 path_segment,
                 parent_node: NodeType::unlinked(),
-                value: LeafValue::RLPEnveloped {
-                    envelope: next_node,
-                },
+                value: LeafValue::RLPEnveloped { envelope: value },
             };
 
-            Ok((ParsedNode::Leaf(leaf_node), pieces))
+            Ok((ParsedNode::Leaf(leaf_node), pieces, &[]))
         }
     } else if num_filled == 17 {
         // branch
@@ -254,7 +259,7 @@ pub(crate) fn parse_node_from_bytes<'a>(
             num_occupied: num_non_empty_branches,
         };
 
-        Ok((parsed, pieces))
+        Ok((parsed, pieces, &[]))
     } else {
         return Err(());
     }

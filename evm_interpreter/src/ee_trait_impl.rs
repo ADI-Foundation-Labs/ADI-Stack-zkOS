@@ -396,16 +396,11 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
             return Err(interface_error!(EvmInterfaceError::UnknownDeploymentData));
         };
 
-        // Constructor gets 63/64 of available resources
-        let ergs_for_constructor = gas_utils::apply_63_64_rule(deployer_full_resources.ergs());
-
         // We only charge after succeeding the following checks:
         // - Deployer has enough balance for token transfer
         // - Nonce overflow check
 
         // Native resource is still in deployer_full_resources, so we charge it from there.
-
-        let allocator = system.get_allocator().clone();
 
         let deployer_balance = deployer_full_resources
             .with_infinite_ergs(|inf_resources| {
@@ -449,7 +444,8 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
             }
         }?;
 
-        use crypto::sha3::{Digest, Keccak256};
+        use crypto::sha3::Keccak256;
+        use crypto::MiniDigest;
         let deployed_address = match &scheme {
             CreateScheme::Create => {
                 let mut buffer = [0u8; crate::utils::MAX_CREATE_RLP_ENCODING_LEN];
@@ -467,6 +463,7 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
             CreateScheme::Create2 { salt } => {
                 // we need to compute address based on the hash of the code and salt
                 let mut initcode_hash = ArrayBuilder::default();
+                let allocator = system.get_allocator();
                 deployer_full_resources
                     .with_infinite_ergs(|inf_resources| {
                         S::SystemFunctions::keccak256(
@@ -500,6 +497,9 @@ impl<'ee, S: EthereumLikeTypes> ExecutionEnvironment<'ee, S, EvmErrors> for Inte
                 new_address
             }
         };
+
+        // Constructor gets 63/64 of available resources
+        let ergs_for_constructor = gas_utils::apply_63_64_rule(deployer_full_resources.ergs());
 
         // For now, keep native in deployer resources.
         let mut deployer_remaining_resources = deployer_full_resources;

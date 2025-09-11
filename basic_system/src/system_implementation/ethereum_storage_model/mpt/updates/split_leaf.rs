@@ -42,10 +42,11 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         grand_parent_branch_index: usize,
         leaf_to_split: NodeType,
     ) -> Result<(), ()> {
-        self.remove_from_cache(&grand_parent);
-        self.remove_from_cache(&leaf_to_split);
+        self.remove_from_cache(grand_parent);
+        self.remove_from_cache(leaf_to_split);
 
         let new_branch = BranchNode {
+            cached_key: &[],
             parent_node: grand_parent,
             child_nodes: [NodeType::empty(); 16],
             num_occupied: 0,
@@ -91,10 +92,11 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         new_extension_prefix: &[u8],
         interner: &mut (impl Interner<'a> + 'a),
     ) -> Result<(), ()> {
-        self.remove_from_cache(&grand_parent);
-        self.remove_from_cache(&leaf_to_split);
+        self.remove_from_cache(grand_parent);
+        self.remove_from_cache(leaf_to_split);
 
         let new_branch = BranchNode {
+            cached_key: &[],
             parent_node: NodeType::empty(),
             child_nodes: [NodeType::empty(); 16],
             num_occupied: 0,
@@ -117,10 +119,10 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             let extension_path = interner.intern_slice(new_extension_prefix)?;
             // make an extension
             let new_extension = ExtensionNode {
+                cached_key: &[],
                 path_segment: extension_path,
                 parent_node: grand_parent,
                 child_node: new_branch_node,
-                next_node_key: RLPSlice::empty(),
             };
             let new_extension_node = self.push_extension(new_extension);
             if grand_parent.is_branch() {

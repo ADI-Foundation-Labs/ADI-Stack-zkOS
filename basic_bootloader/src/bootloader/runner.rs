@@ -287,7 +287,7 @@ impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
                 is_call_to_special_address,
             )? {
             let _ = self.system.get_logger().write_fmt(format_args!(
-                "External call is trivial and will return immediatelly\n",
+                "External call is trivial and will return immediately\n",
             ));
 
             // Call finished before VM started

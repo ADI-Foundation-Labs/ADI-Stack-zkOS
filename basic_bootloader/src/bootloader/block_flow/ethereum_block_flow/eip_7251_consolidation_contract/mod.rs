@@ -93,7 +93,7 @@ where
     );
 
     if num_dequeued == 0 {
-        // we do not even need to reset the queue poitners as it's a hard invariant
+        // we do not even need to reset the queue pointers as it's a hard invariant
         assert!(queue_head_index.is_zero());
         assert!(queue_tail_index.is_zero());
         update_excess_consolidation_requests_and_reset_count(system)?;

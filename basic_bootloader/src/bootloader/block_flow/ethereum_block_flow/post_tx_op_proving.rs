@@ -36,7 +36,7 @@ impl<
         >,
     > PostTxLoopOp<S> for EthereumPostOp<true>
 where
-    S::IO: IOSubsystemExt + IOTeardown<S::IOTypes, IOStateCommittment = Bytes32>,
+    S::IO: IOSubsystemExt + IOTeardown<S::IOTypes, IOStateCommitment = Bytes32>,
 {
     type BlockData = EthereumBasicTransactionDataKeeper<S::Allocator, S::Allocator>;
     type PostTxLoopOpResult = (O, Bytes32);
@@ -166,7 +166,7 @@ impl EthereumPostOp<true> {
         block_data: <Self as PostTxLoopOp<S>>::BlockData,
     ) -> Result<(), InternalError>
     where
-        S::IO: IOSubsystemExt + IOTeardown<S::IOTypes, IOStateCommittment = Bytes32>,
+        S::IO: IOSubsystemExt + IOTeardown<S::IOTypes, IOStateCommitment = Bytes32>,
     {
         // apply withdrawals
         let withdrawals_root = {

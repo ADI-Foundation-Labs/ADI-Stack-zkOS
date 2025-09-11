@@ -32,7 +32,7 @@ pub struct EthereumTransactionFlow<S: EthereumLikeTypes> {
 #[derive(Debug)]
 pub struct EthereumTxResult<'a> {
     pub result: ExecutionResult<'a, EthereumIOTypesConfig>,
-    pub tx_hash: Bytes32,
+    // pub tx_hash: Bytes32,
     pub gas_used: u64,
 }
 
@@ -53,7 +53,8 @@ impl<'a> MinimalTransactionOutput<'a> for EthereumTxResult<'a> {
         }
     }
     fn transaction_hash(&self) -> Bytes32 {
-        self.tx_hash
+        unimplemented!("transaction hash is not computed for Ethereum STF");
+        // self.tx_hash
     }
     fn into_bookkeeper_output(self) -> TxProcessingOutput<'a> {
         let (success, returndata, created_address) = match self.result {
@@ -169,7 +170,7 @@ impl<S: EthereumLikeTypes> core::fmt::Debug for ResourcesForEthereumTx<S> {
 
 pub struct EthereumTxContext<S: EthereumLikeTypes> {
     pub resources: ResourcesForEthereumTx<S>,
-    pub tx_hash: Bytes32,
+    // pub tx_hash: Bytes32,
     pub fee_to_prepay: U256,
     pub priority_fee_per_gas: U256,
     pub minimal_gas_to_charge: u64,
@@ -184,7 +185,7 @@ impl<S: EthereumLikeTypes> core::fmt::Debug for EthereumTxContext<S> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("TxContextForPreAndPostProcessing")
             .field("resources", &self.resources)
-            .field("tx_hash", &self.tx_hash)
+            // .field("tx_hash", &self.tx_hash)
             .field("fee_to_prepay", &self.fee_to_prepay)
             .field("priority_fee_per_gas", &self.priority_fee_per_gas)
             .field("minimal_gas_to_charge", &self.minimal_gas_to_charge)
@@ -290,8 +291,7 @@ where
         if let Some(to) = transaction.destination() {
             let _ = system.get_logger().write_fmt(
                 format_args!(
-                    "Will process transaction with hash {:?}:\nCall from 0x{:040x} to 0x{:040x} with gas limit of {} and value of {:?} and {} bytes of calldata\n",
-                    transaction.transaction_hash(),
+                    "Will process transaction:\nCall from 0x{:040x} to 0x{:040x} with gas limit of {} and value of {:?} and {} bytes of calldata\n",
                     transaction.signer().as_uint(),
                     to.as_uint(),
                     transaction.gas_limit(),
@@ -302,8 +302,7 @@ where
         } else {
             let _ = system.get_logger().write_fmt(
                 format_args!(
-                    "Will process transaction with hash {:?}:\nDeployment from 0x{:040x} at nonce {} with gas limit of {} and value of {:?} and {} bytes of calldata\n",
-                    transaction.transaction_hash(),
+                    "Will process transaction:\nDeployment from 0x{:040x} at nonce {} with gas limit of {} and value of {:?} and {} bytes of calldata\n",
                     transaction.signer().as_uint(),
                     context.originator_nonce_to_use,
                     transaction.gas_limit(),
@@ -559,10 +558,10 @@ where
         transaction: Self::Transaction<'_>,
         context: Self::TransactionContext,
         result: ExecutionResult<'a, <S as SystemTypes>::IOTypes>,
-        transaciton_data_collector: &mut impl BlockTransactionsDataCollector<S, Self>,
+        transaction_data_collector: &mut impl BlockTransactionsDataCollector<S, Self>,
         _tracer: &mut impl Tracer<S>,
     ) -> Self::ExecutionResult<'a> {
-        transaciton_data_collector.record_transaction_results(
+        transaction_data_collector.record_transaction_results(
             &*system,
             transaction,
             &context,
@@ -571,7 +570,7 @@ where
 
         EthereumTxResult {
             result,
-            tx_hash: context.tx_hash,
+            // tx_hash: context.tx_hash,
             gas_used: context.gas_used,
         }
     }

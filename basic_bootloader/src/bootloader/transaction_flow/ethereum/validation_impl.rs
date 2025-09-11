@@ -13,7 +13,6 @@ use crate::require;
 use core::alloc::Allocator;
 use core::fmt::Write;
 use core::u64;
-use crypto::secp256k1::SECP256K1N_HALF;
 use evm_interpreter::{ERGS_PER_GAS, MAX_INITCODE_SIZE};
 use ruint::aliases::{B160, U256};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
@@ -215,7 +214,7 @@ where
     use crate::bootloader::transaction::ethereum_tx_format::AuthorizationEntry;
     let mut hasher = crypto::sha3::Keccak256::new();
 
-    let count = auth_list.count.expect("prevalidated list containts count");
+    let count = auth_list.count.expect("prevalidated list contains count");
     if count == 0 {
         return Err(TxError::Validation(InvalidTransaction::AuthListIsEmpty));
     }
@@ -345,7 +344,7 @@ where
     let (_, _, auth_s) = auth_sig_data;
     let s = U256::try_from_be_slice(auth_s)
         .ok_or::<TxError>(InvalidTransaction::InvalidStructure.into())?;
-    if s > U256::from_be_bytes(crypto::secp256k1::SECP256K1N_HALF) {
+    if s > crypto::secp256k1::SECP256K1N_HALF_U256 {
         return Ok(false);
     }
     let msg = resources.with_infinite_ergs(|inf_ergs| {
@@ -543,7 +542,7 @@ where
             let signed_hash = tx.hash_for_signature_verification();
             let (parity, r, s) = tx.sig_parity_r_s();
 
-            if U256::from_be_slice(s) > U256::from_be_bytes(SECP256K1N_HALF) {
+            if U256::from_be_slice(s) > crypto::secp256k1::SECP256K1N_HALF_U256 {
                 return Err(TxError::Validation(InvalidTransaction::MalleableSignature));
             }
 
@@ -583,7 +582,7 @@ where
     // any IO starts here
     let from = transaction.signer();
 
-    // now we can perfor IO related parts. Getting originator's properties is included into the
+    // now we can perform IO related parts. Getting originator's properties is included into the
     // intrinsic cost charnged above
     let originator_account_data =
         tx_resources
@@ -752,7 +751,7 @@ where
         .checked_add(fee_for_blob_gas)
         .ok_or(internal_error!("transaction fee + blob gas"))?;
 
-    let tx_hash = *transaction.transaction_hash();
+    // let tx_hash = *transaction.transaction_hash();
 
     let tx_level_metadata = EthereumTransactionMetadata {
         tx_gas_price: effective_gas_price,
@@ -766,7 +765,7 @@ where
         priority_fee_per_gas,
         minimal_gas_to_charge: minimal_gas_used,
         originator_nonce_to_use: old_nonce,
-        tx_hash,
+        // tx_hash,
         tx_gas_limit,
         gas_used: 0,
         blob_gas_used,
