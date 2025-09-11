@@ -1,4 +1,4 @@
-*.elf
-*.text
 app_debug.bin
+app_debug.elf
+app_debug.text
 /target

@@ -23,6 +23,7 @@ pub const MIN_BASE_FEE_PER_BLOB_GAS: u64 = 1;
 pub const BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE: u64 = 5007716;
 pub const BLOB_BASE_FEE_UPDATE_FRACTION: u64 = BLOB_BASE_FEE_UPDATE_FRACTION_PRAGUE;
 
+const MAX_BLOBS_PER_BLOCK: usize = 9;
 const TARGET_BLOBS_PER_BLOCK: u64 = 6;
 const TARGET_BLOB_GAS_PER_BLOCK: u64 = GAS_PER_BLOB * TARGET_BLOBS_PER_BLOCK;
 
@@ -47,7 +48,7 @@ pub struct PectraForkHeader {
     pub gas_limit: u64,
     pub gas_used: u64,
     pub timestamp: u64,
-    // 32 bytes or less, but variable lenth
+    // 32 bytes or less, but variable length
     pub extra_data: (Bytes32, usize),
     pub mix_hash: Bytes32,
     // fixed length
@@ -173,7 +174,7 @@ impl BasicBlockMetadata<EthereumIOTypesConfig> for HeaderAndHistory {
         U256::from(self.header.base_fee_per_gas)
     }
     fn max_blobs(&self) -> usize {
-        9
+        MAX_BLOBS_PER_BLOCK
     }
     fn blobs_gas_limit(&self) -> u64 {
         self.max_blobs() as u64 * GAS_PER_BLOB
@@ -275,7 +276,7 @@ impl<'a> RLPParsable<'a> for PectraForkHeaderReflection<'a> {
         let gas_limit = RLPParsable::try_parse(&mut list_parser)?;
         let gas_used = RLPParsable::try_parse(&mut list_parser)?;
         let timestamp = RLPParsable::try_parse(&mut list_parser)?;
-        // 32 bytes or less, but variable lenth
+        // 32 bytes or less, but variable length
         let extra_data: &'a [u8] = RLPParsable::try_parse(&mut list_parser)?;
         if extra_data.len() > 32 {
             return Err(());
@@ -374,7 +375,14 @@ impl ChainChecker for PectraForkHeader {
             let computed_header_hash: Bytes32 =
                 crypto::MiniDigest::finalize_reset(&mut block_headers_hasher).into();
             assert_eq!(history_cache.cache_entry(depth), &computed_header_hash,);
-            assert_eq!(&parent_to_expect, &computed_header_hash);
+            assert_eq!(historical_header.number, block_number);
+            assert_eq!(
+                &parent_to_expect,
+                &computed_header_hash,
+                "parent header malformed for history depth {}",
+                depth + 1
+            );
+
             if depth == 0 {
                 initial_state_commitment = Bytes32::from_array(*historical_header.state_root);
 

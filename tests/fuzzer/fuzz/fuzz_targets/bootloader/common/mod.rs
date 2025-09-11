@@ -5,7 +5,6 @@ use basic_system::system_implementation::flat_storage_model::ACCOUNT_PROPERTIES_
 use basic_system::system_implementation::flat_storage_model::{
     FlatStorageCommitment, TestingTree, TESTING_TREE_HEIGHT,
 };
-use forward_system::run::io_implementer_init_data;
 use forward_system::run::test_impl::{InMemoryPreimageSource, InMemoryTree, TxListSource};
 use oracle_provider::DummyMemorySource;
 use oracle_provider::ZkEENonDeterminismSource;

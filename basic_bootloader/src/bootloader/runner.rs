@@ -159,6 +159,7 @@ macro_rules! handle_spawn {
                     .get_logger()
                     .write_fmt(format_args!("Returndata = "));
                 let _ = $run.system.get_logger().log_data(returndata_iter);
+                let _ = $run.system.get_logger().write_fmt(format_args!("\n"));
 
                 $vm.continue_after_deployment(
                     $run.system,
@@ -286,7 +287,7 @@ impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
                 is_call_to_special_address,
             )? {
             let _ = self.system.get_logger().write_fmt(format_args!(
-                "External call is trivial and will return immediatelly\n",
+                "External call is trivial and will return immediately\n",
             ));
 
             // Call finished before VM started
@@ -371,7 +372,14 @@ impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
                 Err(e) => {
                     match e {
                         SubsystemError::LeafUsage(_interface_error) => {
-                            // TODO log this error, but logger is unavailable
+                            let _ = self.system.get_logger().write_fmt(
+                                format_args!(
+                                    "Insufficient balance to transfer {} native tokens from 0x{:040x} to 0x{:040x}\n",
+                                    value,
+                                    external_call_params.external_call.caller.as_uint(),
+                                    target.as_uint(),
+                                )
+                            );
                             // Insufficient balance
                             match ee_type {
                                 ExecutionEnvironmentType::NoEE => {
@@ -478,6 +486,7 @@ impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
                         .get_logger()
                         .write_fmt(format_args!("Returndata = "));
                     let _ = self.system.get_logger().log_data(returndata_iter);
+                    let _ = self.system.get_logger().write_fmt(format_args!("\n"));
 
                     let return_values = self.copy_into_return_memory(return_values)?;
 
@@ -546,6 +555,7 @@ impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
                 .get_logger()
                 .write_fmt(format_args!("Returndata = "));
             let _ = self.system.get_logger().log_data(returndata_iter);
+            let _ = self.system.get_logger().write_fmt(format_args!("\n"));
 
             self.system
                 .finish_global_frame(if reverted {
@@ -636,6 +646,16 @@ impl<'external, S: EthereumLikeTypes + 'external> Run<'_, 'external, S> {
                 },
             });
         }
+
+        let _ = self.system.get_logger().write_fmt(format_args!(
+            "Construction call from 0x{:040x}\n",
+            launch_params.external_call.caller.as_uint(),
+        ));
+
+        let _ = self.system.get_logger().write_fmt(format_args!(
+            "Construction call to deploy 0x{:040x}\n",
+            launch_params.external_call.callee.as_uint(),
+        ));
 
         let constructor_rollback_handle = self
             .system

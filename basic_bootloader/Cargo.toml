@@ -15,21 +15,22 @@ cycle_marker = { path = "../cycle_marker" }
 evm_interpreter = { path = "../evm_interpreter", default-features = false }
 system_hooks = { path = "../system_hooks", default-features = false }
 basic_system = { path = "../basic_system", default-features = false }
-ruint = { version = "1.16", default-features = false }
 crypto = { path = "../crypto", default-features = false }
-arrayvec = { version = "0.7.4", default-features = false }
-strum_macros = "0.27.1"
-paste = "1.0.15"
+ruint = { workspace = true, default-features = false }
+arrayvec = { workspace = true, default-features = false }
+strum_macros = "0.27"
+paste = "1"
 const-hex = { version = "1", default-features = false }
+
 hex = { version = "*", optional = true }
 
 [features]
-testing = ["zk_ee/testing", "evm_interpreter/testing", "basic_system/testing", "hex"]
+testing = ["zk_ee/testing", "evm_interpreter/testing", "basic_system/testing", "debug_tools"]
 default = ["testing"]
 code_in_kernel_space = []
 transfers_to_kernel_space = []
 charge_priority_fee = []
-evm-compatibility = ["code_in_kernel_space", "transfers_to_kernel_space", "charge_priority_fee", "evm_refunds", "basic_system/evm-compatibility", "unlimited_native"]
+evm-compatibility = ["code_in_kernel_space", "transfers_to_kernel_space", "charge_priority_fee", "evm_refunds", "basic_system/evm-compatibility", "prevrandao"]
 cycle_marker = ["system_hooks/cycle_marker", "cycle_marker/log_to_file"]
 resources_for_tester = []
 unlimited_native = []
@@ -39,3 +40,5 @@ evm_refunds = ["basic_system/evm_refunds"]
 wrap-in-batch = ["basic_system/wrap-in-batch"]
 pectra = ["eip_7623"]
 eip_7623 = []
+prevrandao = ["basic_system/prevrandao"]
+debug_tools = ["hex"]

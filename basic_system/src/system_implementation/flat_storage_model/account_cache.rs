@@ -496,6 +496,7 @@ impl<
         Bytecode: Maybe<&'static [u8]>,
         CodeVersion: Maybe<u8>,
         IsDelegated: Maybe<bool>,
+        HasBytecode: Maybe<bool>,
     >(
         &mut self,
         ee_type: ExecutionEnvironmentType,
@@ -514,6 +515,7 @@ impl<
                 Bytecode,
                 CodeVersion,
                 IsDelegated,
+                HasBytecode,
             >,
         >,
         storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
@@ -532,6 +534,7 @@ impl<
             Bytecode,
             CodeVersion,
             IsDelegated,
+            HasBytecode,
         >,
         SystemError,
     > {
@@ -606,6 +609,7 @@ impl<
                     Ok(delegated)
                 }
             })?,
+            has_bytecode: Maybe::construct(|| full_data.observable_bytecode_len > 0),
         })
     }
 
@@ -1186,16 +1190,12 @@ impl<
     ) -> Result<(), InternalError> {
         // Actually deconstructing accounts
         self.cache.apply_to_last_record_of_pending_changes(
-            |key, (head_history_record, cache_appearance)| {
-                if head_history_record
-                    .value
-                    .metadata()
-                    .is_marked_for_deconstruction
-                {
+            |key, (_initial, current), cache_appearance| {
+                if current.value.metadata().is_marked_for_deconstruction {
                     // NOTE: it can only happen if the account is initially empty,
                     // so we need to make sure that it was observed earlier - when bytecode was deployed
                     cache_appearance.assert_observed();
-                    head_history_record.value.update(|x, metadata| {
+                    current.value.update(|x, metadata| {
                         metadata.is_marked_for_deconstruction = false;
                         *x = AccountProperties::TRIVIAL_VALUE;
                         Ok(())

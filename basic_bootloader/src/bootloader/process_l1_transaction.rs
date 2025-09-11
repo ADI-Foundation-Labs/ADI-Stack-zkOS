@@ -87,7 +87,8 @@ where
             L1_TX_INTRINSIC_NATIVE_COST,
         )?;
         // Just used for computing native used
-        let initial_resources = resources.clone();
+        let mut initial_resources = resources.clone();
+        initial_resources.reclaim_withheld(withheld_resources.clone());
 
         let tx_internal_cost = gas_price
             .checked_mul(gas_limit as u128)

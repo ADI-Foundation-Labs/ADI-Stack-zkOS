@@ -165,7 +165,7 @@ pub fn run_proving<I: NonDeterminismCSRSourceImplementation, L: Logger + Default
     heap_start: *mut usize,
     heap_end: *mut usize,
 ) -> [u32; 8] {
-    let _ = L::default().write_fmt(format_args!("Enter proving bootloader"));
+    let _ = L::default().write_fmt(format_args!("Enter proving bootloader\n"));
 
     // init allocator
     // allocator is a global singleton object, that can be later accessed by ProxyAllocator
@@ -173,12 +173,12 @@ pub fn run_proving<I: NonDeterminismCSRSourceImplementation, L: Logger + Default
         init_allocator(heap_start, heap_end);
     }
 
-    let _ = L::default().write_fmt(format_args!("Allocator init is complete"));
+    let _ = L::default().write_fmt(format_args!("Allocator init is complete\n"));
 
     // oracle is just a thin proxy
     let oracle = CsrBasedIOOracle::<I>::init();
 
-    let _ = L::default().write_fmt(format_args!("Oracle init is complete"));
+    let _ = L::default().write_fmt(format_args!("Oracle init is complete\n"));
 
     run_proving_inner::<_, I, L>(oracle)
 }
@@ -190,9 +190,10 @@ pub fn run_proving_inner<
 >(
     oracle: O,
 ) -> [u32; 8] {
-    let _ = L::default().write_fmt(format_args!("IO implementer init is complete"));
+    let _ = L::default().write_fmt(format_args!("IO implementer init is complete\n"));
 
     // Load all transactions from oracle and apply them.
+
     let (mut oracle, public_input) =
         ProvingBootloader::<O, L>::run::<BasicBootloaderProvingExecutionConfig>(
             oracle,

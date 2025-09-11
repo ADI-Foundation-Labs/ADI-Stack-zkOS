@@ -8,10 +8,10 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         interner: &mut (impl Interner<'a> + 'a),
     ) -> Result<(), ()> {
         // this node no longer has know key
-        self.remove_from_cache(&node);
 
         // we only re-allocate a node, and will cascade updates later on
         let existing_leaf = &mut self.capacities.leaf_nodes[node.index()];
+        existing_leaf.invalidate_cache();
         // we only need to update the value
         // we do not detach, and do NOT yet mark parent as dirty
         existing_leaf.value =

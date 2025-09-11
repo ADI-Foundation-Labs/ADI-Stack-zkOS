@@ -12,15 +12,15 @@ categories.workspace = true
 [dependencies]
 zk_ee = { path = "../zk_ee", default-features = false }
 evm_interpreter = { path = "../evm_interpreter"  }
-ruint = { version = "1.16", default-features = false, features = ["serde"] }
 crypto = { path = "../crypto", default-features = false, features = ["secp256k1-static-context"]}
-arrayvec = { version = "0.7.4", default-features = false }
+ruint = { workspace = true, default-features = false, features = ["serde"] }
+arrayvec = { workspace = true, default-features = false }
+serde = { workspace = true, default-features = false, features = ["derive"] }
 either = { version = "*", default-features = false }
 storage_models = { path = "../storage_models", default-features = false }
 system_hooks = { path = "../system_hooks", default-features = false }
 modexp = { path = "../supporting_crates/modexp" }
 cycle_marker = { path = "../cycle_marker" }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
 cc-traits = { path = "../supporting_crates/cc-traits/", default-features = false, features = ["allocator_api"] }
 cfg-if = "1.0.0"
 const_for = "0.1.5"
@@ -33,6 +33,7 @@ hex = { version = "*", optional = true }
 
 [features]
 testing = ["zk_ee/testing", "evm_interpreter/testing", "ruint/serde", "rand", "crypto/testing", "hex"]
+prevrandao = ["zk_ee/prevrandao"]
 evm-compatibility = []
 default = ["testing"]
 cycle_marker = ["cycle_marker/log_to_file"]

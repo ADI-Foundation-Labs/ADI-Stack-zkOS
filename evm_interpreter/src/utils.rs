@@ -18,7 +18,8 @@ pub fn bytereverse_u256(value: &mut U256) {
 }
 
 pub fn evm_bytecode_hash(bytecode: &[u8]) -> [u8; 32] {
-    use crypto::sha3::{Digest, Keccak256};
+    use crypto::sha3::Keccak256;
+    use crypto::MiniDigest;
     let hash = Keccak256::digest(bytecode);
     let mut result = [0u8; 32];
     result.copy_from_slice(hash.as_slice());
@@ -108,8 +109,8 @@ pub(crate) fn create_quasi_rlp(address: &B160, nonce: u64) -> impl ExactSizeIter
     let address_bytes = address.to_be_bytes::<{ B160::BYTES }>();
 
     let nonce_bytes = nonce.to_be_bytes();
-    let skip_nonce_len = nonce_bytes.iter().take_while(|el| **el == 0).count();
-    let nonce_len = 8 - skip_nonce_len;
+    let skip_nonce_len = (nonce.leading_zeros() / 8) as usize;
+    let nonce_len = core::mem::size_of::<u64>() - skip_nonce_len;
 
     // manual encoding of the list
     use either::Either;

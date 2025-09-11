@@ -83,4 +83,12 @@ impl Block {
             skipped,
         )
     }
+
+    pub fn get_all_raw_transactions(self) -> Vec<Vec<u8>> {
+        self.result
+            .transactions
+            .into_transactions()
+            .map(|tx| tx.inner.into_encoded().encoded_bytes().to_vec())
+            .collect()
+    }
 }

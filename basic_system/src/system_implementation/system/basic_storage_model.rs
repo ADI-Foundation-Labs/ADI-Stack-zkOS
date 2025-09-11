@@ -528,6 +528,7 @@ impl<
         Bytecode: Maybe<&'static [u8]>,
         CodeVersion: Maybe<u8>,
         IsDelegated: Maybe<bool>,
+        HasBytecode: Maybe<bool>,
     >(
         &mut self,
         ee_type: ExecutionEnvironmentType,
@@ -546,6 +547,7 @@ impl<
                 Bytecode,
                 CodeVersion,
                 IsDelegated,
+                HasBytecode,
             >,
         >,
     ) -> Result<
@@ -561,6 +563,7 @@ impl<
             Bytecode,
             CodeVersion,
             IsDelegated,
+            HasBytecode,
         >,
         SystemError,
     > {
@@ -701,7 +704,7 @@ impl<
         M: StorageModel<IOTypes = EthereumIOTypesConfig, Resources = R, InitData = P, Allocator = A>,
     > IOTeardown<EthereumIOTypesConfig> for BasicStorageModel<A, R, P, SC, N, O, M, PROOF_ENV>
 {
-    type IOStateCommittment = M::StorageCommitment;
+    type IOStateCommitment = M::StorageCommitment;
 
     fn flush_caches(&mut self, result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>) {
         self.storage.persist_caches(&mut self.oracle, result_keeper);
@@ -776,7 +779,7 @@ impl<
 
     fn update_commitment(
         &mut self,
-        state_commitment: Option<&mut Self::IOStateCommittment>,
+        state_commitment: Option<&mut Self::IOStateCommitment>,
         logger: &mut impl Logger,
         result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
     ) {

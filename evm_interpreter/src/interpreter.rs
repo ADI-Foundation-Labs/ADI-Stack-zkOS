@@ -30,7 +30,6 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
         }
 
         if let Some(call) = external_call {
-            assert!(exit_code == ExitCode::ExternalCall);
             let (current_heap, next_heap) = self.heap.freeze();
 
             return Ok(ExecutionEnvironmentPreemptionPoint::Spawn {
@@ -43,6 +42,8 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
                         modifier,
                         call_value,
                     }) => {
+                        assert_eq!(exit_code, ExitCode::ExternalCall);
+
                         let ergs_to_pass = Ergs(gas_to_pass.saturating_mul(ERGS_PER_GAS));
                         let available_resources = self.gas.take_resources();
                         ExecutionEnvironmentSpawnRequest::RequestedExternalCall(
@@ -59,24 +60,27 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
                             },
                         )
                     }
-
                     ExternalCall::Create(EVMDeploymentRequest {
                         deployment_code,
                         ee_specific_deployment_processing_data,
                         deployer_full_resources,
                         nominal_token_value,
-                    }) => ExecutionEnvironmentSpawnRequest::RequestedDeployment(
-                        DeploymentPreparationParameters {
-                            address_of_deployer: self.address,
-                            call_scratch_space: None,
-                            deployment_code: &current_heap[deployment_code],
-                            constructor_parameters: &[],
-                            ee_specific_deployment_processing_data,
-                            deployer_full_resources,
-                            nominal_token_value,
-                            deployer_nonce: None,
-                        },
-                    ),
+                    }) => {
+                        assert_eq!(exit_code, ExitCode::ConstructionCall);
+
+                        ExecutionEnvironmentSpawnRequest::RequestedDeployment(
+                            DeploymentPreparationParameters {
+                                address_of_deployer: self.address,
+                                call_scratch_space: None,
+                                deployment_code: &current_heap[deployment_code],
+                                constructor_parameters: &[],
+                                ee_specific_deployment_processing_data,
+                                deployer_full_resources,
+                                nominal_token_value,
+                                deployer_nonce: None,
+                            },
+                        )
+                    }
                 },
             });
         }

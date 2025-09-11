@@ -10,21 +10,24 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-alloy = { version = "1", features = ["rlp", "full"] }
-alloy-primitives = { version = "1", features = ["arbitrary"] }
-alloy-rpc-types-eth = { version = "*", features = ["serde"] }
-alloy-rpc-types-debug = { version = "*", default-features = false }
-alloy-rlp = { version = "*" }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
 rig = { path = "../../rig" }
 zk_ee = { path = "../../../zk_ee" }
 basic_system = { path = "../../../basic_system" }
 forward_system = { path = "../../../forward_system" }
 system_hooks = {path = "../../../system_hooks" }
+
+serde = { workspace = true, features = ["derive"] }
+ruint = { workspace = true, default-features = false }
+
+alloy = { version = "1", features = ["rlp", "full", "ssz", "eips"] }
+alloy-primitives = { version = "1", features = ["arbitrary"] }
+alloy-rpc-types-eth = { version = "*", features = ["serde"] }
+alloy-rpc-types-debug = { version = "*", default-features = false }
+alloy-rlp = { version = "*" }
+
+serde_json = "1.0"
 clap = { version = "4.4", features = ["derive"] }
 anyhow = "=1.0.89"
-ruint = { version = "1.16", default-features = false }
 hex = "*"
 ureq = { version = "2", features = ["json"] }
 sled = {version = "0.34" }

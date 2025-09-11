@@ -29,10 +29,11 @@ mod tests {
         let unsupported_opcodes =
             <M as Machine<Mersenne31Field>>::verify_bytecode_base(&text_section);
         if unsupported_opcodes.len() > 0 {
-            for (pc, opcode) in unsupported_opcodes.into_iter() {
+            for (pos, opcode) in unsupported_opcodes.into_iter() {
                 println!(
                     "Potentially unsupported opcode 0x{:08x} at PC = 0x{:08x}",
-                    opcode, pc
+                    opcode,
+                    pos * core::mem::size_of::<u32>()
                 );
             }
             panic!("Unsupported opcodes in binary");

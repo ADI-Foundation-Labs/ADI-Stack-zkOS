@@ -2,10 +2,12 @@
 #![recursion_limit = "1024"]
 
 use clap::{Parser, Subcommand};
+use ethproofs::ethproofs_live_run;
 mod block;
 mod block_hashes;
 mod calltrace;
 pub(crate) mod dump_utils;
+mod ethproofs;
 mod live_run;
 mod native_model;
 mod post_check;
@@ -76,6 +78,18 @@ enum Command {
         #[arg(long)]
         db: String,
     },
+    // Prove an ethereum block for Ethproofs
+    EthproofsRun {
+        #[arg(long)]
+        block_number: u64,
+        #[arg(long)]
+        reth_endpoint: String,
+    },
+    // Prove ethereum blocks for Ethproofs live
+    EthproofsLiveRun {
+        #[arg(long)]
+        reth_endpoint: String,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
@@ -116,6 +130,11 @@ fn main() -> anyhow::Result<()> {
         ),
         Command::ExportRatios { db, path } => live_run::export_block_ratios(db, path),
         Command::ShowStatus { db } => live_run::show_status(db),
+        Command::EthproofsRun {
+            block_number,
+            reth_endpoint,
+        } => ethproofs::ethproofs_run(block_number, &reth_endpoint),
+        Command::EthproofsLiveRun { reth_endpoint } => ethproofs_live_run(&reth_endpoint),
     }
 }
 
@@ -133,12 +152,13 @@ mod test {
 
     #[test]
     fn run_dump() {
-        let block_number = 23110007;
+        let block_number = 23292836;
         let _ = std::fs::create_dir(&format!("blocks/{}", block_number));
         crate::dump_utils::dump_eth_block(
             block_number,
             NODE_URL,
-            Some(ACCOUNT_DIFFS_URL),
+            None,
+            // Some(ACCOUNT_DIFFS_URL),
             BEACON_CHAIN_URL,
             format!("blocks/{}", block_number),
         )
@@ -147,7 +167,7 @@ mod test {
 
     #[test]
     fn invoke_single_eth_block() {
-        let block_number = 23110007;
+        let block_number = 23292836;
         crate::single_run::single_eth_run::<true>(format!("blocks/{}", block_number), Some(1))
             .expect("must succeed");
     }

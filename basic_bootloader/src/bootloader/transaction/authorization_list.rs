@@ -157,7 +157,7 @@ impl AuthorizationListItem {
         }
         // 3. Signature
         // EIP-2 check
-        if self.s > U256::from_be_bytes(crypto::secp256k1::SECP256K1N_HALF) {
+        if self.s > crypto::secp256k1::SECP256K1N_HALF_U256 {
             return Ok(false);
         }
         let msg = resources.with_infinite_ergs(|inf_ergs| self.compute_message::<S>(inf_ergs))?;
@@ -175,10 +175,9 @@ impl AuthorizationListItem {
                 &authority,
                 AccountDataRequest::empty()
                     .with_nonce()
-                    .with_nominal_token_balance()
+                    .with_has_bytecode()
                     .with_is_delegated()
-                    .with_artifacts_len()
-                    .with_unpadded_code_len(),
+                    .with_nominal_token_balance(),
             )
         })?;
         // 5. Check authority is not a contract
@@ -193,7 +192,7 @@ impl AuthorizationListItem {
         #[cfg(feature = "evm_refunds")]
         {
             let is_empty = account_properties.nonce.0 == 0
-                && account_properties.unpadded_code_len.0 == 0
+                && account_properties.has_bytecode.0 == false
                 && account_properties.nominal_token_balance.0.is_zero();
             if !is_empty {
                 system

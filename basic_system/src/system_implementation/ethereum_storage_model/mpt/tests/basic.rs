@@ -32,7 +32,7 @@ fn insert_close_to_make_branch() {
     )
     .unwrap();
 
-    let _ = trie.recompute(&mut interner, &mut hasher);
+    let _ = trie.recompute(&mut preimages_oracle, &mut interner, &mut hasher);
 
     let v_1 = trie
         .get(
@@ -85,7 +85,7 @@ fn insert_close_to_make_extension_branch_leaf() {
     )
     .unwrap();
 
-    let _ = trie.recompute(&mut interner, &mut hasher);
+    let _ = trie.recompute(&mut preimages_oracle, &mut interner, &mut hasher);
 
     let v_1 = trie
         .get(
@@ -139,24 +139,12 @@ fn insert_compute_delete_compute() {
     )
     .unwrap();
 
-    let _ = trie.recompute(&mut interner, &mut hasher);
+    let _ = trie.recompute(&mut preimages_oracle, &mut interner, &mut hasher);
 
-    trie.delete(
-        Path::new(&path_1),
-        &mut preimages_oracle,
-        &mut interner,
-        &mut hasher,
-    )
-    .unwrap();
-    trie.delete(
-        Path::new(&path_2),
-        &mut preimages_oracle,
-        &mut interner,
-        &mut hasher,
-    )
-    .unwrap();
+    trie.delete(Path::new(&path_1)).unwrap();
+    trie.delete(Path::new(&path_2)).unwrap();
 
-    let _ = trie.recompute(&mut interner, &mut hasher);
+    let _ = trie.recompute(&mut preimages_oracle, &mut interner, &mut hasher);
     assert!(trie.root.is_empty());
     assert_eq!(&trie.root(&mut hasher), EMPTY_ROOT_HASH.as_u8_ref());
 }
@@ -191,7 +179,7 @@ fn update_back_and_forth() {
     )
     .unwrap();
 
-    let _ = trie.recompute(&mut interner, &mut hasher);
+    let _ = trie.recompute(&mut preimages_oracle, &mut interner, &mut hasher);
     let initial_root = trie.root(&mut hasher);
 
     let value_1_tmp = rlp_encode_short_slice(&[0xff, 0xff]);
@@ -200,13 +188,13 @@ fn update_back_and_forth() {
         .unwrap();
     trie.update(Path::new(&path_2), &value_2_tmp, &mut interner)
         .unwrap();
-    let _ = trie.recompute(&mut interner, &mut hasher);
+    let _ = trie.recompute(&mut preimages_oracle, &mut interner, &mut hasher);
 
     trie.update(Path::new(&path_1), &value_1, &mut interner)
         .unwrap();
     trie.update(Path::new(&path_2), &value_2, &mut interner)
         .unwrap();
-    let _ = trie.recompute(&mut interner, &mut hasher);
+    let _ = trie.recompute(&mut preimages_oracle, &mut interner, &mut hasher);
     let final_root = trie.root(&mut hasher);
     assert_eq!(initial_root, final_root);
 

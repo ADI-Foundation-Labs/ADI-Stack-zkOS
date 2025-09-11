@@ -11,7 +11,7 @@ pub fn generic_loop_op<
     system: &mut System<S>,
     system_functions: &mut HooksStorage<S, S::Allocator>,
     mut memories: RunnerMemoryBuffers<'a>,
-    transaciton_data_collector: &mut impl BlockTransactionsDataCollector<S, F>,
+    transaction_data_collector: &mut impl BlockTransactionsDataCollector<S, F>,
     result_keeper: &mut impl ResultKeeperExt<S::IOTypes>,
     tracer: &mut impl Tracer<S>,
 ) -> Result<(), BootloaderSubsystemError>
@@ -36,7 +36,7 @@ where
                     &mut inf_resources,
                     &system.get_coinbase(),
                     false,
-                    true,
+                    false,
                 )
                 .expect("must heat coinbase");
         }
@@ -75,7 +75,7 @@ where
             system_functions,
             memories.reborrow(),
             next_tx_buffer,
-            transaciton_data_collector,
+            transaction_data_collector,
             tracer,
         );
 

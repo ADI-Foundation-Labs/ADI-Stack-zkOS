@@ -382,6 +382,7 @@ pub enum ExitCode {
     SelfDestruct = 0x03,
 
     ExternalCall,
+    ConstructionCall,
 
     // revert code
     Revert = 0x20, // revert opcode

@@ -1,6 +1,5 @@
 use crate::{colors, init_logger};
 use alloy::consensus::Header;
-use alloy::eips::eip4844::BlobTransactionSidecarItem;
 use alloy::signers::local::PrivateKeySigner;
 use alloy_rlp::Decodable;
 use alloy_rlp::Encodable;
@@ -16,13 +15,13 @@ use basic_system::system_implementation::flat_storage_model::{
     address_into_special_storage_key, AccountProperties, ACCOUNT_PROPERTIES_STORAGE_ADDRESS,
     TREE_HEIGHT,
 };
-use crypto::ark_serialize::CanonicalDeserialize;
 use ethers::signers::LocalWallet;
 use forward_system::run::result_keeper::ForwardRunningResultKeeper;
 use forward_system::run::test_impl::{
     InMemoryPreimageSource, InMemoryTree, NoopTxCallback, TxListSource,
 };
 use forward_system::run::*;
+use log::warn;
 use log::{debug, info, trace};
 use oracle_provider::{ReadWitnessSource, ZkEENonDeterminismSource};
 use risc_v_simulator::abstractions::memory::VectorMemoryImpl;
@@ -141,7 +140,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
     /// TODO: duplicated from API, unify. That is also buggy as it doesn't account for ROM in the machine
     /// Runs a batch in riscV - using zksync_os binary - and returns the
     /// witness that can be passed to the prover subsystem.
-    pub fn run_batch_generate_witness(
+    pub fn run_batch_generate_witness<const FLAMEGRAPH: bool>(
         oracle: ZkEENonDeterminismSource<VectorMemoryImpl>,
         app: &Option<String>,
     ) -> Vec<u32> {
@@ -150,7 +149,22 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         let items = copy_source.get_read_items();
         // By default - enable diagnostics is false (which makes the test run faster).
         let path = get_zksync_os_img_path(app);
-        let output = zksync_os_runner::run(path, None, 1 << 36, copy_source);
+
+        let diagnostics_config = if FLAMEGRAPH {
+            let mut profiler_config = ProfilerConfig::new("flamegraph.svg".into());
+            profiler_config.frequency_recip = 10;
+            let diagnostics_config = Some(profiler_config).map(|cfg| {
+                let mut diagnostics_cfg = DiagnosticsConfig::new(get_zksync_os_sym_path(&app));
+                diagnostics_cfg.profiler_config = Some(cfg);
+                diagnostics_cfg
+            });
+
+            diagnostics_config
+        } else {
+            None
+        };
+
+        let output = zksync_os_runner::run(path, diagnostics_config, 1 << 36, copy_source);
 
         // We return 0s in case of failure.
         assert_ne!(output, [0u32; 8]);
@@ -328,7 +342,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         }
 
         if let Some(path) = witness_output_file {
-            let result = Self::run_batch_generate_witness(oracle, &app);
+            let result = Self::run_batch_generate_witness::<false>(oracle, &app);
             let mut file = File::create(&path).expect("should create file");
             let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
             let hex = hex::encode(witness);
@@ -430,12 +444,13 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         witness: alloy_rpc_types_debug::ExecutionWitness,
         block_header: Header,
         withdrawals: Vec<u8>,
-        blobs: Vec<BlobTransactionSidecarItem>,
+        witness_output_file: Option<PathBuf>,
+        app: Option<String>,
     ) -> ForwardRunningResultKeeper<NoopTxCallback, PectraForkHeader> {
         use crypto::MiniDigest;
         use std::collections::BTreeMap;
 
-        let headers: Vec<Header> = witness
+        let mut headers: Vec<Header> = witness
             .headers
             .iter()
             .map(|el| {
@@ -445,7 +460,13 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             .collect();
 
         assert!(headers.len() > 0);
+        assert!(headers.is_sorted_by(|a, b| a.number < b.number));
+        headers.reverse();
         assert_eq!(headers.len(), witness.headers.len());
+
+        let mut headers_encodings: Vec<_> =
+            witness.headers.iter().map(|el| el.0.to_vec()).collect();
+        headers_encodings.reverse();
 
         let initial_root = headers[0].state_root;
 
@@ -484,13 +505,14 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
                 let hash = crypto::sha3::Keccak256::digest(el);
                 let digits = digits_from_key(&hash);
                 let path = Path::new(&digits);
-                let props = accounts_mpt
-                    .get(path, &mut oracle, &mut interner, &mut hasher)
-                    .unwrap();
-                let props = EthereumAccountProperties::parse_from_rlp_bytes(props)
-                    .expect("must parse account data");
-                let key = B160::from_be_bytes::<20>(el[..].try_into().unwrap());
-                account_properties.insert(key, props);
+                if let Ok(props) = accounts_mpt.get(path, &mut oracle, &mut interner, &mut hasher) {
+                    let props = EthereumAccountProperties::parse_from_rlp_bytes(props)
+                        .expect("must parse account data");
+                    let key = B160::from_be_bytes::<20>(el[..].try_into().unwrap());
+                    account_properties.insert(key, props);
+                } else {
+                    warn!("Account 0x{} is in preimages list, but there is no MTP witness to get it's properties", hex::encode(el));
+                }
             }
         }
 
@@ -513,46 +535,38 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         };
         let preimage_responder = GenericPreimageResponder { preimage_source };
         let initial_account_state_responder = InMemoryEthereumInitialAccountStateResponder {
+            state_root: initial_root.0,
             source: account_properties.clone(),
+            preimages_oracle: oracle.clone(),
         };
         let initial_values_responder = InMemoryEthereumInitialStorageSlotValueResponder {
             source: account_properties,
             preimages_oracle: oracle,
         };
 
-        let mut blob_hashes = BTreeMap::new();
-        for blob in blobs.into_iter() {
-            let versioned_hash = blob.to_kzg_versioned_hash();
-            let point =
-                crypto::bls12_381::G1Affine::deserialize_compressed(&blob.kzg_commitment.0[..])
-                    .unwrap();
-
-            blob_hashes.insert(Bytes32::from_array(versioned_hash), point);
-        }
-
         let cl_responder = EthereumCLResponder {
             withdrawals_list: withdrawals,
             parent_headers_list: headers,
-            parent_headers_encodings_list: witness.headers.iter().map(|el| el.0.to_vec()).collect(),
-            blob_hashes,
+            parent_headers_encodings_list: headers_encodings,
         };
-
-        let mut oracle = ZkEENonDeterminismSource::default();
-        oracle.add_external_processor(target_header_reponsder);
-        oracle.add_external_processor(tx_data_responder);
-        oracle.add_external_processor(preimage_responder);
-        oracle.add_external_processor(initial_account_state_responder);
-        oracle.add_external_processor(initial_values_responder);
-        oracle.add_external_processor(cl_responder);
-        oracle.add_external_processor(UARTPrintReponsder);
 
         use crate::forward_system::system::system_types::ethereum::*;
         use basic_bootloader::bootloader::config::BasicBootloaderForwardETHLikeConfig;
         use forward_system::run::result_keeper::ForwardRunningResultKeeper;
-        use oracle_provider::DummyMemorySource;
 
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
         let mut nop_tracer = NopTracer::default();
+        use oracle_provider::DummyMemorySource;
+
+        let mut oracle = ZkEENonDeterminismSource::default();
+        oracle.add_external_processor(target_header_reponsder.clone());
+        oracle.add_external_processor(tx_data_responder.clone());
+        oracle.add_external_processor(preimage_responder.clone());
+        oracle.add_external_processor(initial_account_state_responder.clone());
+        oracle.add_external_processor(initial_values_responder.clone());
+        oracle.add_external_processor(cl_responder.clone());
+        oracle.add_external_processor(UARTPrintReponsder);
+        oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
         if PROOF_ENV {
             BasicBootloader::<
                 EthereumStorageSystemTypesWithPostOps<ZkEENonDeterminismSource<DummyMemorySource>>,
@@ -571,6 +585,24 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
                 &mut nop_tracer,
             )
             .expect("must succeed");
+        }
+
+        if let Some(path) = witness_output_file {
+            let mut oracle = ZkEENonDeterminismSource::default();
+            oracle.add_external_processor(target_header_reponsder);
+            oracle.add_external_processor(tx_data_responder);
+            oracle.add_external_processor(preimage_responder);
+            oracle.add_external_processor(initial_account_state_responder);
+            oracle.add_external_processor(initial_values_responder);
+            oracle.add_external_processor(cl_responder);
+            oracle.add_external_processor(UARTPrintReponsder);
+            oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
+            let result = Self::run_batch_generate_witness::<false>(oracle, &app);
+            let mut file = File::create(&path).expect("should create file");
+            let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
+            let hex = hex::encode(witness);
+            file.write_all(hex.as_bytes())
+                .expect("should write to file");
         }
 
         result_keeper

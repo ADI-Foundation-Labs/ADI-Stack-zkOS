@@ -8,7 +8,6 @@ use crate::bootloader::BasicBootloaderExecutionConfig;
 use crate::bootloader::{BasicBootloader, Bytes32};
 use crate::require;
 use core::fmt::Write;
-use crypto::secp256k1::SECP256K1N_HALF;
 use evm_interpreter::{ERGS_PER_GAS, MAX_INITCODE_SIZE};
 use ruint::aliases::{B160, U256};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
@@ -290,7 +289,7 @@ where
         let r = &signature[..32];
         let s = &signature[32..64];
         let v = &signature[64];
-        if U256::from_be_slice(s) > U256::from_be_bytes(SECP256K1N_HALF) {
+        if U256::from_be_slice(s) > crypto::secp256k1::SECP256K1N_HALF_U256 {
             return Err(InvalidTransaction::MalleableSignature.into());
         }
 
@@ -337,7 +336,7 @@ where
 
     // any IO starts here
 
-    // now we can perfor IO related parts. Getting originator's properties is included into the
+    // now we can perform IO related parts. Getting originator's properties is included into the
     // intrinsic cost charnged above
     let originator_account_data =
         tx_resources
@@ -350,10 +349,8 @@ where
                     AccountDataRequest::empty()
                         .with_ee_version()
                         .with_nonce()
-                        .with_artifacts_len()
-                        .with_unpadded_code_len()
+                        .with_has_bytecode()
                         .with_is_delegated()
-                        .with_bytecode()
                         .with_nominal_token_balance(),
                 )
             })?;

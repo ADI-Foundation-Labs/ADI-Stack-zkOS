@@ -39,7 +39,8 @@ impl<M: MemorySource> OracleQueryProcessor<M> for UARTPrintReponsder {
             .collect();
         assert!(string_bytes.len() >= message_len_in_bytes);
         string_bytes.truncate(message_len_in_bytes);
-        println!("UART: {}", String::from_utf8_lossy(&string_bytes));
+        print!("{}", String::from_utf8_lossy(&string_bytes));
+        // println!("UART: {}", String::from_utf8_lossy(&string_bytes));
 
         DynUsizeIterator::from_constructor((), UsizeSerializable::iter)
     }

@@ -271,7 +271,10 @@ fn zksync_os_diff_consistent_with_selfdestruct(
         })
     };
 
-    diff_is_empty && prestate_can_be_deployed()
+    _withdrawals
+        .iter()
+        .any(|x| x.address.0 .0 == address.to_be_bytes())
+        || (diff_is_empty && prestate_can_be_deployed())
 }
 
 fn zksync_os_output_into_account_state(
