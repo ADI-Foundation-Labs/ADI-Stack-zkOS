@@ -440,7 +440,8 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         let bytecode = if needs_preimage {
             // NOTE: deconstruction happens at the end of the TX, so even deconstructed accounts would NOT
             // respond with empty bytecode (well, WTF)
-            let bytecode = {
+
+            {
                 if bytecode_hash_is_zero {
                     debug_assert!(initial_appearance == AccountInitialAppearance::Unset);
 
@@ -464,9 +465,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
                         oracle,
                     )?
                 }
-            };
-
-            bytecode
+            }
         } else {
             &[]
         };
@@ -474,7 +473,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         let code_length = bytecode.len() as u32;
 
         let is_delegated = if code_length == 3 + 20 {
-            &bytecode[..3] == &zk_ee::system::EIP7702_DELEGATION_MARKER
+            bytecode[..3] == zk_ee::system::EIP7702_DELEGATION_MARKER
         } else {
             false
         };
