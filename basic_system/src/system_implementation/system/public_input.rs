@@ -286,10 +286,11 @@ impl BatchPublicInputBuilder {
             .flat_map(|blob| {
                 let mut full_blob = [0u8; 126976];
                 full_blob[0..blob.len()].copy_from_slice(blob);
+
                 let linear_hash: [u8; 32] = Keccak256::digest(full_blob).into();
                 linear_hash
             })
-            .collect::<Vec<u8>>();
+            .collect::<ArrayVec<u8, 512>>();
 
         let num_blobs = (linear_hashes.len() / 126976) as u8;
 
