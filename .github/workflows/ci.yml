@@ -40,7 +40,34 @@ jobs:
       - name: Compile
         run: cargo test --release --no-run
       - name: Run rust tests
-        run: cargo test --release -j 3 -- --skip binary_checker
+        run: cargo test --release -j 3 -- --skip binary_checker --skip ethereum_storage_model
+
+  ethereum_storage_model_tests:
+    name: tests for ethereum storage model
+    runs-on: [matterlabs-ci-runner-high-performance]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          rustflags: ""
+      - name: Setup
+        run: |
+          rustup set profile minimal
+          cargo install cargo-binutils
+          rustup component add llvm-tools-preview
+          rustup component add rust-src
+      - name: Compile for RISC-V
+        working-directory: ./zksync_os
+        run: |
+          rustup target add riscv32i-unknown-none-elf
+          cargo install cargo-binutils
+          rustup component add llvm-tools-preview
+          rustup component add rust-src
+          ./dump_bin.sh
+      - name: Compile
+        run: cargo test --release --no-run
+      - name: Run rust tests
+        run: cargo test --release -j 3 ethereum_storage_model
 
   pectra-tests:
     name: pectra-tests
