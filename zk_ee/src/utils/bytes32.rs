@@ -92,10 +92,10 @@ impl Bytes32 {
 
         let mut result = 32;
         let mut i = 0;
-        while i < 4 {
+        while i < BYTES32_USIZE_SIZE {
             let word = self.inner[i];
             if word == 0 {
-                result -= 8;
+                result -= core::mem::size_of::<usize>() as u32;
             } else {
                 // NOTE - we should BE it, so it's TRAILING
                 result -= word.trailing_zeros() / 8;

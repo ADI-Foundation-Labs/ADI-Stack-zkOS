@@ -385,9 +385,7 @@ fn test_from_execution_witness() {
             for (k, _plain_k) in deletes.iter() {
                 let trie_pos_digits = byte_path_to_path_digits(k);
                 let path = Path::new(&trie_pos_digits);
-                storage_trie
-                    .delete(path, &mut oracle, &mut interner, &mut hasher)
-                    .unwrap();
+                storage_trie.delete(path).unwrap();
             }
         }
         if inserts.is_empty() == false {
@@ -412,7 +410,9 @@ fn test_from_execution_witness() {
             let storage_trie = account_storage_tries.get_mut(address).unwrap();
             storage_trie.ensure_linked();
             let old_root = storage_trie.root(&mut hasher);
-            storage_trie.recompute(&mut interner, &mut hasher).unwrap();
+            storage_trie
+                .recompute(&mut oracle, &mut interner, &mut hasher)
+                .unwrap();
             let new_root = storage_trie.root(&mut hasher);
             if reads_only {
                 assert_eq!(old_root, new_root);

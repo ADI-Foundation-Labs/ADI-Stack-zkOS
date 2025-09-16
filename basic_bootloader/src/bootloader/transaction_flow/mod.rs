@@ -191,7 +191,7 @@ where
         transaction: Self::Transaction<'_>,
         context: Self::TransactionContext,
         result: ExecutionResult<'a, S::IOTypes>,
-        transaciton_data_collector: &mut impl BlockTransactionsDataCollector<S, Self>,
+        transaction_data_collector: &mut impl BlockTransactionsDataCollector<S, Self>,
         tracer: &mut impl Tracer<S>,
     ) -> Self::ExecutionResult<'a>;
 }

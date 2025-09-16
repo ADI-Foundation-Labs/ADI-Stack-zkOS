@@ -19,5 +19,5 @@ zk_ee = { path = "../zk_ee" }
 crypto = { path = "../crypto" }
 basic_system = { path = "../basic_system" }
 evm_interpreter = { path = "../evm_interpreter" }
-ruint = { version = "1.16", default-features = false }
+ruint = { workspace = true, default-features = false }
 alloy = { version = "=1", features = ["eip712", "consensus", "rpc-types", "signer-local", "dyn-abi", "network"]}

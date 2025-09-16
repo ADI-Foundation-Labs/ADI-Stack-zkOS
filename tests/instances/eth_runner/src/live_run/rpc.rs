@@ -30,7 +30,7 @@ fn to_hex(n: u64) -> String {
 
 /// Fetches the full block data with transactions.
 pub fn get_witness(endpoint: &str, block_number: u64) -> Result<JsonResponse<ExecutionWitness>> {
-    debug!("RPC: get_block({block_number})");
+    debug!("RPC: get_witness({block_number})");
     let body = json!({
         "method": "debug_executionWitness",
         "params": [to_hex(block_number)],
@@ -54,6 +54,24 @@ pub fn get_block(endpoint: &str, block_number: u64) -> Result<Block> {
     let res = send(endpoint, body)?;
     let block = serde_json::from_str(&res)?;
     Ok(block)
+}
+
+/// Fetches the latest block number.
+pub fn get_block_number(endpoint: &str) -> Result<u64> {
+    debug!("RPC: eth_blockNumber");
+    let body = json!({
+        "method": "eth_blockNumber",
+        "id": 1,
+        "params": [],
+        "jsonrpc": "2.0"
+    });
+    let res = send(endpoint, body)?;
+    let res: serde_json::Value = serde_json::from_str(&res)?;
+    let number = res["result"]
+        .as_str()
+        .ok_or_else(|| anyhow!("No block number found in response"))?;
+    let number = u64::from_str_radix(number.trim_start_matches("0x"), 16)?;
+    Ok(number)
 }
 
 /// Fetches the block hash.

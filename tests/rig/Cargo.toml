@@ -11,7 +11,6 @@ categories.workspace = true
 
 [dependencies]
 basic_bootloader = { path = "../../basic_bootloader" }
-risc_v_simulator = { workspace = true , features = ["delegation"] }
 basic_system = { path = "../../basic_system" }
 evm_interpreter = { path = "../../evm_interpreter" }
 forward_system = { path = "../../forward_system" }
@@ -24,9 +23,12 @@ crypto = { path = "../../crypto" }
 cycle_marker = { path = "../../cycle_marker", optional = true }
 zksync_os_api = { path = "../../api" }
 
-prover_examples = { workspace = true, optional = true}
+risc_v_simulator = { git = "https://github.com/matter-labs/zksync-airbender", branch = "dev", features = ["delegation"] }
+prover_examples = { git = "https://github.com/matter-labs/zksync-airbender", branch = "dev", optional = true }
+trace_and_split = { git = "https://github.com/matter-labs/zksync-airbender", branch = "dev", optional = true }
+execution_utils = { git = "https://github.com/matter-labs/zksync-airbender", branch = "dev", optional = true }
 
-alloy = { version = "1", features = ["rlp", "full"] }
+alloy = { version = "=1.0.32", features = ["rlp", "full"] }
 alloy-primitives = { version = "1", features = ["arbitrary"] }
 alloy-rpc-types-debug = { version = "*", default-features = false }
 alloy-rlp = { version = "*" }
@@ -34,7 +36,7 @@ alloy-rlp = { version = "*" }
 ethers = "2.0.0" # ethers 2.0.0 is required due to dependency conflict TODO: replace with alloy
 futures = "0.3.30"
 hex = "*"
-ruint = { version = "1.16", default-features = false }
+ruint = { workspace = true, default-features = false }
 tokio = { version = "1.40.0", features = ["rt-multi-thread"] }
 env_logger = "0.11.6"
 log = "0.4.22" # tokio with `rt-multi-thread` feature needed to build ethers 2.0.0

@@ -10,7 +10,7 @@ keywords.workspace = true
 categories.workspace = true
 
 [dependencies]
-# blake2 = { version = "0.10", default-features = false, optional = true }
+common_constants = { workspace = true }
 blake2 = { version = "0.10", default-features = false }
 sha3 = { version = "0.10", default-features = false }
 sha2 = { version = "0.10", default-features = false }
@@ -18,8 +18,9 @@ k256 =  { version = "0.13", default-features = false, features = ["ecdsa-core", 
 p256 =  { version = "0.13", default-features = false, features = ["ecdsa-core", "ecdsa", "arithmetic"] }
 blake2s_u32 = { workspace = true, optional = true }
 ripemd = { version = "0.1", default-features = false }
-ruint = { version = "1.16", default-features = false, optional = true }
+ruint = { workspace = true, default-features = false }
 
+seq-macro = "*"
 cfg-if = "1.0.0"
 const_for = "0.1.5"
 
@@ -48,8 +49,7 @@ num-traits = { version = "0.2", default-features = false }
 
 [dev-dependencies]
 zksync_os_runner = { path = "../zksync_os_runner"}
-risc_v_simulator = { workspace = true, features = ["delegation"] }
-# blake2s_u32 = {path = "../../zksync-airbender/blake2s_u32", optional = true, default-features = false}
+risc_v_simulator = { git = "https://github.com/matter-labs/zksync-airbender", branch = "dev", features = ["delegation"] }
 ruint = { version = "1.16", default-features = false }
 ark-std = { version = "0.5" }
 zeroize = { version = "1", default-features = false }
@@ -64,12 +64,14 @@ rand_core = { version = "0.6.4", features = ["getrandom"] }
 [features]
 # forward = ["blake2"]
 forward = []
-proving = ["single_round_with_control", "bigint_ops", "secp256k1-static-context"]
+proving = ["single_round_with_control", "bigint_ops", "secp256k1-static-context", "keccak_special5"]
 default = ["forward", "secp256k1-static-context"]
 # bigint_ops = ["zeroize", "num-bigint", "num-traits", "num-integer"]
 bigint_ops = []
+keccak_special5 = []
 single_round_with_control = ["blake2s_u32/blake2_with_compression"]
 blake2s_tests = []
 secp256k1-static-context = []
 alloc = []
-testing = ["ruint"]
+sha3_tests = []
+testing = []

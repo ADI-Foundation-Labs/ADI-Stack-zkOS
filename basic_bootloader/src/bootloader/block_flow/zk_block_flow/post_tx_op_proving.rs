@@ -23,7 +23,7 @@ impl<
     > PostTxLoopOp<S> for ZKHeaderStructurePostTxOp<true>
 where
     S::IO: IOSubsystemExt
-        + IOTeardown<S::IOTypes, IOStateCommittment = FlatStorageCommitment<TREE_HEIGHT>>, // IOStateCommittment bound is trivial, most likely needed due to missing associated types equality feature in the current state of the compiler
+        + IOTeardown<S::IOTypes, IOStateCommitment = FlatStorageCommitment<TREE_HEIGHT>>, // IOStateCommitment bound is trivial, most likely needed due to missing associated types equality feature in the current state of the compiler
 {
     type BlockData = ZKBasicTransactionDataKeeper;
     type PostTxLoopOpResult = (O, Bytes32);
@@ -61,7 +61,7 @@ where
         //     .try_into()
         //     .map_err(|_| internal_error!("base_fee_per_gas exceeds max u64"))?;
         let block_header = BlockHeader::new(
-            Bytes32::from(previous_block_hash),
+            previous_block_hash,
             beneficiary,
             tx_rolling_hash,
             block_number,

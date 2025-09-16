@@ -22,7 +22,7 @@ impl<
     > PostTxLoopOp<S> for ZKHeaderStructurePostTxOp<true>
 where
     S::IO: IOSubsystemExt
-        + IOTeardown<S::IOTypes, IOStateCommittment = FlatStorageCommitment<TREE_HEIGHT>>, // IOStateCommittment bound is trivial, most likely needed due to missing associated types equality feature in the current state of the compiler
+        + IOTeardown<S::IOTypes, IOStateCommitment = FlatStorageCommitment<TREE_HEIGHT>>, // IOStateCommitment bound is trivial, most likely needed due to missing associated types equality feature in the current state of the compiler
 {
     type BlockDataKeeper = ZKBasicBlockDataKeeper;
     type PostTxLoopOpResult = (O, Bytes32);

@@ -468,6 +468,7 @@ impl<'external, S: EthereumLikeTypes> ExecutionContext<'_, 'external, S> {
                         .get_logger()
                         .write_fmt(format_args!("Returndata = "));
                     let _ = self.system.get_logger().log_data(returndata_iter);
+                    let _ = self.system.get_logger().write_fmt(format_args!("\n"));
 
                     let return_values = self.copy_into_return_memory(return_values)?;
 
@@ -549,6 +550,7 @@ impl<'external, S: EthereumLikeTypes> ExecutionContext<'_, 'external, S> {
                 .get_logger()
                 .write_fmt(format_args!("Returndata = "));
             let _ = self.system.get_logger().log_data(returndata_iter);
+            let _ = self.system.get_logger().write_fmt(format_args!("\n"));
 
             self.system
                 .finish_global_frame(if reverted {

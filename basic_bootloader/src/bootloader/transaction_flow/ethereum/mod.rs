@@ -35,7 +35,7 @@ pub struct EthereumTransactionFlow<S: EthereumLikeTypes> {
 #[derive(Debug)]
 pub struct EthereumTxResult<'a> {
     pub result: ExecutionResult<'a, EthereumIOTypesConfig>,
-    pub tx_hash: Bytes32,
+    // pub tx_hash: Bytes32,
     pub gas_used: u64,
 }
 
@@ -56,7 +56,8 @@ impl<'a> MinimalTransactionOutput<'a> for EthereumTxResult<'a> {
         }
     }
     fn transaction_hash(&self) -> Bytes32 {
-        self.tx_hash
+        unimplemented!("transaction hash is not computed for Ethereum STF");
+        // self.tx_hash
     }
     fn into_bookkeeper_output(self) -> TxProcessingOutput<'a> {
         let (success, returndata, created_address) = match self.result {
@@ -172,7 +173,7 @@ impl<S: EthereumLikeTypes> core::fmt::Debug for ResourcesForEthereumTx<S> {
 
 pub struct EthereumTxContext<S: EthereumLikeTypes> {
     pub resources: ResourcesForEthereumTx<S>,
-    pub tx_hash: Bytes32,
+    // pub tx_hash: Bytes32,
     pub fee_to_prepay: U256,
     pub priority_fee_per_gas: U256,
     pub minimal_gas_to_charge: u64,
@@ -180,14 +181,14 @@ pub struct EthereumTxContext<S: EthereumLikeTypes> {
     pub tx_gas_limit: u64,
     pub gas_used: u64,
     pub blob_gas_used: u64,
-    pub tx_level_metadata: EthereumTransactionMetadata<{ MAX_BLOBS_IN_TX }>,
+    pub tx_level_metadata: EthereumTransactionMetadata<{ MAX_BLOBS_PER_BLOCK }>,
 }
 
 impl<S: EthereumLikeTypes> core::fmt::Debug for EthereumTxContext<S> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("TxContextForPreAndPostProcessing")
             .field("resources", &self.resources)
-            .field("tx_hash", &self.tx_hash)
+            // .field("tx_hash", &self.tx_hash)
             .field("fee_to_prepay", &self.fee_to_prepay)
             .field("priority_fee_per_gas", &self.priority_fee_per_gas)
             .field("minimal_gas_to_charge", &self.minimal_gas_to_charge)
@@ -210,9 +211,7 @@ where
     type ExecutionBodyExtraData = (); // we can use context for everything
 
     type ScratchSpace = ();
-    fn create_tx_loop_scratch_space(_system: &mut System<S>) -> Self::ScratchSpace {
-        ()
-    }
+    fn create_tx_loop_scratch_space(_system: &mut System<S>) -> Self::ScratchSpace {}
 
     type TransactionBuffer<'a> = UsizeAlignedByteBox<S::Allocator>;
     fn try_begin_next_tx<'a>(
@@ -293,8 +292,7 @@ where
         if let Some(to) = transaction.destination() {
             let _ = system.get_logger().write_fmt(
                 format_args!(
-                    "Will process transaction with hash {:?}:\nCall from 0x{:040x} to 0x{:040x} with gas limit of {} and value of {:?} and {} bytes of calldata\n",
-                    transaction.transaction_hash(),
+                    "Will process transaction:\nCall from 0x{:040x} to 0x{:040x} with gas limit of {} and value of {:?} and {} bytes of calldata\n",
                     transaction.signer().as_uint(),
                     to.as_uint(),
                     transaction.gas_limit(),
@@ -305,8 +303,7 @@ where
         } else {
             let _ = system.get_logger().write_fmt(
                 format_args!(
-                    "Will process transaction with hash {:?}:\nDeployment from 0x{:040x} at nonce {} with gas limit of {} and value of {:?} and {} bytes of calldata\n",
-                    transaction.transaction_hash(),
+                    "Will process transaction:\nDeployment from 0x{:040x} at nonce {} with gas limit of {} and value of {:?} and {} bytes of calldata\n",
                     transaction.signer().as_uint(),
                     context.originator_nonce_to_use,
                     transaction.gas_limit(),
@@ -437,7 +434,7 @@ where
 
                     ExecutionResult::Revert { output: &[] }
                 }
-                _ => return Err(e.into()),
+                _ => return Err(e),
             },
         };
         drop(main_body_rollback_handle);
@@ -471,7 +468,7 @@ where
         )?;
         context.gas_used = gas_used;
 
-        return Ok(());
+        Ok(())
     }
 
     fn refund_and_commit_fee<'a, Config: BasicBootloaderExecutionConfig>(
@@ -484,6 +481,8 @@ where
 
         // use would be refunded based on potentially one gas price, and operator will be paid using different one. But those
         // changes are not "transfers" in nature
+
+        let mut inf_resources = S::Resources::FORMAL_INFINITE;
 
         assert!(
             context.gas_used <= context.tx_gas_limit,
@@ -509,18 +508,15 @@ where
                 &refund
             ));
 
-            context
-                .resources
-                .main_resources
-                .with_infinite_ergs(|resources| {
-                    system.io.update_account_nominal_token_balance(
-                        ExecutionEnvironmentType::NoEE, // out of scope of other interactions
-                        resources,
-                        &receiver,
-                        &refund,
-                        false,
-                    )
-                })?;
+            inf_resources.with_infinite_ergs(|resources| {
+                system.io.update_account_nominal_token_balance(
+                    ExecutionEnvironmentType::NoEE, // out of scope of other interactions
+                    resources,
+                    &receiver,
+                    &refund,
+                    false,
+                )
+            })?;
         }
 
         assert!(context.gas_used > 0);
@@ -538,18 +534,15 @@ where
                 .get_logger()
                 .write_fmt(format_args!("Coinbase's share of fee is {:?}\n", &fee));
 
-            context
-                .resources
-                .main_resources
-                .with_infinite_ergs(|resources| {
-                    system.io.update_account_nominal_token_balance(
-                        ExecutionEnvironmentType::NoEE, // out of scope of other interactions
-                        resources,
-                        &coinbase,
-                        &fee,
-                        false,
-                    )
-                })?;
+            inf_resources.with_infinite_ergs(|resources| {
+                system.io.update_account_nominal_token_balance(
+                    ExecutionEnvironmentType::NoEE, // out of scope of other interactions
+                    resources,
+                    &coinbase,
+                    &fee,
+                    false,
+                )
+            })?;
         }
 
         Ok(())
@@ -562,10 +555,10 @@ where
         transaction: Self::Transaction<'_>,
         context: Self::TransactionContext,
         result: ExecutionResult<'a, <S as SystemTypes>::IOTypes>,
-        transaciton_data_collector: &mut impl BlockTransactionsDataCollector<S, Self>,
+        transaction_data_collector: &mut impl BlockTransactionsDataCollector<S, Self>,
         _tracer: &mut impl Tracer<S>,
     ) -> Self::ExecutionResult<'a> {
-        transaciton_data_collector.record_transaction_results(
+        transaction_data_collector.record_transaction_results(
             &*system,
             transaction,
             &context,
@@ -574,7 +567,7 @@ where
 
         EthereumTxResult {
             result,
-            tx_hash: context.tx_hash,
+            // tx_hash: context.tx_hash,
             gas_used: context.gas_used,
         }
     }
@@ -733,6 +726,8 @@ where
         let returndata_iter = return_values.returndata.iter().copied();
         let _ = system.get_logger().write_fmt(format_args!("Returndata = "));
         let _ = system.get_logger().log_data(returndata_iter);
+        let _ = system.get_logger().write_fmt(format_args!("\n"));
+
         let deployed_address = at
             .map(DeployedAddress::Address)
             .unwrap_or(DeployedAddress::RevertedNoAddress);
@@ -762,7 +757,7 @@ where
             return_values,
             reverted,
             deployed_address,
-        } = if let Some(_) = transaction.destination() {
+        } = if transaction.destination().is_some() {
             Self::execute_call::<Config>(
                 system,
                 system_functions,

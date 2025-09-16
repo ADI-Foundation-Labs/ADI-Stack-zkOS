@@ -755,7 +755,7 @@ impl<'a> ZkSyncTransaction<'a> {
                     resources,
                     &address,
                     true,
-                    true,
+                    false,
                 )
             })?;
             for key in keys {

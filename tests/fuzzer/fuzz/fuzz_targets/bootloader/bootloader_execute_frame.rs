@@ -43,7 +43,12 @@ struct FuzzInput<'a> {
 }
 
 fn fuzz(input: FuzzInput) {
-    let mut system = System::<ForwardRunningSystem>::init_from_oracle(mock_oracle())
+    let (metadata, oracle) = mock_oracle();
+
+    let mut system = System::<ForwardRunningSystem>::init_from_metadata_and_oracle(
+        metadata,
+        oracle
+    )
         .expect("Failed to initialize the mock system");
 
     // wrap calldata
@@ -117,13 +122,6 @@ fn fuzz(input: FuzzInput) {
     let Ok(_) = system.finish_global_frame(None) else {
         return;
     };
-
-    system.finish(
-        Bytes32::default(),
-        Bytes32::default(),
-        Bytes32::default(),
-        &mut NopResultKeeper,
-    );
 }
 
 fuzz_target!(|input: FuzzInput| {

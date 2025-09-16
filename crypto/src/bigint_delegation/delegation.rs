@@ -102,25 +102,14 @@ pub(crate) fn bigint_op_delegation_with_carry_bit_by_ptr(
 ) -> u32 {
     debug_assert!(a.cast_const() != b);
 
-    let a_adrr = a.addr();
-    let b_adrr = b.addr();
+    debug_assert!(a.addr() % 32 == 0);
+    debug_assert!(b.addr() % 32 == 0);
 
-    debug_assert!(a_adrr % 32 == 0);
-    debug_assert!(b_adrr % 32 == 0);
+    let mask = (1u32 << (op as usize)) | ((carry as u32) << CARRY_BIT_IDX);
 
-    let mut mask = (1u32 << (op as usize)) | ((carry as u32) << CARRY_BIT_IDX);
+    use common_constants::delegation_types::bigint_with_control::bigint_csr_trigger_delegation;
 
-    unsafe {
-        core::arch::asm!(
-            "csrrw x0, 0x7ca, x0",
-            in("x10") a_adrr,
-            in("x11") b_adrr,
-            inlateout("x12") mask,
-            options(nostack, preserves_flags)
-        )
-    }
-
-    mask
+    unsafe { bigint_csr_trigger_delegation(a.cast(), b.cast(), mask) }
 }
 
 #[cfg(not(all(target_arch = "riscv32", feature = "bigint_ops")))]

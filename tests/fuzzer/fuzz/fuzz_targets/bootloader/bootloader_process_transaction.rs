@@ -14,6 +14,7 @@ use rig::ruint::aliases::U256;
 use system_hooks::HooksStorage;
 use zk_ee::system::System;
 use zk_ee::system::tracer::NopTracer;
+use zk_ee::system::metadata::BlockMetadataFromOracle;
 
 mod common;
 
@@ -32,10 +33,13 @@ fn fuzz(data: &[u8]) {
     };
     let amount = U256::from_be_bytes([255 as u8; 32]);
     let address = decoded_tx.from.read();
-    let oracle = mock_oracle_balance(address, amount);
+    let (metadata, oracle) = mock_oracle_balance(address, amount);
 
     let mut system =
-        System::init_from_oracle(oracle).expect("Failed to initialize the mock system");
+        System::init_from_metadata_and_oracle(
+            metadata,
+            oracle
+        ).expect("Failed to initialize the mock system");
 
     let mut system_functions: HooksStorage<ForwardRunningSystem, _> =
         HooksStorage::new_in(system.get_allocator());

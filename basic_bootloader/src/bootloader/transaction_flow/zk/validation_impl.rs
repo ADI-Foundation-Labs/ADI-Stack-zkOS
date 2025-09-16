@@ -8,7 +8,6 @@ use crate::bootloader::BasicBootloaderExecutionConfig;
 use crate::bootloader::{BasicBootloader, Bytes32};
 use crate::require;
 use core::fmt::Write;
-use crypto::secp256k1::SECP256K1N_HALF;
 use evm_interpreter::{ERGS_PER_GAS, MAX_INITCODE_SIZE};
 use ruint::aliases::{B160, U256};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
@@ -96,7 +95,7 @@ where
         );
 
     // Intrinsic overhead - he can quickly check deployment cost and calldata tokens cost
-    let mut intrinsic_overhead = intrinsic_gas as u64;
+    let mut intrinsic_overhead = intrinsic_gas;
 
     // NOTE: this one is up for debate - we can either charge it here,
     // or in the corresponding branch that does deployments. Latter is much better if we will
@@ -109,7 +108,7 @@ where
             intrinsic_overhead.saturating_add(DEPLOYMENT_TX_EXTRA_INTRINSIC_GAS as u64);
         let initcode_gas_cost = evm_interpreter::gas_constants::INITCODE_WORD_COST
             * (calldata_len.next_multiple_of(32) / 32);
-        intrinsic_overhead = intrinsic_overhead.saturating_add(initcode_gas_cost as u64);
+        intrinsic_overhead = intrinsic_overhead.saturating_add(initcode_gas_cost);
     }
     intrinsic_overhead =
         intrinsic_overhead.saturating_add(calldata_tokens.saturating_mul(CALLDATA_TOKEN_GAS_COST));
@@ -290,7 +289,7 @@ where
         let r = &signature[..32];
         let s = &signature[32..64];
         let v = &signature[64];
-        if U256::from_be_slice(s) > U256::from_be_bytes(SECP256K1N_HALF) {
+        if U256::from_be_slice(s) > crypto::secp256k1::SECP256K1N_HALF_U256 {
             return Err(InvalidTransaction::MalleableSignature.into());
         }
 
@@ -337,7 +336,7 @@ where
 
     // any IO starts here
 
-    // now we can perfor IO related parts. Getting originator's properties is included into the
+    // now we can perform IO related parts. Getting originator's properties is included into the
     // intrinsic cost charnged above
     let originator_account_data =
         tx_resources
@@ -350,10 +349,8 @@ where
                     AccountDataRequest::empty()
                         .with_ee_version()
                         .with_nonce()
-                        .with_artifacts_len()
-                        .with_unpadded_code_len()
+                        .with_has_bytecode()
                         .with_is_delegated()
-                        .with_bytecode()
                         .with_nominal_token_balance(),
                 )
             })?;
@@ -407,21 +404,15 @@ where
 
     // Access list
     {
-        if let Err(e) =
-            transaction.parse_and_warm_up_access_list(system, &mut tx_resources.main_resources)
-        {
-            return Err(e);
-        }
+        transaction.parse_and_warm_up_access_list(system, &mut tx_resources.main_resources)?
     }
 
     #[cfg(feature = "pectra")]
     {
-        if let Err(e) = transaction.parse_authorization_list_and_apply_delegations(
+        transaction.parse_authorization_list_and_apply_delegations(
             system,
             &mut tx_resources.main_resources,
-        ) {
-            return Err(e);
-        }
+        )?
     }
 
     let worst_case_fee_amount = U256::from(transaction.max_fee_per_gas.read())

@@ -36,7 +36,6 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
         }
 
         if let Some(call) = external_call {
-            assert!(exit_code == ExitCode::ExternalCall);
             let (current_heap, next_heap) = self.heap.freeze();
 
             let external_call_request = {
@@ -462,7 +461,8 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
         deployer_nonce: u64,
         deployment_code: &[u8],
     ) -> Result<<S::IOTypes as SystemIOTypesConfig>::Address, EvmSubsystemError> {
-        use crypto::sha3::{Digest, Keccak256};
+        use crypto::sha3::Keccak256;
+        use crypto::MiniDigest;
         let deployed_address = match &scheme {
             CreateScheme::Create => {
                 let mut buffer = [0u8; crate::utils::MAX_CREATE_RLP_ENCODING_LEN];

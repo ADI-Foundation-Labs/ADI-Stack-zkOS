@@ -1,5 +1,4 @@
 use super::*;
-use crate::bootloader::block_flow::ethereum_block_flow::oracle_queries::fill_blob_point_from_oracle;
 use crate::bootloader::constants::*;
 use crate::bootloader::errors::InvalidTransaction::CreateInitCodeSizeLimit;
 use crate::bootloader::errors::{InvalidTransaction, TxError};
@@ -14,8 +13,6 @@ use crate::require;
 use core::alloc::Allocator;
 use core::fmt::Write;
 use core::u64;
-use crypto::ark_ff::AdditiveGroup;
-use crypto::secp256k1::SECP256K1N_HALF;
 use evm_interpreter::{ERGS_PER_GAS, MAX_INITCODE_SIZE};
 use ruint::aliases::{B160, U256};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
@@ -45,7 +42,7 @@ fn create_resources_for_tx<S: EthereumLikeTypes>(
             intrinsic_overhead.saturating_add(DEPLOYMENT_TX_EXTRA_INTRINSIC_GAS);
         let initcode_gas_cost = evm_interpreter::gas_constants::INITCODE_WORD_COST
             * (calldata_len.next_multiple_of(32) / 32);
-        intrinsic_overhead = intrinsic_overhead.saturating_add(initcode_gas_cost as u64);
+        intrinsic_overhead = intrinsic_overhead.saturating_add(initcode_gas_cost);
     }
     intrinsic_overhead =
         intrinsic_overhead.saturating_add(calldata_tokens.saturating_mul(CALLDATA_TOKEN_GAS_COST));
@@ -132,7 +129,7 @@ where
                 resources,
                 &address,
                 true,
-                true,
+                false,
             )
         })?;
         for slot in slots_list.iter() {
@@ -168,6 +165,12 @@ pub fn parse_blobs_list<const MAX_BLOBS_IN_TX: usize>(
     blobs_list: BlobHashesList<'_>,
 ) -> Result<arrayvec::ArrayVec<Bytes32, MAX_BLOBS_IN_TX>, TxError> {
     let mut result = arrayvec::ArrayVec::<_, MAX_BLOBS_IN_TX>::new();
+    if blobs_list.count > MAX_BLOBS_IN_TX {
+        // transactions that allow blobs should have at least one
+        return Err(TxError::Validation(
+            InvalidTransaction::BlobElementIsNotSupported,
+        ));
+    }
 
     for blob_hash in blobs_list.iter() {
         let Ok(blob_hash) = blob_hash else {
@@ -211,7 +214,7 @@ where
     use crate::bootloader::transaction::ethereum_tx_format::AuthorizationEntry;
     let mut hasher = crypto::sha3::Keccak256::new();
 
-    let count = auth_list.count.expect("prevalidated list containts count");
+    let count = auth_list.count.expect("prevalidated list contains count");
     if count == 0 {
         return Err(TxError::Validation(InvalidTransaction::AuthListIsEmpty));
     }
@@ -341,7 +344,7 @@ where
     let (_, _, auth_s) = auth_sig_data;
     let s = U256::try_from_be_slice(auth_s)
         .ok_or::<TxError>(InvalidTransaction::InvalidStructure.into())?;
-    if s > U256::from_be_bytes(crypto::secp256k1::SECP256K1N_HALF) {
+    if s > crypto::secp256k1::SECP256K1N_HALF_U256 {
         return Ok(false);
     }
     let msg = resources.with_infinite_ergs(|inf_ergs| {
@@ -367,10 +370,9 @@ where
             &authority,
             AccountDataRequest::empty()
                 .with_nonce()
-                .with_nominal_token_balance()
+                .with_has_bytecode()
                 .with_is_delegated()
-                .with_artifacts_len()
-                .with_unpadded_code_len(),
+                .with_nominal_token_balance(),
         )
     })?;
     // 5. Check authority is not a contract
@@ -384,7 +386,7 @@ where
     // 7. Add refund if authority is not empty.
     {
         let is_empty = account_properties.nonce.0 == 0
-            && account_properties.unpadded_code_len.0 == 0
+            && account_properties.has_bytecode.0 == false
             && account_properties.nominal_token_balance.0.is_zero();
         if !is_empty {
             system
@@ -540,7 +542,7 @@ where
             let signed_hash = tx.hash_for_signature_verification();
             let (parity, r, s) = tx.sig_parity_r_s();
 
-            if U256::from_be_slice(s) > U256::from_be_bytes(SECP256K1N_HALF) {
+            if U256::from_be_slice(s) > crypto::secp256k1::SECP256K1N_HALF_U256 {
                 return Err(TxError::Validation(InvalidTransaction::MalleableSignature));
             }
 
@@ -580,7 +582,7 @@ where
     // any IO starts here
     let from = transaction.signer();
 
-    // now we can perfor IO related parts. Getting originator's properties is included into the
+    // now we can perform IO related parts. Getting originator's properties is included into the
     // intrinsic cost charnged above
     let originator_account_data =
         tx_resources
@@ -593,10 +595,8 @@ where
                     AccountDataRequest::empty()
                         .with_ee_version()
                         .with_nonce()
-                        .with_artifacts_len()
-                        .with_unpadded_code_len()
+                        .with_has_bytecode()
                         .with_is_delegated()
-                        .with_bytecode()
                         .with_nominal_token_balance(),
                 )
             })?;
@@ -650,11 +650,7 @@ where
 
     // Access list
     if let Some(access_list) = transaction.access_list() {
-        if let Err(e) =
-            parse_and_warm_up_access_list(system, &mut tx_resources.main_resources, access_list)
-        {
-            return Err(e);
-        }
+        parse_and_warm_up_access_list(system, &mut tx_resources.main_resources, access_list)?
     }
 
     let blobs = if let Some(blobs_list) = transaction.blobs_list() {
@@ -667,14 +663,13 @@ where
                 InvalidTransaction::BlobElementIsNotSupported,
             ));
         }
-        let blobs = match parse_blobs_list::<MAX_BLOBS_IN_TX>(blobs_list) {
+
+        match parse_blobs_list::<MAX_BLOBS_PER_BLOCK>(blobs_list) {
             Ok(blobs) => blobs,
             Err(e) => {
                 return Err(e);
             }
-        };
-
-        blobs
+        }
     } else {
         arrayvec::ArrayVec::new()
     };
@@ -683,13 +678,11 @@ where
     let blob_gas_used = (blobs.len() as u64) * GAS_PER_BLOB;
 
     if let Some(auth_list) = transaction.authorization_list() {
-        if let Err(e) = parse_authorization_list_and_apply_delegations(
+        parse_authorization_list_and_apply_delegations(
             system,
             &mut tx_resources.main_resources,
             auth_list,
-        ) {
-            return Err(e);
-        }
+        )?
     }
 
     let worst_case_fee_amount = {
@@ -751,7 +744,7 @@ where
         .checked_add(fee_for_blob_gas)
         .ok_or(internal_error!("transaction fee + blob gas"))?;
 
-    let tx_hash = *transaction.transaction_hash();
+    // let tx_hash = *transaction.transaction_hash();
 
     let tx_level_metadata = EthereumTransactionMetadata {
         tx_gas_price: effective_gas_price,
@@ -765,7 +758,7 @@ where
         priority_fee_per_gas,
         minimal_gas_to_charge: minimal_gas_used,
         originator_nonce_to_use: old_nonce,
-        tx_hash,
+        // tx_hash,
         tx_gas_limit,
         gas_used: 0,
         blob_gas_used,

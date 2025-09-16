@@ -311,14 +311,14 @@ where
         let mut as_writable = buffer.as_writable();
         let next_tx_len_usize_words = next_tx_len_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE;
         if as_writable.len() < next_tx_len_usize_words {
-            return Err(internal_error!("destination iterator len is insufficient"));
+            return Err(internal_error!("destination buffer length is insufficient"));
         }
         let tx_iterator = self
             .io
             .oracle()
             .raw_query_with_empty_input(TX_DATA_WORDS_QUERY_ID)?;
-        if tx_iterator.len() != next_tx_len_usize_words {
-            return Err(internal_error!("iterator len is inconsistent"));
+        if tx_iterator.len() > as_writable.len() {
+            return Err(internal_error!("iterator length is too large"));
         }
         for word in tx_iterator {
             unsafe {

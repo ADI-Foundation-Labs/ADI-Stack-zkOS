@@ -781,7 +781,7 @@ impl<const N: usize> StateRootView<EthereumIOTypesConfig> for FlatStorageCommitm
 pub struct PreviousIndexQuery;
 
 impl SimpleOracleQuery for PreviousIndexQuery {
-    const QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | FLAT_STORAGE_SUBSPACE_MASK | 0x00;
+    const QUERY_ID: u32 = STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | FLAT_STORAGE_SUBSPACE_MASK;
     type Input = Bytes32;
     type Output = u64;
 }
@@ -1856,7 +1856,7 @@ mod test {
 
         let initial_root = *tree.root();
         let value_to_insert = Bytes32::from_byte_fill(0x33);
-        let exisint_leaf_proof = tree.insert(&key_to_insert_0, &value_to_insert);
+        let existing_leaf_proof = tree.insert(&key_to_insert_0, &value_to_insert);
         let new_root = *tree.root();
 
         assert_eq!(
@@ -1870,7 +1870,7 @@ mod test {
 
         let WriteValueWithProof::Existing {
             proof: ExistingWriteProof { existing },
-        } = exisint_leaf_proof
+        } = existing_leaf_proof
         else {
             panic!()
         };

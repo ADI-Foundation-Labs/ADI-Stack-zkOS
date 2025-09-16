@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use super::*;
 use alloy::consensus::Header;
 use basic_bootloader::bootloader::block_flow::ethereum_block_flow::oracle_queries::{
@@ -7,7 +5,7 @@ use basic_bootloader::bootloader::block_flow::ethereum_block_flow::oracle_querie
     ETHEREUM_HISTORICAL_HEADER_BUFFER_LEN_QUERY_ID, ETHEREUM_WITHDRAWALS_BUFFER_DATA_QUERY_ID,
     ETHEREUM_WITHDRAWALS_BUFFER_LEN_QUERY_ID,
 };
-use crypto::{ark_ec::AffineRepr, MiniDigest};
+use crypto::MiniDigest;
 use oracle_provider::OracleQueryProcessor;
 use zk_ee::{oracle::ReadIterWrapper, system_io_oracle::HISTORICAL_BLOCK_HASH_QUERY_ID};
 
@@ -16,7 +14,6 @@ pub struct EthereumCLResponder {
     pub withdrawals_list: Vec<u8>,
     pub parent_headers_list: Vec<Header>,
     pub parent_headers_encodings_list: Vec<Vec<u8>>,
-    pub blob_hashes: BTreeMap<Bytes32, crypto::bls12_381::G1Affine>,
 }
 
 impl EthereumCLResponder {
@@ -85,23 +82,6 @@ impl<M: MemorySource> OracleQueryProcessor<M> for EthereumCLResponder {
                     .map(|el| crypto::sha3::Keccak256::digest(el).into())
                     .unwrap_or(Bytes32::ZERO);
                 DynUsizeIterator::from_constructor(hash, UsizeSerializable::iter)
-            }
-            ETHEREUM_BLOB_POINT_QUERY_ID => {
-                let input: Bytes32 =
-                    Bytes32::from_iter(&mut query.into_iter()).expect("must get versioned hash");
-                let Some(point) = self.blob_hashes.get(&input) else {
-                    panic!("No point for versioned hash {:?}", input);
-                };
-                let (x, y) = point.xy().unwrap();
-                use crypto::ark_ff::PrimeField;
-                let x_words = x.into_bigint().0;
-                let y_words = y.into_bigint().0;
-
-                let mut buffer = [0u64; 12];
-                buffer[..6].copy_from_slice(&x_words[..6]);
-                buffer[6..].copy_from_slice(&y_words[..6]);
-
-                DynUsizeIterator::from_constructor(buffer, UsizeSerializable::iter)
             }
             _ => {
                 unreachable!()

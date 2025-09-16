@@ -35,7 +35,7 @@ impl<
         >,
     > PostTxLoopOp<S> for EthereumPostOp<false>
 where
-    S::IO: IOSubsystemExt + IOTeardown<S::IOTypes, IOStateCommittment = Bytes32>,
+    S::IO: IOSubsystemExt + IOTeardown<S::IOTypes, IOStateCommitment = Bytes32>,
 {
     type BlockData = EthereumBasicTransactionDataKeeper<S::Allocator, S::Allocator>;
     type PostTxLoopOpResult = ();
@@ -126,7 +126,5 @@ where
         cycle_marker::wrap!("verify_and_apply_batch", {
             io.update_commitment(None, &mut logger, result_keeper);
         });
-
-        ()
     }
 }

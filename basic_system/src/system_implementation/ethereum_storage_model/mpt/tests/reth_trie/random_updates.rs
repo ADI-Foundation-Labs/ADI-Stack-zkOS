@@ -59,7 +59,8 @@ fn test_versus_randmomized_reth_trie_ordered(size: usize) {
 
             trie.ensure_linked();
         }
-        trie.recompute(&mut interner, &mut hasher).unwrap();
+        trie.recompute(&mut preimages_oracle, &mut interner, &mut hasher)
+            .unwrap();
 
         trie.root(&mut hasher)
     };
@@ -89,7 +90,8 @@ fn test_versus_randmomized_reth_trie_ordered(size: usize) {
 
             trie.ensure_linked();
         }
-        trie.recompute(&mut interner, &mut hasher).unwrap();
+        trie.recompute(&mut preimages_oracle, &mut interner, &mut hasher)
+            .unwrap();
 
         trie.root(&mut hasher)
     };
@@ -121,7 +123,8 @@ fn test_versus_randmomized_reth_trie_ordered(size: usize) {
             trie.ensure_linked();
         }
     }
-    trie.recompute(&mut interner, &mut hasher).unwrap();
+    trie.recompute(&mut preimages_oracle, &mut interner, &mut hasher)
+        .unwrap();
 
     let mut hb = HashBuilder::default();
 
@@ -143,8 +146,7 @@ fn test_versus_randmomized_reth_trie_ordered(size: usize) {
             // we inserted before, so let's update or delete
             if v_f.is_zero() {
                 // println!("Delete {}", hex::encode(k_i));
-                trie.delete(path, &mut preimages_oracle, &mut interner, &mut hasher)
-                    .unwrap();
+                trie.delete(path).unwrap();
             } else if v_i != v_f {
                 // println!("Update {}", hex::encode(k_i));
                 trie.update(path, &pre_encoded_value, &mut interner)
@@ -168,7 +170,8 @@ fn test_versus_randmomized_reth_trie_ordered(size: usize) {
     }
 
     let expected_root = hb.root();
-    trie.recompute(&mut interner, &mut hasher).unwrap();
+    trie.recompute(&mut preimages_oracle, &mut interner, &mut hasher)
+        .unwrap();
     let our_root = trie.root(&mut hasher);
 
     assert_eq!(our_root, expected_root);

@@ -28,13 +28,13 @@ TEXT_NAME="app.text"
 # Adjust for server modes
 case "$TYPE" in
   server)
-    FEATURES="$FEATURES,proof_running_system/unlimited_native,proof_running_system/wrap-in-batch"
+    FEATURES="$FEATURES,proof_running_system/wrap-in-batch"
     BIN_NAME="server_app.bin"
     ELF_NAME="server_app.elf"
     TEXT_NAME="server_app.text"
     ;;
   server-logging-enabled)
-    FEATURES="$FEATURES,proof_running_system/unlimited_native,proof_running_system/wrap-in-batch,print_debug_info"
+    FEATURES="$FEATURES,proof_running_system/wrap-in-batch,print_debug_info"
     BIN_NAME="server_app_logging_enabled.bin"
     ELF_NAME="server_app_logging_enabled.elf"
     TEXT_NAME="server_app_logging_enabled.text"
@@ -52,13 +52,13 @@ case "$TYPE" in
     TEXT_NAME="app_debug.text"
     ;;
   evm-replay)
-    FEATURES="$FEATURES,proof_running_system/unlimited_native,proof_running_system/disable_system_contracts,proof_running_system/prevrandao,proof_running_system/evm_refunds"
+    FEATURES="$FEATURES,proof_running_system/disable_system_contracts,proof_running_system/prevrandao,proof_running_system/evm_refunds"
     BIN_NAME="evm_replay.bin"
     ELF_NAME="evm_replay.elf"
     TEXT_NAME="evm_replay.text"
     ;;
   evm-replay-with-logs)
-    FEATURES="$FEATURES,proof_running_system/unlimited_native,proof_running_system/disable_system_contracts,proof_running_system/prevrandao,print_debug_info"
+    FEATURES="$FEATURES,proof_running_system/disable_system_contracts,proof_running_system/prevrandao,print_debug_info"
     BIN_NAME="evm_replay_with_logs.bin"
     ELF_NAME="evm_replay_with_logs.elf"
     TEXT_NAME="evm_replay_with_logs.text"
@@ -70,7 +70,13 @@ case "$TYPE" in
     TEXT_NAME="evm_replay.text"
     ;;
   pectra)
-    FEATURES="$FEATURES,proof_running_system/pectra"
+    FEATURES="$FEATURES,pectra,evm-compatibility,prevrandao,evm_refunds,disable_system_contracts"
+    BIN_NAME="app.bin"
+    ELF_NAME="app.elf"
+    TEXT_NAME="app.text"
+    ;;
+  pectra-debug)
+    FEATURES="$FEATURES,pectra,evm-compatibility,prevrandao,evm_refunds,disable_system_contracts,print_debug_info"
     BIN_NAME="app.bin"
     ELF_NAME="app.elf"
     TEXT_NAME="app.text"
@@ -90,6 +96,8 @@ rm -f "$BIN_NAME" "$ELF_NAME" "$TEXT_NAME"
 
 # Build
 cargo build --features "$FEATURES" --release
+
+# cargo objdump --features "$FEATURES" --release -v -- -d
 
 # Produce and rename outputs
 cargo objcopy --features "$FEATURES" --release -- -O binary "$BIN_NAME"

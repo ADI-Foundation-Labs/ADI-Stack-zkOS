@@ -11,7 +11,7 @@ use zk_ee::system::SystemTypes;
 pub type EthereumBlockMetadata = SystemMetadata<
     EthereumIOTypesConfig,
     HeaderAndHistory,
-    EthereumTransactionMetadata<{ MAX_BLOBS_IN_TX }>,
+    EthereumTransactionMetadata<{ MAX_BLOBS_PER_BLOCK }>,
     (),
 >;
 

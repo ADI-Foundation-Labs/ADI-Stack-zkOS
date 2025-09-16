@@ -325,7 +325,7 @@ where
                     system.finish_global_frame(Some(&main_body_rollback_handle))?;
                     (ExecutionResult::Revert { output: &[] }, None)
                 }
-                _ => return Err(e.into()),
+                _ => return Err(e),
             },
         };
         drop(main_body_rollback_handle);
@@ -435,6 +435,8 @@ where
         // use would be refunded based on potentially one gas price, and operator will be paid using different one. But those
         // changes are not "transfers" in nature
 
+        let mut inf_resources = S::Resources::FORMAL_INFINITE;
+
         assert!(
             context.gas_used <= context.tx_gas_limit,
             "gas limit is {}, but {} gas is reported as used",
@@ -453,18 +455,15 @@ where
             let refund = context.gas_price_for_metadata
                 * U256::from(context.tx_gas_limit - context.gas_used); // can not overflow
 
-            context
-                .resources
-                .main_resources
-                .with_infinite_ergs(|resources| {
-                    system.io.update_account_nominal_token_balance(
-                        ExecutionEnvironmentType::NoEE, // out of scope of other interactions
-                        resources,
-                        &receiver,
-                        &refund,
-                        false,
-                    )
-                })?;
+            inf_resources.with_infinite_ergs(|resources| {
+                system.io.update_account_nominal_token_balance(
+                    ExecutionEnvironmentType::NoEE, // out of scope of other interactions
+                    resources,
+                    &receiver,
+                    &refund,
+                    false,
+                )
+            })?;
         }
 
         assert!(context.gas_used > 0);
@@ -477,18 +476,15 @@ where
         let fee = context.gas_price_for_fee_commitment * U256::from(context.gas_used); // can not overflow
         let coinbase = system.get_coinbase();
 
-        context
-            .resources
-            .main_resources
-            .with_infinite_ergs(|resources| {
-                system.io.update_account_nominal_token_balance(
-                    ExecutionEnvironmentType::NoEE, // out of scope of other interactions
-                    resources,
-                    &coinbase,
-                    &fee,
-                    false,
-                )
-            })?;
+        inf_resources.with_infinite_ergs(|resources| {
+            system.io.update_account_nominal_token_balance(
+                ExecutionEnvironmentType::NoEE, // out of scope of other interactions
+                resources,
+                &coinbase,
+                &fee,
+                false,
+            )
+        })?;
 
         Ok(())
     }
@@ -500,7 +496,7 @@ where
         transaction: Self::Transaction<'_>,
         context: Self::TransactionContext,
         result: ExecutionResult<'a, S::IOTypes>,
-        transaciton_data_collector: &mut impl BlockTransactionsDataCollector<S, Self>,
+        transaction_data_collector: &mut impl BlockTransactionsDataCollector<S, Self>,
         _tracer: &mut impl Tracer<S>,
     ) -> Self::ExecutionResult<'a> {
         // Add back the intrinsic native charged in get_resources_for_tx,
@@ -526,7 +522,7 @@ where
             format!("Spent native for [process_transaction]: {computational_native_used}").as_str(),
         );
 
-        transaciton_data_collector.record_transaction_results(
+        transaction_data_collector.record_transaction_results(
             &*system,
             transaction,
             &context,
@@ -701,6 +697,7 @@ where
         let returndata_iter = return_values.returndata.iter().copied();
         let _ = system.get_logger().write_fmt(format_args!("Returndata = "));
         let _ = system.get_logger().log_data(returndata_iter);
+        let _ = system.get_logger().write_fmt(format_args!("\n"));
         let deployed_address = at
             .map(DeployedAddress::Address)
             .unwrap_or(DeployedAddress::RevertedNoAddress);

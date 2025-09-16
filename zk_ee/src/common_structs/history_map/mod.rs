@@ -258,13 +258,18 @@ where
         mut do_fn: F,
     ) -> Result<(), InternalError>
     where
-        F: FnMut(&K, (&mut HistoryRecord<V>, &mut KP)) -> Result<(), InternalError>,
+        F: FnMut(
+            &K,
+            (&HistoryRecord<V>, &mut HistoryRecord<V>),
+            &mut KP,
+        ) -> Result<(), InternalError>,
     {
         for (k, _v) in self.state.pending_updated_elements.iter() {
             let record = self.btree.get_mut(&k).unwrap();
-            let el = unsafe { record.head.as_mut() };
+            let initial = unsafe { record.initial.as_ref() };
+            let current = unsafe { record.head.as_mut() };
             let cache_appearance = &mut record.key_properties;
-            do_fn(k, (el, cache_appearance))?
+            do_fn(k, (initial, current), cache_appearance)?
         }
 
         Ok(())

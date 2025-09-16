@@ -9,20 +9,19 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         value: LeafValue<'a>,
         interner: &mut (impl Interner<'a> + 'a),
     ) -> Result<(), ()> {
-        self.remove_from_cache(&branch_node);
+        self.remove_from_cache(branch_node);
 
         let path_segment = interner.intern_slice(partial_path.remaining_path())?;
         let leaf_node = LeafNode {
+            cached_key: &[],
             path_segment,
             parent_node: branch_node,
-            raw_nibbles_encoding: &[], // it's a fresh one, so we do not benefit from it
             value,
         };
         let node = self.push_leaf(leaf_node);
 
         let parent_branch = &mut self.capacities.branch_nodes[branch_node.index()];
-        debug_assert!(parent_branch.child_nodes[branch_index].is_empty());
-        parent_branch.child_nodes[branch_index] = node;
+        parent_branch.attach(node, branch_index)?;
 
         Ok(())
     }
