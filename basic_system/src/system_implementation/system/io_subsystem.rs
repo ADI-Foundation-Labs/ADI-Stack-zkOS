@@ -644,6 +644,7 @@ where
             last_256_block_hashes_blake: blocks_hasher.finalize().into(),
             last_block_timestamp,
         };
+
         let _ = logger.write_fmt(format_args!(
             "PI calculation: state commitment before {:?}\n",
             chain_state_commitment_before
@@ -788,8 +789,9 @@ where
         current_block_hash: Bytes32,
         upgrade_tx_hash: Bytes32,
         builder: &mut crate::system_implementation::system::public_input::BatchPublicInputBuilder,
+        mut logger: impl Logger,
     ) -> O {
-        let (mut state_commitment, last_block_timestamp) = {
+        let (mut state_commitment, mut last_block_timestamp) = {
             let mut initialization_iterator = self
                 .oracle
                 .create_oracle_access_iterator::<ProofDataIterator>(())
@@ -808,6 +810,10 @@ where
             blocks_hasher.update(&block_hash.to_be_bytes::<32>());
         }
 
+        if block_metadata.block_number == 1 {
+            last_block_timestamp = 0;
+        }
+
         // chain state before
         let chain_state_commitment_before = ChainStateCommitment {
             state_root: state_commitment.root,
@@ -816,6 +822,12 @@ where
             last_256_block_hashes_blake: blocks_hasher.finalize().into(),
             last_block_timestamp,
         };
+        //let _ = L::default().write_fmt(format_args!("IO implementer init is complete"));
+
+        let _ = logger.write_fmt(format_args!(
+            "XXX calculation: state commitment before {:?}\n",
+            chain_state_commitment_before
+        ));
 
         builder
             .pubdata_hasher

@@ -222,6 +222,7 @@ pub fn run_proving_inner<
             current_block_hash,
             upgrade_tx_hash,
             &mut batch_pi_builder,
+            L::default(),
         );
         // we do this query for consistency with block based input generation(there is empty iterator as response to this query)
         // but during proving this request shouldn't have the effect with "u32 array based" oracle
