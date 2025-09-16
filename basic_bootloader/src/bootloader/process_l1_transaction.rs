@@ -294,7 +294,7 @@ where
             &mut inf_resources,
             tx_hash,
             success,
-            is_priority_op
+            is_priority_op,
         )?;
 
         // Add back the intrinsic native charged in get_resources_for_tx,
@@ -389,7 +389,7 @@ where
         )?;
         let reverted = result.failed();
         let return_values = result.return_values();
-        
+
         *resources = resources_returned;
         system.finish_global_frame(reverted.then_some(&rollback_handle))?;
 

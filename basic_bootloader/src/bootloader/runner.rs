@@ -279,9 +279,9 @@ impl<'external, S: EthereumLikeTypes> ExecutionContext<'_, 'external, S> {
 
         if is_call_to_special_address {
             let _ = self
-            .system
-            .get_logger()
-            .write_fmt(format_args!("External call to system special address\n",));
+                .system
+                .get_logger()
+                .write_fmt(format_args!("External call to system special address\n",));
             // The call is targeting the "system contract" space.
             self.call_to_special_address_execute_callee_frame(
                 external_call_launch_params,

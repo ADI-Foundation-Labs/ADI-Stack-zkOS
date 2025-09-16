@@ -2,11 +2,11 @@ use super::*;
 use crate::bootloader::block_flow::ethereum_block_flow::EthereumBlockMetadata;
 use crate::bootloader::block_flow::ethereum_block_flow::*;
 use crate::bootloader::errors::InvalidTransaction;
+use crate::bootloader::supported_ees::errors::EESubsystemError;
 use crate::bootloader::transaction::ethereum_tx_format::EthereumTransactionMetadata;
 use crate::bootloader::transaction::ethereum_tx_format::EthereumTransactionWithBuffer;
 use crate::bootloader::transaction_flow::BasicTransactionFlow;
 use crate::bootloader::BasicBootloader;
-use crate::bootloader::supported_ees::errors::EESubsystemError;
 use core::fmt::Write;
 use core::ptr::addr_of_mut;
 use crypto::MiniDigest;
@@ -700,7 +700,7 @@ where
         )?;
         let CompletedExecution {
             resources_returned,
-            result: deployment_result
+            result: deployment_result,
         } = final_state;
 
         let _ = system.get_logger().write_fmt(format_args!(

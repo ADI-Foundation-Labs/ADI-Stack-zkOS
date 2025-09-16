@@ -1,13 +1,12 @@
 use super::*;
 use crate::bootloader::errors::InvalidTransaction;
+use crate::bootloader::supported_ees::errors::EESubsystemError;
 use crate::bootloader::{transaction::ZkSyncTransaction, transaction_flow::BasicTransactionFlow};
 use crate::bootloader::{BasicBootloader, TxDataBuffer};
-use crate::bootloader::supported_ees::errors::EESubsystemError;
 use core::fmt::Write;
 use evm_interpreter::interpreter::CreateScheme;
 use ruint::aliases::B160;
 use ruint::aliases::U256;
-use zk_ee::{internal_error, wrap_error};
 use zk_ee::metadata_markers::basic_metadata::BasicMetadata;
 use zk_ee::metadata_markers::basic_metadata::ZkSpecificPricingMetadata;
 use zk_ee::out_of_native_resources;
@@ -20,6 +19,7 @@ use zk_ee::system::EthereumLikeTypes;
 use zk_ee::system::*;
 use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::utils::Bytes32;
+use zk_ee::{internal_error, wrap_error};
 
 pub struct ZkTransactionFlowOnlyEOA<S: EthereumLikeTypes> {
     _marker: core::marker::PhantomData<S>,
@@ -671,7 +671,7 @@ where
         )?;
         let CompletedExecution {
             resources_returned,
-            result: deployment_result
+            result: deployment_result,
         } = final_state;
 
         let _ = system.get_logger().write_fmt(format_args!(
