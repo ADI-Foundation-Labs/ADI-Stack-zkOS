@@ -12,7 +12,6 @@ use rig::alloy::rpc::types::{AccessList, AccessListItem, TransactionRequest};
 use rig::ethers::types::Address;
 use rig::ruint::aliases::{B160, U256};
 use rig::{alloy, ethers, zksync_web3_rs, Chain};
-use rig::alloy::const_hex::FromHex;
 use std::str::FromStr;
 use zksync_web3_rs::eip712::Eip712Meta;
 use zksync_web3_rs::eip712::PaymasterParams;
