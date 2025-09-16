@@ -38,7 +38,7 @@ where
 
         let block_number = system.get_block_number();
         let previous_block_hash = if block_number == 0 {
-            ruint::aliases::U256::ZERO
+            Bytes32::ZERO
         } else {
             system.get_blockhash(block_number - 1)
         };
