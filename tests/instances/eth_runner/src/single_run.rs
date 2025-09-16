@@ -333,6 +333,7 @@ pub fn single_eth_run<const PROOF_ENV: bool>(
     let account_diffs: Vec<AccountStateDiffs> = serde_json::from_reader(account_diffs_file)?;
 
     // let blobs_file = File::open(dir.join("blobs.json"))?;
+    //
     // let blobs: Vec<BlobTransactionQuasiSidecarItem> = serde_json::from_reader(blobs_file)?;
 
     // let blobs: Vec<BlobTransactionSidecarItem> = blobs
