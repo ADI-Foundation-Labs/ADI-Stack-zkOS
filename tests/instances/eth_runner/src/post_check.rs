@@ -384,6 +384,7 @@ pub fn post_check(
         account_diffs,
         published_preimages,
         pubdata,
+        computaional_native_used: _computaional_native_used,
     } = output;
 
     post_check_ext(
