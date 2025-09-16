@@ -315,11 +315,7 @@ impl<SC: StackCtor<N>, const N: usize, A: Allocator + Clone + Default> LogsStora
         pubdata_hasher: &mut impl MiniDigest,
     ) {
         let lfn = |_: &Bytes32| {};
-        self.apply_logs_to_pubdata_and_record_log_hashes(
-            results_keeper,
-            pubdata_hasher,
-            Some(lfn).take(), // otherwise type can not be deduced
-        )
+        self.apply_logs_to_pubdata_and_record_log_hashes(results_keeper, pubdata_hasher, Some(lfn))
     }
 
     // we use it for tests to generate single block batches
