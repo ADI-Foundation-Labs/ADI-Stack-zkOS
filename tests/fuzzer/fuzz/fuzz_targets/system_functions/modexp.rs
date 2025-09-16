@@ -111,12 +111,13 @@ fn fuzz(data: &[u8]) {
 struct DummyOracle {}
 
 impl zk_ee::system_io_oracle::IOOracle for DummyOracle {
-    type MarkerTiedIterator<'a> = Box<dyn ExactSizeIterator<Item = usize> + 'static>;
+    type RawIterator<'a> = Box<dyn ExactSizeIterator<Item = usize> + 'static>;
 
-    fn create_oracle_access_iterator<'a, M: zk_ee::system_io_oracle::OracleIteratorTypeMarker>(
+    fn raw_query<'a, I: zk_ee::kv_markers::UsizeSerializable + zk_ee::kv_markers::UsizeDeserializable>(
         &'a mut self,
-        _init_value: M::Params,
-    ) -> Result<Self::MarkerTiedIterator<'a>, zk_ee::system::errors::internal::InternalError> {
+        _query_type: u32,
+        _input: &I,
+    ) -> Result<Self::RawIterator<'a>, zk_ee::system::errors::internal::InternalError> {
         unreachable!("oracle should not be consulted on native targets");
     }
 }

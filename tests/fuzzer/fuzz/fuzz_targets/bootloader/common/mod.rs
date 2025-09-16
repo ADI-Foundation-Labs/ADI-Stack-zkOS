@@ -173,7 +173,7 @@ pub fn address_into_special_storage_key(address: &B160) -> Bytes32 {
 }
 
 #[allow(unused)]
-pub fn mock_oracle() -> ZkEENonDeterminismSource<DummyMemorySource> {
+pub fn mock_oracle() -> (zk_ee::system::metadata::Metadata, ZkEENonDeterminismSource<DummyMemorySource>) {
     let tree = InMemoryTree::<false> {
         storage_tree: TestingTree::new_in(Global),
         cold_storage: HashMap::new(),
@@ -187,16 +187,26 @@ pub fn mock_oracle() -> ZkEENonDeterminismSource<DummyMemorySource> {
         },
         last_block_timestamp: 0,
     });
-    forward_system::run::make_oracle_for_proofs_and_dumps_for_init_data(
-        BlockMetadataFromOracle::new_for_test(),
-        tree,
-        InMemoryPreimageSource {
-            inner: HashMap::new(),
-        },
-        TxListSource {
-            transactions: VecDeque::new(),
-        },
-        init_data,
+
+    let block_level_metadata = BlockMetadataFromOracle::new_for_test();
+
+    let mut system_metadata = zk_ee::system::metadata::Metadata::default();
+    system_metadata.block_level_metadata = block_level_metadata.clone();
+
+    (
+        system_metadata,
+        forward_system::run::make_oracle_for_proofs_and_dumps_for_init_data(
+            block_level_metadata,
+            tree,
+            InMemoryPreimageSource {
+                inner: HashMap::new(),
+            },
+            TxListSource {
+                transactions: VecDeque::new(),
+            },
+            init_data,
+            true
+        )
     )
 }
 
@@ -204,7 +214,7 @@ pub fn mock_oracle() -> ZkEENonDeterminismSource<DummyMemorySource> {
 pub fn mock_oracle_balance(
     address: B160,
     balance: U256,
-) -> ZkEENonDeterminismSource<DummyMemorySource> {
+) -> (zk_ee::system::metadata::Metadata, ZkEENonDeterminismSource<DummyMemorySource>) {
     let mut tree = InMemoryTree::<false> {
         storage_tree: TestingTree::new_in(Global),
         cold_storage: HashMap::new(),
@@ -236,14 +246,23 @@ pub fn mock_oracle_balance(
         },
         last_block_timestamp: 0,
     });
-    forward_system::run::make_oracle_for_proofs_and_dumps_for_init_data(
-        BlockMetadataFromOracle::new_for_test(),
-        tree,
-        preimage_source,
-        TxListSource {
-            transactions: VecDeque::new(),
-        },
-        init_data,
+
+    let block_level_metadata = BlockMetadataFromOracle::new_for_test();
+    let mut system_metadata = zk_ee::system::metadata::Metadata::default();
+    system_metadata.block_level_metadata = block_level_metadata.clone();
+
+    (
+        system_metadata,
+        forward_system::run::make_oracle_for_proofs_and_dumps_for_init_data(
+            block_level_metadata,
+            tree,
+            preimage_source,
+            TxListSource {
+                transactions: VecDeque::new(),
+            },
+            init_data,
+            true
+        )
     )
 }
 
