@@ -37,9 +37,8 @@ csv = "1.3"
 
 [features]
 simulate_witness_gen = ["rig/simulate_witness_gen"]
-# default = []
-# default = ["evm_replay"]
-default = ["evm_replay", "pectra"]
+default = []
+# default = ["evm_replay", "pectra"]
 risc_v_logs = []
 evm_replay = ["rig/prevrandao", "rig/unlimited_native", "rig/disable_system_contracts", "rig/evm_refunds", "rig/evm-compatibility"]
 pectra = ["rig/pectra"]
