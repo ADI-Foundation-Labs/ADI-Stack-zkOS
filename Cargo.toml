@@ -16,9 +16,9 @@ members = [
     "zksync_os_runner",
     "system_hooks",
     "supporting_crates/modexp",
-    "supporting_crates/keccak",
-    "supporting_crates/solidity_abi",
-    "supporting_crates/solidity_abi_derive",
+#    "supporting_crates/keccak",
+#    "supporting_crates/solidity_abi",
+#    "supporting_crates/solidity_abi_derive",
     "tests/rig",
     "tests/instances/transactions",
     "tests/instances/erc20",
@@ -32,8 +32,8 @@ members = [
     "tests/instances/header",
     "cycle_marker",
     "tests/binary_checker",
-    "supporting_crates/delegated_u256",
-    "supporting_crates/u256",
+#    "supporting_crates/delegated_u256",
+#    "supporting_crates/u256",
 ]
 
 exclude = [
