@@ -1,5 +1,6 @@
 [package]
 name = "zksync_os_crypto"
+description = "ZKsync OS cryptography"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

@@ -1,5 +1,6 @@
 [package]
 name = "zksync_os_forward_system"
+description = "ZKsync OS forward system"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true

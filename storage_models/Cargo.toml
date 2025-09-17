@@ -1,5 +1,6 @@
 [package]
 name = "zksync_os_storage_models"
+description = "ZKsync OS storage models"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
