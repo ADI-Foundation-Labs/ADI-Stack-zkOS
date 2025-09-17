@@ -8,6 +8,9 @@ permissions:
 # to release crates after a bugfix
 
 on:
+  push:
+    branches:
+      - di/publish-crates
   workflow_dispatch:
     inputs:
       run-build:
@@ -42,3 +45,4 @@ jobs:
           run_build: ${{ inputs.run-build }}
           run_tests: ${{ inputs.run-tests }}
           gh_token: ${{ secrets.GITHUB_TOKEN }}
+          dry_run: true
