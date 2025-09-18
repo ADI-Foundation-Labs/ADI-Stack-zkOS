@@ -1,5 +1,8 @@
 name: Publish crates
 
+permissions:
+  contents: read
+
 # Manual workflow to publish crates to crates.io
 # can be used in case of failed release-please workflow
 # to release crates after a bugfix
