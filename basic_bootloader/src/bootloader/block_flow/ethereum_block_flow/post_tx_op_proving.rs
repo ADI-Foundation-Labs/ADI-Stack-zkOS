@@ -39,12 +39,14 @@ where
     S::IO: IOSubsystemExt + IOTeardown<S::IOTypes, IOStateCommitment = Bytes32>,
 {
     type BlockData = EthereumBasicTransactionDataKeeper<S::Allocator, S::Allocator>;
+    type BatchData = ();
     type PostTxLoopOpResult = (O, Bytes32);
     type BlockHeader = PectraForkHeader;
 
     fn post_op(
         mut system: System<S>,
         block_data: Self::BlockData,
+        _batch_data: &mut Self::BatchData,
         result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig, BlockHeader = Self::BlockHeader>,
     ) -> Self::PostTxLoopOpResult {
         let _handle = system

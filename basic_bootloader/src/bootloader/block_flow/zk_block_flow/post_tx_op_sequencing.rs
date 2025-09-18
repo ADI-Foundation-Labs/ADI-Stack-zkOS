@@ -24,12 +24,14 @@ where
     S::IO: IOSubsystemExt + IOTeardown<S::IOTypes>,
 {
     type BlockData = ZKBasicTransactionDataKeeper;
+    type BatchData = ();
     type PostTxLoopOpResult = ();
     type BlockHeader = crate::bootloader::block_header::BlockHeader;
 
     fn post_op(
         system: System<S>,
         block_data: Self::BlockData,
+        _batch_data: &mut Self::BatchData,
         result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig, BlockHeader = Self::BlockHeader>,
     ) -> Self::PostTxLoopOpResult {
         // form block header

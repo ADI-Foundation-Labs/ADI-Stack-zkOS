@@ -10,6 +10,7 @@ where
     <Self as SystemTypes>::IO: IOSubsystemExt + IOTeardown<Self::IOTypes>,
 {
     type BlockDataKeeper;
+    type BatchDataKeeper;
     type BlockHeader: 'static + Sized;
     type MetadataOp: MetadataInitOp<Self>;
     type PostSystemInitOp: PostSystemInitOp<Self>;
@@ -18,6 +19,7 @@ where
     type PostTxLoopOp: PostTxLoopOp<
         Self,
         BlockData = Self::BlockDataKeeper,
+        BatchData = Self::BatchDataKeeper,
         BlockHeader = Self::BlockHeader,
     >;
 }

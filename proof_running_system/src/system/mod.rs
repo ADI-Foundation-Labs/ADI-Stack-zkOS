@@ -69,6 +69,7 @@ impl<O: IOOracle, L: Logger + Default> EthereumLikeTypes for ProofRunningSystemT
 
 impl<O: IOOracle, L: Logger + Default> BasicSTF for ProofRunningSystemTypes<O, L> {
     type BlockDataKeeper = ZKBasicTransactionDataKeeper;
+    type BatchDataKeeper = ();
     type BlockHeader = basic_bootloader::bootloader::block_header::BlockHeader;
     type MetadataOp = Metadata;
     type PostSystemInitOp = ZKHeaderPostInitOp;
@@ -119,6 +120,7 @@ impl<O: IOOracle, L: Logger + Default> EthereumLikeTypes
 impl<O: IOOracle, L: Logger + Default> BasicSTF for EthereumStorageSystemTypesWithPostOps<O, L> {
     type BlockDataKeeper =
         EthereumBasicTransactionDataKeeper<BootloaderAllocator, BootloaderAllocator>;
+    type BatchDataKeeper = ();
     type BlockHeader = PectraForkHeader;
     type MetadataOp = EthereumMetadataOp;
     type PostSystemInitOp = EthereumPostInitOp;

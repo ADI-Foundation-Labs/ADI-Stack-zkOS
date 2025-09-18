@@ -197,6 +197,7 @@ pub fn run_proving_inner<
     let (mut oracle, public_input) =
         ProvingBootloader::<O, L>::run::<BasicBootloaderProvingExecutionConfig>(
             oracle,
+            &mut (),
             &mut NopResultKeeper::default(),
             &mut NopTracer::default(),
         )

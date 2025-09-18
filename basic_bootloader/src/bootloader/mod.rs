@@ -177,6 +177,7 @@ where
     /// Run STF to completion assuming that STF has simple structure
     pub fn run<Config: BasicBootloaderExecutionConfig>(
         mut oracle: <S::IO as IOSubsystemExt>::IOOracle,
+        batch_data_keeper: &mut S::BatchDataKeeper,
         result_keeper: &mut impl ResultKeeperExt<S::IOTypes, BlockHeader = S::BlockHeader>,
         tracer: &mut impl Tracer<S>,
     ) -> Result<<S::PostTxLoopOp as PostTxLoopOp<S>>::PostTxLoopOpResult, BootloaderSubsystemError>
@@ -194,6 +195,7 @@ where
         let mut system: System<S> = System::init_from_metadata_and_oracle(metadata, oracle)?;
         let mut system_functions = HooksStorage::new_in(system.get_allocator());
 
+        // Post init-op
         <S::PostSystemInitOp as PostSystemInitOp<S>>::post_init_op::<Config>(
             &mut system,
             &mut system_functions,
@@ -228,7 +230,7 @@ where
 
         // Post-op
         let result =
-            <S::PostTxLoopOp as PostTxLoopOp<S>>::post_op(system, block_data_keeper, result_keeper);
+            <S::PostTxLoopOp as PostTxLoopOp<S>>::post_op(system, block_data_keeper, batch_data_keeper, result_keeper);
 
         Ok(result)
     }

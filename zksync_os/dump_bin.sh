@@ -21,10 +21,11 @@ done
 
 # Base features and output names
 FEATURES="proving"
-BIN_NAME="app.bin"
+BIN_NAME="app.bin" # TODO: default app.bin can be removed
 ELF_NAME="app.elf"
 TEXT_NAME="app.text"
 
+# TODO: we can remove no_print everywhere, except proving binary
 # Adjust for server modes
 case "$TYPE" in
   server)

@@ -1,3 +1,4 @@
+use zk_ee::metadata_markers::basic_metadata::BasicBlockMetadata;
 use super::*;
 
 impl<
@@ -24,12 +25,15 @@ where
     S::IO: IOSubsystemExt
         + IOTeardown<S::IOTypes, IOStateCommitment = FlatStorageCommitment<TREE_HEIGHT>>, // IOStateCommitment bound is trivial, most likely needed due to missing associated types equality feature in the current state of the compiler
 {
-    type BlockDataKeeper = ZKBasicBlockDataKeeper;
+    type BlockData = ZKBasicTransactionDataKeeper;
+    type BatchData = ();
     type PostTxLoopOpResult = (O, Bytes32);
+    type BlockHeader = crate::bootloader::block_header::BlockHeader;
 
     fn post_op(
         system: System<S>,
-        block_data: Self::BlockDataKeeper,
+        block_data: Self::BlockData,
+        _batch_data: &mut Self::BatchData,
         result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig>,
     ) -> Self::PostTxLoopOpResult {
         // form block header
@@ -42,7 +46,7 @@ where
 
         let block_number = system.get_block_number();
         let previous_block_hash = if block_number == 0 {
-            ruint::aliases::U256::ZERO
+            Bytes32::ZERO
         } else {
             system.get_blockhash(block_number - 1)
         };
@@ -51,7 +55,7 @@ where
         let gas_limit = system.get_gas_limit();
         // TODO: gas used shouldn't be zero
         let timestamp = system.get_timestamp();
-        let consensus_random = Bytes32::from_u256_be(&system.get_mix_hash());
+        let consensus_random = system.get_mix_hash();
         let base_fee_per_gas = system.get_eip1559_basefee();
         // TODO: add gas_per_pubdata and native price
 
@@ -61,7 +65,7 @@ where
         //     .try_into()
         //     .map_err(|_| internal_error!("base_fee_per_gas exceeds max u64"))?;
         let block_header = BlockHeader::new(
-            Bytes32::from(previous_block_hash.to_be_bytes::<32>()),
+            previous_block_hash,
             beneficiary,
             tx_rolling_hash,
             block_number,
@@ -103,8 +107,13 @@ where
         ));
 
         let mut blocks_hasher = crypto::blake2s::Blake2s256::new();
-        for block_hash in metadata.block_level_metadata.block_hashes.0.iter() {
-            blocks_hasher.update(&block_hash.to_be_bytes::<32>());
+        for depth in 0..256 {
+            blocks_hasher.update(
+                metadata
+                    .block_historical_hash(depth)
+                    .expect("must be known for such depth")
+                    .as_u8_ref(),
+            );
         }
 
         use basic_system::system_implementation::system::public_input::ChainStateCommitment;
@@ -113,7 +122,7 @@ where
         let chain_state_commitment_before = ChainStateCommitment {
             state_root: state_commitment.root,
             next_free_slot: state_commitment.next_free_slot,
-            block_number: metadata.block_level_metadata.block_number - 1,
+            block_number: metadata.block_number() - 1,
             last_256_block_hashes_blake: blocks_hasher.finalize().into(),
             last_block_timestamp,
         };
@@ -164,25 +173,34 @@ where
 
         // 3. Verify/apply reads and writes
         cycle_marker::wrap!("verify_and_apply_batch", {
-            IOTeardown::<_>::update_commitment(&mut io, Some(&mut state_commitment), &mut logger);
+            IOTeardown::<_>::update_commitment(&mut io, Some(&mut state_commitment), &mut logger, result_keeper);
         });
 
         let mut blocks_hasher = crypto::blake2s::Blake2s256::new();
-        for block_hash in metadata.block_level_metadata.block_hashes.0.iter().skip(1) {
-            blocks_hasher.update(&block_hash.to_be_bytes::<32>());
+        blocks_hasher.update(current_block_hash.as_u8_ref());
+        for depth in 0..255 {
+            blocks_hasher.update(
+                metadata
+                    .block_historical_hash(depth)
+                    .expect("must be known for such depth")
+                    .as_u8_ref(),
+            );
         }
         blocks_hasher.update(current_block_hash.as_u8_ref());
 
         // validate that timestamp didn't decrease
-        assert!(metadata.block_level_metadata.timestamp >= last_block_timestamp);
+        assert!(metadata.block_timestamp() >= last_block_timestamp);
+
+        let block_number = metadata.block_number();
+        let block_timestamp = metadata.block_timestamp();
 
         // chain state after
         let chain_state_commitment_after = ChainStateCommitment {
             state_root: state_commitment.root,
             next_free_slot: state_commitment.next_free_slot,
-            block_number: metadata.block_level_metadata.block_number,
+            block_number,
             last_256_block_hashes_blake: blocks_hasher.finalize().into(),
-            last_block_timestamp: metadata.block_level_metadata.timestamp,
+            last_block_timestamp: block_timestamp,
         };
         let _ = logger.write_fmt(format_args!(
             "PI calculation: state commitment after {:?}\n",
@@ -200,9 +218,9 @@ where
         use basic_system::system_implementation::system::public_input::BatchOutput;
 
         let batch_output = BatchOutput {
-            chain_id: U256::try_from(metadata.block_level_metadata.chain_id).unwrap(),
-            first_block_timestamp: metadata.block_level_metadata.timestamp,
-            last_block_timestamp: metadata.block_level_metadata.timestamp,
+            chain_id: U256::from(metadata.chain_id()),
+            first_block_timestamp: block_timestamp,
+            last_block_timestamp: block_timestamp,
             used_l2_da_validator_address: ruint::aliases::B160::ZERO,
             pubdata_commitment: da_commitment.into(),
             number_of_layer_1_txs: U256::try_from(l1_txs_commitment.0).unwrap(),

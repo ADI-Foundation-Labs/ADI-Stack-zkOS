@@ -38,12 +38,14 @@ where
     S::IO: IOSubsystemExt + IOTeardown<S::IOTypes, IOStateCommitment = Bytes32>,
 {
     type BlockData = EthereumBasicTransactionDataKeeper<S::Allocator, S::Allocator>;
+    type BatchData = ();
     type PostTxLoopOpResult = ();
     type BlockHeader = PectraForkHeader;
 
     fn post_op(
         mut system: System<S>,
         _block_data: Self::BlockData,
+        _batch_data: &mut Self::BatchData,
         result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig, BlockHeader = Self::BlockHeader>,
     ) -> Self::PostTxLoopOpResult {
         // apply withdrawals
