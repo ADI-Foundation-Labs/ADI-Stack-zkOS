@@ -10,28 +10,27 @@ use zk_ee::metadata_markers::basic_metadata::ZkSpecificPricingMetadata;
 use zk_ee::system::*;
 use zk_ee::utils::Bytes32;
 
+///
+/// Transaction data keeper used to collect information during tx execution to later be used during post-op.
+/// It has generic enforced(l1) txs hashes accumulator, as it needs to be different for different post-ops(sequencing, proving aggregation, proving batch, etc).
+///
 #[derive(Debug)]
-pub struct ZKBasicTransactionDataKeeper {
+pub struct ZKBasicTransactionDataKeeper<EA: EnforcedTxHashesAccumulator> {
     pub current_transaction_number: u32,
-    pub transaction_hashes_accumulator: RollingKeccakHash,
-    pub enforced_transaction_hashes_accumulator: AccumulatingBlake2sHash,
+    pub transaction_hashes_accumulator: RollingKeccakHashWithCount,
+    pub enforced_transaction_hashes_accumulator: EA,
     pub upgrade_tx_recorder: UpgradeTx,
     pub block_gas_used: u64,
     pub block_pubdata_used: u64,
     pub block_computational_native_used: u64,
 }
 
-impl ZKBasicTransactionDataKeeper {
+impl<EA: EnforcedTxHashesAccumulator> ZKBasicTransactionDataKeeper<EA> {
     pub fn new() -> Self {
         Self {
             current_transaction_number: 0,
-            transaction_hashes_accumulator: RollingKeccakHash {
-                inner: Bytes32::ZERO,
-                hasher: crypto::sha3::Keccak256::new(),
-            },
-            enforced_transaction_hashes_accumulator: AccumulatingBlake2sHash {
-                hasher: crypto::blake2s::Blake2s256::new(),
-            },
+            transaction_hashes_accumulator: RollingKeccakHashWithCount::empty(),
+            enforced_transaction_hashes_accumulator: EA::empty(),
             upgrade_tx_recorder: UpgradeTx {
                 inner: Bytes32::ZERO,
             },
@@ -42,8 +41,8 @@ impl ZKBasicTransactionDataKeeper {
     }
 }
 
-impl<S: EthereumLikeTypes> BlockTransactionsDataCollector<S, ZkTransactionFlowOnlyEOA<S>>
-    for ZKBasicTransactionDataKeeper
+impl<S: EthereumLikeTypes, EA: EnforcedTxHashesAccumulator> BlockTransactionsDataCollector<S, ZkTransactionFlowOnlyEOA<S>>
+    for ZKBasicTransactionDataKeeper<EA>
 where
     S::IO: IOSubsystemExt,
     S::Metadata: ZkSpecificPricingMetadata,
@@ -60,14 +59,53 @@ where
     }
 }
 
-#[derive(Debug)]
-pub struct RollingKeccakHash {
-    inner: Bytes32,
-    hasher: crypto::sha3::Keccak256,
+pub trait EnforcedTxHashesAccumulator: core::fmt::Debug {
+    fn empty() -> Self;
+    fn add_tx_hash(&mut self, tx_hash: &Bytes32);
+
+    fn finish(self) -> Bytes32;
 }
 
-impl RollingKeccakHash {
-    pub fn add_tx_hash(&mut self, tx_hash: &Bytes32) {
+#[derive(Debug)]
+pub struct NopTxHashesAccumulator;
+
+impl EnforcedTxHashesAccumulator for NopTxHashesAccumulator {
+    fn empty() -> Self {
+        Self
+    }
+
+    fn add_tx_hash(&mut self, _tx_hash: &Bytes32) {}
+
+    fn finish(self) -> Bytes32 {
+        Bytes32::ZERO
+    }
+}
+
+impl EnforcedTxHashesAccumulator for () {
+    fn empty() -> Self { () }
+
+    fn add_tx_hash(&mut self, _tx_hash: &Bytes32) {}
+
+    fn finish(self) -> Bytes32 { Bytes32::ZERO }
+}
+
+#[derive(Debug)]
+pub struct RollingKeccakHashWithCount {
+    inner: Bytes32,
+    hasher: crypto::sha3::Keccak256,
+    pub count: u32,
+}
+
+impl EnforcedTxHashesAccumulator for RollingKeccakHashWithCount {
+    fn empty() -> Self {
+        Self {
+            inner: Bytes32::ZERO,
+            hasher: crypto::sha3::Keccak256::new(),
+            count: 0,
+        }
+    }
+
+    fn add_tx_hash(&mut self, tx_hash: &Bytes32) {
         if self.inner.is_zero() {
             self.inner = *tx_hash;
         } else {
@@ -79,7 +117,7 @@ impl RollingKeccakHash {
         }
     }
 
-    pub fn finish(self) -> Bytes32 {
+    fn finish(self) -> Bytes32 {
         self.inner
     }
 }
@@ -89,12 +127,18 @@ pub struct AccumulatingBlake2sHash {
     hasher: crypto::blake2s::Blake2s256,
 }
 
-impl AccumulatingBlake2sHash {
-    pub fn add_tx_hash(&mut self, tx_hash: &Bytes32) {
+impl EnforcedTxHashesAccumulator for AccumulatingBlake2sHash {
+    fn empty() -> Self {
+        Self {
+            hasher: crypto::blake2s::Blake2s256::new(),
+        }
+    }
+
+    fn add_tx_hash(&mut self, tx_hash: &Bytes32) {
         self.hasher.update(tx_hash.as_u8_array_ref());
     }
 
-    pub fn finish(self) -> Bytes32 {
+    fn finish(self) -> Bytes32 {
         Bytes32::from_array(self.hasher.finalize())
     }
 }

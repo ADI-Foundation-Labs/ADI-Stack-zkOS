@@ -3,19 +3,21 @@ use crate::bootloader::block_flow::tx_loop::TxLoopOp;
 use zk_ee::metadata_markers::basic_metadata::BasicMetadata;
 use zk_ee::metadata_markers::basic_metadata::ZkSpecificPricingMetadata;
 
-impl<S: EthereumLikeTypes> TxLoopOp<S> for ZKHeaderStructureTxLoop
+impl<S: EthereumLikeTypes, BlockEA: EnforcedTxHashesAccumulator, BatchEA: EnforcedTxHashesAccumulator> TxLoopOp<S> for ZKHeaderStructureTxLoop<BlockEA, BatchEA>
 where
     S::IO: IOSubsystemExt + IOTeardown<EthereumIOTypesConfig>,
     S::Metadata: ZkSpecificPricingMetadata,
     <S::Metadata as BasicMetadata<S::IOTypes>>::TransactionMetadata: From<(B160, U256)>,
 {
-    type BlockData = ZKBasicTransactionDataKeeper;
+    type BlockData = ZKBasicTransactionDataKeeper<BlockEA>;
+    type BatchData = BatchEA;
 
     fn loop_op<'a, Config: BasicBootloaderExecutionConfig>(
         system: &mut System<S>,
         system_functions: &mut HooksStorage<S, S::Allocator>,
         mut memories: RunnerMemoryBuffers<'a>,
         block_data: &mut Self::BlockData,
+        batch_data: &mut Self::BatchData,
         result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig>,
         tracer: &mut impl Tracer<S>,
     ) -> Result<(), BootloaderSubsystemError> {
@@ -137,6 +139,8 @@ where
                         if tx_processing_result.is_l1_tx {
                             block_data
                                 .enforced_transaction_hashes_accumulator
+                                .add_tx_hash(&tx_processing_result.tx_hash);
+                            batch_data
                                 .add_tx_hash(&tx_processing_result.tx_hash);
                         }
                         if tx_processing_result.is_upgrade_tx {

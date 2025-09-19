@@ -34,6 +34,7 @@ impl<SR: StateRootView<EthereumIOTypesConfig>> SimpleOracleQuery
 
 pub struct TransactionNatureQuery;
 
+// TODO: id?
 impl SimpleOracleQuery for TransactionNatureQuery {
     const QUERY_ID: u32 = INITIAL_STORAGE_SLOT_VALUE_QUERY_ID;
     type Input = ();

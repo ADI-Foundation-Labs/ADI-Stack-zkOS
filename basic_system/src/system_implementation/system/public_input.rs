@@ -1,14 +1,19 @@
+use arrayvec::ArrayVec;
 use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
 use ruint::aliases::{B160, U256};
+use zk_ee::system::logger::Logger;
 use zk_ee::utils::Bytes32;
 
 ///
-/// Chain state commitment should commit to everything needed for trustless execution:
-/// - state_root
+/// Commitment to state that we need to keep between blocks execution:
+/// - state commitment(`state_root` and `next_free_slot`)
 /// - block number
 /// - last 256 block hashes, previous can be "unrolled" from the last, but we commit to 256 for optimization.
 /// - last block timestamp, to ensure that block timestamps are not decreasing.
+///
+/// This commitment(hash of its fields) will be saved on the settlement layer.
+/// With proofs, we'll ensure that the values used during block execution correspond to this commitment.
 ///
 #[derive(Debug)]
 pub struct ChainStateCommitment {
@@ -23,7 +28,7 @@ impl ChainStateCommitment {
     ///
     /// Calculate blake2s hash of chain state commitment.
     ///
-    /// We are using proving friendly blake2s because this commitment will be generated during proving,
+    /// We are using proving friendly blake2s because this commitment will be generated and opened during proving,
     /// but we don't need to open it on the settlement layer.
     ///
     pub fn hash(&self) -> [u8; 32] {
@@ -161,6 +166,11 @@ impl BatchOutput {
     }
 }
 
+///
+/// Batch commitment used to prove a full batch,
+/// unlike blocks public input it commits to outputs in a way needed for settlement on the SL,
+/// e.g. keccak256 instead of blake2s, l2 logs tree root, needed pubdata commitment, etc.
+///
 #[derive(Debug)]
 pub struct BatchPublicInput {
     /// State commitment before the batch.

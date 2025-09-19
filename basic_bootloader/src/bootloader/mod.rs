@@ -222,6 +222,7 @@ where
             &mut system_functions,
             memories,
             &mut block_data_keeper,
+            batch_data_keeper,
             result_keeper,
             tracer,
         )?;

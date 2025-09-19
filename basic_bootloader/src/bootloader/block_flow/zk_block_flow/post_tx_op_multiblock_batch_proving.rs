@@ -1,5 +1,6 @@
-use super::*;
 use zk_ee::metadata_markers::basic_metadata::BasicBlockMetadata;
+use crate::bootloader::block_flow::zk_block_flow::batch_pi_builder::BatchPublicInputBuilder;
+use super::*;
 
 impl<
         A: Allocator + Clone + Default,
@@ -20,25 +21,25 @@ impl<
                 true,
             >,
         >,
-    > PostTxLoopOp<S> for ZKHeaderStructurePostTxOp<true>
+    > PostTxLoopOp<S> for ZKHeaderStructurePostTxOpProvingMultiblockBatch
 where
     S::IO: IOSubsystemExt
         + IOTeardown<S::IOTypes, IOStateCommitment = FlatStorageCommitment<TREE_HEIGHT>>, // IOStateCommitment bound is trivial, most likely needed due to missing associated types equality feature in the current state of the compiler
 {
-    type BlockData = ZKBasicTransactionDataKeeper;
-    type BatchData = ();
-    type PostTxLoopOpResult = (O, Bytes32);
+    type BlockData = ZKBasicTransactionDataKeeper<NopTxHashesAccumulator>;
+    type BatchData = BatchPublicInputBuilder;
+    type PostTxLoopOpResult = O;
     type BlockHeader = crate::bootloader::block_header::BlockHeader;
 
     fn post_op(
         system: System<S>,
         block_data: Self::BlockData,
-        _batch_data: &mut Self::BatchData,
-        result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig, BlockHeader = Self::BlockHeader>,
+        batch_data: &mut Self::BatchData,
+        result_keeper: &mut impl ResultKeeperExt<EthereumIOTypesConfig>,
     ) -> Self::PostTxLoopOpResult {
         // form block header
         let tx_rolling_hash = block_data.transaction_hashes_accumulator.finish();
-        let l1_to_l2_tx_hash = block_data.enforced_transaction_hashes_accumulator.finish();
+
         let upgrade_tx_hash = block_data.upgrade_tx_recorder.finish();
         let block_gas_used = block_data.block_gas_used;
 
@@ -124,10 +125,14 @@ where
             last_256_block_hashes_blake: blocks_hasher.finalize().into(),
             last_block_timestamp,
         };
+        let _ = logger.write_fmt(format_args!(
+            "PI calculation: state commitment before {:?}\n",
+            chain_state_commitment_before
+        ));
 
-        let mut pubdata_hasher = crypto::blake2s::Blake2s256::new();
+        batch_data.pubdata_hasher.update(current_block_hash.as_u8_ref());
+
         result_keeper.pubdata(current_block_hash.as_u8_ref());
-        pubdata_hasher.update(current_block_hash.as_u8_ref());
 
         // Storage
 
@@ -145,20 +150,22 @@ where
 
         // 2. Commit to/return compressed pubdata
         io.storage
-            .apply_storage_diffs_pubdata(result_keeper, &mut pubdata_hasher, &mut io.oracle);
+            .apply_storage_diffs_pubdata(result_keeper, &mut batch_data.pubdata_hasher, &mut io.oracle);
 
         // Logs pubdata
-        let mut l2_to_l1_logs_hasher = crypto::blake2s::Blake2s256::new();
-        let log_record_fn = |log_hash: &Bytes32| {
-            l2_to_l1_logs_hasher.update(log_hash.as_u8_ref());
-        };
         // use concrete type as it's non-trivial
-        io.logs_storage.apply_logs_to_pubdata_and_record_log_hashes(
-            result_keeper,
-            &mut pubdata_hasher,
-            Some(log_record_fn),
-        );
+        let log_record_fn = |log_hash: &Bytes32| {
+            batch_data.logs_storage.try_push(*log_hash).unwrap;
+        };
+        io.logs_storage
+            .apply_logs_to_pubdata_and_record_log_hashes(
+                result_keeper,
+                &mut batch_data.pubdata_hasher,
+                Some(log_record_fn)
+            )
+            .apply_logs_to_pubdata(result_keeper, );
         // Logs themselves
+        // TODO: why messages?
         result_keeper.logs(io.logs_storage.messages_ref_iter());
 
         // Events - no pubdata
@@ -166,16 +173,8 @@ where
 
         // 3. Verify/apply reads and writes
         cycle_marker::wrap!("verify_and_apply_batch", {
-            IOTeardown::<_>::update_commitment(
-                &mut io,
-                Some(&mut state_commitment),
-                &mut logger,
-                result_keeper,
-            );
+            IOTeardown::<_>::update_commitment(&mut io, Some(&mut state_commitment), &mut logger, result_keeper);
         });
-
-        let pubdata_hash = pubdata_hasher.finalize();
-        let l2_to_l1_logs_hashes_hash = l2_to_l1_logs_hasher.finalize();
 
         let mut blocks_hasher = crypto::blake2s::Blake2s256::new();
         blocks_hasher.update(current_block_hash.as_u8_ref());
@@ -187,6 +186,7 @@ where
                     .as_u8_ref(),
             );
         }
+        blocks_hasher.update(current_block_hash.as_u8_ref());
 
         // validate that timestamp didn't decrease
         assert!(metadata.block_timestamp() >= last_block_timestamp);
@@ -202,28 +202,19 @@ where
             last_256_block_hashes_blake: blocks_hasher.finalize().into(),
             last_block_timestamp: block_timestamp,
         };
+        let _ = logger.write_fmt(format_args!(
+            "PI calculation: state commitment after {:?}\n",
+            chain_state_commitment_after
+        ));
 
-        use basic_system::system_implementation::system::public_input::BlocksOutput;
-
-        // other outputs to be opened on the settlement layer/aggregation program
-        let block_output = BlocksOutput {
-            chain_id: U256::from(metadata.chain_id()),
-            first_block_timestamp: block_timestamp,
-            last_block_timestamp: block_timestamp,
-            pubdata_hash: pubdata_hash.into(),
-            priority_ops_hashes_hash: l1_to_l2_tx_hash,
-            l2_to_l1_logs_hashes_hash: l2_to_l1_logs_hashes_hash.into(),
+        batch_data.apply_block(
+            chain_state_commitment_before.hash().into(),
+            chain_state_commitment_after.hash().into(),
+            block_timestamp,
+            U256::from(metadata.chain_id()),
             upgrade_tx_hash,
-        };
+        );
 
-        use basic_system::system_implementation::system::public_input::BlocksPublicInput;
-
-        let public_input = BlocksPublicInput {
-            state_before: chain_state_commitment_before.hash().into(),
-            state_after: chain_state_commitment_after.hash().into(),
-            blocks_output: block_output.hash().into(),
-        };
-
-        (io.oracle, public_input.hash().into())
+        io.oracle
     }
 }

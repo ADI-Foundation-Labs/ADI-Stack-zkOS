@@ -452,29 +452,6 @@ impl<SC: StackCtor<N>, const N: usize, A: Allocator + Clone + Default> LogsStora
             EMPTY_HASHES[14].into()
         }
     }
-
-    // we use it for tests to generate single block batches
-    pub fn l1_txs_commitment(&self) -> (u32, Bytes32) {
-        let mut count = 0u32;
-        // keccak256([])
-        let mut rolling_hash = Bytes32::from([
-            0xc5, 0xd2, 0x46, 0x01, 0x86, 0xf7, 0x23, 0x3c, 0x92, 0x7e, 0x7d, 0xb2, 0xdc, 0xc7,
-            0x03, 0xc0, 0xe5, 0x00, 0xb6, 0x53, 0xca, 0x82, 0x27, 0x3b, 0x7b, 0xfa, 0xd8, 0x04,
-            0x5d, 0x85, 0xa4, 0x70,
-        ]);
-        for log in self.list.iter() {
-            if let GenericLogContentData::L1TxLog(l1_tx) = &log.data {
-                if l1_tx.is_priority {
-                    count += 1;
-                    let mut hasher = Keccak256::new();
-                    hasher.update(rolling_hash.as_u8_ref());
-                    hasher.update(l1_tx.tx_hash.as_u8_ref());
-                    rolling_hash = hasher.finalize().into();
-                }
-            }
-        }
-        (count, rolling_hash)
-    }
 }
 
 impl L2ToL1Log {

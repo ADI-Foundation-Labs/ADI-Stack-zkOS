@@ -19,11 +19,11 @@ impl<
                 false,
             >,
         >,
-    > PostTxLoopOp<S> for ZKHeaderStructurePostTxOp<false>
+    > PostTxLoopOp<S> for ZKHeaderStructurePostTxOpSequencing
 where
     S::IO: IOSubsystemExt + IOTeardown<S::IOTypes>,
 {
-    type BlockData = ZKBasicTransactionDataKeeper;
+    type BlockData = ZKBasicTransactionDataKeeper<NopTxHashesAccumulator>;
     type BatchData = ();
     type PostTxLoopOpResult = ();
     type BlockHeader = crate::bootloader::block_header::BlockHeader;

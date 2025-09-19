@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use super::*;
 use crate::bootloader::block_flow::post_tx_loop_op::PostTxLoopOp;
 use basic_system::system_implementation::cache_structs::storage_values::StorageAccessPolicy;
@@ -9,10 +10,13 @@ use zk_ee::system_io_oracle::IOOracle;
 use zk_ee::types_config::*;
 
 #[cfg(not(feature = "wrap-in-batch"))]
-mod post_tx_op_proving;
+mod post_tx_op_aggregation_proving;
 
 #[cfg(feature = "wrap-in-batch")]
 mod post_tx_op_batch_proving;
+
+#[cfg(feature = "multiblock-batch")]
+mod post_tx_op_multiblock_batch_proving;
 
 mod block_data;
 mod metadata_op;
@@ -20,16 +24,31 @@ mod post_init_op;
 mod post_tx_op_sequencing;
 mod pre_tx_loop;
 mod tx_loop;
+mod batch_pi_builder;
 
 pub use self::block_data::*;
 
 pub struct ZKHeaderPostInitOp;
 
-pub struct ZKHeaderStructurePreTxOp;
+pub struct ZKHeaderStructurePreTxOp<EA: EnforcedTxHashesAccumulator> {
+    _marker: PhantomData<EA>
+}
 
-pub struct ZKHeaderStructureTxLoop;
+pub struct ZKHeaderStructureTxLoop<BlockEA: EnforcedTxHashesAccumulator, BatchEA: EnforcedTxHashesAccumulator> {
+    _marker: PhantomData<BlockEA>,
+    _marker2: PhantomData<BatchEA>,
+}
 
-pub struct ZKHeaderStructurePostTxOp<const PROOF_ENV: bool>;
+/// ZK header sequencing post tx op (generates block header, returns outputs)
+pub struct ZKHeaderStructurePostTxOpSequencing;
+
+/// ZK header proving post tx op for aggregation (generates intermediate aggregation friendly PI, to be wrapper in batch later)
+pub struct ZKHeaderStructurePostTxOpProvingAggregation;
+
+/// ZK header proving post tx op for aggregation (generates signle block batch commitment)
+pub struct ZKHeaderStructurePostTxOpProvingBatch;
+/// ZK header proving post tx op for aggregation (applies block data into accumulator passed from outside, to later form multiblock batch)
+pub struct ZKHeaderStructurePostTxOpProvingMultiblockBatch;
 
 /// Check if the transaction made the block reach any of the limits
 /// for gas, native, pubdata or logs.
