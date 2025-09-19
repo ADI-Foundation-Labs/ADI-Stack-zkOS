@@ -237,7 +237,7 @@ impl<
         at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         bytecode: &[u8],
         oracle: &mut impl IOOracle,
-    ) -> Result<&'static [u8], SystemError> {
+    ) -> Result<(&'static [u8], zk_ee::utils::Bytes32, u32), SystemError> {
         self.account_cache.deploy_code::<PROOF_ENV>(
             from_ee,
             resources,
