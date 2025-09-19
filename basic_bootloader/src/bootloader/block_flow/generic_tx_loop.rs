@@ -25,16 +25,14 @@ where
     let mut inter_tx_scratch = F::create_tx_loop_scratch_space(system);
 
     // now we can run every transaction
-    while let Some(r) = { 
-        F::try_begin_next_tx(system, &mut inter_tx_scratch)
-     } {
+    while let Some(r) = { F::try_begin_next_tx(system, &mut inter_tx_scratch) } {
         match r {
             Err(err) => {
                 let _ = system.get_logger().write_fmt(format_args!(
                     "Failure while reading tx {tx_counter} from oracle: decoding error = {err:?}\n",
                 ));
                 result_keeper.tx_processed(Err(InvalidTransaction::InvalidEncoding));
-            },
+            }
             Ok(next_tx_buffer) => {
                 // warm up the coinbase formally
                 {

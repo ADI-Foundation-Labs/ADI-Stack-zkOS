@@ -149,14 +149,13 @@ where
         system: &'_ mut System<S>,
         scratch_space: &'a mut Self::ScratchSpace,
     ) -> Option<Result<Self::TransactionBuffer<'a>, NextTxSubsystemError>> {
-        let tx_length_in_bytes = match system.try_begin_next_tx(&mut scratch_space.into_writable()) {
-            Some(r) => {
-                match r {
-                    Ok(tx_length_in_bytes) => tx_length_in_bytes,
-                    Err(e) => return Some(Err(e.into()))
-                }
+        let tx_length_in_bytes = match system.try_begin_next_tx(&mut scratch_space.into_writable())
+        {
+            Some(r) => match r {
+                Ok(tx_length_in_bytes) => tx_length_in_bytes,
+                Err(e) => return Some(Err(e.into())),
             },
-            None => return None
+            None => return None,
         };
         let initial_calldata_buffer = scratch_space.as_tx_buffer(tx_length_in_bytes);
 

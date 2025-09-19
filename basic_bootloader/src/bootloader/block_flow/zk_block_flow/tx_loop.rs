@@ -29,8 +29,7 @@ where
         // now we can run every transaction
         while let Some(r) = {
             let mut writable = initial_calldata_buffer.into_writable();
-            system
-                .try_begin_next_tx(&mut writable)
+            system.try_begin_next_tx(&mut writable)
         } {
             match r {
                 Err(err) => {
@@ -55,7 +54,8 @@ where
                     }
 
                     let mut logger: <S as SystemTypes>::Logger = system.get_logger();
-                    let _ = logger.write_fmt(format_args!("====================================\n"));
+                    let _ =
+                        logger.write_fmt(format_args!("====================================\n"));
                     let _ = logger.write_fmt(format_args!(
                         "TX execution begins for transaction {}\n",
                         tx_counter
@@ -137,15 +137,16 @@ where
                                 // Finish the frame opened before processing the tx
                                 system.finish_global_frame(None)?;
 
-                                let (status, output, contract_address) = match tx_processing_result.result {
-                                    ExecutionResult::Success { output } => match output {
-                                        ExecutionOutput::Call(output) => (true, output, None),
-                                        ExecutionOutput::Create(output, contract_address) => {
-                                            (true, output, Some(contract_address))
-                                        }
-                                    },
-                                    ExecutionResult::Revert { output } => (false, output, None),
-                                };
+                                let (status, output, contract_address) =
+                                    match tx_processing_result.result {
+                                        ExecutionResult::Success { output } => match output {
+                                            ExecutionOutput::Call(output) => (true, output, None),
+                                            ExecutionOutput::Create(output, contract_address) => {
+                                                (true, output, Some(contract_address))
+                                            }
+                                        },
+                                        ExecutionResult::Revert { output } => (false, output, None),
+                                    };
 
                                 block_data
                                     .transaction_hashes_accumulator
@@ -182,8 +183,9 @@ where
                         "TX execution ends for transaction {}\n",
                         tx_counter
                     ));
-                    let _ = logger.write_fmt(format_args!("====================================\n"));
-        
+                    let _ =
+                        logger.write_fmt(format_args!("====================================\n"));
+
                     tx_counter += 1;
                 }
             }

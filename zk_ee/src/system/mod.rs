@@ -268,16 +268,14 @@ where
         &mut self,
         tx_write_iter: &mut impl crate::oracle::SafeUsizeWritable,
     ) -> Option<Result<usize, NextTxSubsystemError>> {
-        let next_tx_len_bytes = match self.io.oracle().try_begin_next_tx(){
-            Ok(maybe_next_len) => {
-                match maybe_next_len {
-                    None => return None,
-                    Some(size) => size.get() as usize,
-                }
+        let next_tx_len_bytes = match self.io.oracle().try_begin_next_tx() {
+            Ok(maybe_next_len) => match maybe_next_len {
+                None => return None,
+                Some(size) => size.get() as usize,
             },
             Err(e) => return Some(Err(e.into())),
         };
-        
+
         // Check to avoid usize overflow in 32-bit target.
         // The maximum allowed length is u32::MAX - 3, as it is
         // the last multiple of 4 (u32 byte size). Any value larger than that
@@ -296,10 +294,11 @@ where
         let tx_iterator = match self
             .io
             .oracle()
-            .raw_query_with_empty_input(TX_DATA_WORDS_QUERY_ID) {
-                Ok(res) => res,
-                Err(e) => return Some(Err(e.into())),
-            };
+            .raw_query_with_empty_input(TX_DATA_WORDS_QUERY_ID)
+        {
+            Ok(res) => res,
+            Err(e) => return Some(Err(e.into())),
+        };
         if tx_iterator.len() != next_tx_len_usize_words {
             return Some(Err(interface_error!(
                 crate::system::NextTxInterfaceError::TxIteratorLengthMismatch
