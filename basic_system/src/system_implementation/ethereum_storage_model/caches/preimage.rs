@@ -144,6 +144,10 @@ impl<R: Resources, A: Allocator + Clone> SnapshottableIo for BytecodeKeccakPreim
 
     fn begin_new_tx(&mut self) {}
 
+    fn finish_tx(&mut self) -> Result<(), InternalError> {
+        Ok(())
+    }
+
     fn start_frame(&mut self) -> Self::StateSnapshot {
         NopSnapshotId::new()
     }
