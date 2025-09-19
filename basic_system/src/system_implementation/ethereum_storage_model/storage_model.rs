@@ -11,6 +11,7 @@ use crate::system_implementation::ethereum_storage_model::caches::preimage::Byte
 use crate::system_implementation::ethereum_storage_model::persist_changes::EthereumStoragePersister;
 use core::alloc::Allocator;
 use ruint::aliases::B160;
+use ruint::aliases::U256;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::StorageCacheModel;
 use storage_models::common_structs::StorageModel;
@@ -286,7 +287,7 @@ impl<
         nominal_token_beneficiary: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         oracle: &mut impl IOOracle,
         in_constructor: bool,
-    ) -> Result<(), DeconstructionSubsystemError> {
+    ) -> Result<U256, DeconstructionSubsystemError> {
         self.account_cache.mark_for_deconstruction::<PROOF_ENV>(
             from_ee,
             resources,
