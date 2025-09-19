@@ -3,8 +3,7 @@ use super::transaction::ZkSyncTransaction;
 use super::*;
 use crate::bootloader::config::BasicBootloaderExecutionConfig;
 use crate::bootloader::constants::UPGRADE_TX_NATIVE_PER_GAS;
-use crate::bootloader::errors::TxError::Validation;
-use crate::bootloader::errors::{InvalidTransaction, TxError};
+use crate::bootloader::errors::TxError;
 use crate::bootloader::runner::RunnerMemoryBuffers;
 pub use crate::bootloader::zk::ZkTxResult as TxProcessingResult;
 use crate::require_internal;
@@ -243,7 +242,7 @@ where
             ExecutionResult::Revert { .. } => {
                 // Upgrade transactions must always succeed
                 if !is_priority_op {
-                    return Err(Validation(InvalidTransaction::UpgradeTxFailed));
+                    return Err(internal_error!("Upgrade transaction must succeed").into());
                 }
                 // If the transaction reverts, then minting the msg.value to the
                 // user has been reverted as well, so we can simply mint everything

@@ -101,9 +101,9 @@ where
                     // Do not update the accumulators yet, we may need to revert the transaction
                     let next_block_gas_used =
                         block_data.block_gas_used + tx_processing_result.gas_used;
-                    let next_block_computational_native_used =
-                        block_data.block_computational_native_used
-                            + tx_processing_result.computational_native_used;
+                    let next_block_computational_native_used = block_data
+                        .block_computational_native_used
+                        + tx_processing_result.computational_native_used;
                     let next_block_pubdata_used =
                         block_data.block_pubdata_used + tx_processing_result.pubdata_used;
                     let block_logs_used = system.io.signals_iterator().len();

@@ -67,9 +67,13 @@ impl crate::PurePrecompileInvocation for Bls12381PairingCheckPrecompile {
 
         use crypto::ark_ff::Field;
         if pairing_result.0 == <Bls12_381 as Pairing>::TargetField::ONE {
-            output.try_extend([1u8]).map_err(|_| out_of_return_memory!())?;
+            output
+                .try_extend([1u8])
+                .map_err(|_| out_of_return_memory!())?;
         } else {
-            output.try_extend([0u8]).map_err(|_| out_of_return_memory!())?;
+            output
+                .try_extend([0u8])
+                .map_err(|_| out_of_return_memory!())?;
         }
 
         Ok(())

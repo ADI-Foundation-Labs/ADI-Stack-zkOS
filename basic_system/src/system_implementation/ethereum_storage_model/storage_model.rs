@@ -504,7 +504,7 @@ impl<
         self.account_cache.begin_new_tx();
     }
 
-    fn finish_tx(&mut self) ->  Result<(), InternalError>{
+    fn finish_tx(&mut self) -> Result<(), InternalError> {
         self.account_cache.finish_tx(&mut self.storage_cache);
         self.storage_cache.finish_tx();
         Ok(())

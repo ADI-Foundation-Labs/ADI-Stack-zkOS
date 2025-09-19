@@ -695,7 +695,7 @@ where
             "Resources to refund = {resources_returned:?}\n",
         ));
         context.resources.main_resources.reclaim(resources_returned);
-        
+
         // Do not forget to reassign it back after potential copy when finishing frame
         system.finish_global_frame(reverted.then_some(&rollback_handle))?;
 
