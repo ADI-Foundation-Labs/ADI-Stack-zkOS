@@ -1,9 +1,9 @@
-use core::marker::PhantomData;
 use super::*;
 use crate::bootloader::block_flow::post_tx_loop_op::PostTxLoopOp;
 use basic_system::system_implementation::cache_structs::storage_values::StorageAccessPolicy;
 use basic_system::system_implementation::flat_storage_model::*;
 use basic_system::system_implementation::system::BasicStorageModel;
+use core::marker::PhantomData;
 use zk_ee::common_structs::WarmStorageKey;
 use zk_ee::memory::stack_trait::StackCtor;
 use zk_ee::system_io_oracle::IOOracle;
@@ -17,24 +17,27 @@ mod post_tx_op_aggregation_proving;
 #[cfg(feature = "multiblock-batch")]
 mod post_tx_op_multiblock_batch_proving;
 
+mod batch_pi_builder;
 mod block_data;
 mod metadata_op;
 mod post_init_op;
 mod post_tx_op_sequencing;
 mod pre_tx_loop;
 mod tx_loop;
-mod batch_pi_builder;
 
-pub use self::block_data::*;
 pub use self::batch_pi_builder::*;
+pub use self::block_data::*;
 
 pub struct ZKHeaderPostInitOp;
 
 pub struct ZKHeaderStructurePreTxOp<EA: EnforcedTxHashesAccumulator> {
-    _marker: PhantomData<EA>
+    _marker: PhantomData<EA>,
 }
 
-pub struct ZKHeaderStructureTxLoop<BlockEA: EnforcedTxHashesAccumulator, BatchEA: EnforcedTxHashesAccumulator> {
+pub struct ZKHeaderStructureTxLoop<
+    BlockEA: EnforcedTxHashesAccumulator,
+    BatchEA: EnforcedTxHashesAccumulator,
+> {
     _marker: PhantomData<BlockEA>,
     _marker2: PhantomData<BatchEA>,
 }

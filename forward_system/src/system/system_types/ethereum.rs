@@ -36,6 +36,7 @@ impl<O: IOOracle> EthereumLikeTypes for EthereumStorageSystemTypes<O> {}
 
 impl<O: IOOracle> BasicSTF for EthereumStorageSystemTypes<O> {
     type BlockDataKeeper = EthereumBasicTransactionDataKeeper<Global, Global>;
+    type BatchDataKeeper = ();
     type BlockHeader = PectraForkHeader;
     type MetadataOp = EthereumMetadataOp;
     type PostSystemInitOp = EthereumPostInitOp;
@@ -80,6 +81,7 @@ impl<O: IOOracle> EthereumLikeTypes for EthereumStorageSystemTypesWithPostOps<O>
 
 impl<O: IOOracle> BasicSTF for EthereumStorageSystemTypesWithPostOps<O> {
     type BlockDataKeeper = EthereumBasicTransactionDataKeeper<Global, Global>;
+    type BatchDataKeeper = ();
     type BlockHeader = PectraForkHeader;
     type MetadataOp = EthereumMetadataOp;
     type PostSystemInitOp = EthereumPostInitOp;

@@ -1,11 +1,11 @@
+use crate::bootloader::block_flow::{EnforcedTxHashesAccumulator, RollingKeccakHashWithCount};
 use arrayvec::ArrayVec;
-use ruint::aliases::U256;
 use basic_system::system_implementation::system::{BatchOutput, BatchPublicInput};
-use crypto::MiniDigest;
 use crypto::sha3::Keccak256;
+use crypto::MiniDigest;
+use ruint::aliases::U256;
 use zk_ee::system::logger::Logger;
 use zk_ee::utils::Bytes32;
-use crate::bootloader::block_flow::{EnforcedTxHashesAccumulator, RollingKeccakHashWithCount};
 
 ///
 /// Batch PI builder, it allows to apply blocks info to persist data needed for the batch PI and at the end create it.
@@ -100,6 +100,7 @@ impl BatchPublicInputBuilder {
             priority_operations_hash: self.enfoced_txs_commitment.finish(),
             l2_logs_tree_root: full_l2_to_l1_logs_root.into(),
             upgrade_tx_hash: self.upgrade_tx_hash.unwrap(),
+            interop_root_rolling_hash: Bytes32::from([0u8; 32]), // for now no interop roots
         };
         let public_input = BatchPublicInput {
             state_before: self.initial_state_commitment.unwrap(),

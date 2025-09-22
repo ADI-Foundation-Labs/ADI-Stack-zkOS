@@ -227,17 +227,15 @@ pub fn run_proving_inner<
     I::csr_write_impl(0xdeadbeef);
     I::csr_write_impl(0);
     let count = I::csr_read_impl();
-    let mut batch_pi_builder =
-        BatchPublicInputBuilder::new();
+    let mut batch_pi_builder = BatchPublicInputBuilder::new();
     for _ in 0..count {
-        oracle =
-            ProvingBootloader::<O, L>::run::<BasicBootloaderProvingExecutionConfig>(
-                oracle,
-                &mut batch_pi_builder,
-                &mut NopResultKeeper::default(),
-                &mut NopTracer::default(),
-            )
-                .expect("Tried to prove a failing batch");
+        oracle = ProvingBootloader::<O, L>::run::<BasicBootloaderProvingExecutionConfig>(
+            oracle,
+            &mut batch_pi_builder,
+            &mut NopResultKeeper::default(),
+            &mut NopTracer::default(),
+        )
+        .expect("Tried to prove a failing batch");
         // we do this query for consistency with block based input generation(there is empty iterator as response to this query)
         // but during proving this request shouldn't have the effect with "u32 array based" oracle
         #[allow(unused_must_use)]
@@ -246,7 +244,8 @@ pub fn run_proving_inner<
             .expect("must disconnect an oracle before performing arbitrary CSR access");
     }
 
-    let public_input = zk_ee::utils::Bytes32::from_array(batch_pi_builder.into_public_input(L::default()).hash());
+    let public_input =
+        zk_ee::utils::Bytes32::from_array(batch_pi_builder.into_public_input(L::default()).hash());
 
     unsafe { core::mem::transmute(public_input) }
 }

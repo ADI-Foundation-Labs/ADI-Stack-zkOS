@@ -19,7 +19,7 @@ pub fn run_forward<Config: BasicBootloaderExecutionConfig>(
     >,
     tracer: &mut impl Tracer<ForwardRunningSystem>,
 ) {
-    if let Err(err) = ForwardBootloader::run::<Config>(oracle, result_keeper, tracer) {
+    if let Err(err) = ForwardBootloader::run::<Config>(oracle, &mut (), result_keeper, tracer) {
         panic!("Forward run failed with: {err}")
     };
 }

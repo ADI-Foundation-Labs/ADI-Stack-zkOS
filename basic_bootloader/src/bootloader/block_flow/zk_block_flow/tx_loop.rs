@@ -3,7 +3,11 @@ use crate::bootloader::block_flow::tx_loop::TxLoopOp;
 use zk_ee::metadata_markers::basic_metadata::BasicMetadata;
 use zk_ee::metadata_markers::basic_metadata::ZkSpecificPricingMetadata;
 
-impl<S: EthereumLikeTypes, BlockEA: EnforcedTxHashesAccumulator, BatchEA: EnforcedTxHashesAccumulator> TxLoopOp<S> for ZKHeaderStructureTxLoop<BlockEA, BatchEA>
+impl<
+        S: EthereumLikeTypes,
+        BlockEA: EnforcedTxHashesAccumulator,
+        BatchEA: EnforcedTxHashesAccumulator,
+    > TxLoopOp<S> for ZKHeaderStructureTxLoop<BlockEA, BatchEA>
 where
     S::IO: IOSubsystemExt + IOTeardown<EthereumIOTypesConfig>,
     S::Metadata: ZkSpecificPricingMetadata,

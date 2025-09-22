@@ -230,8 +230,12 @@ where
         // whatever the non-persistent data was there, it's now gone
 
         // Post-op
-        let result =
-            <S::PostTxLoopOp as PostTxLoopOp<S>>::post_op(system, block_data_keeper, batch_data_keeper, result_keeper);
+        let result = <S::PostTxLoopOp as PostTxLoopOp<S>>::post_op(
+            system,
+            block_data_keeper,
+            batch_data_keeper,
+            result_keeper,
+        );
 
         Ok(result)
     }

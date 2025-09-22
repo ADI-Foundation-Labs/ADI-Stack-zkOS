@@ -1,6 +1,6 @@
-use zk_ee::metadata_markers::basic_metadata::BasicBlockMetadata;
-use crate::bootloader::block_flow::zk_block_flow::batch_pi_builder::BatchPublicInputBuilder;
 use super::*;
+use crate::bootloader::block_flow::zk_block_flow::batch_pi_builder::BatchPublicInputBuilder;
+use zk_ee::metadata_markers::basic_metadata::BasicBlockMetadata;
 
 impl<
         A: Allocator + Clone + Default,
@@ -130,7 +130,9 @@ where
             chain_state_commitment_before
         ));
 
-        batch_data.pubdata_hasher.update(current_block_hash.as_u8_ref());
+        batch_data
+            .pubdata_hasher
+            .update(current_block_hash.as_u8_ref());
 
         result_keeper.pubdata(current_block_hash.as_u8_ref());
 
@@ -149,20 +151,22 @@ where
         }));
 
         // 2. Commit to/return compressed pubdata
-        io.storage
-            .apply_storage_diffs_pubdata(result_keeper, &mut batch_data.pubdata_hasher, &mut io.oracle);
+        io.storage.apply_storage_diffs_pubdata(
+            result_keeper,
+            &mut batch_data.pubdata_hasher,
+            &mut io.oracle,
+        );
 
         // Logs pubdata
         // use concrete type as it's non-trivial
         let log_record_fn = |log_hash: &Bytes32| {
             batch_data.logs_storage.try_push(*log_hash).unwrap();
         };
-        io.logs_storage
-            .apply_logs_to_pubdata_and_record_log_hashes(
-                result_keeper,
-                &mut batch_data.pubdata_hasher,
-                Some(log_record_fn)
-            );
+        io.logs_storage.apply_logs_to_pubdata_and_record_log_hashes(
+            result_keeper,
+            &mut batch_data.pubdata_hasher,
+            Some(log_record_fn),
+        );
         // Logs themselves
         // TODO: why messages?
         result_keeper.logs(io.logs_storage.messages_ref_iter());
@@ -172,7 +176,12 @@ where
 
         // 3. Verify/apply reads and writes
         cycle_marker::wrap!("verify_and_apply_batch", {
-            IOTeardown::<_>::update_commitment(&mut io, Some(&mut state_commitment), &mut logger, result_keeper);
+            IOTeardown::<_>::update_commitment(
+                &mut io,
+                Some(&mut state_commitment),
+                &mut logger,
+                result_keeper,
+            );
         });
 
         let mut blocks_hasher = crypto::blake2s::Blake2s256::new();

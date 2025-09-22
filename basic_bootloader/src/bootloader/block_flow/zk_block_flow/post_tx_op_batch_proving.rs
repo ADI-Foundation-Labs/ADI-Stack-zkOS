@@ -1,5 +1,5 @@
-use zk_ee::metadata_markers::basic_metadata::BasicBlockMetadata;
 use super::*;
+use zk_ee::metadata_markers::basic_metadata::BasicBlockMetadata;
 
 impl<
         A: Allocator + Clone + Default,
@@ -172,7 +172,12 @@ where
 
         // 3. Verify/apply reads and writes
         cycle_marker::wrap!("verify_and_apply_batch", {
-            IOTeardown::<_>::update_commitment(&mut io, Some(&mut state_commitment), &mut logger, result_keeper);
+            IOTeardown::<_>::update_commitment(
+                &mut io,
+                Some(&mut state_commitment),
+                &mut logger,
+                result_keeper,
+            );
         });
 
         let mut blocks_hasher = crypto::blake2s::Blake2s256::new();

@@ -41,7 +41,8 @@ impl<EA: EnforcedTxHashesAccumulator> ZKBasicTransactionDataKeeper<EA> {
     }
 }
 
-impl<S: EthereumLikeTypes, EA: EnforcedTxHashesAccumulator> BlockTransactionsDataCollector<S, ZkTransactionFlowOnlyEOA<S>>
+impl<S: EthereumLikeTypes, EA: EnforcedTxHashesAccumulator>
+    BlockTransactionsDataCollector<S, ZkTransactionFlowOnlyEOA<S>>
     for ZKBasicTransactionDataKeeper<EA>
 where
     S::IO: IOSubsystemExt,
@@ -82,11 +83,15 @@ impl EnforcedTxHashesAccumulator for NopTxHashesAccumulator {
 }
 
 impl EnforcedTxHashesAccumulator for () {
-    fn empty() -> Self { () }
+    fn empty() -> Self {
+        ()
+    }
 
     fn add_tx_hash(&mut self, _tx_hash: &Bytes32) {}
 
-    fn finish(self) -> Bytes32 { Bytes32::ZERO }
+    fn finish(self) -> Bytes32 {
+        Bytes32::ZERO
+    }
 }
 
 #[derive(Debug)]

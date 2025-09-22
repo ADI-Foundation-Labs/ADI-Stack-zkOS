@@ -17,7 +17,11 @@ where
     type MetadataOp: MetadataInitOp<Self>;
     type PostSystemInitOp: PostSystemInitOp<Self>;
     type PreTxLoopOp: PreTxLoopOp<Self, PreTxLoopResult = Self::BlockDataKeeper>;
-    type TxLoopOp: TxLoopOp<Self, BlockData = Self::BlockDataKeeper, BatchData = Self::BatchDataKeeper>;
+    type TxLoopOp: TxLoopOp<
+        Self,
+        BlockData = Self::BlockDataKeeper,
+        BatchData = Self::BatchDataKeeper,
+    >;
     type PostTxLoopOp: PostTxLoopOp<
         Self,
         BlockData = Self::BlockDataKeeper,
