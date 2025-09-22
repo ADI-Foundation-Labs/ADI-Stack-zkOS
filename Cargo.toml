@@ -32,6 +32,7 @@ members = [
     "tests/instances/eth_runner",
     "tests/instances/system_hooks",
     "tests/instances/header",
+    "tests/instances/multiblock_batch",
     "tests/binary_checker",
     "zksync_os_runner",
 ]

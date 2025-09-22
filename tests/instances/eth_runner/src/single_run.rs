@@ -52,7 +52,7 @@ fn run<const RANDOMIZED: bool>(
     #[cfg(not(feature = "risc_v_logs"))]
     const BIN_NAME: &str = "evm_replay";
 
-    let (output, stats) = chain.run_block_with_extra_stats(
+    let (output, stats, _) = chain.run_block_with_extra_stats(
         transactions,
         Some(block_context),
         None,
