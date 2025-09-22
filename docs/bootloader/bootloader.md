@@ -17,8 +17,7 @@ This component is, as the name suggest, the entrypoint of the system. The functi
 
 The bootloader can be configured with the following parameters (found in the [`BasicBootloaderExecutionConfig`](../../basic_bootloader/src/bootloader/mod.rs) struct):
 
-- `ONLY_SIMULATE`: skips the [validation](./transaction_processing.md#validation) step when processing a transaction. Used for call simulation in the node.
-- `AA_ENABLED`: whether native account abstraction is enabled.
+- `SIMULATION`: skips the [validation](./transaction_processing.md#validation) step when processing a transaction. Used for call simulation in the node.
 
 In addition, the `basic_bootloader` crate has the following compilation flags:
 

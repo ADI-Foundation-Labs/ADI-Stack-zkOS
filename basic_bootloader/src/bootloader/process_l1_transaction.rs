@@ -60,7 +60,7 @@ where
         // For L1->L2 txs, we use a constant native price to avoid censorship.
         let native_price = L1_TX_NATIVE_PRICE;
         let native_per_gas = if is_priority_op {
-            if Config::ONLY_SIMULATE {
+            if Config::SIMULATION {
                 U256::from(SIMULATION_NATIVE_PER_GAS)
             } else {
                 U256::from(gas_price).div_ceil(native_price)

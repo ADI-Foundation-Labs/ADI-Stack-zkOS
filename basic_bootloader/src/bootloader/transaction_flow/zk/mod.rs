@@ -360,7 +360,7 @@ where
             .main_resources
             .reclaim_withheld(context.resources.withheld.take());
 
-        if Config::ONLY_SIMULATE {
+        if Config::SIMULATION {
             let min_gas_used = context.minimal_ergs_to_charge.0 / ERGS_PER_GAS;
             // Compute gas used following the same logic as in normal execution
             // TODO: remove when simulation flow runs validation

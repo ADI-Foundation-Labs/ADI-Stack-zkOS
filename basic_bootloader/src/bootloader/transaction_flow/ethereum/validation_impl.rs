@@ -10,6 +10,7 @@ use crate::bootloader::transaction::ethereum_tx_format::{
 use crate::bootloader::BasicBootloaderExecutionConfig;
 use crate::bootloader::Bytes32;
 use crate::require;
+use basic_system::cost_constants::{ECRECOVER_COST_ERGS, ECRECOVER_NATIVE_COST};
 use core::alloc::Allocator;
 use core::fmt::Write;
 use core::u64;
@@ -536,7 +537,20 @@ where
     }
 
     // We need sender before any IO
-    if Config::ONLY_SIMULATE == false {
+    if !Config::VALIDATE_EOA_SIGNATURE | Config::SIMULATION {
+        // Even if we don't validate a signature, we still need to charge for ecrecover for equivalent behavior
+        tx_resources
+            .main_resources
+            .charge(&Resources::from_ergs_and_native(
+                ECRECOVER_COST_ERGS,
+                <<S as SystemTypes>::Resources as Resources>::Native::from_computational(
+                    ECRECOVER_NATIVE_COST,
+                ),
+            ))?;
+
+        // Ask oracle
+        todo!();
+    } else {
         transaction.recover_signer(|tx| {
             let signed_hash = tx.hash_for_signature_verification();
             let (parity, r, s) = tx.sig_parity_r_s();
@@ -573,9 +587,6 @@ where
 
             Ok(recovered_from)
         })?;
-    } else {
-        // Ask oracle
-        todo!();
     }
 
     // any IO starts here
