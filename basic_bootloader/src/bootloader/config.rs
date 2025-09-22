@@ -42,7 +42,7 @@ pub struct BasicBootloaderForwardETHLikeConfig;
 
 impl BasicBootloaderExecutionConfig for BasicBootloaderForwardETHLikeConfig {
     const SIMULATION: bool = false;
-    // Optimization for our sequencer
-    const VALIDATE_EOA_SIGNATURE: bool = false;
+    // Eth STF isn't ready for production
+    const VALIDATE_EOA_SIGNATURE: bool = true;
     const SKIP_NATIVE_RESOURCES: bool = true;
 }
