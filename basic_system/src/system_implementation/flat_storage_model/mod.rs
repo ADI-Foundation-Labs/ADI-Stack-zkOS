@@ -104,10 +104,6 @@ impl<
     type IOTypes = EthereumIOTypesConfig;
     type InitData = P;
 
-    fn finish_tx(&mut self) -> Result<(), zk_ee::system::errors::internal::InternalError> {
-        self.account_data_cache.finish_tx(&mut self.storage_cache)
-    }
-
     fn construct(init_data: Self::InitData, allocator: Self::Allocator) -> Self {
         let resources_policy = init_data;
         let storage_cache = NewStorageWithAccountPropertiesUnderHash::<A, SC, N, R, P>(
@@ -274,7 +270,14 @@ impl<
         at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         bytecode: &[u8],
         oracle: &mut impl IOOracle,
-    ) -> Result<&'static [u8], SystemError> {
+    ) -> Result<
+        (
+            &'static [u8],
+            <Self::IOTypes as SystemIOTypesConfig>::BytecodeHashValue,
+            u32,
+        ),
+        SystemError,
+    > {
         self.account_data_cache.deploy_code::<PROOF_ENV>(
             from_ee,
             resources,
@@ -338,7 +341,10 @@ impl<
         nominal_token_beneficiary: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         oracle: &mut impl IOOracle,
         in_constructor: bool,
-    ) -> Result<(), DeconstructionSubsystemError> {
+    ) -> Result<
+        <Self::IOTypes as SystemIOTypesConfig>::NominalTokenValue,
+        DeconstructionSubsystemError,
+    > {
         self.account_data_cache
             .mark_for_deconstruction::<PROOF_ENV>(
                 from_ee,
@@ -562,6 +568,12 @@ impl<
         self.account_data_cache.begin_new_tx();
     }
 
+    fn finish_tx(&mut self) -> Result<(), zk_ee::system::errors::internal::InternalError> {
+        self.account_data_cache.finish_tx(&mut self.storage_cache)?;
+        self.storage_cache.finish_tx()?;
+        self.preimages_cache.finish_tx()
+    }
+
     fn start_frame(&mut self) -> Self::StateSnapshot {
         let storage_handle = self.storage_cache.start_frame();
         let preimages_handle = self.preimages_cache.start_frame();
@@ -617,6 +629,11 @@ impl<
             .0
             .cache
             .apply_to_all_updated_elements::<_, ()>(|l, r, k| {
+                // Skip on empty diff
+                if l.value() == r.value() {
+                    return Ok(());
+                }
+
                 // TODO(EVM-1074): use tree index instead of key for repeated writes
                 let derived_key = derive_flat_storage_key_with_hasher(
                     &k.address,
@@ -625,10 +642,6 @@ impl<
                 );
                 pubdata_hasher.update(derived_key.as_u8_ref());
                 result_keeper.pubdata(derived_key.as_u8_ref());
-
-                if l.value() == r.value() {
-                    return Ok(());
-                }
 
                 // we publish preimages for account details
                 if k.address == ACCOUNT_PROPERTIES_STORAGE_ADDRESS {

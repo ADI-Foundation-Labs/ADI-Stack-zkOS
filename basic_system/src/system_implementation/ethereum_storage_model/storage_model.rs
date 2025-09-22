@@ -11,6 +11,7 @@ use crate::system_implementation::ethereum_storage_model::caches::preimage::Byte
 use crate::system_implementation::ethereum_storage_model::persist_changes::EthereumStoragePersister;
 use core::alloc::Allocator;
 use ruint::aliases::B160;
+use ruint::aliases::U256;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::StorageCacheModel;
 use storage_models::common_structs::StorageModel;
@@ -73,10 +74,6 @@ impl<
 
     type IOTypes = EthereumIOTypesConfig;
     type InitData = P;
-
-    fn finish_tx(&mut self) -> Result<(), zk_ee::system::errors::internal::InternalError> {
-        self.account_cache.finish_tx(&mut self.storage_cache)
-    }
 
     fn construct(init_data: Self::InitData, allocator: Self::Allocator) -> Self {
         let resources_policy = init_data;
@@ -240,7 +237,7 @@ impl<
         at_address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         bytecode: &[u8],
         oracle: &mut impl IOOracle,
-    ) -> Result<&'static [u8], SystemError> {
+    ) -> Result<(&'static [u8], zk_ee::utils::Bytes32, u32), SystemError> {
         self.account_cache.deploy_code::<PROOF_ENV>(
             from_ee,
             resources,
@@ -290,7 +287,7 @@ impl<
         nominal_token_beneficiary: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         oracle: &mut impl IOOracle,
         in_constructor: bool,
-    ) -> Result<(), DeconstructionSubsystemError> {
+    ) -> Result<U256, DeconstructionSubsystemError> {
         self.account_cache.mark_for_deconstruction::<PROOF_ENV>(
             from_ee,
             resources,
@@ -505,6 +502,12 @@ impl<
         self.storage_cache.begin_new_tx();
         self.preimages_cache.begin_new_tx();
         self.account_cache.begin_new_tx();
+    }
+
+    fn finish_tx(&mut self) -> Result<(), InternalError> {
+        self.account_cache.finish_tx(&mut self.storage_cache);
+        self.storage_cache.finish_tx();
+        Ok(())
     }
 
     fn start_frame(&mut self) -> Self::StateSnapshot {

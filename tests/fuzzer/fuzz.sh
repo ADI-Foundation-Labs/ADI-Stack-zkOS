@@ -256,6 +256,8 @@ function smoke() {
     parse_args "$@"
 
     timeout="${timeout:-60}"
+    jobs="${jobs:-8}"
+
     FUZZ_TARGETS=(
         "bootloader_run_single_interaction"
         "bootloader_supported_ees"
@@ -265,6 +267,13 @@ function smoke() {
         "precompiles_ecpairing"
         "precompiles_ecrecover"
         "precompiles_modexp"
+        "precompiles_modexplen"
+        "precompiles_ripemd160"
+        "precompiles_sha256"
+        "precompiles_id"
+        "precompiles_ecadd"
+        "precompiles_ecmul"
+        "precompiles_p256"
     )
 
     for TARGET in "${FUZZ_TARGETS[@]}"; do
@@ -272,7 +281,7 @@ function smoke() {
         echo "Running fuzz target: $TARGET"
         echo "Duration: $timeout seconds"
         echo "============================================"
-        cargo fuzz run -D "$TARGET" -- -max_total_time="$timeout" -rss_limit_mb=8192 -close_fd_mask=3
+        cargo fuzz run -D "$TARGET" -- -max_total_time="$timeout" -jobs="$jobs" -rss_limit_mb=8192 -close_fd_mask=3
         exit_code=$?
         if [ $exit_code -eq 0 ]; then
           echo "$TARGET: finished fuzz target"

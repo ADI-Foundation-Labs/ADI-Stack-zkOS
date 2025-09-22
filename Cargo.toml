@@ -31,6 +31,7 @@ members = [
     "tests/instances/unit",
     "tests/instances/eth_runner",
     "tests/instances/system_hooks",
+    "tests/instances/header",
     "tests/binary_checker",
     "zksync_os_runner",
 ]
@@ -84,6 +85,7 @@ common_constants = { git = "https://github.com/matter-labs/zksync-airbender", br
 ruint = { version = "1.16", default-features = false }
 arrayvec = { version = "0.7", default-features = false }
 serde = { version = "1", default-features = false }
+prover = { git = "https://github.com/matter-labs/zksync-airbender", branch = "dev" }
 
 # [profile.dev]
 # opt-level = 0

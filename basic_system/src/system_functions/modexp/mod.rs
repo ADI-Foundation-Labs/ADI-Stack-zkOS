@@ -4,6 +4,7 @@ use crate::cost_constants::{MODEXP_MINIMAL_COST_ERGS, MODEXP_WORST_CASE_NATIVE_P
 use alloc::vec::Vec;
 use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::U256;
+use zk_ee::common_traits::TryExtend;
 use zk_ee::system::logger::Logger;
 use zk_ee::system::SystemFunctionExt;
 use zk_ee::system_io_oracle::IOOracle;
@@ -53,7 +54,7 @@ impl<R: Resources> SystemFunctionExt<R, ModExpErrors> for ModExpImpl {
     fn execute<
         O: IOOracle,
         L: Logger,
-        D: Extend<u8> + ?Sized,
+        D: TryExtend<u8> + ?Sized,
         A: core::alloc::Allocator + Clone,
     >(
         input: &[u8],
@@ -72,7 +73,9 @@ impl<R: Resources> SystemFunctionExt<R, ModExpErrors> for ModExpImpl {
 /// Get resources from ergs, with native being ergs * constant
 fn resources_from_ergs<R: Resources>(ergs: Ergs) -> R {
     let native = <R::Native as Computational>::from_computational(
-        ergs.0.saturating_mul(MODEXP_WORST_CASE_NATIVE_PER_GAS),
+        ergs.0
+            .saturating_div(ERGS_PER_GAS)
+            .saturating_mul(MODEXP_WORST_CASE_NATIVE_PER_GAS),
     );
     R::from_ergs_and_native(ergs, native)
 }
@@ -94,7 +97,7 @@ fn read_padded(dst: &mut Vec<u8, impl Allocator>, src: &mut &[u8], provided_len:
 fn modexp_as_system_function_inner<
     O: IOOracle,
     L: Logger,
-    D: ?Sized + Extend<u8>,
+    D: ?Sized + TryExtend<u8>,
     A: Allocator + Clone,
     R: Resources,
 >(
@@ -186,7 +189,8 @@ fn modexp_as_system_function_inner<
 
     // Check if we have enough gas.
     let ergs = ergs_cost(base_len as u64, exp_len as u64, mod_len as u64, &exp_highp)?;
-    resources.charge(&resources_from_ergs::<R>(ergs))?;
+    let native = native_cost::<R>(base_len as u64, exp_len as u64, mod_len as u64, &exp_highp)?;
+    resources.charge(&R::from_ergs_and_native(ergs, native))?;
 
     let mut base = Vec::try_with_capacity_in(base_len, allocator.clone())
         .map_err(|_| SystemError::LeafDefect(internal_error!("alloc")))?;
@@ -226,9 +230,11 @@ fn modexp_as_system_function_inner<
 
     if output.len() >= mod_len {
         // truncate
-        dst.extend(output[(output.len() - mod_len)..].iter().copied());
+        dst.try_extend(output[(output.len() - mod_len)..].iter().copied())
+            .map_err(|_| out_of_ergs_error!())?;
     } else {
-        dst.extend(core::iter::repeat_n(0, mod_len - output.len()).chain(output));
+        dst.try_extend(core::iter::repeat_n(0, mod_len - output.len()).chain(output))
+            .map_err(|_| out_of_ergs_error!())?;
     }
 
     Ok(())
@@ -268,4 +274,28 @@ pub fn ergs_cost(
     let gas = core::cmp::max(200, computed_gas);
     let ergs = gas.checked_mul(ERGS_PER_GAS).ok_or(out_of_ergs_error!())?;
     Ok(Ergs(ergs))
+}
+
+/// Computes the native cost for modexp.
+/// Returns an OOG error if there's an arithmetic overflow.
+pub fn native_cost<R: Resources>(
+    base_size: u64,
+    exp_size: u64,
+    mod_size: u64,
+    exp_highp: &U256,
+) -> Result<R::Native, SystemError> {
+    // Use ergs for native calculation but with the next multiple of 256 for modulus,
+    // since we use bigint delegations.
+    let ergs = ergs_cost(
+        base_size,
+        exp_size,
+        mod_size.next_multiple_of(32),
+        exp_highp,
+    )?;
+    let native = <R::Native as Computational>::from_computational(
+        ergs.0
+            .saturating_div(ERGS_PER_GAS)
+            .saturating_mul(MODEXP_WORST_CASE_NATIVE_PER_GAS),
+    );
+    Ok(native)
 }

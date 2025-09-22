@@ -12,11 +12,10 @@ categories.workspace = true
 [dependencies]
 risc_v_simulator = { git = "https://github.com/matter-labs/zksync-airbender", branch = "dev", features = ["delegation"] }
 prover_examples = { git = "https://github.com/matter-labs/zksync-airbender", branch = "dev", optional = true }
-trace_and_split = { git = "https://github.com/matter-labs/zksync-airbender", branch = "dev", optional = true }
 execution_utils = { git = "https://github.com/matter-labs/zksync-airbender", branch = "dev", optional = true }
 cycle_marker = { path = "../cycle_marker" }
 
 [features]
-prover = ["prover_examples", "trace_and_split", "execution_utils"]
+prover = ["prover_examples", "execution_utils"]
 opcode_stats = ["risc_v_simulator/opcode_stats"]
 cycle_marker = ["risc_v_simulator/cycle_marker", "cycle_marker/use_risc_v_simulator"]

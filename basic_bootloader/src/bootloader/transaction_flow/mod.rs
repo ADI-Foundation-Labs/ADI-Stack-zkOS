@@ -10,6 +10,7 @@ use zk_ee::system::errors::internal::InternalError;
 use zk_ee::system::tracer::Tracer;
 use zk_ee::system::BalanceSubsystemError;
 use zk_ee::system::IOSubsystemExt;
+use zk_ee::system::NextTxSubsystemError;
 use zk_ee::system::ReturnValues;
 use zk_ee::system::System;
 use zk_ee::system::SystemTypes;
@@ -92,7 +93,7 @@ where
     fn try_begin_next_tx<'a>(
         system: &'_ mut System<S>,
         scratch_space: &'a mut Self::ScratchSpace,
-    ) -> Option<Self::TransactionBuffer<'a>>;
+    ) -> Option<Result<Self::TransactionBuffer<'a>, NextTxSubsystemError>>;
 
     // We identity few steps that are somewhat universal (it's named "basic"),
     // and will try to adhere to them to easier compose the execution flow for transactions that are "intrinsic" and not "enforced upon".

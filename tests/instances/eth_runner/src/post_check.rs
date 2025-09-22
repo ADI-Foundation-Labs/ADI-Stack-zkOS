@@ -413,6 +413,10 @@ pub fn post_check_ext(
 ) -> Result<(), PostCheckError> {
     assert_eq!(receipts.len(), tx_results.len());
 
+    fn u256_to_usize(src: &U256) -> usize {
+        zk_ee::utils::u256_to_u64_saturated(src) as usize
+    }
+
     for (res, receipt) in tx_results.iter().zip(receipts.iter()) {
         // info!(
         //     "Checking transaction {} for consistency",
@@ -437,7 +441,7 @@ pub fn post_check_ext(
                     receipt.transaction_index
                 );
                 return Err(PostCheckError::InvalidTx {
-                    id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
+                    id: TxId::Index(u256_to_usize(&receipt.transaction_index)),
                 });
             };
         } else if receipt.status == Some(alloy::primitives::U256::ZERO) && res.is_success() {
@@ -446,7 +450,7 @@ pub fn post_check_ext(
                 receipt.transaction_index
             );
             return Err(PostCheckError::TxShouldHaveFailed {
-                id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
+                id: TxId::Index(u256_to_usize(&receipt.transaction_index)),
             });
         }
         // Logs check
@@ -456,7 +460,7 @@ pub fn post_check_ext(
                 receipt.transaction_index
             );
             return Err(PostCheckError::IncorrectLogs {
-                id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
+                id: TxId::Index(u256_to_usize(&receipt.transaction_index)),
             });
         }
         for (l, r) in res.logs.iter().zip(receipt.logs.iter()) {
@@ -464,7 +468,7 @@ pub fn post_check_ext(
             if !eq {
                 error!("Not equal logs:\n {l:#?} \nand\n {r:?}");
                 return Err(PostCheckError::IncorrectLogs {
-                    id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
+                    id: TxId::Index(u256_to_usize(&receipt.transaction_index)),
                 });
             }
             if r.data.to_vec() != l.data {
@@ -474,7 +478,7 @@ pub fn post_check_ext(
                     hex::encode(r.data.clone())
                 );
                 return Err(PostCheckError::IncorrectLogs {
-                    id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
+                    id: TxId::Index(u256_to_usize(&receipt.transaction_index)),
                 });
             }
         }
@@ -488,7 +492,7 @@ pub fn post_check_ext(
                     gas_difference,
                 );
             return Err(PostCheckError::GasMismatch {
-                id: TxId::Index(u256_to_usize_saturated(&receipt.transaction_index)),
+                id: TxId::Index(u256_to_usize(&receipt.transaction_index)),
             });
         }
     }

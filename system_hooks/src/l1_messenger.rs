@@ -10,6 +10,7 @@ use zk_ee::{
     execution_environment_type::ExecutionEnvironmentType,
     internal_error,
     kv_markers::MAX_EVENT_TOPICS,
+    out_of_return_memory,
     system::{
         errors::{runtime::RuntimeError, system::SystemError},
         logger::Logger,
@@ -81,7 +82,9 @@ where
         Ok(Ok(return_data)) => {
             let mut return_memory = SliceVec::new(return_memory);
             // TODO: check endianness
-            return_memory.extend(return_data.as_u8_ref().iter().copied());
+            return_memory
+                .try_extend(return_data.as_u8_ref().iter().copied())
+                .map_err(|_| out_of_return_memory!())?;
             let (returndata, rest) = return_memory.destruct();
             Ok((
                 make_return_state_from_returndata_region(resources, returndata),
@@ -100,12 +103,12 @@ where
                 .write_fmt(format_args!("Out of gas during system hook\n"));
             Ok((make_error_return_state(resources), return_memory))
         }
-        Err(e @ SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(_))) => Err(e),
+        Err(e @ SystemError::LeafRuntime(RuntimeError::FatalRuntimeError(_))) => Err(e),
         Err(SystemError::LeafDefect(e)) => Err(e.into()),
     }
 }
 // sendToL1(bytes) - 62f84b24
-const SEND_TO_L1_SELECTOR: &[u8] = &[0x62, 0xf8, 0x4b, 0x24];
+pub const SEND_TO_L1_SELECTOR: &[u8] = &[0x62, 0xf8, 0x4b, 0x24];
 
 const L1_MESSAGE_SENT_TOPIC: [u8; 32] = [
     0x3a, 0x36, 0xe4, 0x72, 0x91, 0xf4, 0x20, 0x1f, 0xaf, 0x13, 0x7f, 0xab, 0x08, 0x1d, 0x92, 0x29,

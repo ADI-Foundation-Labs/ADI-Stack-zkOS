@@ -588,7 +588,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         deployed_code: &[u8],
         preimages_cache: &mut BytecodeKeccakPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
-    ) -> Result<&'static [u8], SystemError> {
+    ) -> Result<(&'static [u8], zk_ee::utils::Bytes32, u32), SystemError> {
         // Charge for code deposit cost
         match from_ee {
             ExecutionEnvironmentType::NoEE => (),
@@ -655,7 +655,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             })
         })?;
 
-        Ok(deployed_code)
+        Ok((deployed_code, bytecode_hash, deployed_code.len() as u32))
     }
 
     pub fn mark_for_deconstruction<const PROOF_ENV: bool>(
@@ -666,7 +666,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
         nominal_token_beneficiary: &B160,
         oracle: &mut impl IOOracle,
         in_constructor: bool,
-    ) -> Result<(), DeconstructionSubsystemError> {
+    ) -> Result<U256, DeconstructionSubsystemError> {
         let cur_tx = self.current_tx_number;
         let mut account_data = self.materialize_element::<PROOF_ENV>(
             from_ee, resources, at_address, oracle, true, false, false,
@@ -743,7 +743,7 @@ impl<A: Allocator + Clone, R: Resources, SC: StackCtor<N>, const N: usize>
             }
         }
 
-        Ok(())
+        Ok(transfer_amount)
     }
 
     pub fn set_delegation<const PROOF_ENV: bool>(

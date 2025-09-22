@@ -3,8 +3,7 @@ use super::transaction::ZkSyncTransaction;
 use super::*;
 use crate::bootloader::config::BasicBootloaderExecutionConfig;
 use crate::bootloader::constants::UPGRADE_TX_NATIVE_PER_GAS;
-use crate::bootloader::errors::TxError::Validation;
-use crate::bootloader::errors::{InvalidTransaction, TxError};
+use crate::bootloader::errors::TxError;
 use crate::bootloader::runner::RunnerMemoryBuffers;
 pub use crate::bootloader::zk::ZkTxResult as TxProcessingResult;
 use crate::require_internal;
@@ -179,9 +178,9 @@ where
                     match e.root_cause() {
                         // Out of native is converted to a top-level revert and
                         // gas is exhausted.
-                        RootCause::Runtime(e @ RuntimeError::OutOfNativeResources(_)) => {
+                        RootCause::Runtime(e @ RuntimeError::FatalRuntimeError(_)) => {
                             let _ = system.get_logger().write_fmt(format_args!(
-                                "L1 transaction ran out of native resources {e:?}\n"
+                                "L1 transaction ran out of native resources or memory{e:?}\n"
                             ));
                             resources.exhaust_ergs();
                             system.finish_global_frame(Some(&rollback_handle))?;
@@ -232,8 +231,8 @@ where
             RootCause::Runtime(RuntimeError::OutOfErgs(_)) => {
                 internal_error!("Out of ergs on infinite ergs").into()
             }
-            RootCause::Runtime(RuntimeError::OutOfNativeResources(_)) => {
-                internal_error!("Out of native on infinite").into()
+            RootCause::Runtime(RuntimeError::FatalRuntimeError(_)) => {
+                internal_error!("Out of native or memory on infinite").into()
             }
             _ => e,
         })?;
@@ -243,7 +242,7 @@ where
             ExecutionResult::Revert { .. } => {
                 // Upgrade transactions must always succeed
                 if !is_priority_op {
-                    return Err(Validation(InvalidTransaction::UpgradeTxFailed));
+                    return Err(internal_error!("Upgrade transaction must succeed").into());
                 }
                 // If the transaction reverts, then minting the msg.value to the
                 // user has been reverted as well, so we can simply mint everything
@@ -278,8 +277,8 @@ where
                     RootCause::Runtime(RuntimeError::OutOfErgs(_)) => {
                         internal_error!("Out of ergs on infinite ergs").into()
                     }
-                    RootCause::Runtime(RuntimeError::OutOfNativeResources(_)) => {
-                        internal_error!("Out of native on infinite").into()
+                    RootCause::Runtime(RuntimeError::FatalRuntimeError(_)) => {
+                        internal_error!("Out of native or memory on infinite").into()
                     }
                     _ => e,
                 }

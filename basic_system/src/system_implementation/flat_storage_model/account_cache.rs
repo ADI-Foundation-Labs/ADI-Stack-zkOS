@@ -417,8 +417,6 @@ impl<
 
     pub fn begin_new_tx(&mut self) {
         self.cache.commit();
-
-        self.current_tx_number += 1;
     }
 
     pub fn start_frame(&mut self) -> CacheSnapshotId {
@@ -739,7 +737,7 @@ impl<
         storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
-    ) -> Result<&'static [u8], SystemError> {
+    ) -> Result<(&'static [u8], Bytes32, u32), SystemError> {
         let alloc = self.alloc.clone();
         // Charge for code deposit cost
         match from_ee {
@@ -850,7 +848,7 @@ impl<
             })
         })?;
 
-        Ok(deployed_code)
+        Ok((deployed_code, bytecode_hash, observable_bytecode_len))
     }
 
     /// Assumes [code_hash] is of default version, which does not contain
@@ -1093,7 +1091,7 @@ impl<
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
         in_constructor: bool,
-    ) -> Result<(), DeconstructionSubsystemError> {
+    ) -> Result<U256, DeconstructionSubsystemError> {
         let cur_tx = self.current_tx_number;
         let mut account_data = self.materialize_element::<PROOF_ENV>(
             from_ee,
@@ -1181,13 +1179,15 @@ impl<
             }
         }
 
-        Ok(())
+        Ok(transfer_amount)
     }
 
     pub fn finish_tx(
         &mut self,
         storage: &mut NewStorageWithAccountPropertiesUnderHash<A, SC, N, R, P>,
     ) -> Result<(), InternalError> {
+        self.current_tx_number += 1;
+
         // Actually deconstructing accounts
         self.cache.apply_to_last_record_of_pending_changes(
             |key, (_initial, current), cache_appearance| {

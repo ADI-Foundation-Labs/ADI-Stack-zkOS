@@ -217,7 +217,7 @@ where
     fn try_begin_next_tx<'a>(
         system: &'_ mut System<S>,
         _scratch_space: &'a mut Self::ScratchSpace,
-    ) -> Option<Self::TransactionBuffer<'a>> {
+    ) -> Option<Result<Self::TransactionBuffer<'a>, NextTxSubsystemError>> {
         let allocator = system.get_allocator();
         let (tx_length_in_bytes, mut buffer) = system
             .try_begin_next_tx_with_constructor(move |tx_length_in_bytes| {
@@ -226,7 +226,7 @@ where
             .expect("TX start call must always succeed")?;
         buffer.truncated_to_byte_length(tx_length_in_bytes);
 
-        Some(buffer)
+        Some(Ok(buffer))
     }
 
     fn parse_transaction<'a>(
@@ -352,7 +352,7 @@ where
                 }
                 SubsystemError::LeafDefect(internal_error) => internal_error.into(),
                 SubsystemError::LeafRuntime(runtime_error) => match runtime_error {
-                    RuntimeError::OutOfNativeResources(_) => {
+                    RuntimeError::FatalRuntimeError(_) => {
                         TxError::oon_as_validation(out_of_native_resources!().into())
                     }
                     RuntimeError::OutOfErgs(_) => {
@@ -425,9 +425,9 @@ where
             // Out of native is converted to a top-level revert and
             // gas is exhausted.
             Err(e) => match e.root_cause() {
-                RootCause::Runtime(e @ RuntimeError::OutOfNativeResources(_)) => {
+                RootCause::Runtime(e @ RuntimeError::FatalRuntimeError(_)) => {
                     let _ = system.get_logger().write_fmt(format_args!(
-                        "Transaction ran out of native resources: {e:?}\n"
+                        "Transaction ran out of native resources or memory: {e:?}\n"
                     ));
                     context.resources.main_resources.exhaust_ergs();
                     system.finish_global_frame(Some(&main_body_rollback_handle))?;
@@ -699,17 +699,19 @@ where
             tracer,
         )?;
         let CompletedExecution {
-            resources_returned,
+            mut resources_returned,
             result: deployment_result,
         } = final_state;
 
-        let _ = system.get_logger().write_fmt(format_args!(
-            "Resources to refund = {resources_returned:?}\n",
-        ));
-        context.resources.main_resources.reclaim(resources_returned);
-
         let (deployment_success, reverted, return_values, at) = match deployment_result {
-            CallResult::Successful { return_values } => {
+            CallResult::Successful { mut return_values } => {
+                // In commonly used Ethereum clients it is expected that top-level deployment returns deployed bytecode as the returndata
+                let deployed_bytecode = resources_returned.with_infinite_ergs(|inf_resources| {
+                    system
+                        .io
+                        .get_observable_bytecode(to_ee_type, inf_resources, &deployed_address)
+                })?;
+                return_values.returndata = deployed_bytecode;
                 (true, false, return_values, Some(deployed_address))
             }
             CallResult::Failed { return_values, .. } => (false, true, return_values, None),
@@ -717,6 +719,13 @@ where
                 return Err(internal_error!("Preparation step failed in root call").into())
             } // Should not happen
         };
+
+        let _ = system.get_logger().write_fmt(format_args!(
+            "Resources to refund = {resources_returned:?}\n",
+        ));
+
+        context.resources.main_resources.reclaim(resources_returned);
+
         // Do not forget to reassign it back after potential copy when finishing frame
         system.finish_global_frame(reverted.then_some(&rollback_handle))?;
 

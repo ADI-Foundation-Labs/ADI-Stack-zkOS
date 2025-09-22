@@ -5,6 +5,7 @@ use gas_constants::{CALL_STIPEND, INITCODE_WORD_COST, SHA3WORD};
 
 use native_resource_constants::*;
 use zk_ee::kv_markers::MAX_EVENT_TOPICS;
+use zk_ee::system::tracer::evm_tracer::EvmTracer;
 use zk_ee::system::tracer::Tracer;
 use zk_ee::{system::*, wrap_error};
 
@@ -261,7 +262,11 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
         Ok(())
     }
 
-    pub fn selfdestruct(&mut self, system: &mut System<S>) -> InstructionResult {
+    pub fn selfdestruct(
+        &mut self,
+        system: &mut System<S>,
+        tracer: &mut impl Tracer<S>,
+    ) -> InstructionResult {
         self.gas
             .spend_gas_and_native(gas_constants::SELFDESTRUCT, SELFDESTRUCT_NATIVE_COST)?;
 
@@ -271,7 +276,7 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
 
         let beneficiary = u256_to_b160(self.stack.pop_1()?);
 
-        system
+        let amount_transferred = system
             .io
             .mark_for_deconstruction(
                 THIS_EE_TYPE,
@@ -282,6 +287,12 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
             )
             .map_err(wrap_error!())?;
 
+        tracer.evm_tracer().on_selfdestruct(
+            beneficiary,
+            amount_transferred,
+            &InterpreterExternal::new_from(&self, system),
+        );
+
         Err(ExitCode::SelfDestruct)
     }
 
@@ -289,6 +300,7 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
         &mut self,
         system: &mut System<S>,
         external_call_dest: &mut Option<EVMCallRequest<S>>,
+        tracer: &mut impl Tracer<S>,
     ) -> InstructionResult {
         self.gas.spend_gas_and_native(
             gas_constants::CREATE,
@@ -357,6 +369,8 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
         let all_resources = self.gas.take_resources();
 
         self.pending_os_request = Some(PendingOsRequest::Create(deployed_address));
+
+        tracer.evm_tracer().on_create_request(IS_CREATE2);
 
         *external_call_dest = Some(EVMCallRequest {
             ergs_to_pass: all_resources.ergs(),

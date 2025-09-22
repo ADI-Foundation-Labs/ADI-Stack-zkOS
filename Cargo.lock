@@ -4159,6 +4159,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "header"
+version = "0.1.0"
+dependencies = [
+ "basic_bootloader",
+ "hex",
+ "rig",
+]
+
+[[package]]
 name = "heck"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9816,7 +9825,6 @@ dependencies = [
  "execution_utils",
  "prover_examples",
  "risc_v_simulator",
- "trace_and_split",
 ]
 
 [[package]]

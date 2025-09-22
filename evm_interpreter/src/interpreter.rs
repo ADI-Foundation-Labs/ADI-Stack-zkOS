@@ -159,8 +159,8 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
                 .gas
                 .spend_gas_and_native(0, STEP_NATIVE_COST)
                 .and_then(|_| match opcode {
-                    opcodes::CREATE => self.create::<false>(system, external_call_dest),
-                    opcodes::CREATE2 => self.create::<true>(system, external_call_dest),
+                    opcodes::CREATE => self.create::<false>(system, external_call_dest, tracer),
+                    opcodes::CREATE2 => self.create::<true>(system, external_call_dest, tracer),
                     opcodes::CALL => self.call(external_call_dest),
                     opcodes::CALLCODE => self.call_code(external_call_dest),
                     opcodes::DELEGATECALL => self.delegate_call(external_call_dest),
@@ -306,7 +306,7 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
                     opcodes::LOG2 => self.log::<2>(system, tracer),
                     opcodes::LOG3 => self.log::<3>(system, tracer),
                     opcodes::LOG4 => self.log::<4>(system, tracer),
-                    opcodes::SELFDESTRUCT => self.selfdestruct(system),
+                    opcodes::SELFDESTRUCT => self.selfdestruct(system, tracer),
                     opcodes::CHAINID => self.chainid(system),
                     opcodes::BLOBHASH => self.blobhash(system),
                     opcodes::BLOBBASEFEE => self.blobbasefee(system),
@@ -362,6 +362,8 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
             if evm_error != EvmError::Revert {
                 // Spend all remaining resources on EVM error
                 self.gas.consume_all_gas();
+                // Clear returndata
+                return_values.returndata = &[];
             }
             tracer
                 .evm_tracer()
@@ -376,7 +378,6 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
 
         let result = if self.is_constructor {
             let deployed_code = return_values.returndata;
-
             let mut error_after_constructor = None;
             if deployed_code.len() > MAX_CODE_SIZE {
                 // EIP-158: reject code of length > 24576.
@@ -391,19 +392,31 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
                     &self.address,
                     deployed_code,
                 ) {
-                    Ok(_) => {
+                    Ok((
+                        actual_deployed_bytecode,
+                        internal_bytecode_hash,
+                        observable_bytecode_len,
+                    )) => {
                         // TODO: debug implementation for Bits uses global alloc, which panics in ZKsync OS
                         #[cfg(not(target_arch = "riscv32"))]
                         let _ = system.get_logger().write_fmt(format_args!(
                             "Successfully deployed contract at {:?} \n",
                             self.address
                         ));
+
+                        tracer.on_bytecode_change(
+                            THIS_EE_TYPE,
+                            self.address,
+                            Some(actual_deployed_bytecode),
+                            internal_bytecode_hash,
+                            observable_bytecode_len,
+                        );
                     }
                     Err(SystemError::LeafRuntime(RuntimeError::OutOfErgs(_))) => {
                         error_after_constructor = Some(EvmError::CodeStoreOutOfGas);
                     }
-                    Err(SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(loc))) => {
-                        return Err(RuntimeError::OutOfNativeResources(loc).into())
+                    Err(SystemError::LeafRuntime(RuntimeError::FatalRuntimeError(e))) => {
+                        return Err(RuntimeError::FatalRuntimeError(e).into())
                     }
                     Err(SystemError::LeafDefect(e)) => return Err(e.into()),
                 }
@@ -490,7 +503,7 @@ impl<'ee, S: EthereumLikeTypes> Interpreter<'ee, S> {
                     })
                     .map_err(|e| -> EvmSubsystemError {
                         match e.root_cause() {
-                            RootCause::Runtime(e @ RuntimeError::OutOfNativeResources(_)) => {
+                            RootCause::Runtime(e @ RuntimeError::FatalRuntimeError(_)) => {
                                 e.clone_or_copy().into()
                             }
                             _ => internal_error!("Keccak in create2 cannot fail").into(),

@@ -193,6 +193,11 @@ impl<
         self.0.begin_new_tx();
     }
 
+    fn finish_tx(&mut self) -> Result<(), InternalError> {
+        self.0.finish_tx();
+        Ok(())
+    }
+
     fn start_frame(&mut self) -> Self::StateSnapshot {
         self.0.start_frame()
     }

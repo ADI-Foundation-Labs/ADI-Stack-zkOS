@@ -1,4 +1,4 @@
-#![cfg_attr(not(feature = "testing"), no_std)]
+#![cfg_attr(not(feature = "serde"), no_std)]
 #![feature(allocator_api)]
 #![feature(box_into_inner)]
 #![feature(btreemap_alloc)]

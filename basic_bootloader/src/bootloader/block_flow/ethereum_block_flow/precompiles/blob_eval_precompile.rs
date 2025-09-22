@@ -11,7 +11,7 @@ use system_hooks::{
     addresses_constants::POINT_EVAL_HOOK_ADDRESS_LOW, StatefulImmutableSystemHook,
     StatefulImmutableSystemHookImpl,
 };
-use zk_ee::define_subsystem;
+use zk_ee::common_traits::TryExtend;
 use zk_ee::interface_error;
 use zk_ee::internal_error;
 use zk_ee::memory::slice_vec::SliceVec;
@@ -22,6 +22,7 @@ use zk_ee::system::errors::system::SystemError;
 use zk_ee::system::*;
 use zk_ee::system::{errors::internal::InternalError, System, SystemTypes};
 use zk_ee::utils::cheap_clone::CheapCloneRiscV;
+use zk_ee::{define_subsystem, out_of_return_memory};
 
 pub const TRUSTED_SETUP_TAU_G2_BYTES: [u8; 96] = const {
     let Ok(res) = const_hex::const_decode_to_array(
@@ -193,7 +194,7 @@ impl BlobEvaluationPrecompile {
                 [self.prepared_g2_generator.clone(), g2_el],
             );
             if gt_el.0 == <crypto::bls12_381::curves::Bls12_381 as crypto::ark_ec::pairing::Pairing>::TargetField::ONE {
-                output.extend(POINT_EVAL_PRECOMPILE_SUCCESS_RESPONSE);
+                output.try_extend(POINT_EVAL_PRECOMPILE_SUCCESS_RESPONSE).map_err(|_| out_of_return_memory!())?;
                 Ok(())
             } else {
                 Err(PointEvaluationPrecompileSubsystemError::LeafUsage(
@@ -257,7 +258,7 @@ where
                     let (_, rest) = return_vec.destruct();
                     Ok((make_error_return_state(resources), rest))
                 }
-                RootCause::Runtime(e @ RuntimeError::OutOfNativeResources(_)) => {
+                RootCause::Runtime(e @ RuntimeError::FatalRuntimeError(_)) => {
                     Err(Into::<SystemError>::into(e.clone_or_copy()))
                 }
             },

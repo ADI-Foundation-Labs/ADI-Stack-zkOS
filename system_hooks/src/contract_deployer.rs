@@ -86,9 +86,7 @@ where
                     .write_fmt(format_args!("Out of gas during system hook\n"));
                 make_error_return_state(resources)
             }
-            Err(e @ SystemError::LeafRuntime(RuntimeError::OutOfNativeResources(_))) => {
-                return Err(e);
-            }
+            Err(e @ SystemError::LeafRuntime(RuntimeError::FatalRuntimeError(_))) => return Err(e),
             Err(SystemError::LeafDefect(e)) => return Err(e.into()),
         },
         return_memory,
@@ -96,8 +94,8 @@ where
 }
 
 // setBytecodeDetailsEVM(address,bytes32,uint32,bytes32) - f6eca0b0
-const SET_EVM_BYTECODE_DETAILS: &[u8] = &[0xf6, 0xec, 0xa0, 0xb0];
-const L2_COMPLEX_UPGRADER_ADDRESS: B160 = B160::from_limbs([0x800f, 0, 0]);
+pub const SET_EVM_BYTECODE_DETAILS: &[u8] = &[0xf6, 0xec, 0xa0, 0xb0];
+pub const L2_COMPLEX_UPGRADER_ADDRESS: B160 = B160::from_limbs([0x800f, 0, 0]);
 
 fn contract_deployer_hook_inner<S: EthereumLikeTypes>(
     mut calldata: &[u8],

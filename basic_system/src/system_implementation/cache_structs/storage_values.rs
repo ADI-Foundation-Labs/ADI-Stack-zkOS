@@ -154,7 +154,9 @@ impl<
             self.evm_refunds_counter = HistoryCounter::new(self.alloc.clone());
             self.evm_refunds_counter.update(R::empty());
         }
+    }
 
+    pub fn finish_tx(&mut self) {
         self.current_tx_number.0 += 1;
     }
 
@@ -362,7 +364,7 @@ impl<
         Ok(old_value)
     }
 
-    /// Cleae state at specified address
+    /// Clear state at specified address
     pub fn clear_state_impl(&mut self, address: impl AsRef<B160>) -> Result<(), SystemError>
     where
         K::Subspace: TyEq<B160>,

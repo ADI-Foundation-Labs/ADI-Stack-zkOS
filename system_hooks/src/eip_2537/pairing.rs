@@ -1,6 +1,7 @@
 use super::*;
 use alloc::vec::Vec;
 use crypto::{ark_ec::pairing::Pairing, bls12_381::curves::Bls12_381};
+use zk_ee::out_of_return_memory;
 
 pub const BLS12_381_PAIRING_FIXED_GAS: u64 = 37700;
 pub const BLS12_381_PAIRING_PER_PAIR_GAS: u64 = 32600;
@@ -66,9 +67,13 @@ impl crate::PurePrecompileInvocation for Bls12381PairingCheckPrecompile {
 
         use crypto::ark_ff::Field;
         if pairing_result.0 == <Bls12_381 as Pairing>::TargetField::ONE {
-            output.extend([1u8]);
+            output
+                .try_extend([1u8])
+                .map_err(|_| out_of_return_memory!())?;
         } else {
-            output.extend([0u8]);
+            output
+                .try_extend([0u8])
+                .map_err(|_| out_of_return_memory!())?;
         }
 
         Ok(())
