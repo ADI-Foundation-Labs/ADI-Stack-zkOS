@@ -365,27 +365,6 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             self.preimage_source.inner.insert(*hash, preimage.clone());
         }
 
-        // update state
-        self.block_number += 1;
-        self.block_timestamp = block_context.timestamp;
-        for i in 0..255 {
-            self.block_hashes[i] = self.block_hashes[i + 1];
-        }
-        self.block_hashes[255] = U256::from_be_bytes(block_output.header.hash());
-
-        for storage_write in block_output.storage_writes.iter() {
-            self.state_tree
-                .cold_storage
-                .insert(storage_write.key, storage_write.value);
-            self.state_tree
-                .storage_tree
-                .insert(&storage_write.key, &storage_write.value);
-        }
-
-        for (hash, preimage, _preimage_type) in block_output.published_preimages.iter() {
-            self.preimage_source.inner.insert(*hash, preimage.clone());
-        }
-
         let proof_input = if let Some(path) = witness_output_file {
             let result = Self::run_batch_generate_witness::<false>(oracle, &app);
             let mut file = File::create(&path).expect("should create file");
@@ -621,6 +600,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
                 EthereumStorageSystemTypesWithPostOps<ZkEENonDeterminismSource<DummyMemorySource>>,
             >::run::<BasicBootloaderForwardETHLikeConfig>(
                 oracle,
+                &mut (),
                 &mut result_keeper,
                 &mut nop_tracer,
             )
@@ -630,6 +610,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
                 EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>,
             >::run::<BasicBootloaderForwardETHLikeConfig>(
                 oracle,
+                &mut (),
                 &mut result_keeper,
                 &mut nop_tracer,
             )

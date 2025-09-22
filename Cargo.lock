@@ -5280,6 +5280,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "multiblock_batch_tests"
+version = "0.1.0"
+dependencies = [
+ "hex",
+ "rig",
+ "risc_v_simulator",
+ "zksync_os_runner",
+]
+
+[[package]]
 name = "native-tls"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"

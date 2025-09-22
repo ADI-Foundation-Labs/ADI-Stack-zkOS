@@ -48,7 +48,7 @@ pub struct ZKHeaderStructurePostTxOpSequencing;
 /// ZK header proving post tx op for aggregation (generates intermediate aggregation friendly PI, to be wrapper in batch later)
 pub struct ZKHeaderStructurePostTxOpProvingAggregation;
 
-/// ZK header proving post tx op for aggregation (generates signle block batch commitment)
+/// ZK header proving post tx op for aggregation (generates single block batch commitment)
 pub struct ZKHeaderStructurePostTxOpProvingBatch;
 /// ZK header proving post tx op for aggregation (applies block data into accumulator passed from outside, to later form multiblock batch)
 pub struct ZKHeaderStructurePostTxOpProvingMultiblockBatch;

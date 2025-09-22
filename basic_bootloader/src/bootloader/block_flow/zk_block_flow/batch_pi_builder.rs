@@ -20,7 +20,7 @@ pub struct BatchPublicInputBuilder {
     chain_id: Option<U256>,
     pub pubdata_hasher: Keccak256,
     pub logs_storage: ArrayVec<Bytes32, 16384>,
-    enfoced_txs_commitment: RollingKeccakHashWithCount,
+    enforced_txs_commitment: RollingKeccakHashWithCount,
     upgrade_tx_hash: Option<Bytes32>,
 }
 
@@ -35,7 +35,7 @@ impl BatchPublicInputBuilder {
             chain_id: None,
             pubdata_hasher: Keccak256::new(),
             logs_storage: ArrayVec::new(),
-            enfoced_txs_commitment: RollingKeccakHashWithCount::empty(),
+            enforced_txs_commitment: RollingKeccakHashWithCount::empty(),
             upgrade_tx_hash: None,
         }
     }
@@ -96,8 +96,8 @@ impl BatchPublicInputBuilder {
             last_block_timestamp: self.current_block_timestamp.unwrap(),
             used_l2_da_validator_address: ruint::aliases::B160::ZERO,
             pubdata_commitment: da_commitment.into(),
-            number_of_layer_1_txs: U256::try_from(self.enfoced_txs_commitment.count).unwrap(),
-            priority_operations_hash: self.enfoced_txs_commitment.finish(),
+            number_of_layer_1_txs: U256::try_from(self.enforced_txs_commitment.count).unwrap(),
+            priority_operations_hash: self.enforced_txs_commitment.finish(),
             l2_logs_tree_root: full_l2_to_l1_logs_root.into(),
             upgrade_tx_hash: self.upgrade_tx_hash.unwrap(),
             interop_root_rolling_hash: Bytes32::from([0u8; 32]), // for now no interop roots
@@ -250,10 +250,10 @@ impl EnforcedTxHashesAccumulator for BatchPublicInputBuilder {
     }
 
     fn add_tx_hash(&mut self, tx_hash: &Bytes32) {
-        self.enfoced_txs_commitment.add_tx_hash(tx_hash);
+        self.enforced_txs_commitment.add_tx_hash(tx_hash);
     }
 
     fn finish(self) -> Bytes32 {
-        self.enfoced_txs_commitment.finish()
+        self.enforced_txs_commitment.finish()
     }
 }
