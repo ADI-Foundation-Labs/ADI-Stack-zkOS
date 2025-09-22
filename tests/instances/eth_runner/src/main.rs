@@ -141,6 +141,7 @@ fn main() -> anyhow::Result<()> {
 #[cfg(test)]
 mod test {
     #[test]
+    #[ignore = "Fails without unlimited native"]
     fn invoke_single_block() {
         crate::single_run::single_run("blocks/19299001".to_string(), None, false, None, Some(1))
             .expect("must succeed");
@@ -151,6 +152,7 @@ mod test {
     const BEACON_CHAIN_URL: &str = "";
 
     #[test]
+    #[ignore = "Should be used manually"]
     fn run_dump() {
         let block_number = 23292836;
         let _ = std::fs::create_dir(&format!("blocks/{}", block_number));
@@ -166,6 +168,7 @@ mod test {
     }
 
     #[test]
+    #[ignore = "Should be used only for Ethereum STF"]
     fn invoke_single_eth_block() {
         let block_number = 23292836;
         crate::single_run::single_eth_run::<true>(format!("blocks/{}", block_number), Some(1))

@@ -38,9 +38,9 @@ jobs:
           rustup component add rust-src
           ./dump_bin.sh
       - name: Compile
-        run: cargo test --release --no-run
+        run: cargo test --release --no-run --workspace
       - name: Run rust tests
-        run: cargo test --release -j 3 -- --skip binary_checker --skip ethereum_storage_model
+        run: cargo test --release -j 3 --workspace -- --skip binary_checker --skip ethereum_storage_model
 
   ethereum_storage_model_tests:
     name: tests for ethereum storage model
