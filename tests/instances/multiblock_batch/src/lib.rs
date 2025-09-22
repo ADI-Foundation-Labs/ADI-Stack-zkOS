@@ -33,7 +33,7 @@ fn run_many_blocks_proof_run() {
     let wallet = PrivateKeySigner::from_str(
         "dcf2cbdd171a21c480aa7f53d77f31bb102282b3ff099c78e3118b37348c72f7",
     )
-        .unwrap();
+    .unwrap();
     let wallet_ethers = LocalWallet::from_bytes(wallet.to_bytes().as_slice()).unwrap();
 
     let from = wallet_ethers.address();
