@@ -2,7 +2,7 @@
 set -e
 
 # Default mode
-TYPE="default"
+TYPE="singleblock-batch"
 
 # Parse --type argument
 while [ "$#" -gt 0 ]; do
@@ -13,7 +13,7 @@ while [ "$#" -gt 0 ]; do
       ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: $0 [--type default|server|server-logging-enabled|evm-replay|benchmarking|evm-replay-benchmarking|evm-replay-with-logs|debug-in-simulator|pectra]"
+      echo "Usage: $0 [--type singleblock-batch|singleblock-batch-logging-enabled|multiblock-batch|multiblock-batch-logging-enabled|evm-replay|benchmarking|evm-replay-benchmarking|evm-replay-with-logs|debug-in-simulator|pectra]"
       exit 1
       ;;
   esac
@@ -21,24 +21,32 @@ done
 
 # Base features and output names
 FEATURES="proving"
-BIN_NAME="app.bin" # TODO: default app.bin can be removed
-ELF_NAME="app.elf"
-TEXT_NAME="app.text"
 
 # TODO: we can remove no_print everywhere, except proving binary
 # Adjust for server modes
 case "$TYPE" in
-  server)
-    FEATURES="$FEATURES,proof_running_system/wrap-in-batch"
-    BIN_NAME="server_app.bin"
-    ELF_NAME="server_app.elf"
-    TEXT_NAME="server_app.text"
+  singleblock-batch)
+    BIN_NAME="app.bin" # TODO: rename to singleblock-batch?
+    ELF_NAME="app.elf"
+    TEXT_NAME="app.text"
     ;;
-  server-logging-enabled)
-    FEATURES="$FEATURES,proof_running_system/wrap-in-batch,print_debug_info"
-    BIN_NAME="server_app_logging_enabled.bin"
-    ELF_NAME="server_app_logging_enabled.elf"
-    TEXT_NAME="server_app_logging_enabled.text"
+  singleblock-batch-logging-enabled)
+    FEATURES="$FEATURES,print_debug_info"
+    BIN_NAME="app_logging_enabled.bin"
+    ELF_NAME="app_logging_enabled.elf"
+    TEXT_NAME="app_logging_enabled.text"
+    ;;
+  multiblock-batch)
+    FEATURES="$FEATURES,multiblock-batch"
+    BIN_NAME="multiblock_batch.bin"
+    ELF_NAME="multiblock_batch.elf"
+    TEXT_NAME="multiblock_batch.text"
+    ;;
+  multiblock-batch-logging-enabled)
+    FEATURES="$FEATURES,multiblock-batch,print_debug_info"
+    BIN_NAME="multiblock_batch.bin"
+    ELF_NAME="multiblock_batch.elf"
+    TEXT_NAME="multiblock_batch.text"
     ;;
   benchmarking)
     FEATURES="$FEATURES,proof_running_system/cycle_marker,proof_running_system/unlimited_native,proof_running_system/p256_precompile"
@@ -82,12 +90,9 @@ case "$TYPE" in
     ELF_NAME="app.elf"
     TEXT_NAME="app.text"
     ;;
-  default)
-    # leave defaults
-    ;;
   *)
     echo "Invalid --type: $TYPE"
-    echo "Valid types are: default, server, server-logging-enabled, evm-replay, benchmarking, evm-replay-benchmarking, debug-in-simulator"
+    echo "Valid types are: singleblock-batch, singleblock-batch-logging-enabled, multiblock-batch, multiblock-batch-logging-enabled, evm-replay, benchmarking, evm-replay-benchmarking, debug-in-simulator"
     exit 1
     ;;
 esac

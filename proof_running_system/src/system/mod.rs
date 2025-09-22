@@ -67,15 +67,40 @@ impl<O: IOOracle, L: Logger + Default> SystemTypes for ProofRunningSystemTypes<O
 
 impl<O: IOOracle, L: Logger + Default> EthereumLikeTypes for ProofRunningSystemTypes<O, L> {}
 
+#[cfg(not(any(feature = "multiblock-batch", feature = "aggregation")))]
 impl<O: IOOracle, L: Logger + Default> BasicSTF for ProofRunningSystemTypes<O, L> {
-    type BlockDataKeeper = ZKBasicTransactionDataKeeper;
+    type BlockDataKeeper = ZKBasicTransactionDataKeeper<RollingKeccakHashWithCount>;
     type BatchDataKeeper = ();
     type BlockHeader = basic_bootloader::bootloader::block_header::BlockHeader;
     type MetadataOp = Metadata;
     type PostSystemInitOp = ZKHeaderPostInitOp;
-    type PreTxLoopOp = ZKHeaderStructurePreTxOp;
-    type TxLoopOp = ZKHeaderStructureTxLoop;
-    type PostTxLoopOp = ZKHeaderStructurePostTxOp<true>;
+    type PreTxLoopOp = ZKHeaderStructurePreTxOp<RollingKeccakHashWithCount>;
+    type TxLoopOp = ZKHeaderStructureTxLoop<RollingKeccakHashWithCount, ()>;
+    type PostTxLoopOp = ZKHeaderStructurePostTxOpProvingBatch;
+}
+
+#[cfg(feature = "multiblock-batch")]
+impl<O: IOOracle, L: Logger + Default> BasicSTF for ProofRunningSystemTypes<O, L> {
+    type BlockDataKeeper = ZKBasicTransactionDataKeeper<NopTxHashesAccumulator>;
+    type BatchDataKeeper = BatchPublicInputBuilder;
+    type BlockHeader = basic_bootloader::bootloader::block_header::BlockHeader;
+    type MetadataOp = Metadata;
+    type PostSystemInitOp = ZKHeaderPostInitOp;
+    type PreTxLoopOp = ZKHeaderStructurePreTxOp<NopTxHashesAccumulator>;
+    type TxLoopOp = ZKHeaderStructureTxLoop<NopTxHashesAccumulator, BatchPublicInputBuilder>;
+    type PostTxLoopOp = ZKHeaderStructurePostTxOpProvingMultiblockBatch;
+}
+
+#[cfg(feature = "aggregation")]
+impl<O: IOOracle, L: Logger + Default> BasicSTF for ProofRunningSystemTypes<O, L> {
+    type BlockDataKeeper = ZKBasicTransactionDataKeeper<AccumulatingBlake2sHash>;
+    type BatchDataKeeper = ();
+    type BlockHeader = basic_bootloader::bootloader::block_header::BlockHeader;
+    type MetadataOp = Metadata;
+    type PostSystemInitOp = ZKHeaderPostInitOp;
+    type PreTxLoopOp = ZKHeaderStructurePreTxOp<AccumulatingBlake2sHash>;
+    type TxLoopOp = ZKHeaderStructureTxLoop<AccumulatingBlake2sHash, ()>;
+    type PostTxLoopOp = ZKHeaderStructurePostTxOpProvingAggregation;
 }
 
 impl<O: IOOracle, L: Logger + Default> EthereumLikeBasicSTF for ProofRunningSystemTypes<O, L> {}

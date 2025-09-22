@@ -183,6 +183,7 @@ pub fn run_proving<I: NonDeterminismCSRSourceImplementation, L: Logger + Default
     run_proving_inner::<_, I, L>(oracle)
 }
 
+#[cfg(not(feature = "multiblock-batch"))]
 pub fn run_proving_inner<
     O: IOOracle,
     I: NonDeterminismCSRSourceImplementation,
@@ -208,6 +209,44 @@ pub fn run_proving_inner<
     oracle
         .raw_query_with_empty_input(DISCONNECT_ORACLE_QUERY_ID)
         .expect("must disconnect an oracle before performing arbitrary CSR access");
+
+    unsafe { core::mem::transmute(public_input) }
+}
+
+#[cfg(feature = "multiblock-batch")]
+pub fn run_proving_inner<
+    O: IOOracle,
+    I: NonDeterminismCSRSourceImplementation,
+    L: Logger + Default,
+>(
+    mut oracle: O,
+) -> [u32; 8] {
+    let _ = L::default().write_fmt(format_args!("IO implementer init is complete"));
+
+    // simulating query, just in case
+    I::csr_write_impl(0xdeadbeef);
+    I::csr_write_impl(0);
+    let count = I::csr_read_impl();
+    let mut batch_pi_builder =
+        BatchPublicInputBuilder::new();
+    for _ in 0..count {
+        oracle =
+            ProvingBootloader::<O, L>::run::<BasicBootloaderProvingExecutionConfig>(
+                oracle,
+                &mut batch_pi_builder,
+                &mut NopResultKeeper::default(),
+                &mut NopTracer::default(),
+            )
+                .expect("Tried to prove a failing batch");
+        // we do this query for consistency with block based input generation(there is empty iterator as response to this query)
+        // but during proving this request shouldn't have the effect with "u32 array based" oracle
+        #[allow(unused_must_use)]
+        oracle
+            .raw_query_with_empty_input(DISCONNECT_ORACLE_QUERY_ID)
+            .expect("must disconnect an oracle before performing arbitrary CSR access");
+    }
+
+    let public_input = zk_ee::utils::Bytes32::from_array(batch_pi_builder.into_public_input(L::default()).hash());
 
     unsafe { core::mem::transmute(public_input) }
 }

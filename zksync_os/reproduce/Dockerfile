@@ -21,7 +21,8 @@ COPY . zksync_os
 
 WORKDIR zksync_os/zksync_os
 
-RUN ./dump_bin.sh
+RUN ./dump_bin.sh --type singleblock-batch
+RUN ./dump_bin.sh --type singleblock-batch-logging-enabled
+RUN ./dump_bin.sh --type multiblock-batch
+RUN ./dump_bin.sh --type multiblock-batch-logging-enabled
 RUN ./dump_bin.sh --type evm-replay
-RUN ./dump_bin.sh --type server-logging-enabled
-RUN ./dump_bin.sh --type server

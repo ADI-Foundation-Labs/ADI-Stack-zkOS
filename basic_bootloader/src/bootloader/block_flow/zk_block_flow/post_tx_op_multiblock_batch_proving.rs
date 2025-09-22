@@ -155,15 +155,14 @@ where
         // Logs pubdata
         // use concrete type as it's non-trivial
         let log_record_fn = |log_hash: &Bytes32| {
-            batch_data.logs_storage.try_push(*log_hash).unwrap;
+            batch_data.logs_storage.try_push(*log_hash).unwrap();
         };
         io.logs_storage
             .apply_logs_to_pubdata_and_record_log_hashes(
                 result_keeper,
                 &mut batch_data.pubdata_hasher,
                 Some(log_record_fn)
-            )
-            .apply_logs_to_pubdata(result_keeper, );
+            );
         // Logs themselves
         // TODO: why messages?
         result_keeper.logs(io.logs_storage.messages_ref_iter());

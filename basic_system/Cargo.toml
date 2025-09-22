@@ -37,7 +37,6 @@ prevrandao = ["zk_ee/prevrandao"]
 evm-compatibility = []
 default = ["testing"]
 cycle_marker = ["cycle_marker/log_to_file"]
-wrap-in-batch = []
 proving = ["crypto/proving"]
 evm_refunds = []
 

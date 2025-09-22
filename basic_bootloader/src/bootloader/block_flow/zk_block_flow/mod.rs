@@ -9,11 +9,10 @@ use zk_ee::memory::stack_trait::StackCtor;
 use zk_ee::system_io_oracle::IOOracle;
 use zk_ee::types_config::*;
 
-#[cfg(not(feature = "wrap-in-batch"))]
-mod post_tx_op_aggregation_proving;
-
-#[cfg(feature = "wrap-in-batch")]
 mod post_tx_op_batch_proving;
+
+#[cfg(feature = "aggregation")]
+mod post_tx_op_aggregation_proving;
 
 #[cfg(feature = "multiblock-batch")]
 mod post_tx_op_multiblock_batch_proving;
@@ -27,6 +26,7 @@ mod tx_loop;
 mod batch_pi_builder;
 
 pub use self::block_data::*;
+pub use self::batch_pi_builder::*;
 
 pub struct ZKHeaderPostInitOp;
 
