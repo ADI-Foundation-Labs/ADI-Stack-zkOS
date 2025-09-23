@@ -205,7 +205,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         let mut nop_tracer = NopTracer::default();
 
-        let block_output: BlockOutput = forward_system::run::run_batch_with_oracle_dump_ext::<
+        let block_output: BlockOutput = forward_system::run::run_block_with_oracle_dump_ext::<
             _,
             _,
             _,
@@ -306,7 +306,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         // we use proving config here for benchmarking,
         // although sequencer can have extra optimizations
-        let block_output: BlockOutput = forward_system::run::run_batch_with_oracle_dump_ext::<
+        let block_output: BlockOutput = forward_system::run::run_block_with_oracle_dump_ext::<
             _,
             _,
             _,
@@ -626,7 +626,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             oracle.add_external_processor(cl_responder);
             oracle.add_external_processor(UARTPrintReponsder);
             oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
-            let result = Self::run_batch_generate_witness::<false>(oracle, &app);
+            let result = Self::run_block_generate_witness::<false>(oracle, &app);
             let mut file = File::create(&path).expect("should create file");
             let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
             let hex = hex::encode(witness);
