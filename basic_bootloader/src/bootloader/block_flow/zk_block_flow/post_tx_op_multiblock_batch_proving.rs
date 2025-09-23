@@ -194,7 +194,6 @@ where
                     .as_u8_ref(),
             );
         }
-        blocks_hasher.update(current_block_hash.as_u8_ref());
 
         // validate that timestamp didn't decrease
         assert!(metadata.block_timestamp() >= last_block_timestamp);

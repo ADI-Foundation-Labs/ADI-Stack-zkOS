@@ -14,7 +14,6 @@ use crate::{
 };
 use alloc::alloc::Global;
 use core::alloc::Allocator;
-use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
 use ruint::aliases::B160;
 use ruint::aliases::U256;

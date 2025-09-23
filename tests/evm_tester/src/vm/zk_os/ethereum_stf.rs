@@ -312,7 +312,7 @@ impl ZKsyncOSEthereumSTF {
         let res = BasicBootloader::<
             EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>,
         >::run::<BasicBootloaderForwardETHLikeConfig>(
-            oracle, &mut result_keeper, &mut nop_tracer
+            oracle, &mut (), &mut result_keeper, &mut nop_tracer
         );
 
         match res {
