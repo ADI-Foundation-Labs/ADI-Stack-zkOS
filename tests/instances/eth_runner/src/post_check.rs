@@ -2,16 +2,11 @@ use crate::prestate::*;
 use crate::receipts::TransactionReceipt;
 use alloy::hex;
 use alloy_rpc_types_eth::Withdrawal;
-use forward_system::run::StorageWrite;
-use forward_system::run::TxResult;
-use rig::forward_system::run::BlockOutput;
 use rig::log::{error, info};
+use rig::zksync_os_interface::types::{AccountDiff, BlockOutput, StorageWrite};
 use ruint::aliases::{B160, B256, U256};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
-use zk_ee::common_structs::PreimageType;
-use zk_ee::utils::u256_to_usize_saturated;
-use zk_ee::utils::Bytes32;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[allow(dead_code)]
@@ -123,9 +118,9 @@ impl DiffTrace {
 
     pub fn check_storage_writes(
         self,
-        account_diffs: Vec<(B160, (u64, U256, Bytes32))>,
+        account_diffs: Vec<AccountDiff>,
         storage_writes: Vec<StorageWrite>,
-        published_preimages: Vec<(Bytes32, Vec<u8>, PreimageType)>,
+        published_preimages: Vec<(alloy_primitives::FixedBytes<32>, Vec<u8>)>,
         prestate_cache: Cache,
         miner: B160,
         withdrawals: &[Withdrawal],
@@ -278,9 +273,9 @@ fn zksync_os_diff_consistent_with_selfdestruct(
 }
 
 fn zksync_os_output_into_account_state(
-    account_diffs: Vec<(B160, (u64, U256, Bytes32))>,
+    account_diffs: Vec<AccountDiff>,
     storage_writes: Vec<StorageWrite>,
-    published_preimages: Vec<(Bytes32, Vec<u8>, PreimageType)>,
+    published_preimages: Vec<(alloy_primitives::FixedBytes<32>, Vec<u8>)>,
     prestate_cache: &Cache,
 ) -> Result<HashMap<B160, AccountState>, PostCheckError> {
     use basic_system::system_implementation::flat_storage_model::AccountProperties;
@@ -288,33 +283,36 @@ fn zksync_os_output_into_account_state(
     let preimages: HashMap<[u8; 32], Vec<u8>> = HashMap::from_iter(
         published_preimages
             .into_iter()
-            .map(|(key, value, _)| (key.as_u8_array(), value)),
+            .map(|(key, value)| (key.0, value)),
     );
-    for (address, (nonce, balance, bytecode_hash)) in account_diffs {
+    for account_diff in account_diffs {
         let mut state = AccountState {
-            balance: Some(balance),
-            nonce: Some(nonce),
+            balance: Some(account_diff.balance),
+            nonce: Some(account_diff.nonce),
             code: None,
             storage: Some(BTreeMap::new()),
         };
-        if let Some(bytecode) = preimages.get(&bytecode_hash.as_u8_array()) {
+        if let Some(bytecode) = preimages.get(&account_diff.bytecode_hash.0) {
             let owned: Vec<u8> = bytecode.to_owned();
             state.code = Some(owned.into());
         }
-        let existing = updates.insert(address, state);
+        let existing = updates.insert(
+            B160::from_be_bytes(account_diff.address.into_array()),
+            state,
+        );
         assert!(existing.is_none());
     }
     for w in storage_writes {
-        if rig::chain::is_account_properties_address(&w.account) {
+        if rig::chain::is_account_properties_address(&B160::from_be_bytes(w.account.into_array())) {
             // populate account
-            let address: [u8; 20] = w.account_key.as_u8_array()[12..].try_into().unwrap();
+            let address: [u8; 20] = w.account_key.as_slice()[12..].try_into().unwrap();
             let address = B160::from_be_bytes(address);
             if address != system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS {
                 let props = if w.value.is_zero() {
                     // TODO: Account deleted, we need to check this somehow
                     AccountProperties::default()
                 } else {
-                    let encoded = match preimages.get(&w.value.as_u8_array()) {
+                    let encoded = match preimages.get(w.value.as_slice()) {
                         Some(x) => x.clone(),
                         None => {
                             error!("Must contain preimage for account {address:#?}");
@@ -336,9 +334,11 @@ fn zksync_os_output_into_account_state(
         } else {
             // populate slot
             let address = w.account;
-            let key = U256::from_be_bytes(w.account_key.as_u8_array());
-            let entry = updates.entry(address).or_default();
-            let value = B256::from_be_bytes(w.value.as_u8_array());
+            let key = U256::from_be_bytes(w.account_key.0);
+            let entry = updates
+                .entry(B160::from_be_bytes(address.into_array()))
+                .or_default();
+            let value = B256::from_be_bytes(w.value.0);
             entry.storage.get_or_insert_default().insert(key, value);
         }
     }
@@ -370,54 +370,20 @@ fn zksync_os_output_into_account_state(
 }
 
 pub fn post_check(
-    output: BlockOutput,
+    block_output: BlockOutput,
     receipts: Vec<TransactionReceipt>,
     diff_trace: DiffTrace,
     prestate_cache: Cache,
     miner: B160,
     withdrawals: &[Withdrawal],
 ) -> Result<(), PostCheckError> {
-    let BlockOutput {
-        header,
-        tx_results,
-        storage_writes,
-        account_diffs,
-        published_preimages,
-        pubdata,
-        computaional_native_used: _computaional_native_used,
-    } = output;
-
-    post_check_ext(
-        tx_results,
-        receipts,
-        account_diffs,
-        storage_writes,
-        published_preimages,
-        diff_trace,
-        prestate_cache,
-        miner,
-        withdrawals,
-    )
-}
-
-pub fn post_check_ext(
-    tx_results: Vec<TxResult>,
-    receipts: Vec<TransactionReceipt>,
-    account_diffs: Vec<(B160, (u64, U256, Bytes32))>,
-    storage_writes: Vec<StorageWrite>,
-    published_preimages: Vec<(Bytes32, Vec<u8>, PreimageType)>,
-    diff_trace: DiffTrace,
-    prestate_cache: Cache,
-    miner: B160,
-    withdrawals: &[Withdrawal],
-) -> Result<(), PostCheckError> {
-    assert_eq!(receipts.len(), tx_results.len());
+    assert_eq!(receipts.len(), block_output.tx_results.len());
 
     fn u256_to_usize(src: &U256) -> usize {
         zk_ee::utils::u256_to_u64_saturated(src) as usize
     }
 
-    for (res, receipt) in tx_results.iter().zip(receipts.iter()) {
+    for (res, receipt) in block_output.tx_results.iter().zip(receipts.iter()) {
         // info!(
         //     "Checking transaction {} for consistency",
         //     receipt.transaction_index,
@@ -471,10 +437,10 @@ pub fn post_check_ext(
                     id: TxId::Index(u256_to_usize(&receipt.transaction_index)),
                 });
             }
-            if r.data.to_vec() != l.data {
+            if r.data.to_vec() != l.data.data {
                 error!(
                     "Data is not equal: we got {}, expected {}",
-                    hex::encode(l.data.clone()),
+                    hex::encode(l.data.data.clone()),
                     hex::encode(r.data.clone())
                 );
                 return Err(PostCheckError::IncorrectLogs {
@@ -498,9 +464,9 @@ pub fn post_check_ext(
     }
 
     diff_trace.check_storage_writes(
-        account_diffs,
-        storage_writes,
-        published_preimages,
+        block_output.account_diffs,
+        block_output.storage_writes,
+        block_output.published_preimages,
         prestate_cache,
         miner,
         withdrawals,

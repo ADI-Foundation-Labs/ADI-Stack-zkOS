@@ -20,7 +20,13 @@ use forward_system::run::result_keeper::ForwardRunningResultKeeper;
 use forward_system::run::test_impl::{
     InMemoryPreimageSource, InMemoryTree, NoopTxCallback, TxListSource,
 };
-use forward_system::run::*;
+use forward_system::run::EthereumCLResponder;
+use forward_system::run::EthereumTargetBlockHeaderResponder;
+use forward_system::run::GenericPreimageResponder;
+use forward_system::run::InMemoryEthereumInitialAccountStateResponder;
+use forward_system::run::InMemoryEthereumInitialStorageSlotValueResponder;
+use forward_system::run::TxDataResponder;
+use forward_system::run::UARTPrintReponsder;
 use log::warn;
 use log::{debug, info, trace};
 use oracle_provider::{ReadWitnessSource, ZkEENonDeterminismSource};
@@ -37,6 +43,7 @@ use zk_ee::memory::vec_trait::VecCtor;
 use zk_ee::system::metadata::{BlockHashes, BlockMetadataFromOracle};
 use zk_ee::system::tracer::NopTracer;
 use zk_ee::utils::Bytes32;
+use zksync_os_interface::types::BlockOutput;
 
 ///
 /// In memory chain state, mainly to be used in tests.
@@ -142,9 +149,9 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
     }
 
     /// TODO: duplicated from API, unify. That is also buggy as it doesn't account for ROM in the machine
-    /// Runs a batch in riscV - using zksync_os binary - and returns the
+    /// Runs a block in riscV - using zksync_os binary - and returns the
     /// witness that can be passed to the prover subsystem.
-    pub fn run_batch_generate_witness<const FLAMEGRAPH: bool>(
+    pub fn run_block_generate_witness<const FLAMEGRAPH: bool>(
         oracle: ZkEENonDeterminismSource<VectorMemoryImpl>,
         app: &Option<String>,
     ) -> Vec<u32> {
@@ -204,7 +211,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         let mut nop_tracer = NopTracer::default();
 
-        let block_output: BlockOutput = forward_system::run::run_batch_with_oracle_dump_ext::<
+        let block_output: BlockOutput = forward_system::run::run_block_with_oracle_dump_ext::<
             _,
             _,
             _,
@@ -305,7 +312,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         // we use proving config here for benchmarking,
         // although sequencer can have extra optimizations
-        let block_output: BlockOutput = forward_system::run::run_batch_with_oracle_dump_ext::<
+        let block_output: BlockOutput = forward_system::run::run_block_with_oracle_dump_ext::<
             _,
             _,
             _,
@@ -352,23 +359,26 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         for i in (1..=255).rev() {
             self.block_hashes[i] = self.block_hashes[i - 1];
         }
-        self.block_hashes[0] = U256::from_be_bytes(block_output.header.hash());
+
+        self.block_hashes[0] = U256::from_be_bytes(block_output.header.hash().0);
 
         for storage_write in block_output.storage_writes.iter() {
             self.state_tree
                 .cold_storage
-                .insert(storage_write.key, storage_write.value);
+                .insert(storage_write.key.0.into(), storage_write.value.0.into());
             self.state_tree
                 .storage_tree
-                .insert(&storage_write.key, &storage_write.value);
+                .insert(&storage_write.key.0.into(), &storage_write.value.0.into());
         }
 
-        for (hash, preimage, _preimage_type) in block_output.published_preimages.iter() {
-            self.preimage_source.inner.insert(*hash, preimage.clone());
+        for (hash, preimage) in block_output.published_preimages.iter() {
+            self.preimage_source
+                .inner
+                .insert(hash.0.into(), preimage.clone());
         }
 
         let proof_input = if let Some(path) = witness_output_file {
-            let result = Self::run_batch_generate_witness::<false>(oracle, &app);
+            let result = Self::run_block_generate_witness::<false>(oracle, &app);
             let mut file = File::create(&path).expect("should create file");
             let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
             let hex = hex::encode(witness);
@@ -629,7 +639,7 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             oracle.add_external_processor(cl_responder);
             oracle.add_external_processor(UARTPrintReponsder);
             oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
-            let result = Self::run_batch_generate_witness::<false>(oracle, &app);
+            let result = Self::run_block_generate_witness::<false>(oracle, &app);
             let mut file = File::create(&path).expect("should create file");
             let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
             let hex = hex::encode(witness);

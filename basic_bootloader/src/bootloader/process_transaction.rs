@@ -46,7 +46,6 @@ where
         Ok(base_fee + priority_fee_per_gas)
     }
 
-    /// Returns (gas_refund, gas_used, evm_refund)
     pub(crate) fn compute_gas_refund(
         system: &mut System<S>,
         to_charge_for_pubdata: S::Resources,
@@ -54,7 +53,7 @@ where
         minimal_gas_used: u64,
         native_per_gas: U256,
         resources: &mut S::Resources,
-    ) -> Result<(u64, u64, u64), InternalError> {
+    ) -> Result<RefundInfo, InternalError> {
         // Already checked
         resources.charge_unchecked(&to_charge_for_pubdata);
 
@@ -99,18 +98,22 @@ where
         #[allow(unused_mut)]
         let mut gas_used = core::cmp::max(gas_used, minimal_gas_used);
 
+        let full_native_limit = if cfg!(feature = "unlimited_native") {
+            u64::MAX
+        } else {
+            gas_limit.saturating_mul(u256_to_u64_saturated(&native_per_gas))
+        };
+        let native_used = full_native_limit.saturating_sub(resources.native().remaining().as_u64());
+
         #[cfg(not(feature = "unlimited_native"))]
         {
             // Adjust gas_used with difference with used native
             let native_per_gas = u256_to_u64_saturated(&native_per_gas);
-            let full_native_limit = gas_limit.saturating_mul(native_per_gas);
-            let computational_native_used =
-                full_native_limit - resources.native().remaining().as_u64();
 
             let delta_gas = if native_per_gas == 0 {
                 0
             } else {
-                (computational_native_used / native_per_gas) as i64 - (gas_used as i64)
+                (native_used / native_per_gas) as i64 - (gas_used as i64)
             };
 
             if delta_gas > 0 {
@@ -138,7 +141,12 @@ where
             .get_logger()
             .write_fmt(format_args!("Final gas used: {gas_used}\n"));
 
-        Ok((total_gas_refund, gas_used, refund_before_native))
+        let refund_info = RefundInfo {
+            gas_used,
+            evm_refund: refund_before_native,
+            native_used,
+        };
+        Ok(refund_info)
     }
 }
 
@@ -319,4 +327,13 @@ where
             tracer,
         ))
     }
+}
+
+pub struct RefundInfo {
+    // EVM gas used by the transaction
+    pub gas_used: u64,
+    // EVM-specific refund
+    pub evm_refund: u64,
+    // Total native resource used by the transaction (includes pubdata)
+    pub native_used: u64,
 }

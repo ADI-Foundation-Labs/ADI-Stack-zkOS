@@ -2,7 +2,7 @@
 #![feature(allocator_api)]
 
 use basic_bootloader::bootloader::transaction::ZkSyncTransaction;
-use forward_system::run::BatchContext;
+use forward_system::run::BlockContext;
 use zk_ee::system::metadata::BlockMetadataFromOracle;
 use rig::forward_system::system::system::ForwardRunningSystem;
 use zk_ee::reference_implementations::BaseResources;

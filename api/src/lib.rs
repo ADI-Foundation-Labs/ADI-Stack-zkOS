@@ -4,18 +4,19 @@ use std::{path::PathBuf, str::FromStr};
 
 use forward_system::run::{
     test_impl::{InMemoryPreimageSource, InMemoryTree, TxListSource},
-    BatchContext, StorageCommitment,
+    BlockContext, StorageCommitment,
 };
 use oracle_provider::ReadWitnessSource;
 pub mod helpers;
 
-/// Runs the batch, and returns the output (that contains gas usage, transaction status etc.).
+/// Runs the block, and returns the output (that contains gas usage, transaction status etc.).
+pub use forward_system::run::run_block;
 use zk_ee::common_structs::ProofData;
 
 /// Runs a block in riscV - using zksync_os binary - and returns the
 /// witness that can be passed to the prover subsystem.
-pub fn run_batch_generate_witness(
-    batch_context: BatchContext,
+pub fn run_block_generate_witness(
+    block_context: BlockContext,
     tree: InMemoryTree,
     preimage_source: InMemoryPreimageSource,
     tx_source: TxListSource,
@@ -25,7 +26,7 @@ pub fn run_batch_generate_witness(
     use forward_system::run::*;
 
     let oracle = make_oracle_for_proofs_and_dumps_for_init_data(
-        batch_context,
+        block_context,
         tree,
         preimage_source,
         tx_source,

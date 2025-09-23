@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use crate::utils::*;
 use alloy::consensus::transaction::*;
-use alloy::consensus::*;
 use alloy::eips::Encodable2718;
 use alloy::network::TxSignerSync;
 use alloy::primitives::*;
@@ -16,15 +15,17 @@ use zk_ee::system::tracer::NopTracer;
 use zk_ee::utils::Bytes32;
 use zksync_os_basic_bootloader::bootloader::block_flow::ethereum_block_flow::PectraForkHeader;
 use zksync_os_basic_bootloader::bootloader::constants::MAX_BLOCK_GAS_LIMIT;
-use zksync_os_basic_bootloader::bootloader::errors::InvalidTransaction;
 use zksync_os_basic_system::system_implementation::ethereum_storage_model::caches::EMPTY_STRING_KECCAK_HASH;
 use zksync_os_basic_system::system_implementation::ethereum_storage_model::EMPTY_ROOT_HASH;
 use zksync_os_forward_system::run::errors::ForwardSubsystemError;
+use zksync_os_forward_system::run::output::TxOutput;
 use zksync_os_forward_system::run::test_impl::{
     InMemoryPreimageSource, NoopTxCallback, TxListSource,
 };
 use zksync_os_forward_system::run::*;
 use zksync_os_oracle_provider::*;
+use zksync_os_rig::zksync_os_interface::error::InvalidTransaction;
+use zksync_os_rig::zksync_os_interface::types::{ExecutionOutput, ExecutionResult};
 
 use crate::test::case::transaction::AccessListItem;
 use crate::test::case::transaction::AuthorizationListItem;
@@ -381,22 +382,16 @@ impl ZKsyncOSEthereumSTF {
                 // TODO events
 
                 match &tx_output.execution_result {
-                    zksync_os_forward_system::run::ExecutionResult::Success(execution_output) => {
-                        match execution_output {
-                            zksync_os_forward_system::run::ExecutionOutput::Call(data) => {
-                                execution_result.return_data = data.clone();
-                            }
-                            zksync_os_forward_system::run::ExecutionOutput::Create(
-                                data,
-                                address,
-                            ) => {
-                                let bytes = address.to_be_bytes();
-                                execution_result.return_data = data.clone();
-                                execution_result.address_deployed = Some(Address::from(bytes));
-                            }
+                    ExecutionResult::Success(execution_output) => match execution_output {
+                        ExecutionOutput::Call(data) => {
+                            execution_result.return_data = data.clone();
                         }
-                    }
-                    zksync_os_forward_system::run::ExecutionResult::Revert(vec) => {
+                        ExecutionOutput::Create(data, address) => {
+                            execution_result.return_data = data.clone();
+                            execution_result.address_deployed = Some(*address);
+                        }
+                    },
+                    ExecutionResult::Revert(vec) => {
                         execution_result.exception = true;
                         execution_result.return_data = vec.clone();
                     }
@@ -414,15 +409,19 @@ impl ZKsyncOSEthereumSTF {
         }
     }
 
-    fn set_account_properties(&mut self, address: Address, mut properties: EthereumAccountProperties) {
+    fn set_account_properties(
+        &mut self,
+        address: Address,
+        mut properties: EthereumAccountProperties,
+    ) {
         let address = address_to_b160(address);
         if properties.is_empty() == false {
             if properties.bytecode_hash.is_zero() {
-                properties.bytecode_hash = EthereumAccountProperties::EMPTY_BUT_EXISTING_ACCOUNT.bytecode_hash;
+                properties.bytecode_hash =
+                    EthereumAccountProperties::EMPTY_BUT_EXISTING_ACCOUNT.bytecode_hash;
             }
             self.account_properties.insert(address, properties);
         }
-        
     }
 
     ///

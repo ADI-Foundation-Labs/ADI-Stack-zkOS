@@ -3,7 +3,7 @@ use crate::block_hashes::BlockHashes;
 use crate::calltrace::CallTrace;
 use crate::dump_utils::AccountStateDiffs;
 use crate::native_model::compute_ratio;
-use crate::post_check::{post_check, post_check_ext};
+use crate::post_check::post_check;
 use crate::prestate::{populate_prestate, DiffTrace, PrestateTrace};
 use crate::receipts::{BlockReceipts, TransactionReceipt};
 use alloy::consensus::Header;
@@ -11,7 +11,6 @@ use alloy::eips::eip4844::BlobTransactionSidecarItem;
 use alloy_primitives::U256;
 use alloy_rlp::Encodable;
 use alloy_rpc_types_eth::Withdrawal;
-use forward_system::run::output::map_tx_results;
 use rig::log::info;
 use rig::*;
 use std::fs::{self, File};
@@ -155,19 +154,11 @@ fn eth_run<const PROOF_ENV: bool>(
         }
     }
 
-    let tx_results = map_tx_results(&result_keeper);
-    let storage_writes = result_keeper
-        .storage_writes
-        .iter()
-        .map(|s| (*s).into())
-        .collect();
+    let block_output = zksync_os_interface::types::BlockOutput::from(result_keeper);
 
-    post_check_ext(
-        tx_results,
+    post_check(
+        block_output,
         receipts,
-        result_keeper.account_diffs,
-        storage_writes,
-        result_keeper.new_preimages,
         diff_trace,
         prestate_cache,
         ruint::aliases::B160::from_be_bytes(miner.into()),
