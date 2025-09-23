@@ -296,7 +296,10 @@ fn zksync_os_output_into_account_state(
             let owned: Vec<u8> = bytecode.to_owned();
             state.code = Some(owned.into());
         }
-        let existing = updates.insert(B160::from_be_bytes(account_diff.address.into_array()), state);
+        let existing = updates.insert(
+            B160::from_be_bytes(account_diff.address.into_array()),
+            state,
+        );
         assert!(existing.is_none());
     }
     for w in storage_writes {
