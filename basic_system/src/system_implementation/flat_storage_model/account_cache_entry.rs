@@ -328,6 +328,7 @@ impl AccountProperties {
         not_publish_bytecode: bool,
         hasher: &mut impl MiniDigest,
         result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
+        pubdata: &mut impl Extend<u8>,
         preimages_cache: &mut BytecodeAndAccountDataPreimagesStorage<R, A>,
         oracle: &mut impl IOOracle,
     ) -> Result<(), InternalError> {
@@ -348,8 +349,10 @@ impl AccountProperties {
             };
 
             hasher.update([metadata_byte]);
+            pubdata.extend([metadata_byte]);
             result_keeper.pubdata(&[metadata_byte]);
             hasher.update(r#final.versioning_data.into_u64().to_be_bytes());
+            pubdata.extend(r#final.versioning_data.into_u64().to_be_bytes());
             result_keeper.pubdata(&r#final.versioning_data.into_u64().to_be_bytes());
             ValueDiffCompressionStrategy::optimal_compression_u256(
                 initial
@@ -362,21 +365,26 @@ impl AccountProperties {
                     .map_err(|_| internal_error!("u64 into U256"))?,
                 hasher,
                 result_keeper,
+                pubdata,
             );
             ValueDiffCompressionStrategy::optimal_compression_u256(
                 initial.balance,
                 r#final.balance,
                 hasher,
                 result_keeper,
+                pubdata,
             );
 
             if not_publish_bytecode {
                 hasher.update(r#final.bytecode_hash.as_u8_ref());
+                pubdata.extend(r#final.bytecode_hash.as_u8_array());
                 result_keeper.pubdata(r#final.bytecode_hash.as_u8_ref());
             } else {
                 hasher.update(r#final.unpadded_code_len.to_be_bytes());
+                pubdata.extend(r#final.unpadded_code_len.to_be_bytes());
                 result_keeper.pubdata(&r#final.unpadded_code_len.to_be_bytes());
                 hasher.update(r#final.artifacts_len.to_be_bytes());
+                pubdata.extend(r#final.artifacts_len.to_be_bytes());
                 result_keeper.pubdata(&r#final.artifacts_len.to_be_bytes());
                 let preimage_type = PreimageRequest {
                     hash: r#final.bytecode_hash,
@@ -401,9 +409,11 @@ impl AccountProperties {
                         SystemError::LeafDefect(i) => i,
                     })?;
                 hasher.update(bytecode);
+                pubdata.extend(bytecode.iter().copied());
                 result_keeper.pubdata(bytecode);
             }
             hasher.update(r#final.observable_bytecode_len.to_be_bytes());
+            pubdata.extend(r#final.observable_bytecode_len.to_be_bytes());
             result_keeper.pubdata(&r#final.observable_bytecode_len.to_be_bytes());
             Ok(())
         } else {
@@ -420,6 +430,7 @@ impl AccountProperties {
                 metadata_byte |= 2 << 3;
             }
             hasher.update([metadata_byte]);
+            pubdata.extend([metadata_byte]);
             result_keeper.pubdata(&[metadata_byte]);
             if initial.nonce != r#final.nonce {
                 ValueDiffCompressionStrategy::optimal_compression_u256(
@@ -433,6 +444,7 @@ impl AccountProperties {
                         .map_err(|_| internal_error!("u64 into U256"))?,
                     hasher,
                     result_keeper,
+                    pubdata,
                 );
             }
             if initial.balance != r#final.balance {
@@ -441,6 +453,7 @@ impl AccountProperties {
                     r#final.balance,
                     hasher,
                     result_keeper,
+                    pubdata,
                 );
             }
             Ok(())
@@ -454,6 +467,7 @@ mod tests {
     use crate::system_implementation::flat_storage_model::{
         BytecodeAndAccountDataPreimagesStorage, PreimageRequest, VersioningData,
     };
+    use arrayvec::ArrayVec;
     use crypto::blake2s::Blake2s256;
     use crypto::sha3::Keccak256;
     use crypto::MiniDigest;
@@ -510,6 +524,7 @@ mod tests {
             BaseResources<DecreasingNative>,
         > = BytecodeAndAccountDataPreimagesStorage::new_from_parts(Global);
         let mut test_oracle = TestOracle;
+        let mut pubdata = ArrayVec::<u8, 1142784>::new();
 
         AccountProperties::diff_compression::<false, _, _>(
             &initial,
@@ -517,6 +532,7 @@ mod tests {
             false,
             &mut nop_hasher,
             &mut result_keeper,
+            &mut pubdata,
             &mut preimages_cache,
             &mut test_oracle,
         )
@@ -556,6 +572,7 @@ mod tests {
         let optimal_length =
             AccountProperties::diff_compression_length(&initial, &r#final, false).unwrap();
 
+        let mut pubdata = ArrayVec::<u8, 1142784>::new();
         let mut nop_hasher = NopHasher::new();
         let mut result_keeper = TestResultKeeper { pubdata: vec![] };
         let mut preimages_cache: BytecodeAndAccountDataPreimagesStorage<
@@ -582,6 +599,7 @@ mod tests {
             false,
             &mut nop_hasher,
             &mut result_keeper,
+            &mut pubdata,
             &mut preimages_cache,
             &mut test_oracle,
         )

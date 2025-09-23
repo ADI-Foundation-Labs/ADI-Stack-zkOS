@@ -231,6 +231,7 @@ pub trait StorageModel: Sized + SnapshottableIo {
         pubdata_hasher: &mut impl crypto::MiniDigest,
         result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
         logger: &mut impl Logger,
+        pubdata: &mut impl Extend<u8>,
     ) -> Result<(), InternalError>;
 
     #[cfg(feature = "evm_refunds")]

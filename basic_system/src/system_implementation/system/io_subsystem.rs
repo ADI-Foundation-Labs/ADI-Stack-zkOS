@@ -459,6 +459,7 @@ where
         result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
         mut logger: impl Logger,
     ) -> Self::FinalData {
+        use collected::Noop;
         result_keeper.pubdata(current_block_hash.as_u8_ref());
         // dump pubdata and state diffs
         self.storage
@@ -470,6 +471,7 @@ where
                 &mut NopHasher,
                 result_keeper,
                 &mut logger,
+                &mut Noop::default(),
             )
             .expect("Failed to finish storage");
         self.logs_storage
@@ -505,6 +507,8 @@ where
         result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
         mut logger: impl Logger,
     ) -> Self::FinalData {
+        use collected::Noop;
+
         let (mut state_commitment, last_block_timestamp) = {
             let mut initialization_iterator = self
                 .oracle
@@ -545,6 +549,7 @@ where
                 &mut pubdata_hasher,
                 result_keeper,
                 &mut logger,
+                &mut Noop::default(),
             )
             .expect("Failed to finish storage");
         self.logs_storage

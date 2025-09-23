@@ -1,11 +1,11 @@
 use crate::system_implementation::system::public_input;
 use arrayvec::ArrayVec;
-use crypto::sha3::digest::core_api::CoreWrapper;
 use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
 use ruint::aliases::{B160, U256};
 use zk_ee::system::logger::Logger;
 use zk_ee::utils::Bytes32;
+use zksync_kzg::{KzgInfo, ZK_SYNC_BYTES_PER_BLOB};
 
 ///
 /// Commitment to state that we need to keep between blocks execution:
@@ -210,6 +210,7 @@ pub struct BatchPublicInputBuilder {
     pub number_of_layer_1_txs: U256,
     pub l1_txs_rolling_hash: Bytes32,
     upgrade_tx_hash: Option<Bytes32>,
+    pub pubdata: ArrayVec<u8, 1142784>,
 }
 
 impl BatchPublicInputBuilder {
@@ -231,6 +232,7 @@ impl BatchPublicInputBuilder {
                 0x5d, 0x85, 0xa4, 0x70,
             ]),
             upgrade_tx_hash: None,
+            pubdata: ArrayVec::new(),
         }
     }
 
@@ -277,30 +279,23 @@ impl BatchPublicInputBuilder {
         full_root_hasher.update([0u8; 32]); // aggregated root 0 for now
         let full_l2_to_l1_logs_root = full_root_hasher.finalize();
 
-        let (core, pubdata) = self.pubdata_hasher.decompose();
-        let mut pubdata_hasher: Keccak256 = CoreWrapper::from_core(core);
-
-        let linear_hashes = pubdata
-            .get_data()
-            .chunks(126976)
-            .flat_map(|blob| {
-                let mut full_blob = [0u8; 126976];
-                full_blob[0..blob.len()].copy_from_slice(blob);
-
-                let linear_hash: [u8; 32] = Keccak256::digest(full_blob).into();
-                linear_hash
-            })
-            .collect::<ArrayVec<u8, 512>>();
-
-        let num_blobs = (linear_hashes.len() / 126976) as u8;
-
-        pubdata_hasher.update(pubdata.get_data());
+        let num_blobs = (self.pubdata.len() / ZK_SYNC_BYTES_PER_BLOB) as u8;
 
         let mut da_commitment_hasher = crypto::sha3::Keccak256::new();
         da_commitment_hasher.update([0u8; 32]); // we don't have to validate state diffs hash
-        da_commitment_hasher.update(pubdata_hasher.finalize().as_slice()); // full pubdata keccak
+        da_commitment_hasher.update(self.pubdata_hasher.finalize().as_slice()); // full pubdata keccak
         da_commitment_hasher.update([num_blobs]); // with calldata we should provide 1 blob
-        da_commitment_hasher.update(&linear_hashes); // its hash will be ignored on the settlement layer
+
+        self.pubdata
+            .chunks(ZK_SYNC_BYTES_PER_BLOB)
+            .for_each(|blob| {
+                let linear_hash: [u8; 32] = Keccak256::digest(blob).into();
+                da_commitment_hasher.update(&linear_hash);
+
+                let kzg_info = KzgInfo::new(blob);
+                da_commitment_hasher.update(&kzg_info.to_blob_commitment());
+            });
+
         let da_commitment = da_commitment_hasher.finalize();
 
         let batch_output = public_input::BatchOutput {

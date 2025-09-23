@@ -28,6 +28,9 @@ serde = { version = "1.0", default-features = false, features = ["derive", "allo
 strum_macros = "0.27.1"
 paste = "1.0.15"
 
+zksync_kzg = "0.152.7"
+collected = "0.4.0"
+
 [features]
 testing = ["zk_ee/testing", "evm_interpreter/testing", "serde", "ruint/serde", "rand", "crypto/testing"]
 evm-compatibility = []

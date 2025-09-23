@@ -128,6 +128,7 @@ where
         pubdata_hasher: &mut impl MiniDigest,
         result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
         logger: &mut impl Logger,
+        pubdata: &mut impl Extend<u8>,
     ) -> Result<(), InternalError> {
         let Self {
             mut storage_cache,
@@ -157,6 +158,7 @@ where
         let encdoded_state_diffs_count =
             (storage_cache.net_diffs_iter().count() as u32).to_be_bytes();
         pubdata_hasher.update(&encdoded_state_diffs_count);
+        pubdata.extend(encdoded_state_diffs_count);
         result_keeper.pubdata(&encdoded_state_diffs_count);
 
         let mut hasher = crypto::blake2s::Blake2s256::new();
@@ -172,6 +174,7 @@ where
                 let derived_key =
                     derive_flat_storage_key_with_hasher(&k.address, &k.key, &mut hasher);
                 pubdata_hasher.update(derived_key.as_u8_ref());
+                pubdata.extend(derived_key.as_u8_array());
                 result_keeper.pubdata(derived_key.as_u8_ref());
 
                 // we publish preimages for account details
@@ -187,6 +190,7 @@ where
                         r.metadata().not_publish_bytecode,
                         pubdata_hasher,
                         result_keeper,
+                        pubdata,
                         &mut preimages_cache,
                         oracle,
                     )
@@ -197,6 +201,7 @@ where
                         r.value(),
                         pubdata_hasher,
                         result_keeper,
+                        pubdata,
                     );
                 }
                 Ok(())
