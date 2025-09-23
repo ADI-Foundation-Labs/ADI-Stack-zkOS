@@ -11,6 +11,7 @@ use zk_ee::reference_implementations::BaseResources;
 use zk_ee::system::{EthereumLikeTypes, SystemTypes};
 use zk_ee::system_io_oracle::IOOracle;
 use zk_ee::types_config::EthereumIOTypesConfig;
+use crate::run::debug_oracle::DebugOracle;
 
 #[cfg(not(feature = "no_print"))]
 type Logger = crate::system::logger::StdIOLogger;
@@ -45,7 +46,9 @@ impl<O: IOOracle> EthereumLikeTypes for ForwardSystemTypes<O> {}
 pub type ForwardRunningSystem<T, PS, TS> = ForwardSystemTypes<ForwardRunningOracle<T, PS, TS>>;
 
 pub type CallSimulationSystem<T, PS, TS> = ForwardSystemTypes<CallSimulationOracle<T, PS, TS>>;
+pub type DebugForwardSystem = ForwardSystemTypes<DebugOracle>;
 
 pub type ForwardBootloader<T, PS, TS> = BasicBootloader<ForwardRunningSystem<T, PS, TS>>;
+pub type DebugForwardBootloader = BasicBootloader<DebugForwardSystem>;
 
 pub type CallSimulationBootloader<T, PS, TS> = BasicBootloader<CallSimulationSystem<T, PS, TS>>;

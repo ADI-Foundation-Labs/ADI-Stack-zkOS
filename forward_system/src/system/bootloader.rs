@@ -5,6 +5,7 @@ use basic_bootloader::bootloader::config::BasicBootloaderExecutionConfig;
 use basic_bootloader::bootloader::errors::BootloaderSubsystemError;
 use basic_bootloader::bootloader::result_keeper::ResultKeeperExt;
 use zk_ee::system::tracer::Tracer;
+use crate::run::debug_oracle::DebugOracle;
 
 ///
 /// Run bootloader with forward system with a given `oracle`.
@@ -21,6 +22,18 @@ pub fn run_forward<
     tracer: &mut impl Tracer<ForwardRunningSystem<T, PS, TS>>,
 ) {
     if let Err(err) = ForwardBootloader::run_prepared::<Config>(oracle, result_keeper, tracer) {
+        panic!("Forward run failed with: {err}")
+    };
+}
+
+pub fn run_debug<
+    Config: BasicBootloaderExecutionConfig,
+>(
+    oracle: DebugOracle,
+    result_keeper: &mut impl ResultKeeperExt,
+    tracer: &mut impl Tracer<DebugForwardSystem>,
+) {
+    if let Err(err) = DebugForwardBootloader::run_prepared::<Config>(oracle, result_keeper, tracer) {
         panic!("Forward run failed with: {err}")
     };
 }
