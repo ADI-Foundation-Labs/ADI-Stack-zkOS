@@ -2,6 +2,7 @@ use super::*;
 use crate::bootloader::block_flow::ethereum_block_flow::EthereumBlockMetadata;
 use crate::bootloader::block_flow::ethereum_block_flow::*;
 use crate::bootloader::errors::InvalidTransaction;
+use crate::bootloader::process_transaction::RefundInfo;
 use crate::bootloader::supported_ees::errors::EESubsystemError;
 use crate::bootloader::transaction::ethereum_tx_format::EthereumTransactionMetadata;
 use crate::bootloader::transaction::ethereum_tx_format::EthereumTransactionWithBuffer;
@@ -75,6 +76,7 @@ impl<'a> MinimalTransactionOutput<'a> for EthereumTxResult<'a> {
             gas_used: self.gas_used,
             gas_refunded: 0,
             computational_native_used: 0,
+            native_used: 0,
             pubdata_used: 0,
         }
     }
@@ -458,7 +460,7 @@ where
         let min_gas_used = context.minimal_gas_to_charge;
         // Compute gas used following the same logic as in normal execution
 
-        let (_gas_refund, gas_used, _evm_refund) = BasicBootloader::<S>::compute_gas_refund(
+        let RefundInfo { gas_used, .. } = BasicBootloader::<S>::compute_gas_refund(
             system,
             S::Resources::empty(),
             transaction.gas_limit(),

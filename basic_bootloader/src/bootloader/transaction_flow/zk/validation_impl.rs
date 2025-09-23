@@ -466,6 +466,7 @@ where
         tx_gas_limit,
         gas_used: 0,
         gas_refunded: 0,
+        native_used: 0,
         validation_pubdata: 0,
         total_pubdata: 0,
         initial_resources: S::Resources::empty(),

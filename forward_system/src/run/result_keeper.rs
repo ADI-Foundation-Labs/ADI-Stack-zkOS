@@ -22,9 +22,8 @@ pub struct TxProcessingOutputOwned {
     pub contract_address: Option<B160>,
     pub gas_used: u64,
     pub gas_refunded: u64,
-
     pub computational_native_used: u64,
-
+    pub native_used: u64,
     pub pubdata_used: u64,
 }
 
@@ -136,9 +135,8 @@ impl<TR: TxResultCallback, T: 'static + Sized> ResultKeeperExt<EthereumIOTypesCo
             contract_address: output.contract_address,
             gas_used: output.gas_used,
             gas_refunded: output.gas_refunded,
-
             computational_native_used: output.computational_native_used,
-
+            native_used: output.native_used,
             pubdata_used: output.pubdata_used,
         });
         self.tx_result_callback.tx_executed(owned_result.clone());

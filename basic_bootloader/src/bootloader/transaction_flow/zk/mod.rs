@@ -34,6 +34,7 @@ pub struct ZkTxResult<'a> {
     pub gas_refunded: u64,
     pub gas_used: u64,
     pub computational_native_used: u64,
+    pub native_used: u64,
     pub pubdata_used: u64,
 }
 
@@ -72,6 +73,7 @@ impl<'a> MinimalTransactionOutput<'a> for ZkTxResult<'a> {
             gas_used: self.gas_used,
             gas_refunded: self.gas_refunded,
             computational_native_used: self.computational_native_used,
+            native_used: self.native_used,
             pubdata_used: self.pubdata_used,
         }
     }
@@ -98,6 +100,7 @@ pub struct TxContextForPreAndPostProcessing<S: EthereumLikeTypes> {
     pub total_pubdata: u64,
     pub initial_resources: S::Resources,
     pub resources_before_refund: S::Resources,
+    pub native_used: u64,
 }
 
 impl<S: EthereumLikeTypes> core::fmt::Debug for TxContextForPreAndPostProcessing<S> {
@@ -369,7 +372,7 @@ where
                 U256::from(context.native_per_pubdata),
                 None,
             )?;
-            let (_gas_refund, gas_used, evm_refund) = BasicBootloader::<S>::compute_gas_refund(
+            let refund_info = BasicBootloader::<S>::compute_gas_refund(
                 system,
                 to_charge_for_pubdata,
                 transaction.gas_limit.read(),
@@ -377,8 +380,9 @@ where
                 U256::from(context.native_per_gas),
                 &mut context.resources.main_resources,
             )?;
-            context.gas_used = gas_used;
-            context.gas_refunded = evm_refund;
+            context.gas_used = refund_info.gas_used;
+            context.gas_refunded = refund_info.evm_refund;
+            context.native_used = refund_info.native_used;
             context.total_pubdata = pubdata_spent;
 
             return Ok(());
@@ -413,7 +417,7 @@ where
             }
         };
         let min_gas_used = context.minimal_ergs_to_charge.0 / ERGS_PER_GAS;
-        let (_total_gas_refund, gas_used, evm_refund) = BasicBootloader::<S>::compute_gas_refund(
+        let refund_info = BasicBootloader::<S>::compute_gas_refund(
             system,
             to_charge_for_pubdata,
             transaction.gas_limit.read(),
@@ -422,8 +426,9 @@ where
             &mut context.resources.main_resources,
         )?;
         debug_assert_eq!(context.gas_used, 0);
-        context.gas_used = gas_used;
-        context.gas_refunded = evm_refund;
+        context.gas_used = refund_info.gas_used;
+        context.gas_refunded = refund_info.evm_refund;
+        context.native_used = refund_info.native_used;
         context.total_pubdata = total_pubdata_used;
 
         Ok(())
@@ -544,6 +549,7 @@ where
             gas_used: context.gas_used,
             gas_refunded: context.gas_refunded,
             computational_native_used,
+            native_used: context.native_used,
             pubdata_used: context.total_pubdata + L2_TX_INTRINSIC_PUBDATA as u64,
         }
     }

@@ -15,6 +15,7 @@ use errors::BootloaderSubsystemError;
 use gas_helpers::check_enough_resources_for_pubdata;
 use gas_helpers::get_resources_to_charge_for_pubdata;
 use gas_helpers::ResourcesForTx;
+use process_transaction::RefundInfo;
 use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
 use system_hooks::HooksStorage;
 use zk_ee::internal_error;
@@ -205,7 +206,12 @@ where
         let resources_before_refund = resources.clone();
         let min_gas_used = 0;
         #[allow(unused_variables)]
-        let (_, gas_used, evm_refund) = Self::compute_gas_refund(
+        let RefundInfo {
+            gas_used,
+            evm_refund,
+            native_used,
+            ..
+        } = Self::compute_gas_refund(
             system,
             to_charge_for_pubdata,
             gas_limit,
@@ -312,6 +318,7 @@ where
             gas_used,
             gas_refunded: evm_refund,
             computational_native_used,
+            native_used,
             pubdata_used: pubdata_used + L1_TX_INTRINSIC_PUBDATA,
         })
     }

@@ -50,6 +50,8 @@ pub struct TxOutput {
     pub gas_refunded: u64,
     /// Amount of native resource used in the entire transaction for computation.
     pub computational_native_used: u64,
+    /// Total amount of native resource used in the entire transaction (includes spent on pubdata)
+    pub native_used: u64,
     /// Amount of pubdata used in the entire transaction.
     pub pubdata_used: u64,
     /// Deployed contract address
@@ -179,9 +181,8 @@ pub fn map_tx_results<TR: TxResultCallback, T: 'static + Sized>(
                 TxOutput {
                     gas_used: output.gas_used,
                     gas_refunded: output.gas_refunded,
-
                     computational_native_used: output.computational_native_used,
-
+                    native_used: output.native_used,
                     pubdata_used: output.pubdata_used,
                     contract_address: output.contract_address,
                     logs: result_keeper
@@ -250,6 +251,7 @@ impl<TR: TxResultCallback, T: 'static + Sized> From<ForwardRunningResultKeeper<T
                     TxOutput {
                         gas_used: output.gas_used,
                         gas_refunded: output.gas_refunded,
+                        native_used: output.native_used,
                         computational_native_used: output.computational_native_used,
                         pubdata_used: output.pubdata_used,
                         contract_address: output.contract_address,
