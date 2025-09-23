@@ -226,7 +226,8 @@ impl<A: Allocator + Clone> BigintRepr<A> {
         'outer: for &byte in exp.iter() {
             // But here we should go from MSB
             for i in (0..8).rev() {
-                if current.digits == 0 {
+                // we don't want to break until we found first non-zero bit to ensure that 0^x processed correctly
+                if current.digits == 0 && first_found {
                     // in case if modulus is composite, we can get accumulator
                     // to be 0, and then we can exit the loop early
                     break 'outer;
