@@ -349,10 +349,10 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         // update state
         self.previous_block_number = Some(self.next_block_number());
         self.block_timestamp = block_context.timestamp;
-        for i in 0..255 {
-            self.block_hashes[i] = self.block_hashes[i + 1];
+        for i in (1..=255).rev() {
+            self.block_hashes[i] = self.block_hashes[i - 1];
         }
-        self.block_hashes[255] = U256::from_be_bytes(block_output.header.hash());
+        self.block_hashes[0] = U256::from_be_bytes(block_output.header.hash());
 
         for storage_write in block_output.storage_writes.iter() {
             self.state_tree
