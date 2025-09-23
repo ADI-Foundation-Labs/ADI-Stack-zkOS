@@ -5,9 +5,9 @@ mod tree;
 mod tx_result_callback;
 mod tx_source;
 
-pub(crate) mod query_processors;
 pub mod convert;
 mod interface_impl;
+pub(crate) mod query_processors;
 pub mod result_keeper;
 pub mod test_impl;
 
@@ -183,7 +183,6 @@ pub fn make_oracle_for_proofs_and_dumps_for_init_data<
 
     oracle
 }
-
 
 pub fn run_block_with_oracle_dump<
     T: ReadStorageTree + Clone + serde::Serialize,

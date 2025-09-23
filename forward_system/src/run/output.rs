@@ -6,11 +6,9 @@ use crate::run::TxResultCallback;
 use alloy::primitives::Address;
 pub use basic_bootloader::bootloader::block_header::BlockHeader;
 use ruint::aliases::B160;
-use zk_ee::common_structs::GenericLogContent;
-use zk_ee::common_structs::{
-    derive_flat_storage_key, PreimageType,
-};
 use std::collections::HashMap;
+use zk_ee::common_structs::GenericLogContent;
+use zk_ee::common_structs::{derive_flat_storage_key, PreimageType};
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::utils::Bytes32;
 use zksync_os_interface::error::InvalidTransaction;
@@ -35,7 +33,6 @@ trait StorageWriteExt {
     fn new(address: B160, key: Bytes32, value: Bytes32) -> StorageWrite;
 }
 
-
 impl StorageWriteExt for StorageWrite {
     fn new(address: B160, key: Bytes32, value: Bytes32) -> StorageWrite {
         let flat_key = derive_flat_storage_key(&address, &key);
@@ -56,49 +53,52 @@ pub fn map_tx_results<TR: TxResultCallback, T: 'static + Sized>(
         .iter()
         .enumerate()
         .map(|(tx_number, result)| {
-            result.clone().map(|output| {
-                let execution_result = if output.status {
-                    ExecutionResult::Success(if output.contract_address.is_some() {
-                        ExecutionOutput::Create(output.output, output.contract_address.unwrap())
+            result
+                .clone()
+                .map(|output| {
+                    let execution_result = if output.status {
+                        ExecutionResult::Success(if output.contract_address.is_some() {
+                            ExecutionOutput::Create(output.output, output.contract_address.unwrap())
+                        } else {
+                            ExecutionOutput::Call(output.output)
+                        })
                     } else {
-                        ExecutionOutput::Call(output.output)
-                    })
-                } else {
-                    ExecutionResult::Revert(output.output)
-                };
-                TxOutput {
-                    gas_used: output.gas_used,
-                    gas_refunded: output.gas_refunded,
-                    computational_native_used: output.computational_native_used,
-                    native_used: output.native_used,
-                    pubdata_used: output.pubdata_used,
-                    contract_address: output.contract_address,
-                    logs: result_keeper
-                        .events
-                        .iter()
-                        .filter_map(|e| {
-                            if e.tx_number == tx_number as u32 {
-                                Some(e.into_interface())
-                            } else {
-                                None
-                            }
-                        })
-                        .collect(),
-                    l2_to_l1_logs: result_keeper
-                        .logs
-                        .iter()
-                        .filter_map(|m| {
-                            if m.tx_number == tx_number as u32 {
-                                Some(parse_l2_to_l1_log_w_preimages(m))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect(),
-                    execution_result,
-                    storage_writes: vec![],
-                }
-            }).map_err(|err| err.into_interface())
+                        ExecutionResult::Revert(output.output)
+                    };
+                    TxOutput {
+                        gas_used: output.gas_used,
+                        gas_refunded: output.gas_refunded,
+                        computational_native_used: output.computational_native_used,
+                        native_used: output.native_used,
+                        pubdata_used: output.pubdata_used,
+                        contract_address: output.contract_address,
+                        logs: result_keeper
+                            .events
+                            .iter()
+                            .filter_map(|e| {
+                                if e.tx_number == tx_number as u32 {
+                                    Some(e.into_interface())
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect(),
+                        l2_to_l1_logs: result_keeper
+                            .logs
+                            .iter()
+                            .filter_map(|m| {
+                                if m.tx_number == tx_number as u32 {
+                                    Some(parse_l2_to_l1_log_w_preimages(m))
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect(),
+                        execution_result,
+                        storage_writes: vec![],
+                    }
+                })
+                .map_err(|err| err.into_interface())
         })
         .collect()
 }

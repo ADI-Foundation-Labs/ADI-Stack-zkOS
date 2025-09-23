@@ -81,11 +81,11 @@ impl IntoInterface<InvalidTransaction>
             basic_bootloader::bootloader::errors::InvalidTransaction::BlockNativeLimitReached => { InvalidTransaction::BlockNativeLimitReached }
             basic_bootloader::bootloader::errors::InvalidTransaction::BlockPubdataLimitReached => { InvalidTransaction::BlockPubdataLimitReached }
             basic_bootloader::bootloader::errors::InvalidTransaction::BlockL2ToL1LogsLimitReached => { InvalidTransaction::BlockL2ToL1LogsLimitReached }
-            basic_bootloader::bootloader::errors::InvalidTransaction::CallerGasLimitMoreThanTxLimit => todo!(),
-            basic_bootloader::bootloader::errors::InvalidTransaction::AuthListIsEmpty => todo!(),
-            basic_bootloader::bootloader::errors::InvalidTransaction::BlobElementIsNotSupported => todo!(),
-            basic_bootloader::bootloader::errors::InvalidTransaction::EIP7623IntrinsicGasIsTooLow => todo!(),
-            basic_bootloader::bootloader::errors::InvalidTransaction::NativeResourcesAreTooExpensive => todo!(),
+            basic_bootloader::bootloader::errors::InvalidTransaction::CallerGasLimitMoreThanTxLimit => { InvalidTransaction::CallerGasLimitMoreThanTxLimit },
+            basic_bootloader::bootloader::errors::InvalidTransaction::AuthListIsEmpty => { InvalidTransaction::AuthListIsEmpty },
+            basic_bootloader::bootloader::errors::InvalidTransaction::BlobElementIsNotSupported => { InvalidTransaction::BlobElementIsNotSupported },
+            basic_bootloader::bootloader::errors::InvalidTransaction::EIP7623IntrinsicGasIsTooLow => { InvalidTransaction::EIP7623IntrinsicGasIsTooLow },
+            basic_bootloader::bootloader::errors::InvalidTransaction::NativeResourcesAreTooExpensive => { InvalidTransaction::NativeResourcesAreTooExpensive },
         }
     }
 }
