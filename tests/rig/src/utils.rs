@@ -12,11 +12,11 @@ use alloy::signers::local::PrivateKeySigner;
 use ethers::abi::AbiEncode;
 use ethers::types::transaction::eip2718::TypedTransaction;
 use ethers::types::U256;
-use forward_system::run::BlockOutput;
 use std::io::Read;
 use std::path::PathBuf;
 use std::str::FromStr;
 pub use zksync_os_api::helpers::*;
+use zksync_os_interface::types::BlockOutput;
 use zksync_web3_rs::eip712::{Eip712Transaction, Eip712TransactionRequest};
 use zksync_web3_rs::signers::Signer;
 use zksync_web3_rs::zks_utils::EIP712_TX_TYPE;
@@ -268,7 +268,7 @@ pub fn sign_and_encode_eip712_tx(
 /// Panics if needed fields are unset/set incorrectly.
 ///
 pub fn encode_l1_tx(tx: TransactionRequest) -> Vec<u8> {
-    let tx_type = 255;
+    let tx_type = 0x7f;
     let from = tx.from.unwrap().into_array();
     let to = Some(tx.to.unwrap().to().unwrap().into_array());
     let gas_limit = tx.gas.unwrap() as u128;
