@@ -451,6 +451,10 @@ impl BatchPublicInputBuilder {
     }
 }
 
+/// Calculates a rolling keccak256 hash over a sequence of interop roots.
+/// This creates a cumulative digest that can be verified on settlement layers.
+///
+/// For each root: rolling_hash = keccak256(old_rolling_hash || chain_id || block_number || root_hash)
 pub fn calculate_interop_roots_rolling_hash(
     old_rolling_hash: Bytes32,
     roots: &[InteropRoot],
