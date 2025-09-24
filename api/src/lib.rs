@@ -4,7 +4,7 @@ use std::{path::PathBuf, str::FromStr};
 
 use forward_system::run::{
     test_impl::{InMemoryPreimageSource, InMemoryTree, TxListSource},
-    BatchContext, StorageCommitment,
+    BlockContext, StorageCommitment,
 };
 use oracle_provider::ReadWitnessSource;
 pub mod helpers;
@@ -26,7 +26,7 @@ pub fn run_block_generate_witness(
     use forward_system::run::*;
 
     let oracle = make_oracle_for_proofs_and_dumps_for_init_data(
-        batch_context,
+        block_context,
         tree,
         preimage_source,
         tx_source,

@@ -186,7 +186,6 @@ pub fn make_oracle_for_proofs_and_dumps_for_init_data<
     oracle
 }
 
-
 pub fn run_block_with_oracle_dump<
     T: ReadStorageTree + Clone + serde::Serialize,
     PS: PreimageSource + Clone + serde::Serialize,
@@ -201,7 +200,7 @@ pub fn run_block_with_oracle_dump<
     proof_data: Option<ProofData<StorageCommitment>>,
     tracer: &mut impl Tracer<ForwardRunningSystem>,
 ) -> Result<BlockOutput, ForwardSubsystemError> {
-    run_batch_with_oracle_dump_ext::<T, PS, TS, TR, BasicBootloaderForwardSimulationConfig>(
+    run_block_with_oracle_dump_ext::<T, PS, TS, TR, BasicBootloaderForwardSimulationConfig>(
         block_context,
         tree,
         preimage_source,
@@ -212,7 +211,7 @@ pub fn run_block_with_oracle_dump<
     )
 }
 
-pub fn run_batch_with_oracle_dump_ext<
+pub fn run_block_with_oracle_dump_ext<
     T: ReadStorageTree + Clone + serde::Serialize,
     PS: PreimageSource + Clone + serde::Serialize,
     TS: TxSource + Clone + serde::Serialize,

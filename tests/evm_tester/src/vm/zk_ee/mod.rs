@@ -22,7 +22,7 @@ use zksync_os_forward_system::run::test_impl::{
     InMemoryPreimageSource, InMemoryTree, NoopTxCallback, TxListSource,
 };
 use zksync_os_forward_system::run::{
-    run_batch_with_oracle_dump, BatchContext, BlockOutput, PreimageSource, StorageCommitment,
+    run_block_with_oracle_dump, BlockContext, BlockOutput, PreimageSource, StorageCommitment,
     TxOutput,
 };
 use zksync_os_rig::zksync_os_api::helpers;
@@ -215,7 +215,7 @@ impl ZKsyncOS {
         // Override block gas limit
         let gas_limit = min(block_gas_limit, MAX_BLOCK_GAS_LIMIT);
 
-        let context = BatchContext {
+        let context = BlockContext {
             //todo: gas
             eip1559_basefee: ruint::Uint::from_str(&system_context.base_fee.to_string())
                 .expect("Invalid basefee"),
@@ -278,7 +278,7 @@ impl ZKsyncOS {
             // );
         }
 
-        let result = run_batch_with_oracle_dump(
+        let result = run_block_with_oracle_dump(
             context,
             tree,
             preimage_source,
