@@ -27,6 +27,12 @@ TEXT_NAME="app.text"
 
 # Adjust for server modes
 case "$TYPE" in
+  evm-tester)
+    FEATURES="$FEATURES,proof_running_system/state-diffs-pi"
+    BIN_NAME="evm_tester.bin"
+    ELF_NAME="evm_tester.elf"
+    TEXT_NAME="evm_tester.text"
+    ;;
   server)
     FEATURES="$FEATURES,proof_running_system/wrap-in-batch"
     BIN_NAME="server_app.bin"
