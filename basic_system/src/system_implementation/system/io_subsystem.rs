@@ -2,6 +2,8 @@
 use super::*;
 use crate::system_functions::keccak256::keccak256_native_cost;
 use crate::system_functions::keccak256::Keccak256Impl;
+#[cfg(feature = "aggregation")]
+use crate::system_implementation::system::public_input::{BlocksOutput, BlocksPublicInput};
 use cost_constants::EVENT_DATA_PER_BYTE_COST;
 use cost_constants::EVENT_STORAGE_BASE_NATIVE_COST;
 use cost_constants::EVENT_TOPIC_NATIVE_COST;
@@ -482,8 +484,7 @@ where
 }
 
 // In practice we will not use single block batches
-// This functionality is here only for the tests
-#[cfg(all(not(feature = "wrap-in-batch"), not(feature = "multiblock-batch")))]
+#[cfg(feature = "aggregation")]
 impl<
         A: Allocator + Clone + Default,
         R: Resources,
@@ -595,7 +596,7 @@ where
     }
 }
 
-#[cfg(feature = "wrap-in-batch")]
+#[cfg(not(any(feature = "multiblock-batch", feature = "aggregation")))]
 impl<
         A: Allocator + Clone + Default,
         R: Resources,
@@ -645,8 +646,7 @@ where
             last_block_timestamp,
         };
         let _ = logger.write_fmt(format_args!(
-            "PI calculation: state commitment before {:?}\n",
-            chain_state_commitment_before
+            "PI calculation: state commitment before {chain_state_commitment_before:?}\n",
         ));
 
         // finishing IO, applying changes
@@ -692,8 +692,7 @@ where
             last_block_timestamp: block_metadata.timestamp,
         };
         let _ = logger.write_fmt(format_args!(
-            "PI calculation: state commitment after {:?}\n",
-            chain_state_commitment_after
+            "PI calculation: state commitment after {chain_state_commitment_after:?}\n",
         ));
         let mut da_commitment_hasher = crypto::sha3::Keccak256::new();
         da_commitment_hasher.update([0u8; 32]); // we don't have to validate state diffs hash
@@ -714,8 +713,7 @@ where
             interop_root_rolling_hash: Bytes32::from([0u8; 32]), // for now no interop roots
         };
         let _ = logger.write_fmt(format_args!(
-            "PI calculation: batch output {:?}\n",
-            batch_output,
+            "PI calculation: batch output {batch_output:?}\n",
         ));
 
         let public_input = public_input::BatchPublicInput {
@@ -724,13 +722,11 @@ where
             batch_output: batch_output.hash().into(),
         };
         let _ = logger.write_fmt(format_args!(
-            "PI calculation: final batch public input {:?}\n",
-            public_input,
+            "PI calculation: final batch public input {public_input:?}\n",
         ));
         let public_input_hash = public_input.hash().into();
         let _ = logger.write_fmt(format_args!(
-            "PI calculation: final batch public input hash {:?}\n",
-            public_input_hash,
+            "PI calculation: final batch public input hash {public_input_hash:?}\n",
         ));
 
         (self.oracle, public_input_hash)
