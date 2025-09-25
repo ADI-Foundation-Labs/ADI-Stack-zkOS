@@ -1059,11 +1059,8 @@ where
             TxError::Validation(InvalidTransaction::BaseFeeGreaterThanMaxFee,),
             system
         )?;
-        let priority_fee_per_gas = if cfg!(feature = "charge_priority_fee") {
-            core::cmp::min(max_priority_fee_per_gas, max_fee_per_gas - base_fee)
-        } else {
-            U256::ZERO
-        };
+        let priority_fee_per_gas =
+            core::cmp::min(max_priority_fee_per_gas, max_fee_per_gas - base_fee);
         Ok(base_fee + priority_fee_per_gas)
     }
 
