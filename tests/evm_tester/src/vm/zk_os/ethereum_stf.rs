@@ -414,15 +414,19 @@ impl ZKsyncOSEthereumSTF {
         }
     }
 
-    fn set_account_properties(&mut self, address: Address, mut properties: EthereumAccountProperties) {
+    fn set_account_properties(
+        &mut self,
+        address: Address,
+        mut properties: EthereumAccountProperties,
+    ) {
         let address = address_to_b160(address);
         if properties.is_empty() == false {
             if properties.bytecode_hash.is_zero() {
-                properties.bytecode_hash = EthereumAccountProperties::EMPTY_BUT_EXISTING_ACCOUNT.bytecode_hash;
+                properties.bytecode_hash =
+                    EthereumAccountProperties::EMPTY_BUT_EXISTING_ACCOUNT.bytecode_hash;
             }
             self.account_properties.insert(address, properties);
         }
-        
     }
 
     ///

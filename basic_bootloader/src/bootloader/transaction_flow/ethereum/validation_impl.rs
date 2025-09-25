@@ -698,7 +698,9 @@ where
     let worst_case_fee_amount = {
         let (value, of) = u256_mul_by_word(transaction.max_fee_per_gas(), tx_gas_limit);
         if of > 0 {
-            return Err(internal_error!("max gas price by tx gas limit").into());
+            return Err(TxError::Validation(
+        InvalidTransaction::OverflowPaymentInTransaction,
+    ));
         }
 
         value
@@ -712,7 +714,9 @@ where
 
         let (value, of) = u256_mul_by_word(&system.metadata.blob_base_fee_per_gas(), blob_gas_used);
         if of > 0 {
-            return Err(internal_error!("blob gas price by blob gas used").into());
+            return Err(TxError::Validation(
+        InvalidTransaction::OverflowPaymentInTransaction,
+    ));
         }
 
         value
@@ -727,10 +731,14 @@ where
 
     let mut total_required_balance = tx_value
         .checked_add(worst_case_fee_amount)
-        .ok_or(internal_error!("transaction amount + fee"))?;
+        .ok_or(TxError::Validation(
+        InvalidTransaction::OverflowPaymentInTransaction,
+    ))?;
     total_required_balance = total_required_balance
         .checked_add(fee_for_blob_gas)
-        .ok_or(internal_error!("transaction amount + fee + blob gas"))?;
+        .ok_or(TxError::Validation(
+        InvalidTransaction::OverflowPaymentInTransaction,
+    ))?;
     if total_required_balance > originator_account_data.nominal_token_balance.0 {
         return Err(TxError::Validation(
             InvalidTransaction::LackOfFundForMaxFee {
@@ -744,7 +752,9 @@ where
     let fee_amount_execution_gas = {
         let (value, of) = u256_mul_by_word(&effective_gas_price, tx_gas_limit);
         if of > 0 {
-            return Err(internal_error!("effective gas price by tx gas limit").into());
+            return Err(TxError::Validation(
+        InvalidTransaction::OverflowPaymentInTransaction,
+    ));
         }
 
         value
@@ -752,7 +762,9 @@ where
 
     let total_fee = fee_amount_execution_gas
         .checked_add(fee_for_blob_gas)
-        .ok_or(internal_error!("transaction fee + blob gas"))?;
+        .ok_or(TxError::Validation(
+        InvalidTransaction::OverflowPaymentInTransaction,
+    ))?;
 
     // let tx_hash = *transaction.transaction_hash();
 
