@@ -38,49 +38,49 @@ case "$TYPE" in
     TEXT_NAME="server_app_logging_enabled.text"
     ;;
   testing)
-    FEATURES="$FEATURES"
+    FEATURES="$FEATURES,for_tests"
     BIN_NAME="testing.bin"
     ELF_NAME="testing.elf"
     TEXT_NAME="testing.text"
     ;;
   testing-benchmarking)
-    FEATURES="$FEATURES,proof_running_system/testing,proof_running_system/cycle_marker,proof_running_system/unlimited_native,proof_running_system/p256_precompile"
+    FEATURES="$FEATURES,for_tests,benchmarking"
     BIN_NAME="testing.bin"
     ELF_NAME="testing.elf"
     TEXT_NAME="testing.text"
     ;;
   debug-in-simulator)
-    FEATURES="$FEATURES,print_debug_info,proof_running_system/cycle_marker,proof_running_system/p256_precompile"
+    FEATURES="$FEATURES,print_debug_info,for_tests"
     BIN_NAME="app_debug.bin"
     ELF_NAME="app_debug.elf"
     TEXT_NAME="app_debug.text"
     ;;
   evm-replay)
-    FEATURES="$FEATURES,proof_running_system/disable_system_contracts,proof_running_system/prevrandao,proof_running_system/evm_refunds"
+    FEATURES="$FEATURES,eth_runner"
     BIN_NAME="evm_replay.bin"
     ELF_NAME="evm_replay.elf"
     TEXT_NAME="evm_replay.text"
     ;;
   evm-replay-benchmarking)
-    FEATURES="$FEATURES,proof_running_system/unlimited_native,proof_running_system/disable_system_contracts,proof_running_system/cycle_marker,proof_running_system/prevrandao,proof_running_system/evm_refunds"
+    FEATURES="$FEATURES,eth_runner,benchmarking"
     BIN_NAME="evm_replay.bin"
     ELF_NAME="evm_replay.elf"
     TEXT_NAME="evm_replay.text"
     ;;
   pectra)
-    FEATURES="$FEATURES,proof_running_system/pectra"
+    FEATURES="$FEATURES,pectra"
     BIN_NAME="testing.bin"
     ELF_NAME="testing.elf"
     TEXT_NAME="testing.text"
     ;;
   multiblock-batch)
-    FEATURES="$FEATURES,proof_running_system/multiblock-batch"
+    FEATURES="$FEATURES,multiblock-batch"
     BIN_NAME="multiblock_batch.bin"
     ELF_NAME="multiblock_batch.elf"
     TEXT_NAME="multiblock_batch.text"
     ;;
   multiblock-batch-logging-enabled)
-    FEATURES="$FEATURES,proof_running_system/multiblock-batch,print_debug_info"
+    FEATURES="$FEATURES,multiblock-batch,print_debug_info"
     BIN_NAME="multiblock_batch_logging_enabled.bin"
     ELF_NAME="multiblock_batch_logging_enabled.elf"
     TEXT_NAME="multiblock_batch_logging_enabled.text"

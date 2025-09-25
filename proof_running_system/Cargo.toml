@@ -37,14 +37,28 @@ default = ["testing"]
 proving = ["crypto/proving", "basic_system/proving"]
 scalloc = []
 cycle_marker = ["zk_ee/cycle_marker", "evm_interpreter/cycle_marker", "basic_system/cycle_marker", "basic_bootloader/cycle_marker"]
-evm-compatibility = ["basic_bootloader/evm-compatibility", "basic_system/evm-compatibility"]
 unlimited_native = ["basic_bootloader/unlimited_native"]
+benchmarking = ["cycle_marker", "unlimited_native"]
 global-alloc = []
-disable_system_contracts = ["basic_bootloader/disable_system_contracts"]
-p256_precompile = ["system_hooks/p256_precompile"]
 error_origins = ["zk_ee/error_origins"]
-prevrandao = ["zk_ee/prevrandao"]
 evm_refunds = ["zk_ee/evm_refunds", "basic_system/evm_refunds", "basic_bootloader/evm_refunds", "evm_interpreter/evm_refunds"]
-pectra = ["basic_bootloader/pectra"]
 multiblock-batch = ["basic_system/multiblock-batch"]
 aggregation = ["basic_system/aggregation"]
+
+# A feature for every specific use case
+
+# Features used for tests.
+# Note: this should be called `testing`, but we already use that name for a different
+# feature. We cannot combine them because `testing` enables std, which makes it
+# incompatible with our risc-v proving.
+for_tests = ["system_hooks/p256_precompile"]
+
+# Features used for eth_runner
+eth_runner = ["basic_bootloader/disable_system_contracts", "zk_ee/prevrandao", "evm_refunds"]
+
+# Features used for evm_tester
+evm_tester = ["basic_bootloader/evm-compatibility", "basic_system/evm-compatibility", "basic_bootloader/resources_for_tester", "basic_bootloader/disable_system_contracts", "zk_ee/prevrandao", "evm_refunds"]
+
+# Features used for pectra tests
+pectra = ["basic_bootloader/pectra"]
+

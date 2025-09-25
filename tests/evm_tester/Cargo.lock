@@ -3433,6 +3433,7 @@ dependencies = [
  "ruint",
  "serde",
  "strum_macros 0.27.2",
+ "system_hooks",
  "zk_ee",
  "zksync_os_interface",
  "zksync_os_runner",
