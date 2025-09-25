@@ -240,7 +240,7 @@ function install() {
 
 function prepare() {
     pushd ../../zksync_os || exit
-    /bin/bash ./dump_bin.sh || exit
+    /bin/bash ./dump_bin.sh --type testing || exit
     popd || exit
 }
 

@@ -1,4 +1,4 @@
-name: Check app.bin
+name: Check bin
 
 on:
   push:

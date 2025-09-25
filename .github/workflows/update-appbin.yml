@@ -1,4 +1,4 @@
-name: Update app.bin
+name: Update bin
 
 on:
   pull_request:
@@ -23,7 +23,7 @@ jobs:
   update_app_bin:
     runs-on: ubuntu-latest
     env:
-      COMMIT_MESSAGE: "chore: auto-update app.bin file"
+      COMMIT_MESSAGE: "chore: auto-update bin files"
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
