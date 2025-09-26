@@ -431,8 +431,8 @@ where
     let worst_case_fee_amount = U256::from(transaction.max_fee_per_gas.read())
         .checked_mul(U256::from(tx_gas_limit))
         .ok_or(TxError::Validation(
-        InvalidTransaction::OverflowPaymentInTransaction,
-    ))?;
+            InvalidTransaction::OverflowPaymentInTransaction,
+        ))?;
 
     debug_assert!(U256::from(transaction.max_fee_per_gas.read()) >= gas_price);
 
@@ -441,8 +441,8 @@ where
     let total_required_balance = tx_value
         .checked_add(U256::from(worst_case_fee_amount))
         .ok_or(TxError::Validation(
-        InvalidTransaction::OverflowPaymentInTransaction,
-    ))?;
+            InvalidTransaction::OverflowPaymentInTransaction,
+        ))?;
     if total_required_balance > originator_account_data.nominal_token_balance.0 {
         return Err(TxError::Validation(
             InvalidTransaction::LackOfFundForMaxFee {
@@ -456,8 +456,8 @@ where
     let fee_amount = gas_price
         .checked_mul(U256::from(tx_gas_limit))
         .ok_or(TxError::Validation(
-        InvalidTransaction::OverflowPaymentInTransaction,
-    ))?;
+            InvalidTransaction::OverflowPaymentInTransaction,
+        ))?;
 
     Ok(TxContextForPreAndPostProcessing {
         resources: tx_resources,
