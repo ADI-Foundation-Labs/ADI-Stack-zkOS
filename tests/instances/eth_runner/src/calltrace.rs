@@ -1,3 +1,4 @@
+use alloy::primitives::address;
 use alloy::primitives::{Address, B256, U256};
 use hex::FromHex;
 use serde::{Deserialize, Serialize};
@@ -59,9 +60,8 @@ impl CallTraceItem {
     }
 
     pub fn has_call_to_unsupported_precompile(&self) -> bool {
-        self.to == Some(Address::from_hex("0000000000000000000000000000000000000009").unwrap())
-            || self.to
-                == Some(Address::from_hex("000000000000000000000000000000000000000a").unwrap())
+        self.to == Some(address!("0000000000000000000000000000000000000009"))
+            || self.to == Some(address!("000000000000000000000000000000000000000a"))
             || self
                 .calls
                 .as_ref()

@@ -550,42 +550,42 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             parent_headers_encodings_list: headers_encodings,
         };
 
-        use crate::forward_system::system::system_types::ethereum::*;
-        use basic_bootloader::bootloader::config::BasicBootloaderForwardETHLikeConfig;
-        use forward_system::run::result_keeper::ForwardRunningResultKeeper;
+        // use crate::forward_system::system::system_types::ethereum::*;
+        // use basic_bootloader::bootloader::config::BasicBootloaderForwardETHLikeConfig;
+        // use forward_system::run::result_keeper::ForwardRunningResultKeeper;
 
         let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
-        let mut nop_tracer = NopTracer::default();
-        use oracle_provider::DummyMemorySource;
+        // let mut nop_tracer = NopTracer::default();
+        // use oracle_provider::DummyMemorySource;
 
-        let mut oracle = ZkEENonDeterminismSource::default();
-        oracle.add_external_processor(target_header_reponsder.clone());
-        oracle.add_external_processor(tx_data_responder.clone());
-        oracle.add_external_processor(preimage_responder.clone());
-        oracle.add_external_processor(initial_account_state_responder.clone());
-        oracle.add_external_processor(initial_values_responder.clone());
-        oracle.add_external_processor(cl_responder.clone());
-        oracle.add_external_processor(UARTPrintReponsder);
-        oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
-        if PROOF_ENV {
-            BasicBootloader::<
-                EthereumStorageSystemTypesWithPostOps<ZkEENonDeterminismSource<DummyMemorySource>>,
-            >::run::<BasicBootloaderForwardETHLikeConfig>(
-                oracle,
-                &mut result_keeper,
-                &mut nop_tracer,
-            )
-            .expect("must succeed");
-        } else {
-            BasicBootloader::<
-                EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>,
-            >::run::<BasicBootloaderForwardETHLikeConfig>(
-                oracle,
-                &mut result_keeper,
-                &mut nop_tracer,
-            )
-            .expect("must succeed");
-        }
+        // let mut oracle = ZkEENonDeterminismSource::default();
+        // oracle.add_external_processor(target_header_reponsder.clone());
+        // oracle.add_external_processor(tx_data_responder.clone());
+        // oracle.add_external_processor(preimage_responder.clone());
+        // oracle.add_external_processor(initial_account_state_responder.clone());
+        // oracle.add_external_processor(initial_values_responder.clone());
+        // oracle.add_external_processor(cl_responder.clone());
+        // oracle.add_external_processor(UARTPrintReponsder);
+        // oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
+        // if PROOF_ENV {
+        //     BasicBootloader::<
+        //         EthereumStorageSystemTypesWithPostOps<ZkEENonDeterminismSource<DummyMemorySource>>,
+        //     >::run::<BasicBootloaderForwardETHLikeConfig>(
+        //         oracle,
+        //         &mut result_keeper,
+        //         &mut nop_tracer,
+        //     )
+        //     .expect("must succeed");
+        // } else {
+        //     BasicBootloader::<
+        //         EthereumStorageSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>,
+        //     >::run::<BasicBootloaderForwardETHLikeConfig>(
+        //         oracle,
+        //         &mut result_keeper,
+        //         &mut nop_tracer,
+        //     )
+        //     .expect("must succeed");
+        // }
 
         if let Some(path) = witness_output_file {
             let mut oracle = ZkEENonDeterminismSource::default();
