@@ -10,7 +10,6 @@ use basic_system::system_implementation::flat_storage_model::{
     TREE_HEIGHT,
 };
 use ethers::signers::LocalWallet;
-use forward_system::run::errors::ForwardSubsystemError;
 use forward_system::run::result_keeper::ForwardRunningResultKeeper;
 use forward_system::run::test_impl::{
     InMemoryPreimageSource, InMemoryTree, NoopTxCallback, TxListSource,
