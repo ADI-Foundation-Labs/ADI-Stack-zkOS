@@ -10,9 +10,12 @@ use basic_system::system_implementation::flat_storage_model::{
     TREE_HEIGHT,
 };
 use ethers::signers::LocalWallet;
+use forward_system::run::errors::ForwardSubsystemError;
+use forward_system::run::result_keeper::ForwardRunningResultKeeper;
 use forward_system::run::test_impl::{
     InMemoryPreimageSource, InMemoryTree, NoopTxCallback, TxListSource,
 };
+use forward_system::system::bootloader::run_forward_no_panic;
 use log::{debug, info, trace};
 use oracle_provider::{ReadWitnessSource, ZkEENonDeterminismSource};
 use risc_v_simulator::abstractions::memory::VectorMemoryImpl;
@@ -320,6 +323,15 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             true,
         );
 
+        let forward_oracle = forward_system::run::make_oracle_for_proofs_and_dumps(
+            block_metadata,
+            self.state_tree.clone(),
+            self.preimage_source.clone(),
+            tx_source.clone(),
+            Some(proof_data),
+            true,
+        );
+
         #[cfg(feature = "simulate_witness_gen")]
         let source_for_witness_bench = {
             forward_system::run::make_oracle_for_proofs_and_dumps(
@@ -334,25 +346,17 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
 
         // forward run
         let mut nop_tracer = NopTracer::default();
+        let mut result_keeper = ForwardRunningResultKeeper::new(NoopTxCallback);
 
         // we use proving config here for benchmarking,
         // although sequencer can have extra optimizations
-        let block_output: BlockOutput = forward_system::run::run_block_with_oracle_dump_ext::<
-            _,
-            _,
-            _,
-            _,
-            BasicBootloaderProvingExecutionConfig,
-        >(
-            block_metadata,
-            self.state_tree.clone(),
-            self.preimage_source.clone(),
-            tx_source.clone(),
-            NoopTxCallback,
-            Some(proof_data),
+        run_forward_no_panic::<BasicBootloaderProvingExecutionConfig>(
+            forward_oracle,
+            &mut result_keeper,
             &mut nop_tracer,
-        )
-        .unwrap();
+        )?;
+
+        let block_output: BlockOutput = result_keeper.into();
 
         trace!(
             "{}Block output:{} \n{:#?}",

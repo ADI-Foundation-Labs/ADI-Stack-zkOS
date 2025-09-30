@@ -21,6 +21,7 @@ use crate::run::query_processors::UARTPrintResponder;
 use crate::run::query_processors::ZKProofDataResponder;
 use crate::run::result_keeper::ForwardRunningResultKeeper;
 use crate::system::bootloader::run_forward;
+use crate::system::bootloader::run_forward_no_panic;
 use crate::system::system::CallSimulationBootloader;
 use crate::system::system::CallSimulationSystem;
 use crate::system::system::ForwardRunningSystem;
@@ -266,7 +267,7 @@ pub fn run_block_with_oracle_dump_ext<
 
     let mut result_keeper = ForwardRunningResultKeeper::new(tx_result_callback);
 
-    run_forward::<Config>(oracle, &mut result_keeper, tracer);
+    run_forward_no_panic::<Config>(oracle, &mut result_keeper, tracer).map_err(wrap_error!())?;
     Ok(result_keeper.into())
 }
 
