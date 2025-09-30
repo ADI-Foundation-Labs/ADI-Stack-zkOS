@@ -71,7 +71,7 @@ pub fn run_block<T: ReadStorageTree, PS: PreimageSource, TS: TxSource, TR: TxRes
     let block_metadata_reponsder = BlockMetadataResponder {
         block_metadata: block_context,
     };
-    let tx_data_reponder = TxDataResponder {
+    let tx_data_responder = TxDataResponder {
         tx_source,
         next_tx: None,
     };
@@ -80,7 +80,7 @@ pub fn run_block<T: ReadStorageTree, PS: PreimageSource, TS: TxSource, TR: TxRes
 
     let mut oracle = ZkEENonDeterminismSource::default();
     oracle.add_external_processor(block_metadata_reponsder);
-    oracle.add_external_processor(tx_data_reponder);
+    oracle.add_external_processor(tx_data_responder);
     oracle.add_external_processor(preimage_responder);
     oracle.add_external_processor(tree_responder);
 
@@ -102,7 +102,7 @@ pub fn generate_proof_input<T: ReadStorageTree, PS: PreimageSource, TS: TxSource
     let block_metadata_reponsder = BlockMetadataResponder {
         block_metadata: block_context,
     };
-    let tx_data_reponder = TxDataResponder {
+    let tx_data_responder = TxDataResponder {
         tx_source,
         next_tx: None,
     };
@@ -114,7 +114,7 @@ pub fn generate_proof_input<T: ReadStorageTree, PS: PreimageSource, TS: TxSource
 
     let mut oracle = ZkEENonDeterminismSource::default();
     oracle.add_external_processor(block_metadata_reponsder);
-    oracle.add_external_processor(tx_data_reponder);
+    oracle.add_external_processor(tx_data_responder);
     oracle.add_external_processor(zk_proof_data_responder);
     oracle.add_external_processor(preimage_responder);
     oracle.add_external_processor(tree_responder);
@@ -329,7 +329,7 @@ pub fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
     let block_metadata_reponsder = BlockMetadataResponder {
         block_metadata: block_context,
     };
-    let tx_data_reponder = TxDataResponder {
+    let tx_data_responder = TxDataResponder {
         tx_source,
         next_tx: None,
     };
@@ -338,7 +338,7 @@ pub fn simulate_tx<S: ReadStorage, PS: PreimageSource>(
 
     let mut oracle = ZkEENonDeterminismSource::default();
     oracle.add_external_processor(block_metadata_reponsder);
-    oracle.add_external_processor(tx_data_reponder);
+    oracle.add_external_processor(tx_data_responder);
     oracle.add_external_processor(preimage_responder);
     oracle.add_external_processor(storage_responder);
 
