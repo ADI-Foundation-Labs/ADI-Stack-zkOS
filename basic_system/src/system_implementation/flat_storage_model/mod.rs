@@ -55,6 +55,8 @@ pub fn address_into_special_storage_key(address: &B160) -> Bytes32 {
 
 pub const TREE_HEIGHT: usize = 64;
 
+pub const FLAT_STORAGE_SUBSPACE_MASK: u32 = 0x00_00_f0_00;
+
 // This model only touches storage related things, even though preimages cache can be reused
 // by "signals" in theory, but we do not expect that in practice
 

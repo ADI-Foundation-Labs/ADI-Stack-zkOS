@@ -38,6 +38,7 @@
 
 extern crate alloc;
 
+pub mod basic_queries;
 pub mod common_structs;
 pub mod common_traits;
 pub mod execution_environment_type;

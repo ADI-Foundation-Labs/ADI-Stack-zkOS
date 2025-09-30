@@ -9,14 +9,17 @@ use zk_ee::{
         errors::{internal::InternalError, system::SystemError},
         IOResultKeeper, Resources,
     },
-    system_io_oracle::{IOOracle, PreimageContentWordsIterator},
+    system_io_oracle::{IOOracle, PREIMAGE_SUBSPACE_MASK},
     types_config::EthereumIOTypesConfig,
-    utils::{Bytes32, UsizeAlignedByteBox},
+    utils::{Bytes32, UsizeAlignedByteBox, USIZE_SIZE},
 };
 
+use super::cost_constants::PREIMAGE_CACHE_GET_NATIVE_COST;
+use super::*;
 use crate::system_implementation::flat_storage_model::cost_constants::blake2s_native_cost;
 
-use super::cost_constants::PREIMAGE_CACHE_GET_NATIVE_COST;
+pub const FLAT_STORAGE_GENERIC_PREIMAGE_QUERY_ID: u32 =
+    PREIMAGE_SUBSPACE_MASK | FLAT_STORAGE_SUBSPACE_MASK;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "testing", derive(serde::Serialize, serde::Deserialize))]
@@ -95,8 +98,15 @@ impl<R: Resources, A: Allocator + Clone> BytecodeAndAccountDataPreimagesStorage<
             // expect higher-level model todo so.
             // We charge for native.
             let it = oracle
-                .create_oracle_access_iterator::<PreimageContentWordsIterator>(*hash)
+                .raw_query(FLAT_STORAGE_GENERIC_PREIMAGE_QUERY_ID, hash)
                 .expect("must make an iterator for preimage");
+            // IMPORTANT: oracle should be somewhat "sane", it also limits the number of cycles spent below.
+            // We also allow some slack here to account for 64/32 bit archs
+            assert!(
+                it.len()
+                    <= (expected_preimage_len_in_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE).next_multiple_of(2),
+                "iterator length is {} words for usize = {} bytes and expected preimage length of {} bytes", it.len(), USIZE_SIZE, expected_preimage_len_in_bytes
+            ); // TODO internal err
             let mut buffered =
                 UsizeAlignedByteBox::from_usize_iterator_in(it, self.allocator.clone());
             // truncate

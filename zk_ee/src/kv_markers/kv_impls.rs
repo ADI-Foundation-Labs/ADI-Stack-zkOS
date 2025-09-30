@@ -1,4 +1,4 @@
-use crate::{internal_error, system::errors::internal::InternalError, utils::*};
+use crate::{internal_error, system::errors::internal::InternalError};
 use ruint::aliases::B160;
 
 use super::*;
@@ -185,7 +185,7 @@ impl UsizeSerializable for U256 {
                     return core::mem::transmute::<Self, [u32; 8]>(*self).into_iter().map(|el| el as usize);
                 }
             } else if #[cfg(target_pointer_width = "64")] {
-                return self.as_limbs().iter().map(|el| *el as usize);
+                return self.as_limbs().map(|el| el as usize).into_iter();
             } else {
                 compile_error!("unsupported architecture")
             }
@@ -257,7 +257,7 @@ impl UsizeSerializable for B160 {
                     return core::mem::transmute::<Self, [u32; 6]>(*self).into_iter().map(|el| el as usize);
                 }
             } else if #[cfg(target_pointer_width = "64")] {
-                return self.as_limbs().iter().map(|el| *el as usize);
+                return self.as_limbs().map(|el| el as usize).into_iter();
             } else {
                 compile_error!("unsupported architecture")
             }
@@ -291,68 +291,6 @@ impl UsizeDeserializable for B160 {
         }
         for dst in this.assume_init_mut().as_limbs_mut().iter_mut() {
             *dst = <u64 as UsizeDeserializable>::from_iter(src).unwrap_unchecked();
-        }
-
-        Ok(())
-    }
-}
-
-impl UsizeSerializable for Bytes32 {
-    const USIZE_LEN: usize = const {
-        cfg_if::cfg_if!(
-            if #[cfg(target_endian = "big")] {
-                compile_error!("unsupported architecture: big endian arch is not supported")
-            } else if #[cfg(target_pointer_width = "32")] {
-                let size = 8;
-            } else if #[cfg(target_pointer_width = "64")] {
-                let size = 4;
-            } else {
-                compile_error!("unsupported architecture")
-            }
-        );
-        #[allow(clippy::let_and_return)]
-        size
-    };
-
-    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
-        cfg_if::cfg_if!(
-            if #[cfg(target_endian = "big")] {
-                compile_error!("unsupported architecture: big endian arch is not supported")
-            } else if #[cfg(target_pointer_width = "32")] {
-                return self.as_u32_array_ref().into_iter().map(|el| *el as usize);
-            } else if #[cfg(target_pointer_width = "64")] {
-                return self.as_u64_array_ref().iter().map(|el| *el as usize);
-            } else {
-                compile_error!("unsupported architecture")
-            }
-        );
-    }
-}
-
-impl UsizeDeserializable for Bytes32 {
-    const USIZE_LEN: usize = <Bytes32 as UsizeSerializable>::USIZE_LEN;
-
-    fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
-        if src.len() < <Self as UsizeDeserializable>::USIZE_LEN {
-            return Err(internal_error!("Bytes32 deserialization failed: too short"));
-        }
-        let mut new = Bytes32::ZERO;
-        for dst in new.as_array_mut().iter_mut() {
-            *dst = unsafe { src.next().unwrap_unchecked() };
-        }
-
-        Ok(new)
-    }
-
-    unsafe fn init_from_iter(
-        this: &mut MaybeUninit<Self>,
-        src: &mut impl ExactSizeIterator<Item = usize>,
-    ) -> Result<(), InternalError> {
-        if src.len() < <Self as UsizeDeserializable>::USIZE_LEN {
-            return Err(internal_error!("b160 deserialization failed: too short"));
-        }
-        for dst in this.assume_init_mut().as_array_mut().iter_mut() {
-            *dst = src.next().unwrap_unchecked()
         }
 
         Ok(())
