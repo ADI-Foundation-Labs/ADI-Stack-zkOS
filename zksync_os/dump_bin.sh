@@ -69,6 +69,18 @@ case "$TYPE" in
     ELF_NAME="evm_replay.elf"
     TEXT_NAME="evm_replay.text"
     ;;
+  ethproofs)
+    FEATURES="$FEATURES,pectra,evm-compatibility,prevrandao,evm_refunds,disable_system_contracts,proof_running_system/ethereum_stf"
+    BIN_NAME="ethproofs.bin"
+    ELF_NAME="ethproofs.elf"
+    TEXT_NAME="ethproofs.text"
+    ;;
+  ethproofs-debug)
+    FEATURES="$FEATURES,pectra,evm-compatibility,prevrandao,evm_refunds,disable_system_contracts,print_debug_info,proof_running_system/ethereum_stf"
+    BIN_NAME="ethproofs.bin"
+    ELF_NAME="ethproofs.elf"
+    TEXT_NAME="ethproofs.text"
+    ;;
   pectra)
     FEATURES="$FEATURES,pectra,evm-compatibility,prevrandao,evm_refunds,disable_system_contracts"
     BIN_NAME="app.bin"

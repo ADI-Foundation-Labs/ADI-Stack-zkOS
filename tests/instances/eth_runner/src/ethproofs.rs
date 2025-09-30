@@ -36,7 +36,8 @@ fn eth_run(
         header,
         withdrawals_encoding,
         Some(witness_output_dir),
-        None,
+        // None,
+        Some("ethproofs".to_string()),
     );
 
     Ok(())
