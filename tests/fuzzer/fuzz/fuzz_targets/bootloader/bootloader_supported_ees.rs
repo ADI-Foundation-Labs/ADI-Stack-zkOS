@@ -60,7 +60,7 @@ fn fuzz(input: FuzzInput) {
     let selector = input.selector;
 
     let mut system = System::<
-        ForwardRunningSystem<InMemoryTree, InMemoryPreimageSource, TxListSource>,
+        ForwardRunningSystem,
     >::init_from_oracle(mock_oracle())
     .expect("Failed to initialize the mock system");
 
@@ -144,7 +144,7 @@ fn fuzz(input: FuzzInput) {
             
             // Pack everything into ExecutionEnvironmentLaunchParams
             let ee_launch_params: ExecutionEnvironmentLaunchParams<
-                ForwardRunningSystem<InMemoryTree, InMemoryPreimageSource, TxListSource>,
+                ForwardRunningSystem,
             > = ExecutionEnvironmentLaunchParams {
                 environment_parameters: EnvironmentParameters {
                     scratch_space_len: 0,
