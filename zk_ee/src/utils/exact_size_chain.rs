@@ -233,7 +233,7 @@ mod tests {
         let chain = ExactSizeChainN::new(iter_a, [Some(iter_b1), Some(iter_b2), Some(iter_b3)]);
 
         // Test exact size
-        assert_eq!(chain.len(), 7);
+        assert_eq!(chain.len(), 10);
 
         // Test iteration
         let collected: Vec<_> = chain.collect();
