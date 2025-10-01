@@ -8,6 +8,7 @@ pub mod integer_utils;
 pub mod stack_linked_list;
 pub mod transaction_nature;
 pub mod type_assert;
+pub mod usize_rw;
 
 use crypto::MiniDigest;
 

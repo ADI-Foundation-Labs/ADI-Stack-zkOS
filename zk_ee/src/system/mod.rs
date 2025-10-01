@@ -257,7 +257,7 @@ where
     ///
     pub fn try_begin_next_tx(
         &mut self,
-        tx_write_iter: &mut impl crate::oracle::SafeUsizeWritable,
+        tx_write_iter: &mut impl crate::utils::usize_rw::SafeUsizeWritable,
     ) -> Option<Result<usize, NextTxSubsystemError>> {
         let next_tx_len_bytes = match self.io.oracle().try_begin_next_tx() {
             Ok(maybe_next_len) => match maybe_next_len {

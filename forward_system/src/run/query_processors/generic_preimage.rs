@@ -2,7 +2,7 @@ use super::*;
 use crate::run::PreimageSource;
 use basic_system::system_implementation::flat_storage_model::FLAT_STORAGE_GENERIC_PREIMAGE_QUERY_ID;
 use zk_ee::oracle::usize_serialization::dyn_usize_iterator::DynUsizeIterator;
-use zk_ee::oracle::ReadIterWrapper;
+use zk_ee::utils::usize_rw::ReadIterWrapper;
 use zk_ee::utils::Bytes32;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

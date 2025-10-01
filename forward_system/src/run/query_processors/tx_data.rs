@@ -4,7 +4,7 @@ use crate::run::TxSource;
 use zk_ee::oracle::query_ids::NEXT_TX_SIZE_QUERY_ID;
 use zk_ee::oracle::query_ids::TX_DATA_WORDS_QUERY_ID;
 use zk_ee::oracle::usize_serialization::dyn_usize_iterator::DynUsizeIterator;
-use zk_ee::oracle::ReadIterWrapper;
+use zk_ee::utils::usize_rw::ReadIterWrapper;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TxDataResponder<TS: TxSource> {

@@ -9,6 +9,7 @@ use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::memory::slice_vec::SliceVec;
 use zk_ee::system::tracer::Tracer;
 use zk_ee::system::{EthereumLikeTypes, System, SystemTypes};
+use zk_ee::utils::usize_rw::{SafeUsizeWritable, UsizeWriteable};
 
 pub mod run_single_interaction;
 pub mod runner;
@@ -33,7 +34,7 @@ use core::fmt::Write;
 use core::mem::MaybeUninit;
 use crypto::sha3::Keccak256;
 use crypto::MiniDigest;
-use zk_ee::{internal_error, oracle::*};
+use zk_ee::internal_error;
 
 use crate::bootloader::account_models::{ExecutionOutput, ExecutionResult, TxProcessingResult};
 use crate::bootloader::block_header::BlockHeader;
