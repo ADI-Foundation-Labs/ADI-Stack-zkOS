@@ -1,8 +1,8 @@
 use oracle_provider::MemorySource;
 use oracle_provider::OracleQueryProcessor;
 use serde::{Deserialize, Serialize};
-use zk_ee::kv_markers::{UsizeDeserializable, UsizeSerializable};
 use zk_ee::oracle::dyn_usize_iterator::DynUsizeIterator;
+use zk_ee::oracle::usize_serialization::{UsizeDeserializable, UsizeSerializable};
 
 mod block_metadata;
 mod generic_preimage;

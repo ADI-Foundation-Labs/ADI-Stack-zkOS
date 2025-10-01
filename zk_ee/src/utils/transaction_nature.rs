@@ -1,5 +1,6 @@
+use crate::internal_error;
+use crate::oracle::usize_serialization::{UsizeDeserializable, UsizeSerializable};
 use crate::system::errors::internal::InternalError;
-use crate::{internal_error, kv_markers::*};
 
 #[repr(u32)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

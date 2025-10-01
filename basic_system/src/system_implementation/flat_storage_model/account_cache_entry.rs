@@ -462,6 +462,7 @@ mod tests {
     use storage_models::common_structs::PreimageCacheModel;
     use zk_ee::common_structs::PreimageType;
     use zk_ee::execution_environment_type::ExecutionEnvironmentType;
+    use zk_ee::oracle::usize_serialization::{UsizeDeserializable, UsizeSerializable};
     use zk_ee::oracle::IOOracle;
     use zk_ee::reference_implementations::{BaseResources, DecreasingNative};
     use zk_ee::system::errors::internal::InternalError;
@@ -479,10 +480,7 @@ mod tests {
     impl IOOracle for TestOracle {
         type RawIterator<'a> = Box<dyn ExactSizeIterator<Item = usize> + 'static>;
 
-        fn raw_query<
-            'a,
-            I: zk_ee::kv_markers::UsizeSerializable + zk_ee::kv_markers::UsizeDeserializable,
-        >(
+        fn raw_query<'a, I: UsizeSerializable + UsizeDeserializable>(
             &'a mut self,
             _query_type: u32,
             _input: &I,

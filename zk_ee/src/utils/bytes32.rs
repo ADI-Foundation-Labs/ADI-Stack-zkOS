@@ -1,6 +1,6 @@
-use crate::internal_error;
-use crate::kv_markers::{UsizeDeserializable, UsizeSerializable};
+use crate::oracle::usize_serialization::UsizeDeserializable;
 use crate::system::errors::internal::InternalError;
+use crate::{internal_error, oracle::usize_serialization::UsizeSerializable};
 use core::mem::MaybeUninit;
 use ruint::aliases::{B160, U256};
 

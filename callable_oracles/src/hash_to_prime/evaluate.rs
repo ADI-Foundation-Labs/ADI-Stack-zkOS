@@ -5,7 +5,7 @@ use crate::MemoryRegionDescriptionParams;
 use evaluate::compute::compute_from_entropy;
 use oracle_provider::OracleQueryProcessor;
 use risc_v_simulator::abstractions::memory::MemorySource;
-use zk_ee::kv_markers::UsizeDeserializable;
+use zk_ee::oracle::usize_serialization::UsizeDeserializable;
 
 pub struct HashToPrimeSource<M: MemorySource> {
     marker: std::marker::PhantomData<M>,

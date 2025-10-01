@@ -21,7 +21,7 @@ pub mod arithmetic;
 pub mod utils;
 
 use zk_ee::{
-    kv_markers::{ExactSizeChain, UsizeDeserializable, UsizeSerializable},
+    oracle::usize_serialization::{ExactSizeChain, UsizeDeserializable, UsizeSerializable},
     system::errors::internal::InternalError,
 };
 

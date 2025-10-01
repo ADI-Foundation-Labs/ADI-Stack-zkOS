@@ -1,5 +1,5 @@
 use zk_ee::{
-    kv_markers::{UsizeDeserializable, UsizeSerializable},
+    oracle::usize_serialization::{UsizeDeserializable, UsizeSerializable},
     oracle::IOOracle,
     system::errors::internal::InternalError,
 };

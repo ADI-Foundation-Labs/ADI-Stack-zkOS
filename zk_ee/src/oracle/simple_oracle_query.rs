@@ -1,6 +1,8 @@
 use crate::{
-    kv_markers::{UsizeDeserializable, UsizeSerializable},
-    oracle::IOOracle,
+    oracle::{
+        usize_serialization::{UsizeDeserializable, UsizeSerializable},
+        IOOracle,
+    },
     system::errors::internal::InternalError,
 };
 

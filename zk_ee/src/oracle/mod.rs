@@ -3,6 +3,7 @@ pub mod dyn_usize_iterator;
 pub mod query_ids;
 pub mod simple_oracle_query;
 pub mod usize_rw;
+pub mod usize_serialization;
 
 pub use self::usize_rw::*;
 
@@ -10,8 +11,8 @@ use core::alloc::Allocator;
 use core::{mem::MaybeUninit, num::NonZeroU32};
 
 use crate::oracle::query_ids::NEXT_TX_SIZE_QUERY_ID;
+use crate::oracle::usize_serialization::{UsizeDeserializable, UsizeSerializable};
 use crate::{
-    kv_markers::{UsizeDeserializable, UsizeSerializable},
     system::errors::internal::InternalError,
     utils::{Bytes32, UsizeAlignedByteBox},
 };

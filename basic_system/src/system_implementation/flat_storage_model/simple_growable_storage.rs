@@ -31,8 +31,10 @@ use zk_ee::internal_error;
 use zk_ee::oracle::query_ids::STATE_AND_MERKLE_PATHS_SUBSPACE_MASK;
 use zk_ee::oracle::simple_oracle_query::SimpleOracleQuery;
 use zk_ee::{
-    kv_markers::{ExactSizeChain, ExactSizeChainN, UsizeDeserializable, UsizeSerializable},
     memory::stack_trait::Stack,
+    oracle::usize_serialization::{
+        ExactSizeChain, ExactSizeChainN, UsizeDeserializable, UsizeSerializable,
+    },
     oracle::IOOracle,
     system::{errors::internal::InternalError, logger::Logger},
     types_config::EthereumIOTypesConfig,
