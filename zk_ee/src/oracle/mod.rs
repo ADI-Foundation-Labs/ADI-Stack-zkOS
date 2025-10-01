@@ -22,6 +22,7 @@ pub mod usize_serialization;
 
 use core::num::NonZeroU32;
 
+use crate::internal_error;
 use crate::oracle::query_ids::NEXT_TX_SIZE_QUERY_ID;
 use crate::oracle::usize_serialization::{UsizeDeserializable, UsizeSerializable};
 use crate::system::errors::internal::InternalError;
@@ -79,8 +80,12 @@ pub trait IOOracle: 'static + Sized {
         input: &I,
     ) -> Result<O, InternalError> {
         let mut it = self.raw_query(query_type, input)?;
-        let result: O = UsizeDeserializable::from_iter(&mut it).expect("must initialize");
-        assert!(it.next().is_none());
+        let result: O = UsizeDeserializable::from_iter(&mut it)?;
+
+        // Validate that all data was consumed to detect malformed responses
+        if it.next().is_some() {
+            return Err(internal_error!("Oracle response contains excess data"));
+        }
 
         Ok(result)
     }
