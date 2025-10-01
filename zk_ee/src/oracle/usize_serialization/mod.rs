@@ -15,23 +15,14 @@ use crate::{
 };
 
 pub mod dyn_usize_iterator;
+#[cfg(test)]
+mod tests;
 
 /// Trait for types that can be serialized into a sequence of `usize` values with a known (fixed) length.
 pub trait UsizeSerializable {
     const USIZE_LEN: usize;
 
     fn iter(&self) -> impl ExactSizeIterator<Item = usize>;
-}
-
-// Only UsizeSerializable has a default impl
-impl<T: UsizeSerializable, const N: usize> UsizeSerializable for [T; N] {
-    const USIZE_LEN: usize = <T as UsizeSerializable>::USIZE_LEN * N;
-    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
-        ExactSizeChainN::<_, _, N>::new(
-            core::iter::empty::<usize>(),
-            core::array::from_fn(|i| Some(UsizeSerializable::iter(&self[i]))),
-        )
-    }
 }
 
 /// Trait for types that can be deserialized from a sequence of `usize` values with a known (fixed) length.
@@ -372,5 +363,16 @@ impl<T: UsizeDeserializable, U: UsizeDeserializable> UsizeDeserializable for (T,
         let t = <T as UsizeDeserializable>::from_iter(src)?;
         let u = <U as UsizeDeserializable>::from_iter(src)?;
         Ok((t, u))
+    }
+}
+
+// Only UsizeSerializable has a default impl
+impl<T: UsizeSerializable, const N: usize> UsizeSerializable for [T; N] {
+    const USIZE_LEN: usize = <T as UsizeSerializable>::USIZE_LEN * N;
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        ExactSizeChainN::<_, _, N>::new(
+            core::iter::empty::<usize>(),
+            core::array::from_fn(|i| Some(UsizeSerializable::iter(&self[i]))),
+        )
     }
 }
