@@ -135,10 +135,8 @@ fn test_u64_two_words_on_32bit() {
 
 #[test]
 fn test_u256_serialization() {
-    let val = U256::from_str(
-        "0x123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
-    )
-    .unwrap();
+    let val = U256::from_str("0x123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF")
+        .unwrap();
 
     let iter = val.iter();
     let collected: Vec<_> = iter.collect();

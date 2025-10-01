@@ -22,11 +22,9 @@ use core::num::NonZeroU32;
 
 use crate::oracle::query_ids::NEXT_TX_SIZE_QUERY_ID;
 use crate::oracle::usize_serialization::{UsizeDeserializable, UsizeSerializable};
-use crate::{
-    system::errors::internal::InternalError,
-};
+use crate::system::errors::internal::InternalError;
 
-/// Core trait for querying external, non-deterministic data during ZKsync OS execution. This is 
+/// Core trait for querying external, non-deterministic data during ZKsync OS execution. This is
 /// an abstraction boundary on how ZKsync OS (system) gets IO information and eventually
 /// updates state and/or sends messages to one more layer above.
 ///
@@ -38,8 +36,8 @@ use crate::{
 /// # Design Notes
 /// - All data exchange uses `usize` sequences for cross-architecture compatibility
 /// - Query types are identified by `u32` IDs organized in namespaced ranges
-/// 
-/// NOTE: this trait is about pure oracle work, so e.g. if one asks for preimage it gives SOME data, 
+///
+/// NOTE: this trait is about pure oracle work, so e.g. if one asks for preimage it gives SOME data,
 /// but validity of this data versus image (that depends on which hash is used) it beyond the scope of this trait
 pub trait IOOracle: 'static + Sized {
     /// Iterator type that oracle returns for raw usize values
