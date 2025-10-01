@@ -96,7 +96,7 @@ impl<R: Resources, A: Allocator + Clone> BytecodeAndAccountDataPreimagesStorage<
             }
         } else {
             // We do not charge for gas in this concrete implementation and
-            // expect higher-level model todo so.
+            // expect higher-level model to do so.
             // We charge for native.
             let it = oracle
                 .raw_query(FLAT_STORAGE_GENERIC_PREIMAGE_QUERY_ID, hash)
