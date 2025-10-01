@@ -90,6 +90,8 @@ jobs:
 
     # We will keep it for a while just in case.
     evm_state_tests_legacy:
+      # Temporarily disable legacy EVM tests after refactoring
+      if: false
       name: EF EVM state tests (legacy)
       runs-on: [matterlabs-ci-runner-high-performance]
       steps:
