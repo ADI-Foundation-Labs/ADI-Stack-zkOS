@@ -1,5 +1,4 @@
 pub mod basic_queries;
-pub mod dyn_usize_iterator;
 pub mod query_ids;
 pub mod simple_oracle_query;
 pub mod usize_rw;

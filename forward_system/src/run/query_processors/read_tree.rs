@@ -11,7 +11,7 @@ use zk_ee::oracle::simple_oracle_query::SimpleOracleQuery;
 use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::{
     oracle::basic_queries::InitialStorageSlotQuery,
-    oracle::dyn_usize_iterator::DynUsizeIterator,
+    oracle::usize_serialization::dyn_usize_iterator::DynUsizeIterator,
     oracle::usize_serialization::{UsizeDeserializable, UsizeSerializable},
     utils::Bytes32,
 };

@@ -2,7 +2,7 @@ use core::ops::DerefMut;
 
 use crate::*;
 use ruint::aliases::B160;
-use zk_ee::{oracle::usize_serialization::ExactSizeChain, system::EthereumLikeTypes};
+use zk_ee::{system::EthereumLikeTypes, utils::exact_size_chain::ExactSizeChain};
 
 pub fn bytereverse_u256(value: &mut U256) {
     // assuming LE

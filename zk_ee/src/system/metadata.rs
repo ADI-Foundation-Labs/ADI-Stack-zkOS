@@ -1,4 +1,7 @@
-use crate::oracle::usize_serialization::{ExactSizeChain, UsizeDeserializable, UsizeSerializable};
+use crate::{
+    oracle::usize_serialization::{UsizeDeserializable, UsizeSerializable},
+    utils::exact_size_chain::{ExactSizeChain, ExactSizeChainN},
+};
 
 use super::{errors::internal::InternalError, types_config::SystemIOTypesConfig};
 use ruint::aliases::{B160, U256};
@@ -52,7 +55,7 @@ impl UsizeSerializable for BlockHashes {
     const USIZE_LEN: usize = <U256 as UsizeSerializable>::USIZE_LEN * 256;
 
     fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
-        super::oracle::usize_serialization::ExactSizeChainN::<_, _, 256>::new(
+        ExactSizeChainN::<_, _, 256>::new(
             core::iter::empty::<usize>(),
             core::array::from_fn(|i| Some(self.0[i].iter())),
         )

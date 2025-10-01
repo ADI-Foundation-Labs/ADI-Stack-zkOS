@@ -1,13 +1,9 @@
 //! Serialization and deserialization helpers for keys and values for storage.
-pub mod kv_impls;
 
 use arrayvec::ArrayVec;
-use core::mem::MaybeUninit;
-use ruint::aliases::U256;
 
-use crate::oracle::usize_serialization::{
-    ExactSizeChain, ExactSizeChainN, UsizeDeserializable, UsizeSerializable,
-};
+use crate::oracle::usize_serialization::{UsizeDeserializable, UsizeSerializable};
+use crate::utils::exact_size_chain::{ExactSizeChain, ExactSizeChainN};
 
 use super::system::errors::internal::InternalError;
 use super::types_config::SystemIOTypesConfig;

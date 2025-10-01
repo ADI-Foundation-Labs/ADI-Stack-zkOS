@@ -1,9 +1,9 @@
 use super::*;
 use crate::run::NextTxResponse;
 use crate::run::TxSource;
-use zk_ee::oracle::dyn_usize_iterator::DynUsizeIterator;
 use zk_ee::oracle::query_ids::NEXT_TX_SIZE_QUERY_ID;
 use zk_ee::oracle::query_ids::TX_DATA_WORDS_QUERY_ID;
+use zk_ee::oracle::usize_serialization::dyn_usize_iterator::DynUsizeIterator;
 use zk_ee::oracle::ReadIterWrapper;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

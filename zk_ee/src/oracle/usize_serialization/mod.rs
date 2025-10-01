@@ -1,14 +1,29 @@
+//! Type-safe serialization framework for oracle data exchange.
+//! It serves as the core serialization layer for the oracle system, enabling
+//! data exchange between ZKsync OS and external data providers.
+//!
+//! The serialization is based on `usize` sequences.
+
 use core::mem::MaybeUninit;
 
-use crate::system::errors::internal::InternalError;
+use ruint::aliases::{B160, U256};
 
+use crate::{
+    internal_error,
+    system::errors::internal::InternalError,
+    utils::exact_size_chain::{ExactSizeChain, ExactSizeChainN},
+};
+
+pub mod dyn_usize_iterator;
+
+/// Trait for types that can be serialized into a sequence of `usize` values with a known (fixed) length.
 pub trait UsizeSerializable {
     const USIZE_LEN: usize;
 
     fn iter(&self) -> impl ExactSizeIterator<Item = usize>;
 }
 
-// Only serializable will have default impl
+// Only UsizeSerializable has a default impl
 impl<T: UsizeSerializable, const N: usize> UsizeSerializable for [T; N] {
     const USIZE_LEN: usize = <T as UsizeSerializable>::USIZE_LEN * N;
     fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
@@ -19,6 +34,7 @@ impl<T: UsizeSerializable, const N: usize> UsizeSerializable for [T; N] {
     }
 }
 
+/// Trait for types that can be deserialized from a sequence of `usize` values with a known (fixed) length.
 pub trait UsizeDeserializable: Sized {
     const USIZE_LEN: usize;
 
@@ -42,126 +58,319 @@ pub trait UsizeDeserializable: Sized {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct ExactSizeChain<A, B> {
-    // These are "fused" with `Option` so we don't need separate state to track which part is
-    // already exhausted, and we may also get niche layout for `None`. We don't use the real `Fuse`
-    // adapter because its specialization for `FusedIterator` unconditionally descends into the
-    // iterator, and that could be expensive to keep revisiting stuff like nested chains. It also
-    // hurts compiler performance to add more iterator layers to `Chain`.
-    //
-    // Only the "first" iterator is actually set `None` when exhausted, depending on whether you
-    // iterate forward or backward. If you mix directions, then both sides may be `None`.
-    a: Option<A>,
-    b: Option<B>,
+impl UsizeSerializable for () {
+    const USIZE_LEN: usize = 0;
+
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        core::iter::empty()
+    }
 }
-impl<A, B> ExactSizeChain<A, B> {
-    pub fn new(a: A, b: B) -> ExactSizeChain<A, B> {
-        ExactSizeChain {
-            a: Some(a),
-            b: Some(b),
+
+impl UsizeDeserializable for () {
+    const USIZE_LEN: usize = 0;
+
+    fn from_iter(_src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
+        Ok(())
+    }
+}
+
+impl UsizeSerializable for u8 {
+    const USIZE_LEN: usize = <u64 as UsizeSerializable>::USIZE_LEN;
+
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        cfg_if::cfg_if!(
+            if #[cfg(target_endian = "big")] {
+                compile_error!("unsupported architecture: big endian arch is not supported")
+            } else if #[cfg(target_pointer_width = "32")] {
+                let low = *self as usize;
+                let high = 0;
+                return [low, high].into_iter();
+            } else if #[cfg(target_pointer_width = "64")] {
+                return core::iter::once(*self as usize)
+            } else {
+                compile_error!("unsupported architecture")
+            }
+        );
+    }
+}
+
+impl UsizeDeserializable for u8 {
+    const USIZE_LEN: usize = <Self as UsizeSerializable>::USIZE_LEN;
+
+    fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
+        let word = <u64 as UsizeDeserializable>::from_iter(src)?;
+        if word > u8::MAX as u64 {
+            return Err(internal_error!("u8 deserialization failed"));
         }
+        Ok(word as u8)
     }
 }
 
-impl<A, B> Iterator for ExactSizeChain<A, B>
-where
-    A: ExactSizeIterator,
-    B: ExactSizeIterator<Item = A::Item>,
-{
-    type Item = A::Item;
+impl UsizeSerializable for bool {
+    const USIZE_LEN: usize = <u64 as UsizeSerializable>::USIZE_LEN;
 
-    #[inline]
-    fn next(&mut self) -> Option<A::Item> {
-        and_then_or_clear(&mut self.a, Iterator::next).or_else(|| self.b.as_mut()?.next())
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        cfg_if::cfg_if!(
+            if #[cfg(target_endian = "big")] {
+                compile_error!("unsupported architecture: big endian arch is not supported")
+            } else if #[cfg(target_pointer_width = "32")] {
+                let low = *self as usize;
+                let high = 0;
+                return [low, high].into_iter();
+            } else if #[cfg(target_pointer_width = "64")] {
+                return core::iter::once(*self as usize)
+            } else {
+                compile_error!("unsupported architecture")
+            }
+        );
     }
 }
 
-impl<A, B> ExactSizeIterator for ExactSizeChain<A, B>
-where
-    A: ExactSizeIterator,
-    B: ExactSizeIterator<Item = A::Item>,
-{
-    fn len(&self) -> usize {
-        self.a.as_ref().map(|el| el.len()).unwrap_or(0)
-            + self.b.as_ref().map(|el| el.len()).unwrap_or(0)
-    }
-}
+impl UsizeDeserializable for bool {
+    const USIZE_LEN: usize = <Self as UsizeSerializable>::USIZE_LEN;
 
-#[inline]
-fn and_then_or_clear<T, U>(opt: &mut Option<T>, f: impl FnOnce(&mut T) -> Option<U>) -> Option<U> {
-    let x = f(opt.as_mut()?);
-    if x.is_none() {
-        *opt = None;
-    }
-    x
-}
-
-#[derive(Clone, Debug)]
-pub struct ExactSizeChainN<A, B, const N: usize> {
-    // These are "fused" with `Option` so we don't need separate state to track which part is
-    // already exhausted, and we may also get niche layout for `None`. We don't use the real `Fuse`
-    // adapter because its specialization for `FusedIterator` unconditionally descends into the
-    // iterator, and that could be expensive to keep revisiting stuff like nested chains. It also
-    // hurts compiler performance to add more iterator layers to `Chain`.
-    //
-    // Only the "first" iterator is actually set `None` when exhausted, depending on whether you
-    // iterate forward or backward. If you mix directions, then both sides may be `None`.
-    a: Option<A>,
-    b: [Option<B>; N],
-    b_idx: usize,
-}
-
-impl<A, B, const N: usize> ExactSizeChainN<A, B, N> {
-    pub fn new(a: A, b: [Option<B>; N]) -> Self {
-        assert!(N > 0);
-        Self {
-            a: Some(a),
-            b,
-            b_idx: 0,
-        }
-    }
-}
-
-impl<A, B, const N: usize> Iterator for ExactSizeChainN<A, B, N>
-where
-    A: ExactSizeIterator,
-    B: ExactSizeIterator<Item = A::Item>,
-{
-    type Item = A::Item;
-
-    #[inline]
-    fn next(&mut self) -> Option<A::Item> {
-        if N == 0 {
-            and_then_or_clear(&mut self.a, Iterator::next)
+    fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
+        let word = <u64 as UsizeDeserializable>::from_iter(src)?;
+        if word == false as u64 {
+            Ok(false)
+        } else if word == true as u64 {
+            Ok(true)
         } else {
-            and_then_or_clear(&mut self.a, Iterator::next).or_else(|| {
-                while self.b_idx < N {
-                    if let Some(next) = self.b[self.b_idx].as_mut().unwrap().next() {
-                        return Some(next);
-                    } else {
-                        self.b[self.b_idx] = None;
-                        self.b_idx += 1
-                    }
-                }
-
-                None
-            })
+            Err(internal_error!("bool deserialization failed"))
         }
     }
 }
 
-impl<A, B, const N: usize> ExactSizeIterator for ExactSizeChainN<A, B, N>
-where
-    A: ExactSizeIterator,
-    B: ExactSizeIterator<Item = A::Item>,
-{
-    fn len(&self) -> usize {
-        let mut result = self.a.as_ref().map(|el| el.len()).unwrap_or(0);
-        for el in self.b.iter().skip(self.b_idx) {
-            result += el.as_ref().map(|el| el.len()).unwrap_or(0)
+impl UsizeSerializable for u32 {
+    const USIZE_LEN: usize = <u64 as UsizeSerializable>::USIZE_LEN;
+
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        cfg_if::cfg_if!(
+            if #[cfg(target_endian = "big")] {
+                compile_error!("unsupported architecture: big endian arch is not supported")
+            } else if #[cfg(target_pointer_width = "32")] {
+                let low = *self as usize;
+                let high = 0;
+                return [low, high].into_iter();
+            } else if #[cfg(target_pointer_width = "64")] {
+                return core::iter::once(*self as usize)
+            } else {
+                compile_error!("unsupported architecture")
+            }
+        );
+    }
+}
+
+impl UsizeDeserializable for u32 {
+    const USIZE_LEN: usize = <Self as UsizeSerializable>::USIZE_LEN;
+
+    fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
+        let word = <u64 as UsizeDeserializable>::from_iter(src)?;
+        if word > u32::MAX as u64 {
+            return Err(internal_error!("u32 deserialization failed"));
+        }
+        Ok(word as u32)
+    }
+}
+
+impl UsizeSerializable for u64 {
+    const USIZE_LEN: usize = {
+        cfg_if::cfg_if!(
+            if #[cfg(target_endian = "big")] {
+                compile_error!("unsupported architecture: big endian arch is not supported")
+            } else if #[cfg(target_pointer_width = "32")] {
+                let size = 2;
+            } else if #[cfg(target_pointer_width = "64")] {
+                let size = 1;
+            } else {
+                compile_error!("unsupported architecture")
+            }
+        );
+        #[allow(clippy::let_and_return)]
+        size
+    };
+
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        cfg_if::cfg_if!(
+            if #[cfg(target_endian = "big")] {
+                compile_error!("unsupported architecture: big endian arch is not supported")
+            } else if #[cfg(target_pointer_width = "32")] {
+                let low = *self as usize;
+                let high = (*self >> 32) as usize;
+                return [low, high].into_iter();
+            } else if #[cfg(target_pointer_width = "64")] {
+                return core::iter::once(*self as usize)
+            } else {
+                compile_error!("unsupported architecture")
+            }
+        );
+    }
+}
+
+impl UsizeDeserializable for u64 {
+    const USIZE_LEN: usize = <u64 as UsizeSerializable>::USIZE_LEN;
+
+    fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
+        cfg_if::cfg_if!(
+            if #[cfg(target_endian = "big")] {
+                compile_error!("unsupported architecture: big endian arch is not supported")
+            } else if #[cfg(target_pointer_width = "32")] {
+                let low = src.next().ok_or(internal_error!("u64 low deserialization failed"))?;
+                let high = src.next().ok_or(internal_error!("u64 high deserialization failed"))?;
+                return Ok(((high as u64) << 32) | (low as u64));
+            } else if #[cfg(target_pointer_width = "64")] {
+                let value = src.next().ok_or(internal_error!("u64 deserialization failed"))?;
+                return Ok(value as u64);
+            } else {
+                compile_error!("unsupported architecture")
+            }
+        );
+    }
+}
+
+impl UsizeSerializable for U256 {
+    const USIZE_LEN: usize = <u64 as UsizeSerializable>::USIZE_LEN * 4;
+
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        cfg_if::cfg_if!(
+            if #[cfg(target_endian = "big")] {
+                compile_error!("unsupported architecture: big endian arch is not supported")
+            } else if #[cfg(target_pointer_width = "32")] {
+                unsafe {
+                    return core::mem::transmute::<Self, [u32; 8]>(*self).into_iter().map(|el| el as usize);
+                }
+            } else if #[cfg(target_pointer_width = "64")] {
+                return self.as_limbs().map(|el| el as usize).into_iter();
+            } else {
+                compile_error!("unsupported architecture")
+            }
+        );
+    }
+}
+
+impl UsizeDeserializable for U256 {
+    const USIZE_LEN: usize = <U256 as UsizeSerializable>::USIZE_LEN;
+
+    fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
+        let mut new = MaybeUninit::uninit();
+        unsafe {
+            Self::init_from_iter(&mut new, src)?;
+
+            Ok(new.assume_init())
+        }
+    }
+
+    unsafe fn init_from_iter(
+        this: &mut MaybeUninit<Self>,
+        src: &mut impl ExactSizeIterator<Item = usize>,
+    ) -> Result<(), InternalError> {
+        cfg_if::cfg_if!(
+            if #[cfg(target_endian = "big")] {
+                compile_error!("unsupported architecture: big endian arch is not supported")
+            } else if #[cfg(target_pointer_width = "32")] {
+                for dst in this.assume_init_mut().as_limbs_mut() {
+                    let low = src.next().ok_or(internal_error!("u256 limb low deserialization failed"))?;
+                    let high = src.next().ok_or(internal_error!("u256 limb high deserialization failed"))?;
+                    *dst = ((high as u64) << 32) | (low as u64);
+                }
+                return Ok(())
+            } else if #[cfg(target_pointer_width = "64")] {
+                for dst in this.assume_init_mut().as_limbs_mut() {
+                    *dst = src.next().ok_or(internal_error!("u256 limb deserialization failed"))? as u64;
+                }
+                return Ok(())
+            } else {
+                compile_error!("unsupported architecture")
+            }
+        );
+    }
+}
+
+impl UsizeSerializable for B160 {
+    const USIZE_LEN: usize = const {
+        cfg_if::cfg_if!(
+            if #[cfg(target_endian = "big")] {
+                compile_error!("unsupported architecture: big endian arch is not supported")
+            } else if #[cfg(target_pointer_width = "32")] {
+                let size = 6;
+            } else if #[cfg(target_pointer_width = "64")] {
+                let size = 3;
+            } else {
+                compile_error!("unsupported architecture")
+            }
+        );
+        #[allow(clippy::let_and_return)]
+        size
+    };
+
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        cfg_if::cfg_if!(
+            if #[cfg(target_endian = "big")] {
+                compile_error!("unsupported architecture: big endian arch is not supported")
+            } else if #[cfg(target_pointer_width = "32")] {
+                unsafe {
+                    return core::mem::transmute::<Self, [u32; 6]>(*self).into_iter().map(|el| el as usize);
+                }
+            } else if #[cfg(target_pointer_width = "64")] {
+                return self.as_limbs().map(|el| el as usize).into_iter();
+            } else {
+                compile_error!("unsupported architecture")
+            }
+        );
+    }
+}
+
+impl UsizeDeserializable for B160 {
+    const USIZE_LEN: usize = <B160 as UsizeSerializable>::USIZE_LEN;
+
+    fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
+        if src.len() < <Self as UsizeDeserializable>::USIZE_LEN {
+            return Err(internal_error!("b160 deserialization failed: too short"));
+        }
+        let mut new = B160::ZERO;
+        unsafe {
+            for dst in new.as_limbs_mut().iter_mut() {
+                *dst = <u64 as UsizeDeserializable>::from_iter(src).unwrap_unchecked();
+            }
         }
 
-        result
+        Ok(new)
+    }
+
+    unsafe fn init_from_iter(
+        this: &mut MaybeUninit<Self>,
+        src: &mut impl ExactSizeIterator<Item = usize>,
+    ) -> Result<(), InternalError> {
+        if src.len() < <Self as UsizeDeserializable>::USIZE_LEN {
+            return Err(internal_error!("b160 deserialization failed: too short"));
+        }
+        for dst in this.assume_init_mut().as_limbs_mut().iter_mut() {
+            *dst = <u64 as UsizeDeserializable>::from_iter(src).unwrap_unchecked();
+        }
+
+        Ok(())
+    }
+}
+
+// for convenience - provide a simple case of tuple
+
+impl<T: UsizeSerializable, U: UsizeSerializable> UsizeSerializable for (T, U) {
+    const USIZE_LEN: usize =
+        <T as UsizeSerializable>::USIZE_LEN + <U as UsizeSerializable>::USIZE_LEN;
+
+    fn iter(&self) -> impl ExactSizeIterator<Item = usize> {
+        let (t, u) = self;
+        ExactSizeChain::new(UsizeSerializable::iter(t), UsizeSerializable::iter(u))
+    }
+}
+
+impl<T: UsizeDeserializable, U: UsizeDeserializable> UsizeDeserializable for (T, U) {
+    const USIZE_LEN: usize =
+        <T as UsizeDeserializable>::USIZE_LEN + <U as UsizeDeserializable>::USIZE_LEN;
+
+    fn from_iter(src: &mut impl ExactSizeIterator<Item = usize>) -> Result<Self, InternalError> {
+        let t = <T as UsizeDeserializable>::from_iter(src)?;
+        let u = <U as UsizeDeserializable>::from_iter(src)?;
+        Ok((t, u))
     }
 }
