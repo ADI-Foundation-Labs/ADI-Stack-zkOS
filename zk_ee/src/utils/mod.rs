@@ -6,7 +6,6 @@ pub mod convenience;
 pub mod exact_size_chain;
 pub mod integer_utils;
 pub mod stack_linked_list;
-pub mod transaction_nature;
 pub mod type_assert;
 pub mod usize_rw;
 
@@ -17,7 +16,6 @@ pub use self::aligned_vector::*;
 pub use self::bytes32::*;
 pub use self::convenience::*;
 pub use self::integer_utils::*;
-pub use self::transaction_nature::*;
 pub use self::type_assert::*;
 
 pub struct NopHasher;

@@ -8,7 +8,6 @@ use crate::oracle::simple_oracle_query::SimpleOracleQuery;
 use crate::storage_types::{InitialStorageSlotData, StorageAddress};
 use crate::types_config::{EthereumIOTypesConfig, SystemIOTypesConfig};
 use crate::utils::Bytes32;
-use crate::utils::TransactionNature;
 
 pub struct InitialStorageSlotQuery<IOTypes: SystemIOTypesConfig> {
     _marker: core::marker::PhantomData<IOTypes>,
@@ -30,14 +29,6 @@ impl<SR: StateRootView<EthereumIOTypesConfig>> SimpleOracleQuery
     const QUERY_ID: u32 = ZK_PROOF_DATA_INIT_QUERY_ID;
     type Input = ();
     type Output = ProofData<SR>;
-}
-
-pub struct TransactionNatureQuery;
-
-impl SimpleOracleQuery for TransactionNatureQuery {
-    const QUERY_ID: u32 = INITIAL_STORAGE_SLOT_VALUE_QUERY_ID;
-    type Input = ();
-    type Output = TransactionNature; // TODO check type
 }
 
 pub struct HistoricalHashQuery;
