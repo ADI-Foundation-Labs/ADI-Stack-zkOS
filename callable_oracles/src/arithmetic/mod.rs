@@ -1,4 +1,4 @@
-use basic_system::system_functions::modexp::{ModExpAdviseParams, MODEXP_ADVISE_QUERY_ID};
+use basic_system::system_functions::modexp::{ModExpAdviceParams, MODEXP_ADVICE_QUERY_ID};
 use oracle_provider::OracleQueryProcessor;
 use risc_v_simulator::abstractions::memory::MemorySource;
 
@@ -21,7 +21,7 @@ impl<M: MemorySource> Default for ArithmeticQuery<M> {
 
 impl<M: MemorySource> OracleQueryProcessor<M> for ArithmeticQuery<M> {
     fn supported_query_ids(&self) -> Vec<u32> {
-        vec![MODEXP_ADVISE_QUERY_ID]
+        vec![MODEXP_ADVICE_QUERY_ID]
     }
 
     fn process_buffered_query(
@@ -42,10 +42,10 @@ impl<M: MemorySource> OracleQueryProcessor<M> for ArithmeticQuery<M> {
         );
 
         assert!(arg_ptr.is_multiple_of(4));
-        const { assert!(core::mem::align_of::<ModExpAdviseParams>() == 4) }
-        const { assert!(core::mem::size_of::<ModExpAdviseParams>().is_multiple_of(4)) }
+        const { assert!(core::mem::align_of::<ModExpAdviceParams>() == 4) }
+        const { assert!(core::mem::size_of::<ModExpAdviceParams>().is_multiple_of(4)) }
 
-        let arg = unsafe { read_struct::<ModExpAdviseParams, _>(memory, arg_ptr as u32) }.unwrap();
+        let arg = unsafe { read_struct::<ModExpAdviceParams, _>(memory, arg_ptr as u32) }.unwrap();
 
         const { assert!(8 == core::mem::size_of::<usize>()) };
         assert!(arg.a_ptr > 0);

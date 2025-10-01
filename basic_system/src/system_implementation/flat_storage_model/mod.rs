@@ -55,6 +55,7 @@ pub fn address_into_special_storage_key(address: &B160) -> Bytes32 {
 
 pub const TREE_HEIGHT: usize = 64;
 
+/// Subspace mask for flat storage oracle queries within the system
 pub const FLAT_STORAGE_SUBSPACE_MASK: u32 = 0x00_00_f0_00;
 
 // This model only touches storage related things, even though preimages cache can be reused

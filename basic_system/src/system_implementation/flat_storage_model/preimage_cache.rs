@@ -18,6 +18,7 @@ use super::cost_constants::PREIMAGE_CACHE_GET_NATIVE_COST;
 use super::*;
 use crate::system_implementation::flat_storage_model::cost_constants::blake2s_native_cost;
 
+/// Query ID for requesting preimage data from the flat storage system
 pub const FLAT_STORAGE_GENERIC_PREIMAGE_QUERY_ID: u32 =
     PREIMAGE_SUBSPACE_MASK | FLAT_STORAGE_SUBSPACE_MASK;
 

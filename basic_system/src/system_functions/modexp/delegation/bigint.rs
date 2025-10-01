@@ -1,7 +1,7 @@
 // Representation of big integers using primitives that are friendly for our delegations
 extern crate alloc;
 
-use super::super::{ModExpAdviseParams, MODEXP_ADVISE_QUERY_ID};
+use super::super::{ModExpAdviceParams, MODEXP_ADVICE_QUERY_ID};
 use super::u256::*;
 use alloc::vec::Vec;
 use core::alloc::Allocator;
@@ -301,7 +301,7 @@ impl<A: Allocator + Clone> BigintRepr<A> {
         digit_carry_propagation_scratch: &mut DelegatedU256,
         advisor: &mut impl ModexpAdvisor,
     ) -> (Self, (Self, Self, Self)) {
-        advisor.get_reduction_op_advise(&current, modulus, &mut scratch_0, &mut scratch_1);
+        advisor.get_reduction_op_advice(&current, modulus, &mut scratch_0, &mut scratch_1);
         // now we should enforce everything backwards
         assert!(scratch_1.digits <= modulus.digits);
 
@@ -367,7 +367,7 @@ impl<A: Allocator + Clone> BigintRepr<A> {
                 digit_carry_propagation_scratch,
                 current.digits + other.digits,
             );
-            advisor.get_reduction_op_advise(&scratch_2, modulus, &mut scratch_0, &mut scratch_1);
+            advisor.get_reduction_op_advice(&scratch_2, modulus, &mut scratch_0, &mut scratch_1);
             // now we should enforce everything backwards
             assert!(scratch_0.digits <= scratch_2.digits + 1 - modulus.digits);
             assert!(scratch_1.digits <= modulus.digits);
@@ -428,7 +428,7 @@ impl<A: Allocator + Clone> BigintRepr<A> {
                 digit_carry_propagation_scratch,
                 a.digits * 2,
             );
-            advisor.get_reduction_op_advise(&scratch_2, modulus, &mut scratch_0, &mut scratch_1);
+            advisor.get_reduction_op_advice(&scratch_2, modulus, &mut scratch_0, &mut scratch_1);
             // now we should enforce everything backwards
             assert!(scratch_0.digits <= scratch_2.digits + 1 - modulus.digits);
             assert!(scratch_1.digits <= modulus.digits);
@@ -689,7 +689,7 @@ impl<A: Allocator + Clone> BigintRepr<A> {
 
 pub(crate) trait ModexpAdvisor {
     // get advice for let (q,r) = div_rem(a, m)
-    fn get_reduction_op_advise<A: Allocator + Clone>(
+    fn get_reduction_op_advice<A: Allocator + Clone>(
         &mut self,
         a: &BigintRepr<A>,
         m: &BigintRepr<A>,
@@ -736,7 +736,7 @@ pub(crate) mod naive_advisor {
     pub(crate) struct NaiveAdvisor;
 
     impl ModexpAdvisor for NaiveAdvisor {
-        fn get_reduction_op_advise<A: Allocator + Clone>(
+        fn get_reduction_op_advice<A: Allocator + Clone>(
             &mut self,
             a: &BigintRepr<A>,
             m: &BigintRepr<A>,
@@ -792,14 +792,14 @@ fn write_bigint(
 }
 
 impl<'a, O: IOOracle> ModexpAdvisor for OracleAdvisor<'a, O> {
-    fn get_reduction_op_advise<A: Allocator + Clone>(
+    fn get_reduction_op_advice<A: Allocator + Clone>(
         &mut self,
         a: &BigintRepr<A>,
         m: &BigintRepr<A>,
         quotient_dst: &mut BigintRepr<A>,
         remainder_dst: &mut BigintRepr<A>,
     ) {
-        let arg: ModExpAdviseParams = {
+        let arg: ModExpAdviceParams = {
             let a_len = a.digits;
             let a_ptr = a.backing.as_ptr();
 
@@ -808,7 +808,7 @@ impl<'a, O: IOOracle> ModexpAdvisor for OracleAdvisor<'a, O> {
 
             assert!(modulus_len > 0);
 
-            let arg = ModExpAdviseParams {
+            let arg = ModExpAdviceParams {
                 op: 0,
                 a_ptr: a_ptr.addr() as u32,
                 a_len: a_len as u32,
@@ -825,8 +825,8 @@ impl<'a, O: IOOracle> ModexpAdvisor for OracleAdvisor<'a, O> {
         let mut it = self
             .inner
             .raw_query(
-                MODEXP_ADVISE_QUERY_ID,
-                &((&arg as *const ModExpAdviseParams).addr() as u32),
+                MODEXP_ADVICE_QUERY_ID,
+                &((&arg as *const ModExpAdviceParams).addr() as u32),
             )
             .unwrap();
 

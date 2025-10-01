@@ -17,20 +17,23 @@ use zk_ee::{
     },
 };
 
-use zk_ee::system_io_oracle::ADVISE_SUBSPACE_MASK;
+use zk_ee::system_io_oracle::ADVICE_SUBSPACE_MASK;
 
-pub const MODEXP_ADVISE_QUERY_ID: u32 = ADVISE_SUBSPACE_MASK | 0x10;
+// Query ID for modular exponentiation advice from oracle
+pub const MODEXP_ADVICE_QUERY_ID: u32 = ADVICE_SUBSPACE_MASK | 0x10;
 
+/// Parameters for modular exponentiation oracle query
+/// Used to request division advice for big integer operations during modexp
 #[repr(C)]
 #[derive(Debug, Default)]
-pub struct ModExpAdviseParams {
-    pub op: u32,
-    pub a_ptr: u32,
-    pub a_len: u32,
-    pub b_ptr: u32,
-    pub b_len: u32,
-    pub modulus_ptr: u32,
-    pub modulus_len: u32,
+pub struct ModExpAdviceParams {
+    pub op: u32,          // Operation type (0 = division)
+    pub a_ptr: u32,       // Pointer to dividend
+    pub a_len: u32,       // Length of dividend in words
+    pub b_ptr: u32,       // Pointer to divisor
+    pub b_len: u32,       // Length of divisor in words
+    pub modulus_ptr: u32, // Pointer to modulus
+    pub modulus_len: u32, // Length of modulus in words
 }
 
 #[cfg(any(all(target_arch = "riscv32", feature = "proving"), test))]

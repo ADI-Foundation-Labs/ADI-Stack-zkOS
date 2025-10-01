@@ -778,6 +778,7 @@ impl<const N: usize> StateRootView<EthereumIOTypesConfig> for FlatStorageCommitm
     }
 }
 
+/// Query for finding the previous index in the sorted flat storage for a given key
 pub struct PreviousIndexQuery;
 
 impl SimpleOracleQuery for PreviousIndexQuery {
@@ -786,6 +787,7 @@ impl SimpleOracleQuery for PreviousIndexQuery {
     type Output = u64;
 }
 
+/// Query for finding the exact index of a key in the flat storage
 pub struct ExactIndexQuery;
 
 impl SimpleOracleQuery for ExactIndexQuery {
@@ -802,9 +804,11 @@ fn get_index<O: IOOracle>(oracle: &mut O, flat_key: &Bytes32) -> u64 {
     ExactIndexQuery::get(oracle, flat_key).expect("must deserialize index for key")
 }
 
+/// Query ID for requesting Merkle proof at a specific index in flat storage
 pub const PROOF_FOR_INDEX_QUERY_ID: u32 =
     STATE_AND_MERKLE_PATHS_SUBSPACE_MASK | FLAT_STORAGE_SUBSPACE_MASK | 0x02;
 
+/// Query for obtaining a Merkle proof for a value at a specific index in flat storage
 pub struct ProofForIndexQuery<const N: usize, H: FlatStorageHasher, A: Allocator + Clone + Default>
 {
     _marker: core::marker::PhantomData<(H, A)>,
