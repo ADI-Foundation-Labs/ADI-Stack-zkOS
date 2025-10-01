@@ -1,3 +1,15 @@
+//! This module provides the core abstraction for accessing external state and data
+//! during ZKsync OS execution. Oracles enable the system to query storage, preimages,
+//! transaction data, and other non-deterministic information while maintaining
+//! deterministic execution semantics required for zero-knowledge proofs.
+//!
+//! The oracle system is built around several key components:
+//!
+//! - **IOOracle trait**: Core interface for querying external data
+//! - **Query system**: Type-safe query definitions with unique IDs (uniquiness is not enforced)
+//! - **Serialization and deserialization**: `usize`-based data encoding/decoding
+//! - **Query processors**: Server-side handlers for specific query types
+
 pub mod basic_queries;
 pub mod query_ids;
 pub mod simple_oracle_query;
@@ -6,37 +18,29 @@ pub mod usize_serialization;
 
 pub use self::usize_rw::*;
 
-use core::alloc::Allocator;
-use core::{mem::MaybeUninit, num::NonZeroU32};
+use core::num::NonZeroU32;
 
 use crate::oracle::query_ids::NEXT_TX_SIZE_QUERY_ID;
 use crate::oracle::usize_serialization::{UsizeDeserializable, UsizeSerializable};
 use crate::{
     system::errors::internal::InternalError,
-    utils::{Bytes32, UsizeAlignedByteBox},
 };
 
-// we need some form of oracle to abstract away IO access to the system
-
-// Oracle trait is abstract and only concrete queries will implement something for themselves to describe
-// what oracle types they support. Even though we would really want to have type level checks if oracle supports
-// certain query or not, and define queries are just blind key + value type, we also want to avoid excessive monomorphization
-// and keep code size minimal for proving environments
-
+/// Core trait for querying external, non-deterministic data during ZKsync OS execution. This is 
+/// an abstraction boundary on how ZKsync OS (system) gets IO information and eventually
+/// updates state and/or sends messages to one more layer above.
 ///
-/// Oracle is an abstraction boundary on how OS (System trait) gets IO information and eventually
-/// updates state and/or sends messages to one more layer above
+/// This trait abstracts access to external state like storage, preimages, and transaction data.
+/// Implementations provide the data without validating its correctness - validation occurs
+/// at higher system layers. The interface is designed for zero-copy operation using exact-size
+/// iterators over `usize` values.
 ///
-/// NOTE: this trait is about pure oracle work,
-/// so e.g. if one asks for preimage it gives SOME data, but validity of this data
-/// versus image (that depends on which hash is used) it beyond the scope of this trait
-///
-
-///
-/// Oracle interface - the core abstraction for non-deterministic system queries
-///
-/// Oracles provide access to external state (storage, preimages, etc.) during execution.
-///
+/// # Design Notes
+/// - All data exchange uses `usize` sequences for cross-architecture compatibility
+/// - Query types are identified by `u32` IDs organized in namespaced ranges
+/// 
+/// NOTE: this trait is about pure oracle work, so e.g. if one asks for preimage it gives SOME data, 
+/// but validity of this data versus image (that depends on which hash is used) it beyond the scope of this trait
 pub trait IOOracle: 'static + Sized {
     /// Iterator type that oracle returns for raw usize values
     type RawIterator<'a>: ExactSizeIterator<Item = usize>;
@@ -100,60 +104,6 @@ pub trait IOOracle: 'static + Sized {
         let size = self.query_with_empty_input::<u32>(NEXT_TX_SIZE_QUERY_ID)?;
 
         Ok(NonZeroU32::new(size))
-    }
-
-    ///
-    /// Convenience to expose preimage into the preallocated buffer of bounded size
-    ///
-    fn expose_preimage(
-        &mut self,
-        query_type: u32,
-        hash: &Bytes32,
-        destination: &mut [MaybeUninit<usize>],
-    ) -> Result<usize, InternalError> {
-        let mut it = self
-            .raw_query(query_type, hash)
-            .expect("must make an iterator for preimage");
-        assert!(it.len() <= destination.len());
-        let words_written = it.len();
-        for dst in destination.iter_mut().take(words_written) {
-            unsafe {
-                // Contract of ExactSizeIterator
-                dst.write(it.next().unwrap_unchecked());
-            }
-        }
-
-        Ok(words_written)
-    }
-
-    fn get_bytes_from_query<A: Allocator, I: UsizeSerializable + UsizeDeserializable>(
-        &mut self,
-        length_query_id: u32, // must return number of bytes
-        body_query_id: u32,   // must return
-        input: &I,
-        allocator: A,
-    ) -> Result<Option<UsizeAlignedByteBox<A>>, InternalError> {
-        use crate::internal_error;
-        use crate::utils::USIZE_SIZE;
-
-        let size = self.query_serializable::<I, u32>(length_query_id, input)?;
-        if size == 0 {
-            return Ok(None);
-        }
-        let num_bytes = size as usize;
-        let num_words = num_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE;
-        // NOTE: we leave some slack for 64/32 bit arch mismatches
-        let num_words = num_words.next_multiple_of(2);
-        let body_query_it = self.raw_query(body_query_id, input)?;
-        let body_it_len = body_query_it.len();
-        if body_it_len > num_words {
-            return Err(internal_error!("iterator len is inconsistent"));
-        }
-        // create buffer
-        let mut buffer = UsizeAlignedByteBox::from_usize_iterator_in(body_query_it, allocator);
-        buffer.truncated_to_byte_length(num_bytes);
-
-        Ok(Some(buffer))
     }
 }
 

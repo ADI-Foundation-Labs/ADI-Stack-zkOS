@@ -1,3 +1,5 @@
+use core::str::FromStr;
+
 use super::*;
 use ruint::aliases::{B160, U256};
 
@@ -133,9 +135,8 @@ fn test_u64_two_words_on_32bit() {
 
 #[test]
 fn test_u256_serialization() {
-    let val = U256::from_str_radix(
+    let val = U256::from_str(
         "0x123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
-        16,
     )
     .unwrap();
 
@@ -157,7 +158,7 @@ fn test_u256_length() {
 
 #[test]
 fn test_b160_serialization() {
-    let val = B160::from_str_radix("0x1234567890123456789012345678901234567890", 16).unwrap();
+    let val = B160::from_str("0x1234567890123456789012345678901234567890").unwrap();
 
     let iter = val.iter();
     let collected: Vec<_> = iter.collect();
