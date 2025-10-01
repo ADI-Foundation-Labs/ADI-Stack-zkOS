@@ -1,11 +1,11 @@
 use crate::common_structs::state_root_view::StateRootView;
 use crate::common_structs::ProofData;
-use crate::kv_markers::{InitialStorageSlotData, StorageAddress};
 use crate::oracle::query_ids::{
     HISTORICAL_BLOCK_HASH_QUERY_ID, INITIAL_STORAGE_SLOT_VALUE_QUERY_ID,
     ZK_PROOF_DATA_INIT_QUERY_ID,
 };
 use crate::oracle::simple_oracle_query::SimpleOracleQuery;
+use crate::storage_types::{InitialStorageSlotData, StorageAddress};
 use crate::types_config::{EthereumIOTypesConfig, SystemIOTypesConfig};
 use crate::utils::Bytes32;
 use crate::utils::TransactionNature;
@@ -37,7 +37,7 @@ pub struct TransactionNatureQuery;
 impl SimpleOracleQuery for TransactionNatureQuery {
     const QUERY_ID: u32 = INITIAL_STORAGE_SLOT_VALUE_QUERY_ID;
     type Input = ();
-    type Output = TransactionNature;
+    type Output = TransactionNature; // TODO check type
 }
 
 pub struct HistoricalHashQuery;

@@ -5,9 +5,9 @@ use basic_system::system_implementation::flat_storage_model::{
     ExactIndexQuery, PreviousIndexQuery, PROOF_FOR_INDEX_QUERY_ID,
 };
 use zk_ee::common_structs::derive_flat_storage_key;
-use zk_ee::kv_markers::InitialStorageSlotData;
-use zk_ee::kv_markers::StorageAddress;
 use zk_ee::oracle::simple_oracle_query::SimpleOracleQuery;
+use zk_ee::storage_types::InitialStorageSlotData;
+use zk_ee::storage_types::StorageAddress;
 use zk_ee::types_config::EthereumIOTypesConfig;
 use zk_ee::{
     oracle::basic_queries::InitialStorageSlotQuery,

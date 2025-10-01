@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use super::*;
 use ruint::aliases::B160;
 use zk_ee::{
-    kv_markers::{InitialStorageSlotData, StorageAddress},
     oracle::query_ids::INITIAL_STORAGE_SLOT_VALUE_QUERY_ID,
     oracle::usize_serialization::dyn_usize_iterator::DynUsizeIterator,
+    storage_types::{InitialStorageSlotData, StorageAddress},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

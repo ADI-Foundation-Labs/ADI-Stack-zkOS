@@ -20,9 +20,9 @@ use zk_ee::oracle::IOOracle;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::{
     common_structs::{WarmStorageKey, WarmStorageValue},
-    kv_markers::StorageAddress,
     memory::stack_trait::{StackCtor, StackCtorConst},
     oracle::simple_oracle_query::SimpleOracleQuery,
+    storage_types::StorageAddress,
     system::{errors::system::SystemError, Resources},
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::Bytes32,
