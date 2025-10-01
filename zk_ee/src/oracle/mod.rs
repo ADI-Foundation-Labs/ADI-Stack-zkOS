@@ -6,7 +6,7 @@
 //! The oracle system is built around several key components:
 //!
 //! - **IOOracle trait**: Core interface for querying external data
-//! - **Query system**: Type-safe query definitions with unique IDs (uniquiness is not enforced)
+//! - **Query system**: Type-safe query definitions with unique IDs (uniqueness is not enforced)
 //! - **Serialization and deserialization**: `usize`-based data encoding/decoding
 //! - **Query processors**: Server-side handlers for specific query types
 
