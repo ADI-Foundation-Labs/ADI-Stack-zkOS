@@ -17,7 +17,7 @@ pub const STATE_AND_MERKLE_PATHS_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x00
 /// Computational advice queries (e.g. division/modexp advice)
 pub const ADVICE_SUBSPACE_MASK: u32 = BASIC_SUBSPACE_MASK | 0x00_05_00_00; // 0x40050000
 
-/// Speacial case: UART output query ID (for debugging purposes)
+/// Special case: UART output query ID (for debugging purposes)
 pub const UART_QUERY_ID: u32 = 0xffffffff;
 
 #[allow(clippy::identity_op)]
