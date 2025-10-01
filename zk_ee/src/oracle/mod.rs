@@ -9,6 +9,11 @@
 //! - **Query system**: Type-safe query definitions with unique IDs (uniqueness is not enforced)
 //! - **Serialization and deserialization**: `usize`-based data encoding/decoding
 //! - **Query processors**: Server-side handlers for specific query types
+//!
+//! # Security Model
+//!
+//! **Critical**: Oracle responses are treated as **untrusted input**. The oracle system does not validate data authenticity or correctness. All oracle
+//! responses MUST be validated by the calling code before use.
 
 pub mod basic_queries;
 pub mod query_ids;
@@ -34,8 +39,11 @@ use crate::system::errors::internal::InternalError;
 /// - All data exchange uses `usize` sequences for cross-architecture compatibility
 /// - Query types are identified by `u32` IDs organized in namespaced ranges
 ///
-/// NOTE: this trait is about pure oracle work, so e.g. if one asks for preimage it gives SOME data,
-/// but validity of this data versus image (that depends on which hash is used) it beyond the scope of this trait
+/// # Security Implications
+/// - Oracle responses are treated as untrusted input and MUST be validated
+/// - Malformed responses can cause deserialization panics if not handled properly
+/// - ZK proof verification (in combination with state and data commitments)
+///   should ensure data correctness
 pub trait IOOracle: 'static + Sized {
     /// Iterator type that oracle returns for raw usize values
     type RawIterator<'a>: ExactSizeIterator<Item = usize>;

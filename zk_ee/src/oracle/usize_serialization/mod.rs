@@ -2,7 +2,13 @@
 //! It serves as the core serialization layer for the oracle system, enabling
 //! data exchange between ZKsync OS and external data providers.
 //!
-//! The serialization is based on `usize` sequences.
+//! The serialization is based on `usize` sequences for cross-architecture compatibility.
+//!
+//! # Security Considerations
+//!
+//! This module handles endianness and pointer width differences between 32-bit
+//! and 64-bit systems. The serialization format is designed to be deterministic across
+//! architectures, but relies on consistent memory layout assumptions.
 
 use core::mem::MaybeUninit;
 
