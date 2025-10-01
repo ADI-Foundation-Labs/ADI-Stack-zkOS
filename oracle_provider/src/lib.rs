@@ -8,8 +8,9 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 use zk_ee::kv_markers::{UsizeDeserializable, UsizeSerializable};
+use zk_ee::oracle::query_ids::{DISCONNECT_ORACLE_QUERY_ID, UART_QUERY_ID};
 use zk_ee::system::errors::internal::InternalError;
-use zk_ee::{internal_error, system_io_oracle::*};
+use zk_ee::{internal_error, oracle::IOOracle};
 
 pub use risc_v_simulator::abstractions::memory::MemorySource;
 use risc_v_simulator::abstractions::non_determinism::NonDeterminismCSRSource;

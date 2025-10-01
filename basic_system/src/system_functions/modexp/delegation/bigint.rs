@@ -8,7 +8,7 @@ use core::alloc::Allocator;
 use core::fmt::Debug;
 use core::mem::MaybeUninit;
 use crypto::{bigint_op_delegation_raw, bigint_op_delegation_with_carry_bit_raw, BigIntOps};
-use zk_ee::system_io_oracle::IOOracle;
+use zk_ee::oracle::IOOracle;
 
 // There is a small choice to make - either we do exponentiation walking as via LE or BE exponent.
 // If we do LE, then we square the base, and multiply accumulator by it

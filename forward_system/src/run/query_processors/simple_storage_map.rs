@@ -4,7 +4,8 @@ use super::*;
 use ruint::aliases::B160;
 use zk_ee::{
     kv_markers::{InitialStorageSlotData, StorageAddress},
-    system_io_oracle::{dyn_usize_iterator::DynUsizeIterator, INITIAL_STORAGE_SLOT_VALUE_QUERY_ID},
+    oracle::dyn_usize_iterator::DynUsizeIterator,
+    oracle::query_ids::INITIAL_STORAGE_SLOT_VALUE_QUERY_ID,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

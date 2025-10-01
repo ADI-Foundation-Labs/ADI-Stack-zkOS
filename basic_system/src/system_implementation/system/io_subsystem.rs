@@ -17,13 +17,13 @@ use evm_interpreter::gas_constants::TSTORE;
 use storage_models::common_structs::generic_transient_storage::GenericTransientStorage;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::StorageModel;
-use zk_ee::basic_queries::ZKProofDataQuery;
 use zk_ee::common_structs::ProofData;
 use zk_ee::common_structs::L2_TO_L1_LOG_SERIALIZE_SIZE;
 use zk_ee::interface_error;
+use zk_ee::oracle::basic_queries::ZKProofDataQuery;
+use zk_ee::oracle::simple_oracle_query::SimpleOracleQuery;
 use zk_ee::out_of_ergs_error;
 use zk_ee::system::metadata::BlockMetadataFromOracle;
-use zk_ee::system_io_oracle::SimpleOracleQuery;
 use zk_ee::{
     common_structs::{EventsStorage, LogsStorage},
     memory::ArrayBuilder,

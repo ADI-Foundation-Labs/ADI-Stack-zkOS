@@ -5,11 +5,11 @@ use zk_ee::{
     common_structs::{history_map::CacheSnapshotId, NewPreimagesPublicationStorage, PreimageType},
     execution_environment_type::ExecutionEnvironmentType,
     internal_error,
+    oracle::query_ids::PREIMAGE_SUBSPACE_MASK,
     system::{
         errors::{internal::InternalError, system::SystemError},
         IOResultKeeper, Resources,
     },
-    system_io_oracle::{IOOracle, PREIMAGE_SUBSPACE_MASK},
     types_config::EthereumIOTypesConfig,
     utils::{Bytes32, UsizeAlignedByteBox, USIZE_SIZE},
 };

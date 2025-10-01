@@ -28,11 +28,13 @@ use zk_ee::common_structs::derive_flat_storage_key_with_hasher;
 use zk_ee::common_structs::state_root_view::StateRootView;
 use zk_ee::common_structs::{WarmStorageKey, WarmStorageValue};
 use zk_ee::internal_error;
+use zk_ee::oracle::query_ids::STATE_AND_MERKLE_PATHS_SUBSPACE_MASK;
+use zk_ee::oracle::simple_oracle_query::SimpleOracleQuery;
 use zk_ee::{
     kv_markers::{ExactSizeChain, ExactSizeChainN, UsizeDeserializable, UsizeSerializable},
     memory::stack_trait::Stack,
+    oracle::IOOracle,
     system::{errors::internal::InternalError, logger::Logger},
-    system_io_oracle::*,
     types_config::EthereumIOTypesConfig,
     utils::Bytes32,
 };
@@ -1707,7 +1709,7 @@ mod test {
     use ruint::aliases::{B160, U256};
     use std::{collections::HashMap, ops};
     use zk_ee::common_structs::derive_flat_storage_key;
-    use zk_ee::{system::NullLogger, system_io_oracle::dyn_usize_iterator::DynUsizeIterator};
+    use zk_ee::{oracle::dyn_usize_iterator::DynUsizeIterator, system::NullLogger};
 
     fn hex_bytes(s: &str) -> Bytes32 {
         let s = s.strip_prefix("0x").unwrap_or(s);

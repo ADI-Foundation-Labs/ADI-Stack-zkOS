@@ -1,9 +1,9 @@
 use super::*;
 use basic_system::system_implementation::flat_storage_model::FlatStorageCommitment;
 use basic_system::system_implementation::flat_storage_model::TREE_HEIGHT;
-use zk_ee::basic_queries::ZKProofDataQuery;
 use zk_ee::common_structs::ProofData;
-use zk_ee::system_io_oracle::SimpleOracleQuery;
+use zk_ee::oracle::basic_queries::ZKProofDataQuery;
+use zk_ee::oracle::simple_oracle_query::SimpleOracleQuery;
 use zk_ee::types_config::EthereumIOTypesConfig;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

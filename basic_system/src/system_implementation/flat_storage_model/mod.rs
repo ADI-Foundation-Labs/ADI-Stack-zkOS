@@ -35,11 +35,11 @@ use zk_ee::{
     },
     execution_environment_type::ExecutionEnvironmentType,
     memory::stack_trait::{StackCtor, StackCtorConst},
+    oracle::IOOracle,
     system::{
         errors::system::SystemError, logger::Logger, AccountData, AccountDataRequest,
         IOResultKeeper, Maybe,
     },
-    system_io_oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::Bytes32,
 };

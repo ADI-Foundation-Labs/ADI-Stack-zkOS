@@ -2,7 +2,7 @@ use crate::system::errors::internal::InternalError;
 use crate::system::logger::Logger;
 use crate::{
     kv_markers::{UsizeDeserializable, UsizeSerializable},
-    system_io_oracle::IOOracle,
+    oracle::IOOracle,
     types_config::SystemIOTypesConfig,
 };
 use core::alloc::Allocator;

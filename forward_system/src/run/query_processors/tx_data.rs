@@ -1,10 +1,10 @@
 use super::*;
 use crate::run::NextTxResponse;
 use crate::run::TxSource;
+use zk_ee::oracle::dyn_usize_iterator::DynUsizeIterator;
+use zk_ee::oracle::query_ids::NEXT_TX_SIZE_QUERY_ID;
+use zk_ee::oracle::query_ids::TX_DATA_WORDS_QUERY_ID;
 use zk_ee::oracle::ReadIterWrapper;
-use zk_ee::system_io_oracle::{
-    dyn_usize_iterator::DynUsizeIterator, NEXT_TX_SIZE_QUERY_ID, TX_DATA_WORDS_QUERY_ID,
-};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TxDataResponder<TS: TxSource> {

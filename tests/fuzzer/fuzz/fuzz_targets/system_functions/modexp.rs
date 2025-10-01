@@ -110,7 +110,7 @@ fn fuzz(data: &[u8]) {
 
 struct DummyOracle {}
 
-impl zk_ee::system_io_oracle::IOOracle for DummyOracle {
+impl zk_ee::oracle::io_oracle::IOOracle for DummyOracle {
     type RawIterator<'a> = Box<dyn ExactSizeIterator<Item = usize> + 'static>;
 
     fn raw_query<'a, I: zk_ee::kv_markers::UsizeSerializable + zk_ee::kv_markers::UsizeDeserializable>(

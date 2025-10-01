@@ -38,7 +38,6 @@
 
 extern crate alloc;
 
-pub mod basic_queries;
 pub mod common_structs;
 pub mod common_traits;
 pub mod execution_environment_type;
@@ -47,6 +46,5 @@ pub mod memory;
 pub mod oracle;
 pub mod reference_implementations;
 pub mod system;
-pub mod system_io_oracle;
 pub mod types_config;
 pub mod utils;

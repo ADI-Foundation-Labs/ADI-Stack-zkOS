@@ -40,12 +40,12 @@ use self::{
     logger::Logger,
     metadata::{BlockMetadataFromOracle, Metadata},
 };
-use crate::system_io_oracle::BLOCK_METADATA_QUERY_ID;
-use crate::system_io_oracle::TX_DATA_WORDS_QUERY_ID;
+use crate::oracle::query_ids::BLOCK_METADATA_QUERY_ID;
+use crate::oracle::query_ids::TX_DATA_WORDS_QUERY_ID;
 use crate::utils::Bytes32;
 use crate::{
     execution_environment_type::ExecutionEnvironmentType,
-    system_io_oracle::IOOracle,
+    oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::USIZE_SIZE,
 };

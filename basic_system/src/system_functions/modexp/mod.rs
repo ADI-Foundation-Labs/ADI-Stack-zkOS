@@ -5,9 +5,10 @@ use alloc::vec::Vec;
 use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::U256;
 use zk_ee::common_traits::TryExtend;
+use zk_ee::oracle::query_ids::ADVICE_SUBSPACE_MASK;
+use zk_ee::oracle::IOOracle;
 use zk_ee::system::logger::Logger;
 use zk_ee::system::SystemFunctionExt;
-use zk_ee::system_io_oracle::IOOracle;
 use zk_ee::{
     interface_error, internal_error, out_of_ergs_error,
     system::{
@@ -16,8 +17,6 @@ use zk_ee::{
         Computational, Ergs, ModExpInterfaceError,
     },
 };
-
-use zk_ee::system_io_oracle::ADVICE_SUBSPACE_MASK;
 
 // Query ID for modular exponentiation advice from oracle
 pub const MODEXP_ADVICE_QUERY_ID: u32 = ADVICE_SUBSPACE_MASK | 0x10;

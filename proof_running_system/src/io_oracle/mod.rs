@@ -1,7 +1,7 @@
 use zk_ee::{
     kv_markers::{UsizeDeserializable, UsizeSerializable},
+    oracle::IOOracle,
     system::errors::internal::InternalError,
-    system_io_oracle::*,
 };
 
 pub trait NonDeterminismCSRSourceImplementation: 'static + Clone + Copy + core::fmt::Debug {

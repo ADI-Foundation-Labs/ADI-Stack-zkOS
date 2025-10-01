@@ -7,9 +7,9 @@ use basic_system::system_implementation::system::FullIO;
 use oracle_provider::DummyMemorySource;
 use oracle_provider::ZkEENonDeterminismSource;
 use zk_ee::memory::stack_trait::VecStackCtor;
+use zk_ee::oracle::IOOracle;
 use zk_ee::reference_implementations::BaseResources;
 use zk_ee::system::{EthereumLikeTypes, SystemTypes};
-use zk_ee::system_io_oracle::IOOracle;
 use zk_ee::types_config::EthereumIOTypesConfig;
 
 #[cfg(not(feature = "no_print"))]

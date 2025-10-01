@@ -8,7 +8,6 @@ use core::alloc::Allocator;
 use ruint::aliases::B160;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::{AccountAggregateDataHash, StorageCacheModel};
-use zk_ee::basic_queries::InitialStorageSlotQuery;
 use zk_ee::common_structs::cache_record::{Appearance, CacheRecord};
 #[cfg(feature = "evm_refunds")]
 use zk_ee::common_structs::history_counter::HistoryCounter;
@@ -16,13 +15,15 @@ use zk_ee::common_structs::history_counter::HistoryCounter;
 use zk_ee::common_structs::history_counter::HistoryCounterSnapshotId;
 use zk_ee::common_traits::key_like_with_bounds::{KeyLikeWithBounds, TyEq};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
+use zk_ee::oracle::basic_queries::InitialStorageSlotQuery;
+use zk_ee::oracle::IOOracle;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::{
     common_structs::{WarmStorageKey, WarmStorageValue},
     kv_markers::StorageAddress,
     memory::stack_trait::{StackCtor, StackCtorConst},
+    oracle::simple_oracle_query::SimpleOracleQuery,
     system::{errors::system::SystemError, Resources},
-    system_io_oracle::{IOOracle, SimpleOracleQuery},
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::Bytes32,
 };
