@@ -1,5 +1,6 @@
 use std::alloc::Global;
 
+use basic_bootloader::bootloader::transaction_flow::zk::ZkTransactionFlowOnlyEOA;
 use basic_bootloader::bootloader::BasicBootloader;
 use basic_system::system_functions::NoStdSystemFunctions;
 use basic_system::system_implementation::system::EthereumLikeStorageAccessCostModel;
@@ -46,6 +47,6 @@ pub type ForwardRunningSystem = ForwardSystemTypes<ZkEENonDeterminismSource<Dumm
 
 pub type CallSimulationSystem = ForwardSystemTypes<ZkEENonDeterminismSource<DummyMemorySource>>;
 
-pub type ForwardBootloader = BasicBootloader<ForwardRunningSystem>;
+pub type ForwardBootloader = BasicBootloader<ForwardRunningSystem, ZkTransactionFlowOnlyEOA>;
 
-pub type CallSimulationBootloader = BasicBootloader<CallSimulationSystem>;
+pub type CallSimulationBootloader = BasicBootloader<CallSimulationSystem, ZkTransactionFlowOnlyEOA>;
