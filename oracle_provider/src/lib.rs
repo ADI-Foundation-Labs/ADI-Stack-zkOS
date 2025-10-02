@@ -91,7 +91,6 @@ impl<M: MemorySource> ZkEENonDeterminismSource<M> {
 
         let buffer = self.query_buffer.take().expect("must exist");
         let query_id = buffer.query_type;
-        // println!("Processing a query with ID = 0x{:08x}", query_id);
         if query_id == DISCONNECT_ORACLE_QUERY_ID {
             self.is_connected_to_external_oracle = false;
         } else {
@@ -102,29 +101,18 @@ impl<M: MemorySource> ZkEENonDeterminismSource<M> {
             let processor = &mut self.processors[processor_id];
             let new_iterator = processor.process_buffered_query(query_id, buffer, memory);
 
-            // if let Some(new_iterator) = new_iterator {
             let result_len = new_iterator.len() * 2; // NOTE for mismatch of 32/64-bit archs
             self.iterator_len_to_indicate = Some(result_len as u32);
             if result_len > 0 {
                 self.current_query_id = Some(query_id);
                 self.current_iterator = Some(new_iterator);
             }
-            // } else {
-            //     self.iterator_len_to_indicate = Some(0);
-            // }
         }
     }
 
     /// Reads the next 32bits.
     /// Our iterators and queues hold usize elements (u64), so we have to do some splitting and caching.
     fn read_impl(&mut self) -> u32 {
-        // if let Some(query_id) = self.current_query_id {
-        //     println!(
-        //         "Reading from oracle as a part of query ID = 0x{:08x}",
-        //         query_id
-        //     );
-        // }
-
         // We mocked reads, so it's filtered out before
         if self.is_connected_to_external_oracle == false {
             return 0;

@@ -120,7 +120,6 @@ pub trait IOOracle: 'static + Sized {
 pub trait IOResponder {
     fn supports_query_id(&self, query_type: u32) -> bool;
 
-    // type QueryIDsIterator<'a>: ExactSizeIterator<Item = u32> where Self: 'a;
     fn all_supported_query_ids<'a>(&'a self) -> impl ExactSizeIterator<Item = u32> + 'a;
 
     fn query_serializable_static<

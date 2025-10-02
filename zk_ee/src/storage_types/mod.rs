@@ -8,7 +8,7 @@ use crate::utils::exact_size_chain::{ExactSizeChain, ExactSizeChainN};
 use super::system::errors::internal::InternalError;
 use super::types_config::SystemIOTypesConfig;
 
-// TODO: cleanup
+// TODO(EVM-1167): cleanup
 
 bitflags::bitflags! {
     /// Represents a set of flags.

@@ -228,7 +228,7 @@ where
             oracle.query_with_empty_input(BLOCK_METADATA_QUERY_ID)?;
 
         if block_level_metadata.gas_limit > MAX_BLOCK_GAS_LIMIT {
-            return Err(internal_error!("block gas limit is too high")); // TODO err
+            return Err(internal_error!("block gas limit is too high"));
         }
 
         let io = S::IO::init_from_oracle(oracle)?;
