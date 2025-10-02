@@ -16,12 +16,20 @@ use zk_ee::{
     utils::Bytes32,
 };
 
+/// This processor handles requests related to the storage tree structure,
+/// including storage slot reads (similar to ReadStorageResponder), tree index
+/// lookups, and Merkle proof generation.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ReadTreeResponder<T: ReadStorageTree> {
     pub tree: T,
 }
 
 impl<T: ReadStorageTree> ReadTreeResponder<T> {
+    /// # Query Types
+    /// - `PreviousIndexQuery`: Returns the previous tree index for a given key
+    /// - `ExactIndexQuery`: Returns the exact tree index for a key (panics if not found)
+    /// - `InitialStorageSlotQuery`: Returns storage slot data and metadata
+    /// - `PROOF_FOR_INDEX_QUERY_ID`: Returns Merkle proof for a tree index
     const SUPPORTED_QUERY_IDS: &[u32] = &[
         InitialStorageSlotQuery::<EthereumIOTypesConfig>::QUERY_ID,
         PreviousIndexQuery::QUERY_ID,

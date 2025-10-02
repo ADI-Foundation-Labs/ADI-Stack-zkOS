@@ -5,6 +5,10 @@ use zk_ee::oracle::usize_serialization::dyn_usize_iterator::DynUsizeIterator;
 use zk_ee::utils::usize_rw::ReadIterWrapper;
 use zk_ee::utils::Bytes32;
 
+/// This processor handles requests to resolve hash preimages - given a hash,
+/// it returns the original data that was hashed. This is essential for
+/// operations that need to reconstruct the original data from its hash,
+/// such as Merkle tree operations and storage proofs.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenericPreimageResponder<PS: PreimageSource> {
     pub preimage_source: PS,

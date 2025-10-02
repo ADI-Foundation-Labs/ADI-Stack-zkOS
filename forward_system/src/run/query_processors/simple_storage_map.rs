@@ -8,8 +8,12 @@ use zk_ee::{
     storage_types::{InitialStorageSlotData, StorageAddress},
 };
 
+/// This processor provides a simple HashMap-based implementation for storage
+/// queries. It's primarily used for testing or scenarios where the entire
+/// storage state can be held in memory.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InMemoryInitialStorageSlotValueResponder {
+    /// Two-level map: address -> (storage_key -> storage_value)
     pub values_map: HashMap<B160, HashMap<Bytes32, Bytes32>>,
 }
 

@@ -6,9 +6,13 @@ use zk_ee::oracle::query_ids::TX_DATA_WORDS_QUERY_ID;
 use zk_ee::oracle::usize_serialization::dyn_usize_iterator::DynUsizeIterator;
 use zk_ee::utils::usize_rw::ReadIterWrapper;
 
+/// This processor handles two types of queries:
+/// 1. NEXT_TX_SIZE_QUERY_ID - Returns the size of the next transaction
+/// 2. TX_DATA_WORDS_QUERY_ID - Returns the actual transaction data
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TxDataResponder<TS: TxSource> {
     pub tx_source: TS,
+    /// Cached next transaction data, populated after size query
     pub next_tx: Option<Vec<u8>>,
 }
 

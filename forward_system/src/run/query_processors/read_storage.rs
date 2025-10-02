@@ -12,6 +12,9 @@ use zk_ee::{
     utils::Bytes32,
 };
 
+/// This processor handles requests for reading initial storage slot values
+/// from the storage layer. It duplicates the storage read funcitonality of ReadTreeResponder
+/// without additional tree operations and validations. This is useful for simulations.
 #[derive(Clone, Debug)]
 pub struct ReadStorageResponder<S: ReadStorage> {
     pub storage: S,

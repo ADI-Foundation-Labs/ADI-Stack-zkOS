@@ -6,8 +6,14 @@ use zk_ee::oracle::basic_queries::ZKProofDataQuery;
 use zk_ee::oracle::simple_oracle_query::SimpleOracleQuery;
 use zk_ee::types_config::EthereumIOTypesConfig;
 
+/// This processor provides additional data needed for state validation during proving run:
+/// during proof runs, we need extra data to validate provided inputs against the chain state
+/// commitment before the block.
+///
+/// The data is consumed once per query and must be set initially.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ZKProofDataResponder {
+    /// Proof data to be returned when queried (consumed on first access)
     pub data: Option<ProofData<FlatStorageCommitment<TREE_HEIGHT>>>,
 }
 

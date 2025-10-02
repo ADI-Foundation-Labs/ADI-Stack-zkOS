@@ -5,6 +5,10 @@ use zk_ee::{
     oracle::usize_serialization::dyn_usize_iterator::DynUsizeIterator,
 };
 
+/// This processor handles debug print requests from the RISC-V execution
+/// environment. It receives formatted string data and outputs it to stdout,
+/// providing a mechanism for debugging and logging from within the ZK
+/// execution environment.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Default)]
 pub struct UARTPrintResponder;
 
