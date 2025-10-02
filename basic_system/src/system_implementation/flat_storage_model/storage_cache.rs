@@ -15,6 +15,7 @@ use zk_ee::common_structs::history_counter::HistoryCounter;
 use zk_ee::common_structs::history_counter::HistoryCounterSnapshotId;
 use zk_ee::common_traits::key_like_with_bounds::{KeyLikeWithBounds, TyEq};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
+use zk_ee::internal_error;
 use zk_ee::oracle::basic_queries::InitialStorageSlotQuery;
 use zk_ee::oracle::IOOracle;
 use zk_ee::system::errors::internal::InternalError;
@@ -203,7 +204,7 @@ where
                 initialized_element = true;
 
                 let data_from_oracle = InitialStorageSlotQuery::get(oracle, &address)
-                    .expect("must get initial slot value from oracle"); // TODO err
+                    .map_err(|_| internal_error!("Must get initial slot value from oracle"))?;
 
                 resources_policy.charge_cold_storage_read_extra(
                     ee_type,
