@@ -1929,6 +1929,7 @@ dependencies = [
 name = "callable_oracles"
 version = "0.1.0"
 dependencies = [
+ "basic_system",
  "crypto",
  "num-bigint",
  "num-traits",
