@@ -146,7 +146,7 @@ impl<S: SystemTypes> System<S> {
     }
 
     pub fn get_gas_limit(&self) -> u64 {
-        self.metadata.blobs_gas_limit()
+        self.metadata.block_gas_limit()
     }
 
     pub fn get_gas_price(&self) -> ruint::aliases::U256 {
