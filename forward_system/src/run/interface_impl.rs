@@ -2,7 +2,7 @@ use crate::run::convert::FromInterface;
 use crate::run::errors::ForwardSubsystemError;
 use crate::run::output::TxResult;
 use crate::run::{run_block, simulate_tx};
-use zk_ee::system::metadata::BlockMetadataFromOracle;
+use zk_ee::system::metadata::zk_metadata::BlockMetadataFromOracle;
 use zk_ee::system::tracer::NopTracer;
 use zksync_os_interface::traits::{
     PreimageSource, ReadStorage, RunBlock, SimulateTx, TxResultCallback, TxSource,
