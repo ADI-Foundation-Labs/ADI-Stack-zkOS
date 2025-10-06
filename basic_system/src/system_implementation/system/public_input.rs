@@ -5,7 +5,7 @@ use crypto::MiniDigest;
 use ruint::aliases::{B160, U256};
 use zk_ee::system::logger::Logger;
 use zk_ee::utils::Bytes32;
-use zksync_kzg::{KzgInfo, ZK_SYNC_BYTES_PER_BLOB};
+// use zksync_kzg::{KzgInfo};
 
 ///
 /// Commitment to state that we need to keep between blocks execution:
@@ -279,7 +279,7 @@ impl BatchPublicInputBuilder {
         full_root_hasher.update([0u8; 32]); // aggregated root 0 for now
         let full_l2_to_l1_logs_root = full_root_hasher.finalize();
 
-        let num_blobs = (self.pubdata.len() / ZK_SYNC_BYTES_PER_BLOB) as u8;
+        let num_blobs = (self.pubdata.len() / (31*4096)) as u8;
 
         let mut da_commitment_hasher = crypto::sha3::Keccak256::new();
         da_commitment_hasher.update([0u8; 32]); // we don't have to validate state diffs hash
@@ -287,13 +287,13 @@ impl BatchPublicInputBuilder {
         da_commitment_hasher.update([num_blobs]); // with calldata we should provide 1 blob
 
         self.pubdata
-            .chunks(ZK_SYNC_BYTES_PER_BLOB)
+            .chunks(31*4096)
             .for_each(|blob| {
                 let linear_hash: [u8; 32] = Keccak256::digest(blob).into();
                 da_commitment_hasher.update(&linear_hash);
 
-                let kzg_info = KzgInfo::new(blob);
-                da_commitment_hasher.update(&kzg_info.to_blob_commitment());
+                // let kzg_info = KzgInfo::new(blob);
+                da_commitment_hasher.update(&[]);
             });
 
         let da_commitment = da_commitment_hasher.finalize();
