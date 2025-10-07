@@ -14,10 +14,10 @@ use zk_ee::common_structs::WarmStorageKey;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::utils::Bytes32;
 use zk_ee::{
-    storage_types::MAX_EVENT_TOPICS,
     memory::stack_trait::StackCtor,
-    system::{errors::internal::InternalError, logger::Logger, Resources, *},
     oracle::IOOracle,
+    storage_types::MAX_EVENT_TOPICS,
+    system::{errors::internal::InternalError, logger::Logger, Resources, *},
 };
 
 mod basic_storage_model;

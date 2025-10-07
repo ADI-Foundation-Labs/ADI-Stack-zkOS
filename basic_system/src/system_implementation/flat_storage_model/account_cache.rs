@@ -45,11 +45,11 @@ use zk_ee::utils::BitsOrd;
 use zk_ee::utils::Bytes32;
 use zk_ee::wrap_error;
 use zk_ee::{
+    oracle::IOOracle,
     system::{
         errors::{internal::InternalError, system::SystemError},
         AccountData, AccountDataRequest, Ergs, IOResultKeeper, Maybe, Resources,
     },
-    oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
 };
 

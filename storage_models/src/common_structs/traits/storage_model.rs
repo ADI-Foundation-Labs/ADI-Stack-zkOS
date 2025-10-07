@@ -6,9 +6,8 @@ use zk_ee::system::{BalanceSubsystemError, DeconstructionSubsystemError, NonceSu
 use zk_ee::utils::Bytes32;
 use zk_ee::{
     system::{
-        errors::system::SystemError,
-        logger::Logger,
-        AccountData, AccountDataRequest, IOResultKeeper, Maybe, Resources,
+        errors::system::SystemError, logger::Logger, AccountData, AccountDataRequest,
+        IOResultKeeper, Maybe, Resources,
     },
     types_config::SystemIOTypesConfig,
 };

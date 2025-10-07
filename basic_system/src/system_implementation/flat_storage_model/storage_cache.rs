@@ -6,14 +6,16 @@ use core::alloc::Allocator;
 use ruint::aliases::B160;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::StorageCacheModel;
-use zk_ee::common_structs::structured_storage_cache_record::{StorageCurrentAppearance, StorageInitialAppearance};
+use zk_ee::common_structs::structured_storage_cache_record::{
+    StorageCurrentAppearance, StorageInitialAppearance,
+};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::{
     common_structs::{WarmStorageKey, WarmStorageValue},
     memory::stack_trait::StackCtor,
-    system::{errors::system::SystemError, Resources},
     oracle::IOOracle,
+    system::{errors::system::SystemError, Resources},
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::Bytes32,
 };

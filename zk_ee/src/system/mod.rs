@@ -35,8 +35,8 @@ use self::{
 };
 use crate::memory::vec_trait::VecLikeCtor;
 use crate::oracle::query_ids::TX_DATA_WORDS_QUERY_ID;
-use crate::system::metadata::basic_metadata::BasicMetadata;
 use crate::system::metadata::basic_metadata::BasicBlockMetadata;
+use crate::system::metadata::basic_metadata::BasicMetadata;
 use crate::system::metadata::basic_metadata::BasicTransactionMetadata;
 use crate::system::metadata::basic_metadata::ZkSpecificPricingMetadata;
 use crate::utils::usize_rw::AsUsizeWritable;
@@ -44,9 +44,9 @@ use crate::utils::Bytes32;
 use crate::utils::UsizeAlignedByteBox;
 use crate::{
     execution_environment_type::ExecutionEnvironmentType,
+    oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::USIZE_SIZE,
-    oracle::IOOracle
 };
 
 // NOTE: for now it's just a type-constructor, so it is static for all reasonable purposes

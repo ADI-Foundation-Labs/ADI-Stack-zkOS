@@ -1,27 +1,29 @@
 //! Storage cache, backed by a history map.
 use alloc::collections::BTreeMap;
 use alloc::fmt::Debug;
-use zk_ee::common_structs::history_map::CacheSnapshotId;
-use zk_ee::common_structs::history_map::HistoryMap;
-use zk_ee::common_structs::history_map::HistoryMapItemRefMut;
 use core::alloc::Allocator;
 use ruint::aliases::B160;
-use zk_ee::oracle::basic_queries::InitialStorageSlotQuery;
 use zk_ee::common_structs::cache_record::CacheRecord;
 #[cfg(feature = "evm_refunds")]
 use zk_ee::common_structs::history_counter::HistoryCounter;
 #[cfg(feature = "evm_refunds")]
 use zk_ee::common_structs::history_counter::HistoryCounterSnapshotId;
-use zk_ee::common_structs::structured_storage_cache_record::{StorageCacheAppearance, StorageCurrentAppearance, StorageInitialAppearance};
+use zk_ee::common_structs::history_map::CacheSnapshotId;
+use zk_ee::common_structs::history_map::HistoryMap;
+use zk_ee::common_structs::history_map::HistoryMapItemRefMut;
+use zk_ee::common_structs::structured_storage_cache_record::{
+    StorageCacheAppearance, StorageCurrentAppearance, StorageInitialAppearance,
+};
 use zk_ee::common_traits::key_like_with_bounds::{KeyLikeWithBounds, TyEq};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
-use zk_ee::system::errors::internal::InternalError;
+use zk_ee::oracle::basic_queries::InitialStorageSlotQuery;
 use zk_ee::oracle::simple_oracle_query::SimpleOracleQuery;
+use zk_ee::system::errors::internal::InternalError;
 use zk_ee::{
-    storage_types::StorageAddress,
     memory::stack_trait::StackCtor,
-    system::{errors::system::SystemError, Resources},
     oracle::IOOracle,
+    storage_types::StorageAddress,
+    system::{errors::system::SystemError, Resources},
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
 };
 

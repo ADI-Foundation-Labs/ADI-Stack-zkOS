@@ -713,9 +713,13 @@ impl<'a> ZkSyncTransaction<'a> {
             .map_err(|()| InvalidTransaction::InvalidStructure)?;
         for res in iter {
             let (address, keys) = res.map_err(|()| InvalidTransaction::InvalidStructure)?;
-            system
-                .io
-                .touch_account(ExecutionEnvironmentType::NoEE, resources, &address, true, false)?;
+            system.io.touch_account(
+                ExecutionEnvironmentType::NoEE,
+                resources,
+                &address,
+                true,
+                false,
+            )?;
             for key in keys {
                 let key = key.map_err(|()| InvalidTransaction::InvalidStructure)?;
                 system.io.storage_touch(
