@@ -7,13 +7,18 @@ use core::marker::PhantomData;
 
 use super::errors::internal::InternalError;
 use super::errors::system::SystemError;
-use super::logger::Logger;
-use super::{IOResultKeeper, Resources};
+use super::Resources;
+use crate::common_structs::GenericEventContentRef;
+use crate::common_structs::GenericEventContentWithTxRef;
+use crate::common_structs::GenericLogContentWithTxRef;
 use crate::define_subsystem;
 use crate::execution_environment_type::ExecutionEnvironmentType;
+use crate::oracle::usize_serialization::UsizeDeserializable;
+use crate::oracle::usize_serialization::UsizeSerializable;
 use crate::oracle::IOOracle;
 use crate::storage_types::MAX_EVENT_TOPICS;
-use crate::system::metadata::zk_metadata::BlockMetadataFromOracle;
+use crate::system::IOResultKeeper;
+use crate::system::Logger;
 use crate::types_config::{EthereumIOTypesConfig, SystemIOTypesConfig};
 use crate::utils::Bytes32;
 use arrayvec::ArrayVec;
@@ -27,7 +32,7 @@ use ruint::aliases::U256;
 pub trait IOSubsystem: Sized {
     type Resources: Resources;
     type IOTypes: SystemIOTypesConfig;
-    type StateSnapshot;
+    type StateSnapshot: core::fmt::Debug;
 
     /// Read value from storage at a given slot (address, key).
     fn storage_read<const TRANSIENT: bool>(
@@ -156,12 +161,12 @@ pub trait IOSubsystem: Sized {
         increment_by: u64,
     ) -> Result<u64, NonceSubsystemError>;
 
-    #[cfg(feature = "evm_refunds")]
     /// Get current gas refund counter
-    fn get_refund_counter(&self) -> u32;
+    fn get_refund_counter(&'_ self) -> Option<&'_ Self::Resources>;
 }
 
 pub trait Maybe<T> {
+    const IS_MATERIAL: bool;
     fn construct(f: impl FnOnce() -> T) -> Self;
     fn try_construct<E>(f: impl FnOnce() -> Result<T, E>) -> Result<Self, E>
     where
@@ -170,6 +175,7 @@ pub trait Maybe<T> {
 
 pub struct Just<T>(pub T);
 impl<T> Maybe<T> for Just<T> {
+    const IS_MATERIAL: bool = true;
     fn construct(f: impl FnOnce() -> T) -> Self {
         Self(f())
     }
@@ -184,6 +190,7 @@ impl<T> Maybe<T> for Just<T> {
 
 pub struct Nothing;
 impl<T> Maybe<T> for Nothing {
+    const IS_MATERIAL: bool = false;
     fn construct(_: impl FnOnce() -> T) -> Self {
         Self
     }
@@ -213,6 +220,7 @@ pub struct AccountData<
     Bytecode,
     CodeVersion,
     IsDelegated,
+    HasBytecode,
 > {
     pub ee_version: EEVersion,
     pub observable_bytecode_hash: ObservableBytecodeHash,
@@ -225,17 +233,22 @@ pub struct AccountData<
     pub bytecode: Bytecode,
     pub code_version: CodeVersion,
     pub is_delegated: IsDelegated,
+    pub has_bytecode: HasBytecode,
 }
 
-impl<A, B, C, D, E, F, G, H> AccountData<A, B, C, D, E, Just<u32>, Just<u32>, F, G, H, Just<bool>> {
+impl<A, B, C, D, E, F, G, H, I, J>
+    AccountData<A, B, C, D, E, F, G, H, I, J, Just<bool>, Just<bool>>
+{
     pub fn is_contract(&self) -> bool {
-        !self.is_delegated.0 && (self.unpadded_code_len.0 > 0 || self.artifacts_len.0 > 0)
+        self.has_bytecode.0 && self.is_delegated.0 == false
     }
 }
 
-impl<A, B, C, D, E, F, G, H> AccountData<A, B, C, Just<u64>, D, Just<u32>, Just<u32>, E, F, G, H> {
+impl<A, B, C, D, E, F, G, H, I, J>
+    AccountData<A, B, C, Just<u64>, D, E, F, G, H, I, J, Just<bool>>
+{
     pub fn can_deploy_into(&self) -> bool {
-        self.unpadded_code_len.0 == 0 && self.artifacts_len.0 == 0 && self.nonce.0 == 0
+        self.nonce.0 == 0 && self.has_bytecode.0 == false
     }
 }
 
@@ -256,6 +269,7 @@ impl
             Nothing,
             Nothing,
             Nothing,
+            Nothing,
         >,
     >
 {
@@ -264,71 +278,77 @@ impl
     }
 }
 
-impl<A, B, C, D, E, F, G, H, I, J, K>
-    AccountDataRequest<AccountData<A, B, C, D, E, F, G, H, I, J, K>>
+impl<A, B, C, D, E, F, G, H, I, J, K, L>
+    AccountDataRequest<AccountData<A, B, C, D, E, F, G, H, I, J, K, L>>
 {
     pub fn with_ee_version(
         self,
-    ) -> AccountDataRequest<AccountData<Just<u8>, B, C, D, E, F, G, H, I, J, K>> {
+    ) -> AccountDataRequest<AccountData<Just<u8>, B, C, D, E, F, G, H, I, J, K, L>> {
         AccountDataRequest(PhantomData)
     }
     pub fn with_observable_bytecode_hash<T>(
         self,
-    ) -> AccountDataRequest<AccountData<A, Just<T>, C, D, E, F, G, H, I, J, K>> {
+    ) -> AccountDataRequest<AccountData<A, Just<T>, C, D, E, F, G, H, I, J, K, L>> {
         AccountDataRequest(PhantomData)
     }
 
     pub fn with_observable_bytecode_len(
         self,
-    ) -> AccountDataRequest<AccountData<A, B, Just<u32>, D, E, F, G, H, I, J, K>> {
+    ) -> AccountDataRequest<AccountData<A, B, Just<u32>, D, E, F, G, H, I, J, K, L>> {
         AccountDataRequest(PhantomData)
     }
 
     pub fn with_nonce(
         self,
-    ) -> AccountDataRequest<AccountData<A, B, C, Just<u64>, E, F, G, H, I, J, K>> {
+    ) -> AccountDataRequest<AccountData<A, B, C, Just<u64>, E, F, G, H, I, J, K, L>> {
         AccountDataRequest(PhantomData)
     }
 
     pub fn with_bytecode_hash<T>(
         self,
-    ) -> AccountDataRequest<AccountData<A, B, C, D, Just<T>, F, G, H, I, J, K>> {
+    ) -> AccountDataRequest<AccountData<A, B, C, D, Just<T>, F, G, H, I, J, K, L>> {
         AccountDataRequest(PhantomData)
     }
 
     pub fn with_unpadded_code_len(
         self,
-    ) -> AccountDataRequest<AccountData<A, B, C, D, E, Just<u32>, G, H, I, J, K>> {
+    ) -> AccountDataRequest<AccountData<A, B, C, D, E, Just<u32>, G, H, I, J, K, L>> {
         AccountDataRequest(PhantomData)
     }
 
     pub fn with_artifacts_len(
         self,
-    ) -> AccountDataRequest<AccountData<A, B, C, D, E, F, Just<u32>, H, I, J, K>> {
+    ) -> AccountDataRequest<AccountData<A, B, C, D, E, F, Just<u32>, H, I, J, K, L>> {
         AccountDataRequest(PhantomData)
     }
 
     pub fn with_nominal_token_balance<T>(
         self,
-    ) -> AccountDataRequest<AccountData<A, B, C, D, E, F, G, Just<T>, I, J, K>> {
+    ) -> AccountDataRequest<AccountData<A, B, C, D, E, F, G, Just<T>, I, J, K, L>> {
         AccountDataRequest(PhantomData)
     }
 
     pub fn with_bytecode(
         self,
-    ) -> AccountDataRequest<AccountData<A, B, C, D, E, F, G, H, Just<&'static [u8]>, J, K>> {
+    ) -> AccountDataRequest<AccountData<A, B, C, D, E, F, G, H, Just<&'static [u8]>, J, K, L>> {
         AccountDataRequest(PhantomData)
     }
 
     pub fn with_code_version(
         self,
-    ) -> AccountDataRequest<AccountData<A, B, C, D, E, F, G, H, I, Just<u8>, J>> {
+    ) -> AccountDataRequest<AccountData<A, B, C, D, E, F, G, H, I, Just<u8>, J, L>> {
         AccountDataRequest(PhantomData)
     }
 
     pub fn with_is_delegated(
         self,
-    ) -> AccountDataRequest<AccountData<A, B, C, D, E, F, G, H, I, J, Just<bool>>> {
+    ) -> AccountDataRequest<AccountData<A, B, C, D, E, F, G, H, I, J, Just<bool>, L>> {
+        AccountDataRequest(PhantomData)
+    }
+
+    pub fn with_has_bytecode(
+        self,
+    ) -> AccountDataRequest<AccountData<A, B, C, D, E, F, G, H, I, J, K, Just<bool>>> {
         AccountDataRequest(PhantomData)
     }
 }
@@ -338,7 +358,6 @@ impl<A, B, C, D, E, F, G, H, I, J, K>
 ///
 pub trait IOSubsystemExt: IOSubsystem {
     type IOOracle: IOOracle;
-    type FinalData;
 
     fn init_from_oracle(oracle: Self::IOOracle) -> Result<Self, InternalError>;
 
@@ -378,6 +397,7 @@ pub trait IOSubsystemExt: IOSubsystem {
         resources: &mut Self::Resources,
         address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         is_access_list: bool,
+        observe: bool,
     ) -> Result<(), SystemError>;
 
     /// Generic function to read some of an account's properties
@@ -393,6 +413,7 @@ pub trait IOSubsystemExt: IOSubsystem {
         Bytecode: Maybe<&'static [u8]>,
         CodeVersion: Maybe<u8>,
         IsDelegated: Maybe<bool>,
+        HasBytecode: Maybe<bool>,
     >(
         &mut self,
         ee_type: ExecutionEnvironmentType,
@@ -411,6 +432,7 @@ pub trait IOSubsystemExt: IOSubsystem {
                 Bytecode,
                 CodeVersion,
                 IsDelegated,
+                HasBytecode,
             >,
         >,
     ) -> Result<
@@ -426,6 +448,7 @@ pub trait IOSubsystemExt: IOSubsystem {
             Bytecode,
             CodeVersion,
             IsDelegated,
+            HasBytecode,
         >,
         SystemError,
     >;
@@ -470,16 +493,6 @@ pub trait IOSubsystemExt: IOSubsystem {
         delegate: &<Self::IOTypes as SystemIOTypesConfig>::Address,
     ) -> Result<(), SystemError>;
 
-    fn finish(
-        self,
-        block_metadata: BlockMetadataFromOracle,
-        current_block_hash: Bytes32,
-        l1_to_l2_txs_hash: Bytes32,
-        upgrade_tx_hash: Bytes32,
-        result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
-        logger: impl Logger,
-    ) -> Self::FinalData;
-
     /// Emit a log for a l1 -> l2 tx.
     fn emit_l1_l2_tx_log(
         &mut self,
@@ -500,15 +513,94 @@ pub trait IOSubsystemExt: IOSubsystem {
         should_subtract: bool,
     ) -> Result<U256, BalanceSubsystemError>;
 
-    // Get number of logs emitted so far.
-    fn logs_len(&self) -> u64;
+    /// Adds some resources to refund at the end of transaction
+    fn add_to_refund_counter(&mut self, refund: Self::Resources) -> Result<(), SystemError>;
 
-    // Add EVM refund to counter
-    #[cfg(feature = "evm_refunds")]
-    fn add_evm_refund(&mut self, refund: u32) -> Result<(), SystemError>;
+    // // Get number of logs emitted so far.
+    // fn logs_len(&self) -> u64;
 }
 
 pub trait EthereumLikeIOSubsystem: IOSubsystem<IOTypes = EthereumIOTypesConfig> {}
+
+#[allow(type_alias_bounds)]
+pub type BasicAccountDiff<IOTypes: SystemIOTypesConfig> =
+    (u64, IOTypes::NominalTokenValue, IOTypes::BytecodeHashValue);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+pub struct StorageDiff<IOTypes: SystemIOTypesConfig> {
+    pub initial_value: IOTypes::StorageValue,
+    pub current_value: IOTypes::StorageValue,
+    pub is_new_storage_slot: bool,
+    pub initial_value_used: bool,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct StorageDiffRef<'a, IOTypes: SystemIOTypesConfig> {
+    pub initial_value: &'a IOTypes::StorageValue,
+    pub current_value: &'a IOTypes::StorageValue,
+    pub is_new_storage_slot: bool,
+    pub initial_value_used: bool,
+}
+
+// Proxy trait that allows one to get dumps of the final IO state. Largely it provides iterator-based accesses
+// to various elements of the IO:
+// - account and storages diffs
+// - logs
+// - l2 to l1 logs (if any)
+pub trait IOTeardown<IOTypes: SystemIOTypesConfig>: IOSubsystemExt<IOTypes = IOTypes> {
+    type IOStateCommitment: Clone + UsizeSerializable + UsizeDeserializable + core::fmt::Debug;
+
+    fn flush_caches(&mut self, result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>);
+
+    fn report_new_preimages(
+        &mut self,
+        result_keeper: &mut impl IOResultKeeper<EthereumIOTypesConfig>,
+    );
+
+    type AccountAddress<'a>: 'a + Clone + Copy + PartialEq + Eq + core::fmt::Debug
+    where
+        Self: 'a;
+    type AccountDiff<'a>: 'a + Clone + Copy + PartialEq + Eq + core::fmt::Debug
+    where
+        Self: 'a;
+    fn get_account_diff<'a>(
+        &'a self,
+        address: Self::AccountAddress<'a>,
+    ) -> Option<Self::AccountDiff<'a>>;
+    fn accounts_diffs_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = (Self::AccountAddress<'a>, Self::AccountDiff<'a>)> + Clone;
+
+    type StorageKey<'a>: 'a + Clone + Copy + PartialEq + Eq + core::fmt::Debug
+    where
+        Self: 'a;
+    type StorageDiff<'a>: 'a + Clone + Copy + PartialEq + Eq + core::fmt::Debug
+    where
+        Self: 'a;
+    fn get_storage_diff<'a>(&'a self, key: Self::StorageKey<'a>) -> Option<Self::StorageDiff<'a>>;
+    fn storage_diffs_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = (Self::StorageKey<'a>, Self::StorageDiff<'a>)> + Clone;
+
+    fn events_in_this_tx_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = GenericEventContentRef<'a, { MAX_EVENT_TOPICS }, IOTypes>> + Clone;
+
+    fn events_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = GenericEventContentWithTxRef<'a, { MAX_EVENT_TOPICS }, IOTypes>>
+           + Clone;
+    fn signals_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = GenericLogContentWithTxRef<'a, IOTypes>> + Clone;
+
+    fn update_commitment(
+        &mut self,
+        state_commitment: Option<&mut Self::IOStateCommitment>,
+        logger: &mut impl Logger,
+        result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
+    );
+}
 
 define_subsystem!(Nonce,
 interface NonceError {

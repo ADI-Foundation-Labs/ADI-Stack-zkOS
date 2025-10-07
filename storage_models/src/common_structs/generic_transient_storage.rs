@@ -7,36 +7,29 @@ use zk_ee::common_traits::key_like_with_bounds::KeyLikeWithBounds;
 use zk_ee::system::errors::{internal::InternalError, system::SystemError};
 use zk_ee::{
     common_structs::history_map::{CacheSnapshotId, HistoryMap},
-    memory::stack_trait::{StackCtor, StackCtorConst},
+    memory::stack_trait::StackCtor,
 };
-
-pub type GenericTransientStorageStackCheck<SCC: const StackCtorConst, A: Allocator> =
-    [(); SCC::extra_const_param::<usize, A>()];
 
 pub struct GenericTransientStorage<
     K: KeyLikeWithBounds,
     V: Clone,
-    SC: StackCtor<SCC>,
-    SCC: const StackCtorConst,
+    SC: StackCtor<N>,
+    const N: usize,
     A: Allocator + Clone = Global,
-> where
-    GenericTransientStorageStackCheck<SCC, A>:,
-{
-    cache: HistoryMap<K, V, A>,
+> {
+    cache: HistoryMap<K, V, A, ()>,
     pub(crate) current_tx_number: u32,
-    phantom: PhantomData<(SC, SCC)>,
+    phantom: PhantomData<SC>,
     alloc: A,
 }
 
 impl<
         K: KeyLikeWithBounds,
         V: Clone + Default,
-        SC: StackCtor<SCC>,
-        SCC: const StackCtorConst,
+        SC: StackCtor<N>,
+        const N: usize,
         A: Allocator + Clone,
-    > GenericTransientStorage<K, V, SC, SCC, A>
-where
-    GenericTransientStorageStackCheck<SCC, A>:,
+    > GenericTransientStorage<K, V, SC, N, A>
 {
     pub fn new_from_parts(allocator: A) -> Self {
         Self {
@@ -68,7 +61,7 @@ where
     where
         V: Default,
     {
-        cache.get_or_insert(key, || Ok(V::default()))
+        cache.get_or_insert(key, || Ok((V::default(), ())))
     }
 
     pub fn apply_read(&mut self, key: &K, dst: &mut V) -> Result<(), SystemError>

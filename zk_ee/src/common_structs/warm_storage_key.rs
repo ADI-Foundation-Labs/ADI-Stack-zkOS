@@ -40,6 +40,17 @@ impl KeyLikeWithBounds for WarmStorageKey {
     }
 }
 
+impl From<WarmStorageKey>
+    for crate::storage_types::StorageAddress<crate::types_config::EthereumIOTypesConfig>
+{
+    fn from(value: WarmStorageKey) -> Self {
+        Self {
+            address: value.address,
+            key: value.key,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
 pub struct StorageDiff {
     pub key: WarmStorageKey,

@@ -2,23 +2,16 @@ use alloc::{alloc::Global, collections::BTreeMap};
 use core::{alloc::Allocator, marker::PhantomData};
 use storage_models::common_structs::{snapshottable_io::SnapshottableIo, PreimageCacheModel};
 use zk_ee::{
-    common_structs::{history_map::CacheSnapshotId, NewPreimagesPublicationStorage, PreimageType},
-    execution_environment_type::ExecutionEnvironmentType,
-    internal_error,
-    oracle::query_ids::PREIMAGE_SUBSPACE_MASK,
-    system::{
+    common_structs::{history_map::CacheSnapshotId, NewPreimagesPublicationStorage, PreimageType}, execution_environment_type::ExecutionEnvironmentType, internal_error, oracle::{query_ids::PREIMAGE_SUBSPACE_MASK, IOOracle}, system::{
         errors::{internal::InternalError, system::SystemError},
         IOResultKeeper, Resources,
-    },
-    types_config::EthereumIOTypesConfig,
-    utils::{Bytes32, UsizeAlignedByteBox, USIZE_SIZE},
+    }, types_config::EthereumIOTypesConfig, utils::{Bytes32, UsizeAlignedByteBox, USIZE_SIZE}
 };
 
 use super::cost_constants::PREIMAGE_CACHE_GET_NATIVE_COST;
 use super::*;
 use crate::system_implementation::flat_storage_model::cost_constants::blake2s_native_cost;
 
-/// Query ID for requesting preimage data from the flat storage system
 pub const FLAT_STORAGE_GENERIC_PREIMAGE_QUERY_ID: u32 =
     PREIMAGE_SUBSPACE_MASK | FLAT_STORAGE_SUBSPACE_MASK;
 
@@ -96,21 +89,18 @@ impl<R: Resources, A: Allocator + Clone> BytecodeAndAccountDataPreimagesStorage<
             }
         } else {
             // We do not charge for gas in this concrete implementation and
-            // expect higher-level model to do so.
+            // expect higher-level model todo so.
             // We charge for native.
             let it = oracle
                 .raw_query(FLAT_STORAGE_GENERIC_PREIMAGE_QUERY_ID, hash)
                 .expect("must make an iterator for preimage");
             // IMPORTANT: oracle should be somewhat "sane", it also limits the number of cycles spent below.
             // We also allow some slack here to account for 64/32 bit archs
-            if it.len()
-                > (expected_preimage_len_in_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE)
-                    .next_multiple_of(2)
-            {
-                return Err(
-                    internal_error!("Iterator length exceeds expected preimage length").into(),
-                );
-            }
+            assert!(
+                it.len()
+                    <= (expected_preimage_len_in_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE).next_multiple_of(2),
+                "iterator length is {} words for usize = {} bytes and expected preimage length of {} bytes", it.len(), USIZE_SIZE, expected_preimage_len_in_bytes
+            );
             let mut buffered =
                 UsizeAlignedByteBox::from_usize_iterator_in(it, self.allocator.clone());
             // truncate

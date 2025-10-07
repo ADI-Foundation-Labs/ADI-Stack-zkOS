@@ -140,6 +140,15 @@ pub trait SafeUsizeWritable: UsizeWriteable {
     }
 }
 
+pub trait AsUsizeWritable: Sized {
+    type Writable<'a>: SafeUsizeWritable
+    where
+        Self: 'a;
+    fn as_writable<'a>(&'a mut self) -> Self::Writable<'a>
+    where
+        Self: 'a;
+}
+
 /// Adapter that wraps mutable iterators to implement `UsizeWriteable`.
 ///
 /// This wrapper allows any iterator over mutable references to copyable types to be used

@@ -1,16 +1,7 @@
-use zk_ee::utils::Bytes32;
-
 use super::{snapshottable_io::SnapshottableIo, *};
 
 pub trait SpecialAccountProperty: 'static + Clone + Copy + core::fmt::Debug {
     type Value: 'static + Clone + Copy + core::fmt::Debug;
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
-pub struct AccountAggregateDataHash;
-
-impl SpecialAccountProperty for AccountAggregateDataHash {
-    type Value = Bytes32;
 }
 
 // TODO: extend when needed

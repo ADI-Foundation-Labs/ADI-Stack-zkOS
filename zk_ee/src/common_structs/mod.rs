@@ -9,6 +9,8 @@ pub mod new_preimages_publication_storage;
 pub mod proof_data;
 pub mod pubdata_compression;
 pub mod state_root_view;
+pub mod structured_account_cache_record;
+pub mod structured_storage_cache_record;
 pub mod warm_storage_key;
 pub mod warm_storage_value;
 

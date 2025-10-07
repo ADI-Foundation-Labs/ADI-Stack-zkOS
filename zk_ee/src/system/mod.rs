@@ -1,3 +1,5 @@
+use errors::subsystem::Subsystem;
+
 use super::*;
 pub mod base_system_functions;
 pub mod call_modifiers;
@@ -24,37 +26,31 @@ pub use self::result_keeper::*;
 pub const MAX_GLOBAL_CALLS_STACK_DEPTH: usize = 1024; // even though we do not have to formally limit it,
                                                       // for all practical purposes (63/64) ^ 1024 is 10^-7, and it's unlikely that one can create any new frame
                                                       // with such remaining resources
-/// TODO: this constant belongs to EVM EE
-const ERGS_PER_GAS: u64 = 256;
-
-/// Maximum value of EVM gas that can be represented as ergs in a u64.
-pub const MAX_BLOCK_GAS_LIMIT: u64 = u64::MAX / ERGS_PER_GAS;
-// Currently we don't have a separate individual tx gas limit,
-// so the maximum tx gas limit is the same as the block gas limit.
-pub const MAX_TX_GAS_LIMIT: u64 = MAX_BLOCK_GAS_LIMIT;
 
 use core::alloc::Allocator;
-use core::fmt::Write;
 
 use self::{
     errors::{internal::InternalError, system::SystemError},
     logger::Logger,
-    metadata::basic_metadata::{
-        BasicBlockMetadata, BasicMetadata, BasicTransactionMetadata, ZkSpecificPricingMetadata,
-    },
-    metadata::zk_metadata::ZkMetadata,
 };
-
+use crate::memory::vec_trait::VecLikeCtor;
 use crate::oracle::query_ids::TX_DATA_WORDS_QUERY_ID;
+use crate::system::metadata::basic_metadata::BasicMetadata;
+use crate::system::metadata::basic_metadata::BasicBlockMetadata;
+use crate::system::metadata::basic_metadata::BasicTransactionMetadata;
+use crate::system::metadata::basic_metadata::ZkSpecificPricingMetadata;
+use crate::utils::usize_rw::AsUsizeWritable;
 use crate::utils::Bytes32;
+use crate::utils::UsizeAlignedByteBox;
 use crate::{
     execution_environment_type::ExecutionEnvironmentType,
-    oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::USIZE_SIZE,
+    oracle::IOOracle
 };
 
-pub trait SystemTypes {
+// NOTE: for now it's just a type-constructor, so it is static for all reasonable purposes
+pub trait SystemTypes: 'static {
     /// Handles all side effects and information from the outside world.
     type IO: IOSubsystem<IOTypes = Self::IOTypes, Resources = Self::Resources>;
 
@@ -69,6 +65,7 @@ pub trait SystemTypes {
     type Resources: Resources + Default;
     type Allocator: Allocator + Clone + Default;
     type Metadata: BasicMetadata<Self::IOTypes>;
+    type VecLikeCtor: VecLikeCtor;
 }
 pub trait EthereumLikeTypes: SystemTypes<IOTypes = EthereumIOTypesConfig> {}
 
@@ -80,6 +77,14 @@ pub struct System<S: SystemTypes> {
 
 pub struct SystemFrameSnapshot<S: SystemTypes> {
     io: <S::IO as IOSubsystem>::StateSnapshot,
+}
+
+impl<S: SystemTypes> core::fmt::Debug for SystemFrameSnapshot<S> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("SystemFrameSnapshot")
+            .field("io", &self.io)
+            .finish()
+    }
 }
 
 impl<S: SystemTypes> System<S> {
@@ -100,36 +105,32 @@ impl<S: SystemTypes> System<S> {
         self.metadata.block_number()
     }
 
-    pub fn get_mix_hash(&self) -> Result<Bytes32, InternalError> {
+    pub fn get_mix_hash(&self) -> Bytes32 {
         #[cfg(feature = "prevrandao")]
         {
             self.metadata
                 .block_randomness()
-                .ok_or(internal_error!("block randomness should be provided"))
+                .expect("block randomness should be provided")
         }
 
         #[cfg(not(feature = "prevrandao"))]
         {
-            Ok(Bytes32::from_array(
-                ruint::aliases::U256::ONE.to_be_bytes::<32>(),
-            ))
+            Bytes32::from_array(ruint::aliases::U256::ONE.to_be_bytes::<32>())
         }
     }
 
-    pub fn get_blockhash(&self, block_number: u64) -> Result<Bytes32, InternalError> {
+    pub fn get_blockhash(&self, block_number: u64) -> Bytes32 {
         let current_block_number = self.metadata.block_number();
         if block_number >= current_block_number
             || block_number < current_block_number.saturating_sub(256)
         {
             // Out of range
-            Ok(Bytes32::ZERO)
+            Bytes32::ZERO
         } else {
-            let depth = current_block_number - block_number;
+            let index = 256 - (current_block_number - block_number);
             self.metadata
-                .block_historical_hash(depth)
-                .ok_or(internal_error!(
-                    "historical hash of limited depth must be provided"
-                ))
+                .block_historical_hash(index)
+                .expect("historical hash of limited depth must be provided")
         }
     }
 
@@ -137,7 +138,7 @@ impl<S: SystemTypes> System<S> {
         self.metadata.chain_id()
     }
 
-    pub fn get_coinbase(&self) -> <<S as SystemTypes>::IOTypes as SystemIOTypesConfig>::Address {
+    pub fn get_coinbase(&self) -> <S::IOTypes as SystemIOTypesConfig>::Address {
         self.metadata.coinbase()
     }
 
@@ -149,12 +150,44 @@ impl<S: SystemTypes> System<S> {
         self.metadata.block_gas_limit()
     }
 
+    pub fn get_native_price(&self) -> ruint::aliases::U256
+    where
+        S::Metadata: ZkSpecificPricingMetadata,
+    {
+        self.metadata.native_price()
+    }
+
+    pub fn get_gas_per_pubdata(&self) -> ruint::aliases::U256
+    where
+        S::Metadata: ZkSpecificPricingMetadata,
+    {
+        self.metadata.gas_per_pubdata()
+    }
+
+    pub fn get_pubdata_limit(&self) -> u64
+    where
+        S::Metadata: ZkSpecificPricingMetadata,
+    {
+        self.metadata.get_pubdata_limit()
+    }
+
     pub fn get_gas_price(&self) -> ruint::aliases::U256 {
         self.metadata.tx_gas_price()
     }
 
     pub fn get_timestamp(&self) -> u64 {
         self.metadata.block_timestamp()
+    }
+
+    pub fn storage_code_version_for_execution_environment<
+        'a,
+        Es: Subsystem,
+        EE: ExecutionEnvironment<'a, S, Es>,
+    >(
+        &self,
+    ) -> Result<u8, InternalError> {
+        // TODO
+        Ok(1)
     }
 
     pub fn set_tx_context(
@@ -171,32 +204,16 @@ impl<S: SystemTypes> System<S> {
 
 impl<S: SystemTypes> System<S>
 where
-    S::Metadata: ZkSpecificPricingMetadata,
-{
-    pub fn get_native_price(&self) -> ruint::aliases::U256 {
-        self.metadata.native_price()
-    }
-
-    pub fn get_pubdata_limit(&self) -> u64 {
-        self.metadata.get_pubdata_limit()
-    }
-
-    pub fn get_gas_per_pubdata(&self) -> ruint::aliases::U256 {
-        self.metadata.gas_per_pubdata()
-    }
-}
-
-impl<S: SystemTypes> System<S>
-where
     S::IO: IOSubsystemExt,
 {
     /// Starts a new "global" frame(with separate memory frame).
     /// Returns the snapshot which the system can rollback to on finishing the frame.
     #[track_caller]
     pub fn start_global_frame(&mut self) -> Result<SystemFrameSnapshot<S>, InternalError> {
-        let mut logger = self.get_logger();
-        let _ = logger.write_fmt(format_args!("Start global frame\n"));
         let io = self.io.start_io_frame()?;
+
+        // let mut logger = self.get_logger();
+        // let _ = logger.write_fmt(format_args!("Start global frame with handle {:?}\n", &io));
 
         Ok(SystemFrameSnapshot { io })
     }
@@ -208,11 +225,11 @@ where
         &mut self,
         rollback_handle: Option<&SystemFrameSnapshot<S>>,
     ) -> Result<(), InternalError> {
-        let mut logger = self.get_logger();
-        let _ = logger.write_fmt(format_args!(
-            "Finish global frame, revert = {}\n",
-            rollback_handle.is_some()
-        ));
+        // let mut logger = self.get_logger();
+        // let _ = logger.write_fmt(format_args!(
+        //     "Finish global frame, revert handle = {:?}\n",
+        //     &rollback_handle,
+        // ));
 
         // revert IO if needed, and copy memory
         self.io.finish_io_frame(rollback_handle.map(|x| &x.io))?;
@@ -240,11 +257,13 @@ where
         Ok(system)
     }
 
-    ///
-    /// Get the next transaction data from the oracle and write it into the provided iterator.
-    /// Returns None when there are no more transactions to process.
-    /// Returns Some(Err(_)) if there's an encoding or oracle error.
-    ///
+    pub fn try_get_next_tx_byte_size(&mut self) -> Result<Option<usize>, InternalError> {
+        match self.io.oracle().try_begin_next_tx()? {
+            None => return Ok(None),
+            Some(size) => Ok(Some(size.get() as usize)),
+        }
+    }
+
     pub fn try_begin_next_tx(
         &mut self,
         tx_write_iter: &mut impl crate::utils::usize_rw::SafeUsizeWritable,
@@ -256,6 +275,7 @@ where
             },
             Err(e) => return Some(Err(e.into())),
         };
+
         // Check to avoid usize overflow in 32-bit target.
         // The maximum allowed length is u32::MAX - 3, as it is
         // the last multiple of 4 (u32 byte size). Any value larger than that
@@ -279,7 +299,6 @@ where
             Ok(res) => res,
             Err(e) => return Some(Err(e.into())),
         };
-
         if tx_iterator.len() != next_tx_len_usize_words {
             return Some(Err(interface_error!(
                 crate::system::NextTxInterfaceError::TxIteratorLengthMismatch
@@ -294,6 +313,68 @@ where
         self.io.begin_next_tx();
 
         Some(Ok(next_tx_len_bytes))
+    }
+
+    pub fn try_begin_next_tx_with_constructor<B: AsUsizeWritable>(
+        &mut self,
+        buffer_constructor: impl FnOnce(usize) -> B,
+    ) -> Result<Option<(usize, B)>, NextTxSubsystemError> {
+        use crate::utils::usize_rw::{SafeUsizeWritable, UsizeWriteable};
+
+        let next_tx_len_bytes = match self.io.oracle().try_begin_next_tx()? {
+            None => return Ok(None),
+            Some(size) => size.get() as usize,
+        };
+
+        // Check to avoid usize overflow in 32-bit target.
+        // The maximum allowed length is u32::MAX - 3, as it is
+        // the last multiple of 4 (u32 byte size). Any value larger than that
+        // will overflow u32 in the next_multiple_of(USIZE_SIZE) call.
+        if next_tx_len_bytes > u32::MAX as usize - (core::mem::size_of::<u32>() - 1) {
+            return Err(interface_error!(
+                crate::system::NextTxInterfaceError::TxLengthTooLarge
+            ));
+        }
+
+        // create buffer
+        let mut buffer = (buffer_constructor)(next_tx_len_bytes);
+        let mut as_writable = buffer.as_writable();
+        let next_tx_len_usize_words = next_tx_len_bytes.next_multiple_of(USIZE_SIZE) / USIZE_SIZE;
+        if as_writable.len() < next_tx_len_usize_words {
+            return Err(interface_error!(
+                crate::system::NextTxInterfaceError::DestinationBufferInsuffitient
+            ));
+        }
+        let tx_iterator = self
+            .io
+            .oracle()
+            .raw_query_with_empty_input(TX_DATA_WORDS_QUERY_ID)?;
+        if tx_iterator.len() > as_writable.len() {
+            return Err(interface_error!(
+                crate::system::NextTxInterfaceError::TxWriteIteratorTooBig
+            ));
+        }
+        for word in tx_iterator {
+            unsafe {
+                as_writable.write_usize(word);
+            }
+        }
+        drop(as_writable);
+
+        self.io.begin_next_tx();
+
+        Ok(Some((next_tx_len_bytes, buffer)))
+    }
+
+    pub fn get_bytes_from_query(
+        &mut self,
+        length_query_id: u32, // must return number of bytes
+        body_query_id: u32,   // must return
+    ) -> Result<Option<UsizeAlignedByteBox<S::Allocator>>, InternalError> {
+        let allocator = self.get_allocator();
+        self.io
+            .oracle()
+            .get_bytes_from_query(length_query_id, body_query_id, &(), allocator)
     }
 
     pub fn deploy_bytecode(
@@ -343,36 +424,12 @@ where
     }
 }
 
-// Note: this will be modified soon with other V2 changes
-// For now, we hard-code metadata and io type config types
-impl<S: SystemTypes<Metadata = ZkMetadata>> System<S>
-where
-    S::IO: IOSubsystemExt,
-{
-    /// Finish system execution.
-    pub fn finish(
-        self,
-        block_hash: Bytes32,
-        l1_to_l2_txs_hash: Bytes32,
-        upgrade_tx_hash: Bytes32,
-        result_keeper: &mut impl IOResultKeeper<S::IOTypes>,
-    ) -> <S::IO as IOSubsystemExt>::FinalData {
-        let logger = self.get_logger();
-        self.io.finish(
-            self.metadata.block_level,
-            block_hash,
-            l1_to_l2_txs_hash,
-            upgrade_tx_hash,
-            result_keeper,
-            logger,
-        )
-    }
-}
-
 define_subsystem!(NextTx,
   interface NextTxInterfaceError {
     TxLengthTooLarge,
     TxWriteIteratorTooSmall,
     TxIteratorLengthMismatch,
+    DestinationBufferInsuffitient,
+    TxWriteIteratorTooBig
   }
 );

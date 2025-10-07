@@ -1,11 +1,12 @@
 use super::snapshottable_io::SnapshottableIo;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
+use zk_ee::oracle::usize_serialization::{UsizeDeserializable, UsizeSerializable};
 use zk_ee::oracle::IOOracle;
 use zk_ee::system::{BalanceSubsystemError, DeconstructionSubsystemError, NonceSubsystemError};
 use zk_ee::utils::Bytes32;
 use zk_ee::{
     system::{
-        errors::{internal::InternalError, system::SystemError},
+        errors::system::SystemError,
         logger::Logger,
         AccountData, AccountDataRequest, IOResultKeeper, Maybe, Resources,
     },
@@ -21,7 +22,7 @@ use zk_ee::{
 pub trait StorageModel: Sized + SnapshottableIo {
     type IOTypes: SystemIOTypesConfig;
     type Resources: Resources;
-    type StorageCommitment;
+    type StorageCommitment: Clone + UsizeSerializable + UsizeDeserializable + core::fmt::Debug; // easier to have it here than propagate
 
     fn storage_read(
         &mut self,
@@ -65,6 +66,7 @@ pub trait StorageModel: Sized + SnapshottableIo {
         Bytecode: Maybe<&'static [u8]>,
         CodeVersion: Maybe<u8>,
         IsDelegated: Maybe<bool>,
+        HasBytecode: Maybe<bool>,
     >(
         &mut self,
         ee_type: ExecutionEnvironmentType,
@@ -83,6 +85,7 @@ pub trait StorageModel: Sized + SnapshottableIo {
                 Bytecode,
                 CodeVersion,
                 IsDelegated,
+                HasBytecode,
             >,
         >,
         oracle: &mut impl IOOracle,
@@ -99,6 +102,7 @@ pub trait StorageModel: Sized + SnapshottableIo {
             Bytecode,
             CodeVersion,
             IsDelegated,
+            HasBytecode,
         >,
         SystemError,
     >;
@@ -110,6 +114,7 @@ pub trait StorageModel: Sized + SnapshottableIo {
         address: &<Self::IOTypes as SystemIOTypesConfig>::Address,
         oracle: &mut impl IOOracle,
         is_access_list: bool,
+        observe: bool,
     ) -> Result<(), SystemError>;
 
     fn increment_nonce(
@@ -216,28 +221,50 @@ pub trait StorageModel: Sized + SnapshottableIo {
     /// Get amount of pubdata needed to encode current tx diff in bytes.
     fn pubdata_used_by_tx(&self) -> u32;
 
-    ///
-    /// Finish work, there are 3 outputs:
-    /// - state changes: uncompressed state diffs(including new preimages), writes to `results_keeper`
-    /// - pubdata - compressed state diffs(including preimages) that should be posted on the DA layer, writes to `results_keeper` and `pubdata_hasher`.
-    /// - new state commitment: if `state_commitment` is `Some` - verifies all the reads, applies writes and updates state commitment
-    ///
-    // Currently, result_keeper accepts storage diffs and preimages.
-    // However, future storage models may require different format, so we'll need to generalize it.
-    fn finish(
-        self,
-        oracle: &mut impl IOOracle, // oracle is needed here to prove tree
-        state_commitment: Option<&mut Self::StorageCommitment>,
-        pubdata_hasher: &mut impl crypto::MiniDigest,
+    /// Get current counter of refunds
+    fn get_refund_counter(&'_ self) -> Option<&'_ Self::Resources>;
+
+    /// Add resources to refund at the end of transaction
+    fn add_to_refund_counter(&mut self, refund: Self::Resources) -> Result<(), SystemError>;
+
+    fn persist_caches(
+        &mut self,
+        oracle: &mut impl IOOracle,
         result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
+    );
+
+    fn report_new_preimages(&mut self, result_keeper: &mut impl IOResultKeeper<Self::IOTypes>);
+
+    type AccountAddress<'a>: 'a + Clone + Copy + PartialEq + Eq + core::fmt::Debug
+    where
+        Self: 'a;
+    type AccountDiff<'a>: 'a + Clone + Copy + PartialEq + Eq + core::fmt::Debug
+    where
+        Self: 'a;
+    fn get_account_diff<'a>(
+        &'a self,
+        address: Self::AccountAddress<'a>,
+    ) -> Option<Self::AccountDiff<'a>>;
+    fn accounts_diffs_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = (Self::AccountAddress<'a>, Self::AccountDiff<'a>)> + Clone;
+
+    type StorageKey<'a>: 'a + Clone + Copy + PartialEq + Eq + core::fmt::Debug
+    where
+        Self: 'a;
+    type StorageDiff<'a>: 'a + Clone + Copy + PartialEq + Eq + core::fmt::Debug
+    where
+        Self: 'a;
+    fn get_storage_diff<'a>(&'a self, key: Self::StorageKey<'a>) -> Option<Self::StorageDiff<'a>>;
+    fn storage_diffs_iterator<'a>(
+        &'a self,
+    ) -> impl ExactSizeIterator<Item = (Self::StorageKey<'a>, Self::StorageDiff<'a>)> + Clone;
+
+    fn update_commitment(
+        &mut self,
+        state_commitment: Option<&mut Self::StorageCommitment>,
+        oracle: &mut impl IOOracle,
         logger: &mut impl Logger,
-    ) -> Result<(), InternalError>;
-
-    #[cfg(feature = "evm_refunds")]
-    /// Get current gas refund counter
-    fn get_refund_counter(&self) -> u32;
-
-    // Add EVM refund to counter
-    #[cfg(feature = "evm_refunds")]
-    fn add_evm_refund(&mut self, refund: u32) -> Result<(), SystemError>;
+        result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
+    );
 }

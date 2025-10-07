@@ -4,13 +4,12 @@ use alloc::alloc::Global;
 use core::alloc::Allocator;
 
 use super::{
-    cache_record::{Appearance, CacheRecord},
+    cache_record::CacheRecord,
     history_map::{CacheSnapshotId, HistoryMap, HistoryMapItemRef},
 };
 
 #[repr(u8)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum PreimageType {
     Bytecode = 0,
     AccountData = 1,
@@ -42,7 +41,7 @@ impl PreimagesPublicationStorageValue {
 // we want to store new preimages for DA
 
 pub struct NewPreimagesPublicationStorage<A: Allocator + Clone = Global> {
-    cache: HistoryMap<Bytes32, CacheRecord<Elem, ()>, A>,
+    cache: HistoryMap<Bytes32, CacheRecord<Elem, ()>, A, ()>,
 }
 
 impl<A: Allocator + Clone> NewPreimagesPublicationStorage<A> {
@@ -90,7 +89,7 @@ impl<A: Allocator + Clone> NewPreimagesPublicationStorage<A> {
                     publication_net_bytes: preimage_publication_byte_len,
                 },
             };
-            Ok(CacheRecord::new(new, Appearance::Unset))
+            Ok((CacheRecord::new(new), ()))
         })?;
 
         item.update(|x| {
@@ -109,8 +108,8 @@ impl<A: Allocator + Clone> NewPreimagesPublicationStorage<A> {
     }
 
     pub fn net_diffs_iter(
-        &self,
-    ) -> impl Iterator<Item = HistoryMapItemRef<Bytes32, CacheRecord<Elem, ()>, A>> {
+        &'_ self,
+    ) -> impl Iterator<Item = HistoryMapItemRef<'_, Bytes32, CacheRecord<Elem, ()>, A>> {
         self.cache.iter()
     }
 }
