@@ -111,7 +111,10 @@ where
     // Snapshot of resources before the hook, to adjust gas usage later
     let resources_before = resources.clone();
 
-    charge_native_and_proportional_gas::<S::Resources>(resources, HOOK_BASE_NATIVE_COST)?;
+    evm_interpreter::charge_native_and_proportional_gas::<S::Resources>(
+        resources,
+        HOOK_BASE_NATIVE_COST,
+    )?;
 
     if calldata.len() < 4 {
         return Ok(Err(
@@ -189,7 +192,10 @@ where
             )?;
 
             // Adjust gas usage to be proportional to native used
-            post_charge_proportional_gas::<S::Resources>(resources, resources_before)?;
+            evm_interpreter::post_charge_proportional_gas::<S::Resources>(
+                resources,
+                resources_before,
+            )?;
 
             Ok(Ok(&[]))
         }

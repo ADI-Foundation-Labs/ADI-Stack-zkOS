@@ -117,7 +117,10 @@ fn l2_base_token_hook_inner<S: EthereumLikeTypes>(
 where
     S::IO: IOSubsystemExt,
 {
-    charge_native_and_proportional_gas::<S::Resources>(resources, HOOK_BASE_NATIVE_COST)?;
+    evm_interpreter::charge_native_and_proportional_gas::<S::Resources>(
+        resources,
+        HOOK_BASE_NATIVE_COST,
+    )?;
 
     if calldata.len() < 4 {
         return Ok(Err(
@@ -316,7 +319,10 @@ where
                     evm_interpreter::native_resource_constants::COPY_BYTE_NATIVE_COST
                         .saturating_mul(abi_encoded_message_length as u64),
                 );
-            charge_native_and_proportional_gas::<S::Resources>(resources, native_copy_cost)?;
+            evm_interpreter::charge_native_and_proportional_gas::<S::Resources>(
+                resources,
+                native_copy_cost,
+            )?;
 
             let mut message: alloc::vec::Vec<u8, S::Allocator> = alloc::vec::Vec::with_capacity_in(
                 abi_encoded_message_length as usize,
