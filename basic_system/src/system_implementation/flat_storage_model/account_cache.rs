@@ -842,18 +842,17 @@ where
         let cur_tx = self.current_tx_number;
         let alloc = self.alloc.clone();
 
-        let mut account_data = resources.with_infinite_ergs(|inf_resources| {
-            self.materialize_element::<PROOF_ENV>(
-                ExecutionEnvironmentType::NoEE,
-                inf_resources,
-                at_address,
-                storage,
-                preimages_cache,
-                oracle,
-                false,
-                false,
-            )
-        })?;
+        let mut account_data = self.materialize_element::<PROOF_ENV>(
+            // Use EVM to charge gas
+            ExecutionEnvironmentType::EVM,
+            resources,
+            at_address,
+            storage,
+            preimages_cache,
+            oracle,
+            false,
+            false,
+        )?;
 
         let request = PreimageRequest {
             hash: code_hash,

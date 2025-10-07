@@ -117,9 +117,7 @@ fn l2_base_token_hook_inner<S: EthereumLikeTypes>(
 where
     S::IO: IOSubsystemExt,
 {
-    // TODO: charge native
-    let step_cost: S::Resources = S::Resources::from_ergs(Ergs(10));
-    resources.charge(&step_cost)?;
+    charge_native_and_proportional_gas::<S::Resources>(resources, HOOK_BASE_NATIVE_COST)?;
 
     if calldata.len() < 4 {
         return Ok(Err(
@@ -154,8 +152,8 @@ where
             }
             // Burn nominal_token_value
             match system.io.update_account_nominal_token_balance(
-                ExecutionEnvironmentType::parse_ee_version_byte(caller_ee)
-                    .map_err(SystemError::LeafDefect)?,
+                // Use EVM EE to charge for gas too
+                ExecutionEnvironmentType::EVM,
                 resources,
                 &L2_BASE_TOKEN_ADDRESS,
                 &nominal_token_value,
@@ -275,8 +273,8 @@ where
 
             // Burn nominal_token_value
             match system.io.update_account_nominal_token_balance(
-                ExecutionEnvironmentType::parse_ee_version_byte(caller_ee)
-                    .map_err(SystemError::LeafDefect)?,
+                // Use EVM EE to charge for gas too
+                ExecutionEnvironmentType::EVM,
                 resources,
                 &L2_BASE_TOKEN_ADDRESS,
                 &nominal_token_value,
@@ -311,10 +309,20 @@ where
             } else {
                 abi_encoded_message_length
             };
+
+            // First we charge for copying the message
+            let native_copy_cost =
+                evm_interpreter::native_resource_constants::COPY_BASE_NATIVE_COST.saturating_add(
+                    evm_interpreter::native_resource_constants::COPY_BYTE_NATIVE_COST
+                        .saturating_mul(abi_encoded_message_length as u64),
+                );
+            charge_native_and_proportional_gas::<S::Resources>(resources, native_copy_cost)?;
+
             let mut message: alloc::vec::Vec<u8, S::Allocator> = alloc::vec::Vec::with_capacity_in(
                 abi_encoded_message_length as usize,
                 system.get_allocator(),
             );
+
             // Offset and length
             message.extend_from_slice(&[0u8; 64]);
             message[31] = 32; // offset
