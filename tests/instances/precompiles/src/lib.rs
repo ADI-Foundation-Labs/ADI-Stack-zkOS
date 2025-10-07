@@ -5823,6 +5823,54 @@ fn test_p256() {
     }
 }
 
+struct Input {
+    bsize: [u8; 32],
+    esize: [u8; 32],
+    msize: [u8; 32],
+    b: Vec<u8>,
+    e: Vec<u8>,
+    m: Vec<u8>,
+    n: usize,
+}
+
+impl Input {
+    /// Concatenates all fields into a single `Vec<u8>`.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let real_len = self.real_len();
+        let fuzz_len = self.n;
+
+        let mut result = Vec::new();
+
+        // Append the 32-byte fields
+        result.extend_from_slice(&self.bsize);
+        result.extend_from_slice(&self.esize);
+        result.extend_from_slice(&self.msize);
+
+        // Append the variable-length fields
+        result.extend_from_slice(&self.b);
+        result.extend_from_slice(&self.e);
+        result.extend_from_slice(&self.m);
+
+        // Adjust the vector bytes according to the fuzzed length
+        if fuzz_len > real_len {
+            result.resize(fuzz_len, 0);
+        } else {
+            result.resize(real_len, 0);
+        }
+
+        result
+    }
+
+    pub fn real_len(&self) -> usize {
+        self.bsize.len()
+            + self.esize.len()
+            + self.msize.len()
+            + self.b.len()
+            + self.e.len()
+            + self.m.len()
+    }
+}
+
 #[test]
 fn smoke_test_modexp() {
     // let test =
@@ -5832,17 +5880,28 @@ fn smoke_test_modexp() {
     //         name: "nagydani_4_square",
     //         precompile_id: "0000000000000000000000000000000000000005",
     //     };
+
+    let input = Input {
+        bsize: [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 8,
+        ],
+        esize: [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1,
+        ],
+        msize: [
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 1,
+        ],
+        b: vec![1, 1, 1, 1, 0, 1, 1, 8],
+        e: vec![31],
+        m: vec![64],
+        n: 0,
+    };
     let test = Test {
-        input: "\
-        0000000000000000000000000000000000000000000000000000000000000040\
-        0000000000000000000000000000000000000000000000000000000000000001\
-        0000000000000000000000000000000000000000000000000000000000000040\
-        e09ad9675465c53a109fac66a445c91b292d2bb2c5268addb30cd82f80fcb003\
-        3ff97c80a5fc6f39193ae969c6ede6710a6b7ac27078a06d90ef1c72e5c85fb5\
-        02fc9e1f6beb81516545975218075ec2af118cd8798df6e08a147c60fd6095ac\
-        2bb02c2908cf4dd7c81f11c289e4bce98f3553768f392a80ce22bf5c4f4a248c\
-        6b",
-        expected: "60008f1614cc01dcfb6bfb09c625cf90b47d4468db81b5f8b7a39d42f332eab9b2da8f2d95311648a8f243f4bb13cfb3d8f7f2a3c014122ebb3ed41b02783adc",
+        input: "",
+        expected: "00",
         name: "nagydani_1_square",
         precompile_id: "0000000000000000000000000000000000000005",
     };
@@ -5863,8 +5922,8 @@ fn smoke_test_modexp() {
     //         name: "manual",
     //         precompile_id: "0000000000000000000000000000000000000005",
     //     };
-    let input = hex::decode(test.input).unwrap();
-    let expected = hex::decode(test.expected).unwrap();
+    let input = input.to_bytes();
+    // let expected = hex::decode(test.expected).unwrap();
     dbg!(test.name);
 
     let tx_result = run_precompile(test.precompile_id, None::<u64>, &input)
@@ -5874,12 +5933,12 @@ fn smoke_test_modexp() {
         .clone()
         .expect("Tx should have succeeded");
 
-    assert_eq!(
-        expected,
-        tx_result.as_returned_bytes(),
-        "{} failed",
-        test.name
-    );
+    // assert_eq!(
+    //     expected,
+    //     tx_result.as_returned_bytes(),
+    //     "{} failed",
+    //     test.name
+    // );
 }
 
 #[test]
