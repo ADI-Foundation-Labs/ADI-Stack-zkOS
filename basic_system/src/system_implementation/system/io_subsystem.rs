@@ -20,17 +20,17 @@ use storage_models::common_structs::StorageModel;
 use zk_ee::common_structs::ProofData;
 use zk_ee::common_structs::L2_TO_L1_LOG_SERIALIZE_SIZE;
 use zk_ee::interface_error;
+use zk_ee::oracle::basic_queries::ZKProofDataQuery;
+use zk_ee::oracle::simple_oracle_query::SimpleOracleQuery;
 use zk_ee::out_of_ergs_error;
 use zk_ee::system::metadata::BlockMetadataFromOracle;
 use zk_ee::{
     common_structs::{EventsStorage, LogsStorage},
-    kv_markers::UsizeDeserializable,
     memory::ArrayBuilder,
     system::{
         errors::system::SystemError, AccountData, AccountDataRequest, EthereumLikeIOSubsystem,
         IOResultKeeper, IOSubsystem, IOSubsystemExt, Maybe,
     },
-    system_io_oracle::ProofDataIterator,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::UsizeAlignedByteBox,
 };
@@ -506,16 +506,9 @@ where
         mut logger: impl Logger,
     ) -> Self::FinalData {
         let (mut state_commitment, last_block_timestamp) = {
-            let mut initialization_iterator = self
-                .oracle
-                .create_oracle_access_iterator::<ProofDataIterator>(())
-                .unwrap();
-            let proof_data =
-                <ProofData<FlatStorageCommitment<TREE_HEIGHT>> as UsizeDeserializable>::from_iter(
-                    &mut initialization_iterator,
-                )
-                .unwrap();
-            assert_eq!(initialization_iterator.len(), 0);
+            let proof_data: ProofData<FlatStorageCommitment<TREE_HEIGHT>> =
+                ZKProofDataQuery::get(&mut self.oracle, &())
+                    .expect("must get proof data from oracle");
             (proof_data.state_root_view, proof_data.last_block_timestamp)
         };
 
@@ -618,16 +611,9 @@ where
         mut logger: impl Logger,
     ) -> Self::FinalData {
         let (mut state_commitment, last_block_timestamp) = {
-            let mut initialization_iterator = self
-                .oracle
-                .create_oracle_access_iterator::<ProofDataIterator>(())
-                .unwrap();
-            let proof_data =
-                <ProofData<FlatStorageCommitment<TREE_HEIGHT>> as UsizeDeserializable>::from_iter(
-                    &mut initialization_iterator,
-                )
-                .unwrap();
-            assert_eq!(initialization_iterator.len(), 0);
+            let proof_data: ProofData<FlatStorageCommitment<TREE_HEIGHT>> =
+                ZKProofDataQuery::get(&mut self.oracle, &())
+                    .expect("must get proof data from oracle");
             (proof_data.state_root_view, proof_data.last_block_timestamp)
         };
 
@@ -790,16 +776,9 @@ where
         builder: &mut crate::system_implementation::system::public_input::BatchPublicInputBuilder,
     ) -> O {
         let (mut state_commitment, last_block_timestamp) = {
-            let mut initialization_iterator = self
-                .oracle
-                .create_oracle_access_iterator::<ProofDataIterator>(())
-                .unwrap();
-            let proof_data =
-                <ProofData<FlatStorageCommitment<TREE_HEIGHT>> as UsizeDeserializable>::from_iter(
-                    &mut initialization_iterator,
-                )
-                .unwrap();
-            assert_eq!(initialization_iterator.len(), 0);
+            let proof_data: ProofData<FlatStorageCommitment<TREE_HEIGHT>> =
+                ZKProofDataQuery::get(&mut self.oracle, &())
+                    .expect("must get proof data from oracle");
             (proof_data.state_root_view, proof_data.last_block_timestamp)
         };
 

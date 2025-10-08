@@ -2049,6 +2049,7 @@ dependencies = [
 name = "callable_oracles"
 version = "0.1.0"
 dependencies = [
+ "basic_system",
  "crypto",
  "num-bigint",
  "num-traits",
@@ -3665,6 +3666,7 @@ dependencies = [
  "hex",
  "libfuzzer-sys",
  "once_cell",
+ "oracle_provider",
  "rand 0.8.5",
  "revm",
  "rig",

@@ -44,11 +44,11 @@ use zk_ee::utils::Bytes32;
 use zk_ee::wrap_error;
 use zk_ee::{
     memory::stack_trait::StackCtorConst,
+    oracle::IOOracle,
     system::{
         errors::{internal::InternalError, system::SystemError},
         AccountData, AccountDataRequest, Ergs, IOResultKeeper, Maybe, Resources,
     },
-    system_io_oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
 };
 
