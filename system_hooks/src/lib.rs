@@ -53,7 +53,7 @@ use zk_ee::{
 };
 
 pub mod addresses_constants;
-#[cfg(feature = "mock-unsupported-precompiles")]
+#[cfg(feature = "mock_blake2f_precompile")]
 mod mock_precompiles;
 
 pub mod contract_deployer;
@@ -223,15 +223,16 @@ where
         self.add_precompile::<<S::SystemFunctions as SystemFunctions<_>>::Bn254PairingCheck, Bn254PairingCheckErrors>(
             ECPAIRING_HOOK_ADDRESS_LOW,
         );
-        #[cfg(feature = "mock-unsupported-precompiles")]
+        #[cfg(feature = "mock_blake2f_precompile")]
         {
-            self.add_precompile::<crate::mock_precompiles::mock_precompiles::Blake, MissingSystemFunctionErrors>(
-                BLAKE_HOOK_ADDRESS_LOW,
-            );
-            self.add_precompile::<crate::mock_precompiles::mock_precompiles::PointEval, MissingSystemFunctionErrors>(
-                POINT_EVAL_HOOK_ADDRESS_LOW,
+            self.add_precompile::<crate::mock_precompiles::Blake2f, MissingSystemFunctionErrors>(
+                BLAKE2F_HOOK_ADDRESS_LOW,
             );
         }
+        #[cfg(feature = "point_eval_precompile")]
+        self.add_precompile::<<S::SystemFunctions as SystemFunctions<_>>::PointEvaluation, PointEvaluationErrors>(
+            POINT_EVAL_HOOK_ADDRESS_LOW,
+        );
 
         #[cfg(feature = "p256_precompile")]
         {

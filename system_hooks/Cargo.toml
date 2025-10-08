@@ -20,6 +20,7 @@ strum_macros = "0.27.1"
 paste = "1.0.15"
 
 [features]
-mock-unsupported-precompiles = []
+point_eval_precompile = []
+mock_blake2f_precompile = []
 p256_precompile = []
 cycle_marker = ["cycle_marker/log_to_file"]
