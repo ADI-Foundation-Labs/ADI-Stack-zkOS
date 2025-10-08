@@ -1,12 +1,12 @@
+use crate::cost_constants::{POINT_EVALUATION_COST_ERGS, POINT_EVALUATION_NATIVE_COST};
 use crypto::ark_ec::pairing::Pairing;
 use crypto::ark_ec::AffineRepr;
 use crypto::ark_ff::{Field, PrimeField};
 use zk_ee::common_traits::TryExtend;
-use zk_ee::system::*;
 use zk_ee::interface_error;
 use zk_ee::out_of_return_memory;
 use zk_ee::system::errors::subsystem::SubsystemError;
-use crate::cost_constants::{POINT_EVALUATION_COST_ERGS, POINT_EVALUATION_NATIVE_COST};
+use zk_ee::system::*;
 
 ///
 /// Point evaluation system function implementation.
@@ -55,28 +55,26 @@ pub const POINT_EVAL_PRECOMPILE_SUCCESS_RESPONSE: [u8; 64] = const {
 };
 pub const KZG_VERSIONED_HASH_VERSION_BYTE: u8 = 0x01;
 
-fn point_evaluation_as_system_function_inner<
-    D: ?Sized + TryExtend<u8>,
-    R: Resources,
->(
+fn point_evaluation_as_system_function_inner<D: ?Sized + TryExtend<u8>, R: Resources>(
     input: &[u8],
     dst: &mut D,
     resources: &mut R,
 ) -> Result<(), SubsystemError<PointEvaluationErrors>> {
     resources.charge(&R::from_ergs_and_native(
         POINT_EVALUATION_COST_ERGS,
-        <R::Native as zk_ee::system::Computational>::from_computational(POINT_EVALUATION_NATIVE_COST),
+        <R::Native as zk_ee::system::Computational>::from_computational(
+            POINT_EVALUATION_NATIVE_COST,
+        ),
     ))?;
-
 
     use crypto::ark_serialize::CanonicalDeserialize;
     let g2_by_tau_point = <crypto::bls12_381::curves::Bls12_381 as crypto::ark_ec::pairing::Pairing>::G2Affine::deserialize_compressed(&TRUSTED_SETUP_TAU_G2_BYTES[..]).expect("must decode from trusted setup");
     let prepared_g2_generator: <crypto::bls12_381::curves::Bls12_381 as crypto::ark_ec::pairing::Pairing>::G2Prepared = crypto::bls12_381::G2Affine::generator().into();
 
     if input.len() != 192 {
-        return Err(PointEvaluationSubsystemError::LeafUsage(
-            interface_error!(PointEvaluationInterfaceError::InvalidInputSize),
-        ));
+        return Err(PointEvaluationSubsystemError::LeafUsage(interface_error!(
+            PointEvaluationInterfaceError::InvalidInputSize
+        )));
     }
 
     fn versioned_hash_for_kzg(data: &[u8]) -> [u8; 32] {
@@ -93,9 +91,9 @@ fn point_evaluation_as_system_function_inner<
 
     // so far it's just one version
     if versioned_hash_for_kzg(commitment) != versioned_hash {
-        return Err(PointEvaluationSubsystemError::LeafUsage(
-            interface_error!(PointEvaluationInterfaceError::InvalidVersionedHash),
-        ));
+        return Err(PointEvaluationSubsystemError::LeafUsage(interface_error!(
+            PointEvaluationInterfaceError::InvalidVersionedHash
+        )));
     }
 
     fn parse_g1_compressed(input: &[u8]) -> Result<crypto::bls12_381::G1Affine, ()> {
@@ -106,21 +104,19 @@ fn point_evaluation_as_system_function_inner<
 
     // Parse the commitment and proof
     let Ok(commitment_point) = parse_g1_compressed(commitment) else {
-        return Err(PointEvaluationSubsystemError::LeafUsage(
-            interface_error!(PointEvaluationInterfaceError::InvalidPoint),
-        ));
+        return Err(PointEvaluationSubsystemError::LeafUsage(interface_error!(
+            PointEvaluationInterfaceError::InvalidPoint
+        )));
     };
     let proof = &input[144..192];
     let Ok(proof) = parse_g1_compressed(proof) else {
-        return Err(PointEvaluationSubsystemError::LeafUsage(
-            interface_error!(PointEvaluationInterfaceError::InvalidPoint),
-        ));
+        return Err(PointEvaluationSubsystemError::LeafUsage(interface_error!(
+            PointEvaluationInterfaceError::InvalidPoint
+        )));
     };
 
     // We do not need internal representation, just canonical scalar
-    fn parse_scalar(
-        input: &[u8; 32],
-    ) -> Result<<crypto::bls12_381::Fr as PrimeField>::BigInt, ()> {
+    fn parse_scalar(input: &[u8; 32]) -> Result<<crypto::bls12_381::Fr as PrimeField>::BigInt, ()> {
         // Arkworks has strange format for integer serialization, so we do manually
         let mut repr = [0u64; 4];
         for (dst, src) in repr.iter_mut().zip(input.as_rchunks::<8>().1.iter().rev()) {
@@ -135,15 +131,15 @@ fn point_evaluation_as_system_function_inner<
     }
 
     let Ok(z) = parse_scalar(input[32..64].try_into().unwrap()) else {
-        return Err(PointEvaluationSubsystemError::LeafUsage(
-            interface_error!(PointEvaluationInterfaceError::InvalidScalar),
-        ));
+        return Err(PointEvaluationSubsystemError::LeafUsage(interface_error!(
+            PointEvaluationInterfaceError::InvalidScalar
+        )));
     };
 
     let Ok(y) = parse_scalar(input[64..96].try_into().unwrap()) else {
-        return Err(PointEvaluationSubsystemError::LeafUsage(
-            interface_error!(PointEvaluationInterfaceError::InvalidScalar),
-        ));
+        return Err(PointEvaluationSubsystemError::LeafUsage(interface_error!(
+            PointEvaluationInterfaceError::InvalidScalar
+        )));
     };
 
     // e(y - P, G₂) * e(proof, X - z) == 1
