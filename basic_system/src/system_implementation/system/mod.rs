@@ -28,6 +28,7 @@ use zk_ee::{
 
 mod io_subsystem;
 mod public_input;
+mod blob_commitment_generator;
 
 pub use self::io_subsystem::*;
 pub use self::public_input::BatchOutput;

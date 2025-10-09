@@ -43,7 +43,7 @@ use zk_ee::{
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::Bytes32,
 };
-
+use zk_ee::utils::write_bytes::WriteBytes;
 use super::system::ExtraCheck;
 
 pub fn address_into_special_storage_key(address: &B160) -> Bytes32 {
@@ -128,7 +128,7 @@ where
         self,
         oracle: &mut impl IOOracle,
         state_commitment: Option<&mut Self::StorageCommitment>,
-        pubdata_hasher: &mut impl MiniDigest,
+        pubdata_dst: &mut impl WriteBytes,
         result_keeper: &mut impl IOResultKeeper<Self::IOTypes>,
         logger: &mut impl Logger,
     ) -> Result<(), InternalError> {
@@ -159,7 +159,7 @@ where
         // 2. Commit to/return compressed pubdata
         let encdoded_state_diffs_count =
             (storage_cache.net_diffs_iter().count() as u32).to_be_bytes();
-        pubdata_hasher.update(&encdoded_state_diffs_count);
+        pubdata_dst.extend(&encdoded_state_diffs_count);
         result_keeper.pubdata(&encdoded_state_diffs_count);
 
         let mut hasher = crypto::blake2s::Blake2s256::new();
@@ -174,7 +174,7 @@ where
                 // TODO(EVM-1074): use tree index instead of key for repeated writes
                 let derived_key =
                     derive_flat_storage_key_with_hasher(&k.address, &k.key, &mut hasher);
-                pubdata_hasher.update(derived_key.as_u8_ref());
+                pubdata_dst.extend(derived_key.as_u8_ref());
                 result_keeper.pubdata(derived_key.as_u8_ref());
 
                 // we publish preimages for account details
@@ -188,7 +188,7 @@ where
                         l.value(),
                         r.value(),
                         r.metadata().not_publish_bytecode,
-                        pubdata_hasher,
+                        pubdata_dst,
                         result_keeper,
                         &mut preimages_cache,
                         oracle,
@@ -198,7 +198,7 @@ where
                     ValueDiffCompressionStrategy::optimal_compression(
                         l.value(),
                         r.value(),
-                        pubdata_hasher,
+                        pubdata_dst,
                         result_keeper,
                     );
                 }
