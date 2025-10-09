@@ -219,6 +219,29 @@ mod tests {
         assert_eq!(output[..], expected_output);
     }
 
+    #[test]
+    fn test_invalid_input() {
+        let commitment = hex!("c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").to_vec();
+
+        use crypto::sha256::*;
+        let mut hasher = Sha256::new();
+        hasher.update(commitment.clone());
+        let mut versioned_hash = hasher.finalize().to_vec();
+        versioned_hash[0] = KZG_VERSIONED_HASH_VERSION_BYTE;
+
+        let z = hex!("0000000000000000000000000000000000000000000000000000000000000000").to_vec();
+        let y = hex!("73eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001").to_vec();
+        let proof = hex!("c00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000").to_vec();
+
+        let input = [versioned_hash, z, y, commitment, proof].concat();
+
+        let mut output = Vec::new();
+        let mut resources = infinite_resources();
+
+        let result = PointEvaluationImpl::execute(&input, &mut output, &mut resources, Global);
+        assert!(result.is_err(), "Result: {:?}", result);
+    }
+
     /// Test invalid input size - too short
     #[test]
     fn test_point_evaluation_invalid_input_size_short() {
