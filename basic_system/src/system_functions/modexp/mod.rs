@@ -5,9 +5,10 @@ use alloc::vec::Vec;
 use evm_interpreter::ERGS_PER_GAS;
 use ruint::aliases::U256;
 use zk_ee::common_traits::TryExtend;
+use zk_ee::oracle::query_ids::ADVICE_SUBSPACE_MASK;
+use zk_ee::oracle::IOOracle;
 use zk_ee::system::logger::Logger;
 use zk_ee::system::SystemFunctionExt;
-use zk_ee::system_io_oracle::IOOracle;
 use zk_ee::{
     interface_error, internal_error, out_of_ergs_error,
     system::{
@@ -16,6 +17,23 @@ use zk_ee::{
         Computational, Ergs, ModExpInterfaceError,
     },
 };
+
+// Query ID for modular exponentiation advice from oracle
+pub const MODEXP_ADVICE_QUERY_ID: u32 = ADVICE_SUBSPACE_MASK | 0x10;
+
+/// Parameters for modular exponentiation oracle query
+/// Used to request division advice for big integer operations during modexp
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct ModExpAdviceParams {
+    pub op: u32,          // Operation type (0 = division)
+    pub a_ptr: u32,       // Pointer to dividend
+    pub a_len: u32,       // Length of dividend in words
+    pub b_ptr: u32,       // Pointer to divisor
+    pub b_len: u32,       // Length of divisor in words
+    pub modulus_ptr: u32, // Pointer to modulus
+    pub modulus_len: u32, // Length of modulus in words
+}
 
 #[cfg(any(all(target_arch = "riscv32", feature = "proving"), test))]
 mod delegation;

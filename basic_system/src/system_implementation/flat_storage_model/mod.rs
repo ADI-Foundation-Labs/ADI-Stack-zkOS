@@ -35,11 +35,11 @@ use zk_ee::{
     },
     execution_environment_type::ExecutionEnvironmentType,
     memory::stack_trait::{StackCtor, StackCtorConst},
+    oracle::IOOracle,
     system::{
         errors::system::SystemError, logger::Logger, AccountData, AccountDataRequest,
         IOResultKeeper, Maybe,
     },
-    system_io_oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::Bytes32,
 };
@@ -54,6 +54,9 @@ pub fn address_into_special_storage_key(address: &B160) -> Bytes32 {
 }
 
 pub const TREE_HEIGHT: usize = 64;
+
+/// Subspace mask for flat storage oracle queries within the system
+pub const FLAT_STORAGE_SUBSPACE_MASK: u32 = 0x00_00_f0_00;
 
 // This model only touches storage related things, even though preimages cache can be reused
 // by "signals" in theory, but we do not expect that in practice

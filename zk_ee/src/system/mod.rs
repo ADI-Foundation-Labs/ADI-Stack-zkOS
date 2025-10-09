@@ -26,6 +26,11 @@ pub use self::result_keeper::*;
 pub const MAX_GLOBAL_CALLS_STACK_DEPTH: usize = 1024; // even though we do not have to formally limit it,
                                                       // for all practical purposes (63/64) ^ 1024 is 10^-7, and it's unlikely that one can create any new frame
                                                       // with such remaining resources
+/// TODO: this constant belongs to EVM EE
+const ERGS_PER_GAS: u64 = 256;
+
+/// Maximum value of EVM gas that can be represented as ergs in a u64.
+pub const MAX_BLOCK_GAS_LIMIT: u64 = u64::MAX / ERGS_PER_GAS;
 
 use core::alloc::Allocator;
 use core::fmt::Write;
@@ -35,10 +40,12 @@ use self::{
     logger::Logger,
     metadata::{BlockMetadataFromOracle, Metadata},
 };
+use crate::oracle::query_ids::BLOCK_METADATA_QUERY_ID;
+use crate::oracle::query_ids::TX_DATA_WORDS_QUERY_ID;
 use crate::utils::Bytes32;
 use crate::{
     execution_environment_type::ExecutionEnvironmentType,
-    system_io_oracle::{IOOracle, NewTxContentIterator},
+    oracle::IOOracle,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::USIZE_SIZE,
 };
@@ -217,7 +224,13 @@ where
         mut oracle: <S::IO as IOSubsystemExt>::IOOracle,
     ) -> Result<Self, InternalError> {
         // get metadata for block
-        let block_level_metadata: BlockMetadataFromOracle = oracle.get_block_level_metadata();
+        let block_level_metadata: BlockMetadataFromOracle =
+            oracle.query_with_empty_input(BLOCK_METADATA_QUERY_ID)?;
+
+        if block_level_metadata.gas_limit > MAX_BLOCK_GAS_LIMIT {
+            return Err(internal_error!("block gas limit is too high"));
+        }
+
         let io = S::IO::init_from_oracle(oracle)?;
 
         let metadata = Metadata {
@@ -238,17 +251,20 @@ where
     }
 
     ///
-    /// Get the length of the next transaction from the oracle.
+    /// Get the next transaction data from the oracle and write it into the provided iterator.
     /// Returns None when there are no more transactions to process.
-    /// Returns Some(Err(_)) if there's an encoding error.
+    /// Returns Some(Err(_)) if there's an encoding or oracle error.
     ///
     pub fn try_begin_next_tx(
         &mut self,
-        tx_write_iter: &mut impl crate::oracle::SafeUsizeWritable,
+        tx_write_iter: &mut impl crate::utils::usize_rw::SafeUsizeWritable,
     ) -> Option<Result<usize, NextTxSubsystemError>> {
         let next_tx_len_bytes = match self.io.oracle().try_begin_next_tx() {
-            None => return None,
-            Some(size) => size.get() as usize,
+            Ok(maybe_next_len) => match maybe_next_len {
+                None => return None,
+                Some(size) => size.get() as usize,
+            },
+            Err(e) => return Some(Err(e.into())),
         };
         // Check to avoid usize overflow in 32-bit target.
         // The maximum allowed length is u32::MAX - 3, as it is
@@ -265,11 +281,15 @@ where
                 crate::system::NextTxInterfaceError::TxWriteIteratorTooSmall
             )));
         }
-        let tx_iterator = self
+        let tx_iterator = match self
             .io
             .oracle()
-            .create_oracle_access_iterator::<NewTxContentIterator>(())
-            .expect("must create iterator for the content");
+            .raw_query_with_empty_input(TX_DATA_WORDS_QUERY_ID)
+        {
+            Ok(res) => res,
+            Err(e) => return Some(Err(e.into())),
+        };
+
         if tx_iterator.len() != next_tx_len_usize_words {
             return Some(Err(interface_error!(
                 crate::system::NextTxInterfaceError::TxIteratorLengthMismatch

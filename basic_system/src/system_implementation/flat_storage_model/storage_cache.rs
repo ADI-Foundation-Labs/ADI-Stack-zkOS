@@ -15,13 +15,16 @@ use zk_ee::common_structs::history_counter::HistoryCounter;
 use zk_ee::common_structs::history_counter::HistoryCounterSnapshotId;
 use zk_ee::common_traits::key_like_with_bounds::{KeyLikeWithBounds, TyEq};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
+use zk_ee::internal_error;
+use zk_ee::oracle::basic_queries::InitialStorageSlotQuery;
+use zk_ee::oracle::IOOracle;
 use zk_ee::system::errors::internal::InternalError;
 use zk_ee::{
     common_structs::{WarmStorageKey, WarmStorageValue},
-    kv_markers::{StorageAddress, UsizeDeserializable},
     memory::stack_trait::{StackCtor, StackCtorConst},
+    oracle::simple_oracle_query::SimpleOracleQuery,
+    storage_types::StorageAddress,
     system::{errors::system::SystemError, Resources},
-    system_io_oracle::{IOOracle, InitialStorageSlotData, InitialStorageSlotDataIterator},
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::Bytes32,
 };
@@ -200,23 +203,14 @@ where
                 // Element doesn't exist in cache yet, initialize it
                 initialized_element = true;
 
-                let mut dst =
-                    core::mem::MaybeUninit::<InitialStorageSlotData<EthereumIOTypesConfig>>::uninit(
-                    );
-                let mut it = oracle
-                    .create_oracle_access_iterator::<InitialStorageSlotDataIterator<EthereumIOTypesConfig>>(
-                        *address,
-                    )
-                    .expect("must make an iterator");
-                unsafe { UsizeDeserializable::init_from_iter(&mut dst, &mut it).expect("must initialize") };
-                assert!(it.next().is_none());
+                let data_from_oracle = InitialStorageSlotQuery::get(oracle, &address)
+                    .map_err(|_| internal_error!("Must get initial slot value from oracle"))?;
 
-                // Safety: Since the `init_from_iter` has completed successfully and there's no
-                // outstanding data as per line before, we can assume that the value was read
-                // correctly.
-                let data_from_oracle = unsafe { dst.assume_init() } ;
-
-                resources_policy.charge_cold_storage_read_extra(ee_type, resources, data_from_oracle.is_new_storage_slot)?;
+                resources_policy.charge_cold_storage_read_extra(
+                    ee_type,
+                    resources,
+                    data_from_oracle.is_new_storage_slot,
+                )?;
 
                 let appearance = match data_from_oracle.is_new_storage_slot {
                     true => Appearance::Unset,
@@ -225,7 +219,10 @@ where
 
                 // Note: we initialize it as cold, should be warmed up separately
                 // Since in case of revert it should become cold again and initial record can't be rolled back
-                Ok(CacheRecord::new(data_from_oracle.initial_value.into(), appearance))
+                Ok(CacheRecord::new(
+                    data_from_oracle.initial_value.into(),
+                    appearance,
+                ))
             })
             .and_then(|mut x| {
                 // Warm up element according to EVM rules if needed
@@ -233,7 +230,8 @@ where
                 if is_warm_read == false {
                     if initialized_element == false {
                         // Element exists in cache, but wasn't touched in current tx yet
-                        resources_policy.charge_cold_storage_read_extra(ee_type, resources,false)?;
+                        resources_policy
+                            .charge_cold_storage_read_extra(ee_type, resources, false)?;
                     }
 
                     x.update(|cache_record| {
