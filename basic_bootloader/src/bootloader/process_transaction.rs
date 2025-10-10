@@ -22,6 +22,7 @@ use evm_interpreter::ERGS_PER_GAS;
 use gas_helpers::check_enough_resources_for_pubdata;
 use gas_helpers::get_resources_to_charge_for_pubdata;
 use gas_helpers::ResourcesForTx;
+use metadata::zk_metadata::TxLevelMetadata;
 use system_hooks::addresses_constants::BOOTLOADER_FORMAL_ADDRESS;
 use system_hooks::HooksStorage;
 use zk_ee::interface_error;
@@ -33,6 +34,7 @@ use zk_ee::system::errors::root_cause::GetRootCause;
 use zk_ee::system::errors::root_cause::RootCause;
 use zk_ee::system::errors::runtime::RuntimeError;
 use zk_ee::system::errors::subsystem::SubsystemError;
+use zk_ee::system::metadata::basic_metadata::ZkSpecificPricingMetadata;
 use zk_ee::system::{EthereumLikeTypes, Resources};
 use zk_ee::wrap_error;
 
@@ -42,9 +44,13 @@ struct ValidationResult {
     validation_pubdata: u64,
 }
 
-impl<S: EthereumLikeTypes, F: BasicTransactionFlow<S>> BasicBootloader<S, F>
+impl<
+        S: EthereumLikeTypes<Metadata = zk_ee::system::metadata::zk_metadata::ZkMetadata>,
+        F: BasicTransactionFlow<S>,
+    > BasicBootloader<S, F>
 where
     S::IO: IOSubsystemExt,
+    S::Metadata: ZkSpecificPricingMetadata,
 {
     ///
     /// Process transaction.
@@ -414,7 +420,10 @@ where
             .write_fmt(format_args!("Executing L1 transaction\n"));
 
         let gas_price = U256::from(transaction.max_fee_per_gas.read());
-        system.set_tx_context(from, gas_price);
+        system.set_tx_context(TxLevelMetadata {
+            tx_gas_price: gas_price,
+            tx_origin: from,
+        });
 
         // Start a frame, to revert minting of value if execution fails
         let rollback_handle = system.start_global_frame()?;
@@ -602,7 +611,10 @@ where
 
         F::charge_additional_intrinsic_gas(&mut resources, &transaction)?;
 
-        system.set_tx_context(from, gas_price);
+        system.set_tx_context(TxLevelMetadata {
+            tx_origin: from,
+            tx_gas_price: gas_price,
+        });
 
         let chain_id = system.get_chain_id();
 

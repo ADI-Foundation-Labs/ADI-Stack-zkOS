@@ -20,7 +20,8 @@ use zk_ee::common_structs::derive_flat_storage_key;
 use zk_ee::common_structs::ProofData;
 use zk_ee::reference_implementations::BaseResources;
 use zk_ee::reference_implementations::DecreasingNative;
-use zk_ee::system::metadata::BlockMetadataFromOracle;
+use zk_ee::system::metadata::system_metadata::SystemMetadata;
+use zk_ee::system::metadata::zk_metadata::{BlockMetadataFromOracle, TxLevelMetadata};
 use zk_ee::system::Resource;
 use zk_ee::utils::Bytes32;
 
@@ -174,34 +175,45 @@ pub fn address_into_special_storage_key(address: &B160) -> Bytes32 {
 }
 
 #[allow(unused)]
-pub fn mock_oracle() -> ZkEENonDeterminismSource<DummyMemorySource> {
+pub fn mock_oracle() -> (
+    zk_ee::system::metadata::zk_metadata::ZkMetadata,
+    ZkEENonDeterminismSource<DummyMemorySource>,
+) {
     let tree = InMemoryTree::<false> {
         storage_tree: TestingTree::new_in(Global),
         cold_storage: HashMap::new(),
     };
     let init_data = Some(ProofData {
-        state_root_view: FlatStorageCommitment::<
-            { TESTING_TREE_HEIGHT },
-        > {
+        state_root_view: FlatStorageCommitment::<{ TESTING_TREE_HEIGHT }> {
             root: *tree.storage_tree.root(),
             next_free_slot: tree.storage_tree.next_free_slot,
         },
         last_block_timestamp: 0,
     });
 
-    let block_level_metadata = BlockMetadataFromOracle::new_for_test();
+    let block_level = BlockMetadataFromOracle::new_for_test();
+    let tx_level = TxLevelMetadata::default();
 
-    forward_system::run::make_oracle_for_proofs_and_dumps_for_init_data(
-        block_level_metadata,
-        tree,
-        InMemoryPreimageSource {
-            inner: HashMap::new(),
-        },
-        TxListSource {
-            transactions: VecDeque::new(),
-        },
-        init_data,
-        true
+    let system_metadata = SystemMetadata {
+        block_level: block_level.clone(),
+        tx_level: tx_level,
+        _marker: std::marker::PhantomData,
+    };
+
+    (
+        system_metadata,
+        forward_system::run::make_oracle_for_proofs_and_dumps_for_init_data(
+            block_level,
+            tree,
+            InMemoryPreimageSource {
+                inner: HashMap::new(),
+            },
+            TxListSource {
+                transactions: VecDeque::new(),
+            },
+            init_data,
+            true,
+        ),
     )
 }
 
@@ -209,7 +221,10 @@ pub fn mock_oracle() -> ZkEENonDeterminismSource<DummyMemorySource> {
 pub fn mock_oracle_balance(
     address: B160,
     balance: U256,
-) -> ZkEENonDeterminismSource<DummyMemorySource> {
+) -> (
+    zk_ee::system::metadata::zk_metadata::ZkMetadata,
+    ZkEENonDeterminismSource<DummyMemorySource>,
+) {
     let mut tree = InMemoryTree::<false> {
         storage_tree: TestingTree::new_in(Global),
         cold_storage: HashMap::new(),
@@ -233,27 +248,32 @@ pub fn mock_oracle_balance(
         .insert(properties_hash, encoding.to_vec());
 
     let init_data = Some(ProofData {
-        state_root_view: FlatStorageCommitment::<
-            { TESTING_TREE_HEIGHT },
-        > {
+        state_root_view: FlatStorageCommitment::<{ TESTING_TREE_HEIGHT }> {
             root: *tree.storage_tree.root(),
             next_free_slot: tree.storage_tree.next_free_slot,
         },
         last_block_timestamp: 0,
     });
 
-    let block_level_metadata = BlockMetadataFromOracle::new_for_test();
-
-
-    forward_system::run::make_oracle_for_proofs_and_dumps_for_init_data(
-        block_level_metadata,
-        tree,
-        preimage_source,
-        TxListSource {
-            transactions: VecDeque::new(),
-        },
-        init_data,
-        true
+    let block_level = BlockMetadataFromOracle::new_for_test();
+    let tx_level = TxLevelMetadata::default();
+    let system_metadata = SystemMetadata {
+        block_level: block_level.clone(),
+        tx_level: tx_level,
+        _marker: std::marker::PhantomData,
+    };
+    (
+        system_metadata,
+        forward_system::run::make_oracle_for_proofs_and_dumps_for_init_data(
+            block_level,
+            tree,
+            preimage_source,
+            TxListSource {
+                transactions: VecDeque::new(),
+            },
+            init_data,
+            true,
+        ),
     )
 }
 
