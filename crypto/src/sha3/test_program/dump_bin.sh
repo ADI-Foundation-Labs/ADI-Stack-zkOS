@@ -22,3 +22,8 @@ cargo objcopy --release --features keccak_f1600_test -- -O binary --only-section
 cargo objcopy --release --features bad_keccak_f1600_test -- -O binary --only-section=.text app_keccak_bad.text
 cargo objcopy --release --features hash_chain_test -- -O binary --only-section=.text app_keccak_bench.text
 cargo objcopy --release --features mini_digest_test -- -O binary --only-section=.text app_keccak_complex.text
+
+cargo objdump --release --features keccak_f1600_test -- -d >app_keccak_simple.asm
+cargo objdump --release --features bad_keccak_f1600_test -- -d >app_keccak_bad.asm
+cargo objdump --release --features hash_chain_test -- -d >app_keccak_bench.asm
+cargo objdump --release --features mini_digest_test -- -d >app_keccak_complex.asm
