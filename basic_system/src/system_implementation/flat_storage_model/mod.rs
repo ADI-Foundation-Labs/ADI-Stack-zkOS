@@ -66,8 +66,7 @@ pub struct FlatTreeWithAccountsUnderHashesStorageModel<
     SC: StackCtor<M>,
     const M: usize,
     const PROOF_ENV: bool,
->
-{
+> {
     pub(crate) storage_cache: NewStorageWithAccountPropertiesUnderHash<A, SC, M, R, P>,
     pub(crate) preimages_cache: BytecodeAndAccountDataPreimagesStorage<R, A>,
     pub(crate) account_data_cache: NewModelAccountCache<A, R, P, SC, M>,

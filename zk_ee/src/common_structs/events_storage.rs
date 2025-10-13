@@ -54,8 +54,7 @@ pub struct EventsStorage<
     SC: StackCtor<M>,
     const M: usize,
     A: Allocator + Clone = Global,
-> 
-{
+> {
     list: HistoryList<EventContent<N, A>, (), SC, M, A>,
     _marker: core::marker::PhantomData<A>,
 }

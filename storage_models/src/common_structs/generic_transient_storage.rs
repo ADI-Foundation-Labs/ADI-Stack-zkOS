@@ -16,8 +16,7 @@ pub struct GenericTransientStorage<
     SC: StackCtor<M>,
     const M: usize,
     A: Allocator + Clone = Global,
->
-{
+> {
     cache: HistoryMap<K, V, A>,
     pub(crate) current_tx_number: u32,
     phantom: PhantomData<SC>,

@@ -101,8 +101,7 @@ pub struct GenericPubdataAwarePlainStorage<
     const M: usize,
     R: Resources,
     P: StorageAccessPolicy<R, V>,
->
-{
+> {
     pub(crate) cache: HistoryMap<K, CacheRecord<V, StorageElementMetadata>, A>,
     pub(crate) resources_policy: P,
     pub(crate) current_tx_number: TransactionId,

@@ -3,13 +3,7 @@ use core::marker::PhantomData;
 
 use crate::memory::stack_trait::{Stack, StackCtor};
 
-pub struct HistoryList<
-    V,
-    M: Clone,
-    SC: StackCtor<N>,
-    const N: usize,
-    A: Allocator + Clone = Global,
->
+pub struct HistoryList<V, M: Clone, SC: StackCtor<N>, const N: usize, A: Allocator + Clone = Global>
 {
     list: SC::Stack<(V, M), N, A>,
     _phantom: PhantomData<A>,

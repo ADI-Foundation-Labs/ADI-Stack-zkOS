@@ -64,8 +64,7 @@ pub struct NewModelAccountCache<
     P: StorageAccessPolicy<R, Bytes32>,
     SC: StackCtor<M>,
     const M: usize,
->
-{
+> {
     pub(crate) cache:
         HistoryMap<BitsOrd160, CacheRecord<AccountProperties, AccountPropertiesMetadata>, A>,
     pub(crate) current_tx_number: u32,

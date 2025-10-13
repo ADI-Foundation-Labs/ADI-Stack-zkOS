@@ -158,16 +158,13 @@ impl<IOTypes: SystemIOTypesConfig, A: Allocator> GenericLogContent<IOTypes, A> {
 #[allow(type_alias_bounds)]
 pub type LogContent<A: Allocator = Global> = GenericLogContent<EthereumIOTypesConfig, A>;
 
-pub struct LogsStorage<SC: StackCtor<M>, const M: usize, A: Allocator + Clone = Global>
-{
+pub struct LogsStorage<SC: StackCtor<M>, const M: usize, A: Allocator + Clone = Global> {
     list: HistoryList<LogContent<A>, u32, SC, M, A>,
     pubdata_used_by_committed_logs: u32,
     _marker: core::marker::PhantomData<A>,
 }
 
-impl<SC: StackCtor<M>, const M: usize, A: Allocator + Clone + Default>
-    LogsStorage<SC, M, A>
-{
+impl<SC: StackCtor<M>, const M: usize, A: Allocator + Clone + Default> LogsStorage<SC, M, A> {
     pub fn new_from_parts(allocator: A) -> Self {
         Self {
             list: HistoryList::new(allocator),

@@ -43,8 +43,7 @@ pub struct FullIO<
     const M: usize,
     O: IOOracle,
     const PROOF_ENV: bool,
->
-{
+> {
     pub(crate) storage: FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, M, PROOF_ENV>,
     pub(crate) transient_storage: GenericTransientStorage<WarmStorageKey, Bytes32, SC, M, A>,
     pub(crate) logs_storage: LogsStorage<SC, M, A>,
