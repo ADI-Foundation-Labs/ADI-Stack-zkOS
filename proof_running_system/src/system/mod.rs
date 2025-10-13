@@ -7,7 +7,7 @@ use basic_system::system_functions::NoStdSystemFunctions;
 use basic_system::system_implementation::system::EthereumLikeStorageAccessCostModel;
 use basic_system::system_implementation::system::FullIO;
 use stack_trait::StackCtor;
-use zk_ee::memory::skip_list_quasi_vec::ListVec;
+use zk_ee::common_structs::skip_list_quasi_vec::ListVec;
 use zk_ee::memory::*;
 use zk_ee::oracle::IOOracle;
 use zk_ee::reference_implementations::BaseResources;

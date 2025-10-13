@@ -52,7 +52,7 @@ impl<T: Sized, const N: usize, A: Allocator + Clone> ListVec<T, N, A> {
     }
 }
 
-impl<T: Sized, const N: usize, A: Allocator + Clone> super::stack_trait::Stack<T, A>
+impl<T: Sized, const N: usize, A: Allocator + Clone> crate::memory::stack_trait::Stack<T, A>
     for ListVec<T, N, A>
 {
     fn new_in(alloc: A) -> Self {
