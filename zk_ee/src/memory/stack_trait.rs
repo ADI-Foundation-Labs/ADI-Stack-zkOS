@@ -52,7 +52,6 @@ pub trait Stack<T: Sized, A: Allocator> {
     /// This provides efficient rollback functionality by removing elements
     /// from the top of the stack until the desired length is reached.
     fn truncate(&mut self, new_len: usize) {
-        // TODO: should we move it to implementations? In some cases we can truncate withou pop()
         if new_len < self.len() {
             let num_iterations = self.len() - new_len;
             for _ in 0..num_iterations {
