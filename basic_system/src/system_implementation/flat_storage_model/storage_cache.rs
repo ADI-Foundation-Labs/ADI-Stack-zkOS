@@ -107,7 +107,7 @@ pub struct GenericPubdataAwarePlainStorage<
     pub(crate) current_tx_number: TransactionId,
     pub(crate) initial_values: BTreeMap<K, (V, TransactionId), A>, // Used to cache initial values at the beginning of the tx (For EVM gas model)
     #[cfg(feature = "evm_refunds")]
-    pub(crate) evm_refunds_counter: HistoryCounter<u32, SC, A>, // Used to keep track of EVM gas refunds
+    pub(crate) evm_refunds_counter: HistoryCounter<u32, SC, M, A>, // Used to keep track of EVM gas refunds
     alloc: A,
     pub(crate) _marker: core::marker::PhantomData<(R, SC)>,
 }

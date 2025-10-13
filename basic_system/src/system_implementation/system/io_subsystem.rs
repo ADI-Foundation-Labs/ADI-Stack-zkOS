@@ -589,8 +589,6 @@ impl<
         const M: usize,
         O: IOOracle,
     > FinishIO for FullIO<A, R, P, SC, M, O, true>
-where
-    ExtraCheck<M, A>:,
 {
     type FinalData = (O, Bytes32);
     fn finish(
@@ -724,8 +722,6 @@ impl<
         const M: usize,
         O: IOOracle,
     > FinishIO for FullIO<A, R, P, SC, M, O, true>
-where
-    ExtraCheck<M, A>:,
 {
     type FinalData = (
         FullIO<A, R, P, SC, M, O, true>,
@@ -757,7 +753,6 @@ impl<
         const PROOF_ENV: bool,
     > FullIO<A, R, P, SC, M, O, PROOF_ENV>
 where
-    ExtraCheck<M, A>:,
     Self: FinishIO,
 {
     pub fn apply_to_batch(
