@@ -110,3 +110,256 @@ impl<T: Sized, const N: usize, A: Allocator + Clone> Stack<T, A> for ListVec<T, 
     // TODO: implement customized iter_skip_n for better performance
     // TODO: optimized truncate?
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::common_structs::skip_list_quasi_vec::ListVec;
+    use alloc::alloc::Global;
+    use alloc::vec::Vec;
+
+    type TestStack = ListVec<i32, 3, Global>; // Node capacity of 3 for easy testing
+
+    #[test]
+    fn test_within_single_node() {
+        let mut stack = TestStack::new_in(Global);
+
+        // Fill up one node (capacity 3)
+        stack.push(1);
+        stack.push(2);
+        stack.push(3);
+
+        assert_eq!(stack.len(), 3);
+        assert_eq!(stack.top(), Some(&3));
+
+        // Pop elements in LIFO order
+        assert_eq!(stack.pop(), Some(3));
+        assert_eq!(stack.len(), 2);
+        assert_eq!(stack.top(), Some(&2));
+
+        assert_eq!(stack.pop(), Some(2));
+        assert_eq!(stack.len(), 1);
+        assert_eq!(stack.top(), Some(&1));
+
+        assert_eq!(stack.pop(), Some(1));
+        assert_eq!(stack.len(), 0);
+        assert_eq!(stack.top(), None);
+    }
+
+    #[test]
+    fn test_multiple_nodes() {
+        let mut stack = TestStack::new_in(Global);
+
+        // Push elements across multiple nodes
+        for i in 1..=10 {
+            stack.push(i);
+        }
+
+        assert_eq!(stack.len(), 10);
+        assert_eq!(stack.top(), Some(&10));
+
+        // Should have created 4 nodes: [1,2,3], [4,5,6], [7,8,9], [10]
+        assert_eq!(stack.0.len(), 4);
+
+        // Pop all elements and verify LIFO order
+        for expected in (1..=10).rev() {
+            assert_eq!(stack.pop(), Some(expected));
+        }
+
+        assert_eq!(stack.len(), 0);
+        assert!(stack.is_empty());
+        // All nodes should be cleaned up
+        assert_eq!(stack.0.len(), 0);
+    }
+
+    #[test]
+    fn test_node_cleanup_invariant() {
+        let mut stack = TestStack::new_in(Global);
+
+        // Fill exactly one node
+        stack.push(1);
+        stack.push(2);
+        stack.push(3);
+        assert_eq!(stack.0.len(), 1);
+
+        // Add one more to create second node
+        stack.push(4);
+        assert_eq!(stack.0.len(), 2);
+
+        // Pop the last element - second node should be removed
+        assert_eq!(stack.pop(), Some(4));
+        assert_eq!(stack.0.len(), 1);
+
+        // First node should still have 3 elements
+        assert_eq!(stack.len(), 3);
+        assert_eq!(stack.top(), Some(&3));
+    }
+
+    #[test]
+    fn test_top_mut() {
+        let mut stack = TestStack::new_in(Global);
+        assert_eq!(stack.top_mut(), None);
+
+        stack.push(10);
+        assert_eq!(stack.top_mut(), Some(&mut 10));
+
+        // Modify through mutable reference
+        if let Some(top) = stack.top_mut() {
+            *top = 99;
+        }
+
+        assert_eq!(stack.top(), Some(&99));
+        assert_eq!(stack.pop(), Some(99));
+    }
+
+    #[test]
+    fn test_clear() {
+        let mut stack = TestStack::new_in(Global);
+
+        // Add elements across multiple nodes
+        for i in 1..=10 {
+            stack.push(i);
+        }
+
+        assert_eq!(stack.len(), 10);
+        assert_eq!(stack.0.len(), 4);
+
+        stack.clear();
+
+        assert_eq!(stack.len(), 0);
+        assert!(stack.is_empty());
+        assert_eq!(stack.0.len(), 0);
+        assert_eq!(stack.top(), None);
+    }
+
+    #[test]
+    fn test_truncate() {
+        let mut stack = TestStack::new_in(Global);
+
+        // Add 10 elements
+        for i in 1..=10 {
+            stack.push(i);
+        }
+
+        assert_eq!(stack.len(), 10);
+
+        // Truncate to 7 elements
+        stack.truncate(7);
+        assert_eq!(stack.len(), 7);
+        assert_eq!(stack.top(), Some(&7));
+
+        // Should have 3 nodes now: [1,2,3], [4,5,6], [7]
+        assert_eq!(stack.0.len(), 3);
+
+        // Truncate to 3 elements (exactly one node)
+        stack.truncate(3);
+        assert_eq!(stack.len(), 3);
+        assert_eq!(stack.top(), Some(&3));
+        assert_eq!(stack.0.len(), 1);
+
+        // Truncate to 0
+        stack.truncate(0);
+        assert_eq!(stack.len(), 0);
+        assert!(stack.is_empty());
+        assert_eq!(stack.0.len(), 0);
+    }
+
+    #[test]
+    fn test_truncate_no_op() {
+        let mut stack = TestStack::new_in(Global);
+
+        for i in 1..=5 {
+            stack.push(i);
+        }
+
+        let original_len = stack.len();
+
+        // Truncate to same length should be no-op
+        stack.truncate(5);
+        assert_eq!(stack.len(), original_len);
+        assert_eq!(stack.top(), Some(&5));
+
+        // Truncate to larger length should be no-op
+        stack.truncate(10);
+        assert_eq!(stack.len(), original_len);
+        assert_eq!(stack.top(), Some(&5));
+    }
+
+    #[test]
+    fn test_iterator_empty() {
+        let stack = TestStack::new_in(Global);
+        let mut iter = stack.iter();
+
+        assert_eq!(iter.len(), 0);
+        assert_eq!(iter.next(), None);
+    }
+
+    #[test]
+    fn test_iterator_single_node() {
+        let mut stack = TestStack::new_in(Global);
+        stack.push(1);
+        stack.push(2);
+        stack.push(3);
+
+        let collected: Vec<&i32> = stack.iter().collect();
+        assert_eq!(collected, vec![&1, &2, &3]);
+
+        // Test exact size iterator
+        let iter = stack.iter();
+        assert_eq!(iter.len(), 3);
+    }
+
+    #[test]
+    fn test_iterator_multiple_nodes() {
+        let mut stack = TestStack::new_in(Global);
+
+        // Add elements across multiple nodes
+        for i in 1..=7 {
+            stack.push(i);
+        }
+
+        let collected: Vec<&i32> = stack.iter().collect();
+        let expected_values: Vec<i32> = (1..=7).collect();
+        let expected: Vec<&i32> = expected_values.iter().collect();
+        assert_eq!(collected, expected);
+
+        // Test exact size iterator
+        let iter = stack.iter();
+        assert_eq!(iter.len(), 7);
+    }
+
+    #[test]
+    fn test_iterator_skip_n() {
+        let mut stack = TestStack::new_in(Global);
+
+        for i in 1..=10 {
+            stack.push(i);
+        }
+
+        let collected: Vec<&i32> = stack.iter_skip_n(3).collect();
+        let expected_values: Vec<i32> = (4..=10).collect();
+        let expected: Vec<&i32> = expected_values.iter().collect();
+        assert_eq!(collected, expected);
+
+        // Test exact size after skip
+        let iter = stack.iter_skip_n(3);
+        assert_eq!(iter.len(), 7);
+    }
+
+    #[test]
+    fn test_iterator_clone() {
+        let mut stack = TestStack::new_in(Global);
+        stack.push(1);
+        stack.push(2);
+        stack.push(3);
+
+        let iter1 = stack.iter();
+        let iter2 = iter1.clone();
+
+        let collected1: Vec<&i32> = iter1.collect();
+        let collected2: Vec<&i32> = iter2.collect();
+
+        assert_eq!(collected1, collected2);
+        assert_eq!(collected1, vec![&1, &2, &3]);
+    }
+}
