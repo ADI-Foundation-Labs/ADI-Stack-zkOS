@@ -9,7 +9,7 @@ use crate::{
 /// Stack implementation using a skip list structure.
 ///
 /// This implementation stores elements in fixed-size nodes (ArrayVec<T, N>) organized
-/// as a deque of nodes.
+/// as a list of nodes.
 impl<T: Sized, const N: usize, A: Allocator + Clone> Stack<T, A> for ListVec<T, N, A> {
     fn new_in(alloc: A) -> Self {
         ListVec::<T, N, A>::new_in(alloc)
@@ -56,7 +56,7 @@ impl<T: Sized, const N: usize, A: Allocator + Clone> Stack<T, A> for ListVec<T, 
         match self.0.iter_mut().last() {
             None => None, // Stack is empty
             Some(last_node) => {
-                // Safety: By invariant, nodes in the deque are never empty
+                // Safety: By invariant, nodes in the list are never empty
                 let x = unsafe { last_node.pop().unwrap_unchecked() };
 
                 if last_node.is_empty() {
@@ -73,7 +73,7 @@ impl<T: Sized, const N: usize, A: Allocator + Clone> Stack<T, A> for ListVec<T, 
         match self.0.iter().last() {
             None => None, // Stack is empty
             Some(last_node) => {
-                // Safety: By invariant, nodes in the deque are never empty
+                // Safety: By invariant, nodes in the list are never empty
                 let x = unsafe { last_node.last().unwrap_unchecked() };
                 Some(x)
             }
@@ -85,7 +85,7 @@ impl<T: Sized, const N: usize, A: Allocator + Clone> Stack<T, A> for ListVec<T, 
         match self.0.iter_mut().last() {
             None => None, // Stack is empty
             Some(last_node) => {
-                // Safety: By invariant, nodes in the deque are never empty
+                // Safety: By invariant, nodes in the list are never empty
                 let x = unsafe { last_node.last_mut().unwrap_unchecked() };
                 Some(x)
             }
