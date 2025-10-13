@@ -4,24 +4,11 @@ use core::alloc::Allocator;
 ///
 /// A stack constructor. Abstracts over the creation of `Stack<T, A>` trait instance.
 ///
-#[const_trait]
-pub trait StackCtor<C: const StackCtorConst> {
+pub trait StackCtor<const N: usize> {
     /// Adds an extra constant parameter, used for the skip list implementation
-    type Stack<T: Sized, const N: usize, A: Allocator + Clone>: Stack<T, A>;
+    type Stack<T: Sized, const M: usize, A: Allocator + Clone>: Stack<T, A>;
 
-    fn new_in<T, A: Allocator + Clone>(
-        alloc: A,
-    ) -> Self::Stack<T, { C::extra_const_param::<T, A>() }, A>
-    where
-        [(); C::extra_const_param::<T, A>()]:;
-}
-
-///
-/// A constant trait counterpart for the `StackCtor`.
-///
-#[const_trait]
-pub trait StackCtorConst {
-    fn extra_const_param<T, A: Allocator>() -> usize;
+    fn new_in<T, A: Allocator + Clone>(alloc: A) -> Self::Stack<T, N, A>;
 }
 
 ///
@@ -33,13 +20,10 @@ pub trait Stack<T: Sized, A: Allocator> {
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-    fn push(&mut self, value: T) {
-        self.try_push(value).expect("must be able to push");
-    }
+    fn push(&mut self, value: T);
     fn pop(&mut self) -> Option<T>;
     fn top(&self) -> Option<&T>;
     fn top_mut(&mut self) -> Option<&mut T>;
-    fn try_push(&mut self, value: T) -> Result<(), ()>;
     fn clear(&mut self);
     fn truncate(&mut self, new_len: usize) {
         if new_len < self.len() {
@@ -49,9 +33,15 @@ pub trait Stack<T: Sized, A: Allocator> {
             }
         }
     }
-    fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T>
+    fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T> + Clone
     where
         T: 'a;
+    fn iter_skip_n<'a>(&'a self, n: usize) -> impl ExactSizeIterator<Item = &'a T> + Clone
+    where
+        T: 'a,
+    {
+        self.iter().skip(n)
+    }
 }
 
 impl<T: Sized, A: Allocator> Stack<T, A> for Vec<T, A> {
@@ -74,40 +64,32 @@ impl<T: Sized, A: Allocator> Stack<T, A> for Vec<T, A> {
     fn top_mut(&mut self) -> Option<&mut T> {
         self.last_mut()
     }
-    fn try_push(&mut self, value: T) -> Result<(), ()> {
-        Vec::push_within_capacity(self, value).map_err(|_| ())
-    }
     fn clear(&mut self) {
         Vec::clear(self)
     }
     fn truncate(&mut self, new_len: usize) {
         Vec::truncate(self, new_len);
     }
-    fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T>
+    fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T> + Clone
     where
         T: 'a,
     {
         self[..].iter()
     }
+    fn iter_skip_n<'a>(&'a self, n: usize) -> impl ExactSizeIterator<Item = &'a T> + Clone
+    where
+        T: 'a,
+    {
+        self[n..].iter()
+    }
 }
 
 pub struct VecStackCtor {}
 
-impl StackCtor<VecStackCtor> for VecStackCtor {
+impl<const M: usize> StackCtor<M> for VecStackCtor {
     type Stack<T: Sized, const N: usize, A: Allocator + Clone> = Vec<T, A>;
 
-    fn new_in<T, A: Allocator + Clone>(
-        alloc: A,
-    ) -> Self::Stack<T, { <VecStackCtor>::extra_const_param::<T, A>() }, A>
-    where
-        [(); <VecStackCtor>::extra_const_param::<T, A>()]:,
-    {
-        Self::Stack::<T, { <VecStackCtor>::extra_const_param::<T, A>() }, A>::new_in(alloc)
-    }
-}
-
-impl const StackCtorConst for VecStackCtor {
-    fn extra_const_param<T, A: Allocator>() -> usize {
-        0
+    fn new_in<T, A: Allocator + Clone>(alloc: A) -> Self::Stack<T, M, A> {
+        Self::Stack::<T, M, A>::new_in(alloc)
     }
 }

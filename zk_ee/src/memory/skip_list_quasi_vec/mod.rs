@@ -2,7 +2,7 @@
 
 use alloc::collections::LinkedList;
 use arrayvec::ArrayVec;
-use core::{alloc::Allocator, ptr::NonNull};
+use core::alloc::Allocator;
 
 pub const PAGE_SIZE: usize = 4096;
 
@@ -11,7 +11,22 @@ pub const PAGE_SIZE: usize = 4096;
 // - all elements in the list except for the last are full
 pub struct ListVec<T: Sized, const N: usize, A: Allocator>(LinkedList<ArrayVec<T, N>, A>);
 
-pub const fn num_elements_in_backing_node<T: Sized, A: Allocator>() -> usize {
+impl<T: Sized, const N: usize, A: Allocator> core::fmt::Debug for ListVec<T, N, A>
+where
+    T: core::fmt::Debug,
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("ListVec").field(&self.0).finish()
+    }
+}
+
+pub const fn num_elements_in_backing_node<
+    const PAGE_SIZE: usize,
+    T: Sized,
+    A: core::alloc::Allocator,
+>() -> usize {
+    use core::ptr::NonNull;
+
     // Size of the two pointers for a linked list node
     // plus the ArrayVec overhead
     let mut min_consumed = core::mem::size_of::<Option<NonNull<()>>>()
@@ -19,7 +34,7 @@ pub const fn num_elements_in_backing_node<T: Sized, A: Allocator>() -> usize {
         + core::mem::size_of::<ArrayVec<T, 0>>();
     let size = core::mem::size_of::<T>();
     let alignment = core::mem::align_of::<T>();
-    if min_consumed % alignment != 0 {
+    if !min_consumed.is_multiple_of(alignment) {
         // align up
         min_consumed += alignment - (min_consumed % alignment);
     }
@@ -37,21 +52,14 @@ impl<T: Sized, const N: usize, A: Allocator + Clone> ListVec<T, N, A> {
     }
 }
 
-impl<T: Sized, const N: usize, A: Allocator + Clone> zk_ee::memory::stack_trait::Stack<T, A>
+impl<T: Sized, const N: usize, A: Allocator + Clone> super::stack_trait::Stack<T, A>
     for ListVec<T, N, A>
 {
     fn new_in(alloc: A) -> Self {
         ListVec::<T, N, A>::new_in(alloc)
     }
 
-    fn len(&self) -> usize {
-        match self.0.iter().last() {
-            None => 0,
-            Some(last_node) => last_node.len() + (self.0.len() - 1) * N,
-        }
-    }
-
-    fn try_push(&mut self, value: T) -> Result<(), ()> {
+    fn push(&mut self, value: T) {
         match self.0.iter_mut().last() {
             None => {
                 // Empty, create a new node and push there
@@ -72,7 +80,13 @@ impl<T: Sized, const N: usize, A: Allocator + Clone> zk_ee::memory::stack_trait:
                 }
             }
         }
-        Ok(())
+    }
+
+    fn len(&self) -> usize {
+        match self.0.iter().last() {
+            None => 0,
+            Some(last_node) => last_node.len() + (self.0.len() - 1) * N,
+        }
     }
 
     fn pop(&mut self) -> Option<T> {
@@ -116,7 +130,7 @@ impl<T: Sized, const N: usize, A: Allocator + Clone> zk_ee::memory::stack_trait:
         self.0.clear()
     }
 
-    fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T>
+    fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T> + Clone
     where
         T: 'a,
     {
@@ -128,6 +142,8 @@ impl<T: Sized, const N: usize, A: Allocator + Clone> zk_ee::memory::stack_trait:
             remaining: self.len(),
         }
     }
+
+    // TODO: implement customized iter_skip_n
 }
 
 // Invariants:
@@ -137,6 +153,16 @@ pub struct ListVecIter<'a, T: Sized, const N: usize> {
     outer: alloc::collections::linked_list::Iter<'a, ArrayVec<T, N>>,
     inner: Option<core::slice::Iter<'a, T>>,
     remaining: usize,
+}
+
+impl<'a, T: Sized, const N: usize> Clone for ListVecIter<'a, T, N> {
+    fn clone(&self) -> Self {
+        Self {
+            outer: self.outer.clone(),
+            inner: self.inner.clone(),
+            remaining: self.remaining,
+        }
+    }
 }
 
 impl<'a, T: Sized, const N: usize> Iterator for ListVecIter<'a, T, N> {

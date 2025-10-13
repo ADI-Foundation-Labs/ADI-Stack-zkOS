@@ -15,6 +15,7 @@ categories.workspace = true
 ruint = { version = "1.12.3", default-features = false, features = ["alloc"] }
 cfg-if = "*"
 crypto = { path = "../crypto", default-features = false }
+cc-traits = { path = "../supporting_crates/cc-traits/", default-features = false, features = ["allocator_api"] }
 arrayvec = { version = "0.7.4", default-features = false }
 bitflags = { version = "2.6.0", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true }

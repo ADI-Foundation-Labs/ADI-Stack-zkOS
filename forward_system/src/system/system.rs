@@ -31,7 +31,7 @@ impl<O: IOOracle> SystemTypes for ForwardSystemTypes<O> {
         Self::Resources,
         EthereumLikeStorageAccessCostModel,
         VecStackCtor,
-        VecStackCtor,
+        0,
         O,
         false,
     >;
