@@ -9,7 +9,7 @@ pub const PAGE_SIZE: usize = 4096;
 // Invariants:
 // - last element in list is never an empty array
 // - all elements in the list except for the last are full
-pub struct ListVec<T: Sized, const N: usize, A: Allocator>(LinkedList<ArrayVec<T, N>, A>);
+pub struct ListVec<T: Sized, const N: usize, A: Allocator>(pub LinkedList<ArrayVec<T, N>, A>);
 
 impl<T: Sized, const N: usize, A: Allocator> core::fmt::Debug for ListVec<T, N, A>
 where
@@ -52,100 +52,6 @@ impl<T: Sized, const N: usize, A: Allocator + Clone> ListVec<T, N, A> {
     }
 }
 
-impl<T: Sized, const N: usize, A: Allocator + Clone> crate::memory::stack_trait::Stack<T, A>
-    for ListVec<T, N, A>
-{
-    fn new_in(alloc: A) -> Self {
-        ListVec::<T, N, A>::new_in(alloc)
-    }
-
-    fn push(&mut self, value: T) {
-        match self.0.iter_mut().last() {
-            None => {
-                // Empty, create a new node and push there
-                let mut new_node: ArrayVec<T, N> = ArrayVec::new();
-                new_node.push(value);
-                self.0.push_back(new_node)
-            }
-            Some(last_node) => {
-                // Check if last node is full
-                if last_node.is_full() {
-                    // Push to new node
-                    let mut new_node: ArrayVec<T, N> = ArrayVec::new();
-                    new_node.push(value);
-                    self.0.push_back(new_node)
-                } else {
-                    // Push to current node
-                    last_node.push(value)
-                }
-            }
-        }
-    }
-
-    fn len(&self) -> usize {
-        match self.0.iter().last() {
-            None => 0,
-            Some(last_node) => last_node.len() + (self.0.len() - 1) * N,
-        }
-    }
-
-    fn pop(&mut self) -> Option<T> {
-        match self.0.iter_mut().last() {
-            None => None,
-            Some(last_node) => {
-                // Safety: nodes are never empty, per invariant
-                let x = unsafe { last_node.pop().unwrap_unchecked() };
-                if last_node.is_empty() {
-                    // Need to pop last node
-                    self.0.pop_back();
-                }
-                Some(x)
-            }
-        }
-    }
-
-    fn top(&self) -> Option<&T> {
-        match self.0.iter().last() {
-            None => None,
-            Some(last_node) => {
-                // Safety: nodes are never empty, per invariant
-                let x = unsafe { last_node.last().unwrap_unchecked() };
-                Some(x)
-            }
-        }
-    }
-
-    fn top_mut(&mut self) -> Option<&mut T> {
-        match self.0.iter_mut().last() {
-            None => None,
-            Some(last_node) => {
-                // Safety: nodes are never empty, per invariant
-                let x = unsafe { last_node.last_mut().unwrap_unchecked() };
-                Some(x)
-            }
-        }
-    }
-
-    fn clear(&mut self) {
-        self.0.clear()
-    }
-
-    fn iter<'a>(&'a self) -> impl ExactSizeIterator<Item = &'a T> + Clone
-    where
-        T: 'a,
-    {
-        let mut outer = self.0.iter();
-        let inner = outer.next().map(|first| first.iter());
-        ListVecIter {
-            outer,
-            inner,
-            remaining: self.len(),
-        }
-    }
-
-    // TODO: implement customized iter_skip_n
-}
-
 // Invariants:
 // - inner is only none if outer is empty
 // - If inner is Some, the iterator is never empty
@@ -161,6 +67,20 @@ impl<'a, T: Sized, const N: usize> Clone for ListVecIter<'a, T, N> {
             outer: self.outer.clone(),
             inner: self.inner.clone(),
             remaining: self.remaining,
+        }
+    }
+}
+
+impl<'a, T: Sized, const N: usize> ListVecIter<'a, T, N> {
+    pub fn new_from_parts(
+        outer: alloc::collections::linked_list::Iter<'a, ArrayVec<T, N>>,
+        inner: Option<core::slice::Iter<'a, T>>,
+        remaining: usize,
+    ) -> Self {
+        Self {
+            outer,
+            inner,
+            remaining,
         }
     }
 }

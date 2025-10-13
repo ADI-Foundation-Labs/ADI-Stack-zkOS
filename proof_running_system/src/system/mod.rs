@@ -6,7 +6,7 @@ use basic_bootloader::bootloader::BasicBootloader;
 use basic_system::system_functions::NoStdSystemFunctions;
 use basic_system::system_implementation::system::EthereumLikeStorageAccessCostModel;
 use basic_system::system_implementation::system::FullIO;
-use stack_trait::StackCtor;
+use stack_trait::StackFactory;
 use zk_ee::common_structs::skip_list_quasi_vec::ListVec;
 use zk_ee::memory::*;
 use zk_ee::oracle::IOOracle;
@@ -16,9 +16,9 @@ use zk_ee::types_config::EthereumIOTypesConfig;
 
 pub mod bootloader;
 
-pub struct LVStackCtor {}
+pub struct LVStackFactory {}
 
-impl StackCtor<32> for LVStackCtor {
+impl StackFactory<32> for LVStackFactory {
     type Stack<T: Sized, const N: usize, A: Allocator + Clone> = ListVec<T, N, A>;
 
     fn new_in<T, A: Allocator + Clone>(alloc: A) -> Self::Stack<T, 32, A> {
@@ -37,7 +37,7 @@ impl<O: IOOracle, L: Logger + Default> SystemTypes for ProofRunningSystemTypes<O
         Self::Allocator,
         Self::Resources,
         EthereumLikeStorageAccessCostModel,
-        LVStackCtor,
+        LVStackFactory,
         32,
         O,
         true,

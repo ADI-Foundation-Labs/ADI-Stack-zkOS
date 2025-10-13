@@ -39,15 +39,15 @@ pub struct FullIO<
     A: Allocator + Clone + Default,
     R: Resources,
     P: StorageAccessPolicy<R, Bytes32>,
-    SC: StackCtor<M>,
+    SF: StackFactory<M>,
     const M: usize,
     O: IOOracle,
     const PROOF_ENV: bool,
 > {
-    pub(crate) storage: FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, M, PROOF_ENV>,
-    pub(crate) transient_storage: GenericTransientStorage<WarmStorageKey, Bytes32, SC, M, A>,
-    pub(crate) logs_storage: LogsStorage<SC, M, A>,
-    pub(crate) events_storage: EventsStorage<MAX_EVENT_TOPICS, SC, M, A>,
+    pub(crate) storage: FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SF, M, PROOF_ENV>,
+    pub(crate) transient_storage: GenericTransientStorage<WarmStorageKey, Bytes32, SF, M, A>,
+    pub(crate) logs_storage: LogsStorage<SF, M, A>,
+    pub(crate) events_storage: EventsStorage<MAX_EVENT_TOPICS, SF, M, A>,
     pub(crate) allocator: A,
     pub(crate) oracle: O,
     pub(crate) tx_number: u32,
@@ -64,11 +64,11 @@ impl<
         A: Allocator + Clone + Default,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32>,
-        SC: StackCtor<M>,
+        SF: StackFactory<M>,
         const M: usize,
         O: IOOracle,
         const PROOF_ENV: bool,
-    > IOSubsystem for FullIO<A, R, P, SC, M, O, PROOF_ENV>
+    > IOSubsystem for FullIO<A, R, P, SF, M, O, PROOF_ENV>
 {
     type IOTypes = EthereumIOTypesConfig;
     type Resources = R;
@@ -438,10 +438,10 @@ impl<
         A: Allocator + Clone + Default,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32> + Default,
-        SC: StackCtor<M>,
+        SF: StackFactory<M>,
         const M: usize,
         O: IOOracle,
-    > FinishIO for FullIO<A, R, P, SC, M, O, false>
+    > FinishIO for FullIO<A, R, P, SF, M, O, false>
 {
     type FinalData = O;
     fn finish(
@@ -482,10 +482,10 @@ impl<
         A: Allocator + Clone + Default,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32> + Default,
-        SC: StackCtor<M>,
+        SF: StackFactory<M>,
         const M: usize,
         O: IOOracle,
-    > FinishIO for FullIO<A, R, P, SC, M, O, true>
+    > FinishIO for FullIO<A, R, P, SF, M, O, true>
 {
     type FinalData = (O, Bytes32);
     fn finish(
@@ -585,10 +585,10 @@ impl<
         A: Allocator + Clone + Default,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32> + Default,
-        SC: StackCtor<M>,
+        SF: StackFactory<M>,
         const M: usize,
         O: IOOracle,
-    > FinishIO for FullIO<A, R, P, SC, M, O, true>
+    > FinishIO for FullIO<A, R, P, SF, M, O, true>
 {
     type FinalData = (O, Bytes32);
     fn finish(
@@ -718,13 +718,13 @@ impl<
         A: Allocator + Clone + Default,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32> + Default,
-        SC: StackCtor<M>,
+        SF: StackFactory<M>,
         const M: usize,
         O: IOOracle,
-    > FinishIO for FullIO<A, R, P, SC, M, O, true>
+    > FinishIO for FullIO<A, R, P, SF, M, O, true>
 {
     type FinalData = (
-        FullIO<A, R, P, SC, M, O, true>,
+        FullIO<A, R, P, SF, M, O, true>,
         BlockMetadataFromOracle,
         Bytes32,
         Bytes32,
@@ -747,11 +747,11 @@ impl<
         A: Allocator + Clone + Default,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32> + Default,
-        SC: StackCtor<M>,
+        SF: StackFactory<M>,
         const M: usize,
         O: IOOracle,
         const PROOF_ENV: bool,
-    > FullIO<A, R, P, SC, M, O, PROOF_ENV>
+    > FullIO<A, R, P, SF, M, O, PROOF_ENV>
 where
     Self: FinishIO,
 {
@@ -839,11 +839,11 @@ impl<
         A: Allocator + Clone + Default,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32> + Default,
-        SC: StackCtor<M>,
+        SF: StackFactory<M>,
         const M: usize,
         O: IOOracle,
         const PROOF_ENV: bool,
-    > IOSubsystemExt for FullIO<A, R, P, SC, M, O, PROOF_ENV>
+    > IOSubsystemExt for FullIO<A, R, P, SF, M, O, PROOF_ENV>
 where
     Self: FinishIO,
 {
@@ -857,12 +857,12 @@ where
             FlatTreeWithAccountsUnderHashesStorageModel::construct(P::default(), allocator.clone());
 
         let transient_storage =
-            GenericTransientStorage::<WarmStorageKey, Bytes32, SC, M, A>::new_from_parts(
+            GenericTransientStorage::<WarmStorageKey, Bytes32, SF, M, A>::new_from_parts(
                 allocator.clone(),
             );
-        let logs_storage = LogsStorage::<SC, M, A>::new_from_parts(allocator.clone());
+        let logs_storage = LogsStorage::<SF, M, A>::new_from_parts(allocator.clone());
         let events_storage =
-            EventsStorage::<MAX_EVENT_TOPICS, SC, M, A>::new_from_parts(allocator.clone());
+            EventsStorage::<MAX_EVENT_TOPICS, SF, M, A>::new_from_parts(allocator.clone());
 
         let new = Self {
             storage,
@@ -1129,10 +1129,10 @@ impl<
         A: Allocator + Clone + Default,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32>,
-        SC: StackCtor<M>,
+        SF: StackFactory<M>,
         const M: usize,
         O: IOOracle,
         const PROOF_ENV: bool,
-    > EthereumLikeIOSubsystem for FullIO<A, R, P, SC, M, O, PROOF_ENV>
+    > EthereumLikeIOSubsystem for FullIO<A, R, P, SF, M, O, PROOF_ENV>
 {
 }

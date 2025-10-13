@@ -7,29 +7,29 @@ use zk_ee::common_traits::key_like_with_bounds::KeyLikeWithBounds;
 use zk_ee::system::errors::{internal::InternalError, system::SystemError};
 use zk_ee::{
     common_structs::history_map::{CacheSnapshotId, HistoryMap},
-    memory::stack_trait::StackCtor,
+    memory::stack_trait::StackFactory,
 };
 
 pub struct GenericTransientStorage<
     K: KeyLikeWithBounds,
     V: Clone,
-    SC: StackCtor<M>,
+    SF: StackFactory<M>,
     const M: usize,
     A: Allocator + Clone = Global,
 > {
     cache: HistoryMap<K, V, A>,
     pub(crate) current_tx_number: u32,
-    phantom: PhantomData<SC>,
+    phantom: PhantomData<SF>,
     alloc: A,
 }
 
 impl<
         K: KeyLikeWithBounds,
         V: Clone + Default,
-        SC: StackCtor<M>,
+        SF: StackFactory<M>,
         const M: usize,
         A: Allocator + Clone,
-    > GenericTransientStorage<K, V, SC, M, A>
+    > GenericTransientStorage<K, V, SF, M, A>
 {
     pub fn new_from_parts(allocator: A) -> Self {
         Self {

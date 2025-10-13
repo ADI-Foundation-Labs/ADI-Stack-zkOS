@@ -1,20 +1,25 @@
 use alloc::alloc::{Allocator, Global};
 use core::marker::PhantomData;
 
-use crate::memory::stack_trait::{Stack, StackCtor};
+use crate::memory::stack_trait::{Stack, StackFactory};
 
-pub struct HistoryList<V, M: Clone, SC: StackCtor<N>, const N: usize, A: Allocator + Clone = Global>
-{
-    list: SC::Stack<(V, M), N, A>,
+pub struct HistoryList<
+    V,
+    M: Clone,
+    SF: StackFactory<N>,
+    const N: usize,
+    A: Allocator + Clone = Global,
+> {
+    list: SF::Stack<(V, M), N, A>,
     _phantom: PhantomData<A>,
 }
 
-impl<V, M: Clone, SC: StackCtor<N>, const N: usize, A: Allocator + Clone>
-    HistoryList<V, M, SC, N, A>
+impl<V, M: Clone, SF: StackFactory<N>, const N: usize, A: Allocator + Clone>
+    HistoryList<V, M, SF, N, A>
 {
     pub fn new(alloc: A) -> Self {
         Self {
-            list: SC::Stack::new_in(alloc),
+            list: SF::Stack::new_in(alloc),
             _phantom: PhantomData,
         }
     }

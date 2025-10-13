@@ -34,7 +34,7 @@ use zk_ee::{
         history_map::CacheSnapshotId, state_root_view::StateRootView, WarmStorageKey,
     },
     execution_environment_type::ExecutionEnvironmentType,
-    memory::stack_trait::StackCtor,
+    memory::stack_trait::StackFactory,
     oracle::IOOracle,
     system::{
         errors::system::SystemError, logger::Logger, AccountData, AccountDataRequest,
@@ -63,13 +63,13 @@ pub struct FlatTreeWithAccountsUnderHashesStorageModel<
     A: Allocator + Clone,
     R: Resources,
     P: StorageAccessPolicy<R, Bytes32>,
-    SC: StackCtor<M>,
+    SF: StackFactory<M>,
     const M: usize,
     const PROOF_ENV: bool,
 > {
-    pub(crate) storage_cache: NewStorageWithAccountPropertiesUnderHash<A, SC, M, R, P>,
+    pub(crate) storage_cache: NewStorageWithAccountPropertiesUnderHash<A, SF, M, R, P>,
     pub(crate) preimages_cache: BytecodeAndAccountDataPreimagesStorage<R, A>,
-    pub(crate) account_data_cache: NewModelAccountCache<A, R, P, SC, M>,
+    pub(crate) account_data_cache: NewModelAccountCache<A, R, P, SF, M>,
     pub(crate) allocator: A,
 }
 
@@ -83,10 +83,10 @@ impl<
         A: Allocator + Clone + Default,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32>,
-        SC: StackCtor<M>,
+        SF: StackFactory<M>,
         const M: usize,
         const PROOF_ENV: bool,
-    > StorageModel for FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, M, PROOF_ENV>
+    > StorageModel for FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SF, M, PROOF_ENV>
 {
     type Allocator = A;
     type Resources = R;
@@ -97,13 +97,13 @@ impl<
 
     fn construct(init_data: Self::InitData, allocator: Self::Allocator) -> Self {
         let resources_policy = init_data;
-        let storage_cache = NewStorageWithAccountPropertiesUnderHash::<A, SC, M, R, P>(
+        let storage_cache = NewStorageWithAccountPropertiesUnderHash::<A, SF, M, R, P>(
             GenericPubdataAwarePlainStorage::new_from_parts(allocator.clone(), resources_policy),
         );
         let preimages_cache =
             BytecodeAndAccountDataPreimagesStorage::<R, A>::new_from_parts(allocator.clone());
         let account_data_cache =
-            NewModelAccountCache::<A, R, P, SC, M>::new_from_parts(allocator.clone());
+            NewModelAccountCache::<A, R, P, SF, M>::new_from_parts(allocator.clone());
 
         Self {
             storage_cache,
@@ -532,10 +532,10 @@ impl<
         A: Allocator + Clone + Default,
         R: Resources,
         P: StorageAccessPolicy<R, Bytes32>,
-        SC: StackCtor<M>,
+        SF: StackFactory<M>,
         const M: usize,
         const PROOF_ENV: bool,
-    > SnapshottableIo for FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SC, M, PROOF_ENV>
+    > SnapshottableIo for FlatTreeWithAccountsUnderHashesStorageModel<A, R, P, SF, M, PROOF_ENV>
 {
     type StateSnapshot = FlatTreeWithAccountsUnderHashesStorageModelStateSnapshot;
 

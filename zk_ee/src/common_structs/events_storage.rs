@@ -1,5 +1,5 @@
 use crate::{
-    memory::stack_trait::StackCtor,
+    memory::stack_trait::StackFactory,
     system::errors::system::SystemError,
     types_config::{EthereumIOTypesConfig, SystemIOTypesConfig},
     utils::{Bytes32, UsizeAlignedByteBox},
@@ -51,16 +51,16 @@ pub type EventContent<const N: usize, A: Allocator = Global> =
 
 pub struct EventsStorage<
     const N: usize,
-    SC: StackCtor<M>,
+    SF: StackFactory<M>,
     const M: usize,
     A: Allocator + Clone = Global,
 > {
-    list: HistoryList<EventContent<N, A>, (), SC, M, A>,
+    list: HistoryList<EventContent<N, A>, (), SF, M, A>,
     _marker: core::marker::PhantomData<A>,
 }
 
-impl<const N: usize, SC: StackCtor<M>, const M: usize, A: Allocator + Clone>
-    EventsStorage<N, SC, M, A>
+impl<const N: usize, SF: StackFactory<M>, const M: usize, A: Allocator + Clone>
+    EventsStorage<N, SF, M, A>
 {
     pub fn new_from_parts(allocator: A) -> Self {
         Self {
