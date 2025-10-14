@@ -31,8 +31,8 @@ use zk_ee::{
 use zk_ee::common_structs::history_map::*;
 use zk_ee::common_structs::ValueDiffCompressionStrategy;
 
-type AddressItem<'a, K, V, A> =
-    HistoryMapItemRefMut<'a, K, CacheRecord<V, StorageElementMetadata>, A>;
+type AddressItem<'a, K, V, SF, const M: usize, A> =
+    HistoryMapItemRefMut<'a, K, CacheRecord<V, StorageElementMetadata>, SF, M, A>;
 
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
@@ -102,7 +102,7 @@ pub struct GenericPubdataAwarePlainStorage<
     R: Resources,
     P: StorageAccessPolicy<R, V>,
 > {
-    pub(crate) cache: HistoryMap<K, CacheRecord<V, StorageElementMetadata>, A>,
+    pub(crate) cache: HistoryMap<K, CacheRecord<V, StorageElementMetadata>, SF, M, A>,
     pub(crate) resources_policy: P,
     pub(crate) current_tx_number: TransactionId,
     pub(crate) initial_values: BTreeMap<K, (V, TransactionId), A>, // Used to cache initial values at the beginning of the tx (For EVM gas model)
@@ -179,7 +179,7 @@ impl<
 
     /// Read element and initialize it if needed
     fn materialize_element<'a>(
-        cache: &'a mut HistoryMap<K, CacheRecord<V, StorageElementMetadata>, A>,
+        cache: &'a mut HistoryMap<K, CacheRecord<V, StorageElementMetadata>, SF, M, A>,
         resources_policy: &mut P,
         current_tx_number: TransactionId,
         ee_type: ExecutionEnvironmentType,
@@ -188,7 +188,7 @@ impl<
         key: &'a K,
         oracle: &mut impl IOOracle,
         is_access_list: bool,
-    ) -> Result<(AddressItem<'a, K, V, A>, IsWarmRead), SystemError> {
+    ) -> Result<(AddressItem<'a, K, V, SF, M, A>, IsWarmRead), SystemError> {
         resources_policy.charge_warm_storage_read(ee_type, resources, is_access_list)?;
 
         let mut initialized_element = false;
