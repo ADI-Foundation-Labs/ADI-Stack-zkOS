@@ -7,7 +7,7 @@ use basic_system::system_implementation::system::EthereumLikeStorageAccessCostMo
 use basic_system::system_implementation::system::FullIO;
 use oracle_provider::DummyMemorySource;
 use oracle_provider::ZkEENonDeterminismSource;
-use zk_ee::memory::stack_trait::VecStackCtor;
+use zk_ee::memory::stack_implementations::vec_stack::VecStackFactory;
 use zk_ee::oracle::IOOracle;
 use zk_ee::reference_implementations::BaseResources;
 use zk_ee::system::{EthereumLikeTypes, SystemTypes};
@@ -30,8 +30,8 @@ impl<O: IOOracle> SystemTypes for ForwardSystemTypes<O> {
         Self::Allocator,
         Self::Resources,
         EthereumLikeStorageAccessCostModel,
-        VecStackCtor,
-        VecStackCtor,
+        VecStackFactory,
+        0,
         O,
         false,
     >;
