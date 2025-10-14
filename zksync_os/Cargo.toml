@@ -56,7 +56,6 @@ single_round_with_control = ["crypto", "crypto/single_round_with_control"]
 bigint_delegation = ["crypto", "crypto/bigint_ops"]
 delegation = ["bigint_delegation", "single_round_with_control"]
 proving = ["crypto/proving", "proof_running_system/proving"]
-# TODO: default? it includes blake mock
 default = ["proof_running_system/evm-compatibility"]
 cycle_marker = ["proof_running_system/cycle_marker"]
 unlimited_native = ["proof_running_system/unlimited_native"]
