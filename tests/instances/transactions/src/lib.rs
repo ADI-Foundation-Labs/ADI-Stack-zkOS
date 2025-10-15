@@ -889,7 +889,6 @@ fn test_modexp_intermediate_zero_block() {
     )
     .unwrap();
 
-
     // Modexp precompile address
     let modexp_address = address!("0000000000000000000000000000000000000005");
 
@@ -910,14 +909,16 @@ fn test_modexp_intermediate_zero_block() {
         "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
         "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
         "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
-    )).unwrap();
+    ))
+    .unwrap();
 
     // Unchanged base
     let expected_output = hex::decode(concat!(
         "1000000000000000000000000000000000000000000000000000000000000001",
         "0000000000000000000000000000000000000000000000000000000000000000",
         "1000000000000000000000000000000000000000000000000000000000000001",
-    )).unwrap();
+    ))
+    .unwrap();
 
     let encoded_tx = {
         let mint_tx = TxEip2930 {
@@ -943,7 +944,10 @@ fn test_modexp_intermediate_zero_block() {
     let result = chain.run_block(transactions, None, None);
 
     // The transaction should succeed
-    assert!(result.tx_results[0].is_ok(), "Modexp transaction should succeed");
+    assert!(
+        result.tx_results[0].is_ok(),
+        "Modexp transaction should succeed"
+    );
 
     // Extract the result and check it
     let tx_result = result.tx_results[0].as_ref().unwrap();
@@ -954,10 +958,10 @@ fn test_modexp_intermediate_zero_block() {
             match execution_output {
                 rig::zksync_os_interface::types::ExecutionOutput::Call(result) => {
                     assert_eq!(*result, expected_output)
-                },
+                }
                 rig::zksync_os_interface::types::ExecutionOutput::Create(_, _) => panic!(),
             }
-        },
+        }
         rig::zksync_os_interface::types::ExecutionResult::Revert(_) => unreachable!(),
     }
 }
