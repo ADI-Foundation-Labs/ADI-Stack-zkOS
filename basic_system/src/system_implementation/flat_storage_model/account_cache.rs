@@ -167,7 +167,7 @@ impl<
                     )
                 })?;
 
-                let (acc_data, initial_apparance) = match hash == Bytes32::ZERO {
+                let (acc_data, initial_appearance) = match hash == Bytes32::ZERO {
                     true => (
                         AccountProperties::default(),
                         AccountInitialAppearance::Unset,
@@ -201,7 +201,8 @@ impl<
                 } else {
                     AccountCurrentAppearance::Touched
                 };
-                let appearance = AccountCacheAppearance::new(initial_apparance, current_appearance);
+                let appearance =
+                    AccountCacheAppearance::new(initial_appearance, current_appearance);
 
                 // Note: we initialize it as cold, should be warmed up separately
                 // Since in case of revert it should become cold again and initial record can't be rolled back
