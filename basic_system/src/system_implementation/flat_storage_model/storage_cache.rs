@@ -7,11 +7,14 @@ use core::alloc::Allocator;
 use ruint::aliases::B160;
 use storage_models::common_structs::snapshottable_io::SnapshottableIo;
 use storage_models::common_structs::{AccountAggregateDataHash, StorageCacheModel};
-use zk_ee::common_structs::cache_record::{Appearance, CacheRecord};
+use zk_ee::common_structs::cache_record::CacheRecord;
 #[cfg(feature = "evm_refunds")]
 use zk_ee::common_structs::history_counter::HistoryCounter;
 #[cfg(feature = "evm_refunds")]
 use zk_ee::common_structs::history_counter::HistoryCounterSnapshotId;
+use zk_ee::common_structs::structured_storage_cache_record::StorageCacheAppearance;
+use zk_ee::common_structs::structured_storage_cache_record::StorageCurrentAppearance;
+use zk_ee::common_structs::structured_storage_cache_record::StorageInitialAppearance;
 use zk_ee::common_traits::key_like_with_bounds::{KeyLikeWithBounds, TyEq};
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::internal_error;
@@ -32,7 +35,7 @@ use zk_ee::common_structs::history_map::*;
 use zk_ee::common_structs::ValueDiffCompressionStrategy;
 
 type AddressItem<'a, K, V, A> =
-    HistoryMapItemRefMut<'a, K, CacheRecord<V, StorageElementMetadata>, A>;
+    HistoryMapItemRefMut<'a, K, CacheRecord<V, StorageElementMetadata>, A, StorageCacheAppearance>;
 
 #[repr(transparent)]
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
@@ -102,7 +105,8 @@ pub struct GenericPubdataAwarePlainStorage<
     R: Resources,
     P: StorageAccessPolicy<R, V>,
 > {
-    pub(crate) cache: HistoryMap<K, CacheRecord<V, StorageElementMetadata>, A>,
+    pub(crate) cache:
+        HistoryMap<K, CacheRecord<V, StorageElementMetadata>, A, StorageCacheAppearance>,
     pub(crate) resources_policy: P,
     pub(crate) current_tx_number: TransactionId,
     pub(crate) initial_values: BTreeMap<K, (V, TransactionId), A>, // Used to cache initial values at the beginning of the tx (For EVM gas model)
@@ -179,7 +183,12 @@ impl<
 
     /// Read element and initialize it if needed
     fn materialize_element<'a>(
-        cache: &'a mut HistoryMap<K, CacheRecord<V, StorageElementMetadata>, A>,
+        cache: &'a mut HistoryMap<
+            K,
+            CacheRecord<V, StorageElementMetadata>,
+            A,
+            StorageCacheAppearance,
+        >,
         resources_policy: &mut P,
         current_tx_number: TransactionId,
         ee_type: ExecutionEnvironmentType,
@@ -207,15 +216,19 @@ impl<
                     data_from_oracle.is_new_storage_slot,
                 )?;
 
-                let appearance = match data_from_oracle.is_new_storage_slot {
-                    true => Appearance::Unset,
-                    false => Appearance::Retrieved,
+                let initial_appearance = match data_from_oracle.is_new_storage_slot {
+                    true => StorageInitialAppearance::Empty,
+                    false => StorageInitialAppearance::Existing,
                 };
+
+                let current_appearance = StorageCurrentAppearance::Observed;
+                let appearance =
+                    StorageCacheAppearance::new(initial_appearance, current_appearance);
 
                 // Note: we initialize it as cold, should be warmed up separately
                 // Since in case of revert it should become cold again and initial record can't be rolled back
-                Ok(CacheRecord::new(
-                    data_from_oracle.initial_value.into(),
+                Ok((
+                    CacheRecord::new(data_from_oracle.initial_value.into()),
                     appearance,
                 ))
             })
@@ -307,6 +320,8 @@ where {
             }
         };
 
+        let is_new_slot =
+            addr_data.key_properties().initial_appearance() == StorageInitialAppearance::Empty;
         self.resources_policy.charge_storage_write_extra(
             ee_type,
             val_at_tx_start,
@@ -314,7 +329,7 @@ where {
             new_value,
             resources,
             is_warm_read.0,
-            addr_data.current().appearance() == Appearance::Unset,
+            is_new_slot,
         )?;
 
         let old_value = addr_data.current().value().clone();
@@ -343,9 +358,11 @@ where {
                         *v = V::default();
                         Ok(())
                     })?;
-                    cache_record.unset();
                     Ok(())
-                })
+                })?;
+                x.key_properties_mut().delete();
+
+                Ok(())
             })?;
 
         Ok(())
@@ -619,6 +636,14 @@ impl<
     ) -> impl Iterator<Item = (WarmStorageKey, WarmStorageValue)> + Clone + use<'_, A, SF, M, R, P>
     {
         self.0.cache.iter().map(|item| {
+            let is_new_storage_slot =
+                item.key_properties().initial_appearance() == StorageInitialAppearance::Empty;
+            let initial_value_used = matches!(
+                item.key_properties().current_appearance(),
+                StorageCurrentAppearance::Observed
+                    | StorageCurrentAppearance::Updated
+                    | StorageCurrentAppearance::Deleted
+            );
             let current_record = item.current();
             let initial_record = item.initial();
             (
@@ -627,9 +652,9 @@ impl<
                 // not actually 'using' it.
                 WarmStorageValue {
                     current_value: *current_record.value(),
-                    is_new_storage_slot: initial_record.appearance() == Appearance::Unset,
+                    is_new_storage_slot,
                     initial_value: *initial_record.value(),
-                    initial_value_used: true,
+                    initial_value_used,
                     ..Default::default()
                 },
             )
