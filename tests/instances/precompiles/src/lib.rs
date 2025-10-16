@@ -59,7 +59,7 @@ struct Test {
     precompile_id: &'static str,
 }
 
-const TESTS: [Test; 108] = [
+const TESTS: [Test; 109] = [
     // ecrecover test vectors
     Test {
         input: "38d18acb67d25c8bb9942764b62f18e17054f66a817bd4295423adf9ed98873e000000000000000000000000000000000000000000000000000000000000001b38d18acb67d25c8bb9942764b62f18e17054f66a817bd4295423adf9ed98873e789d1dd423d25f0772d2748d60f7e4b81bb14d086eba8e8e8efb6dcff8a4ae02",
@@ -1083,7 +1083,13 @@ const TESTS: [Test; 108] = [
         expected: "0000000000000000000000000000000000000000000000000000000000000001",
         name: "p256_5",
         precompile_id: "0000000000000000000000000000000000000100"
-    }
+    },
+    Test {
+        input: "016685e172a749f7426a45259a2f0ca6382072faf89dc058fba39ad2792242eb55db09df7484b85d7e2870dc3e526e87b12ef1716bc52ffcf82aa07743a5d4f512d1aa968cf5c88d44a2a5815242082a27f99d2fa816838338b9532bf3cee22d91c1ac59fdf344e2a9098eb2c3699b9652a9a8efc006c4bda8a1d764b4a0fada3c34e72a0cc4d151a6dd137dde534af29517ca718c450eed935603cd5985ee6bbcfbe2da87e24e64be8fa2d81733e0de9b8a11efd7c73f39898d158fd0c4867e",
+        expected: "000000000000000000000000000000000000000000000000000000000000100073eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
+        name: "kzg regression test",
+        precompile_id: "000000000000000000000000000000000000000a",
+    },
 ];
 
 #[test]
@@ -5803,39 +5809,6 @@ const P256_TESTS: [Test; 781] = [
 #[ignore = "Too long for CI"]
 fn test_p256() {
     for test in P256_TESTS.iter() {
-        let input = hex::decode(test.input).unwrap();
-        let expected = hex::decode(test.expected).unwrap();
-        dbg!(test.name);
-
-        let tx_result = run_precompile(test.precompile_id, None::<u64>, &input)
-            .tx_results
-            .first()
-            .unwrap()
-            .clone()
-            .expect("Tx should have succeeded");
-
-        assert_eq!(
-            expected,
-            tx_result.as_returned_bytes(),
-            "{} failed",
-            test.name
-        );
-    }
-}
-
-#[allow(clippy::large_const_arrays)]
-const KZG_TESTS: [Test; 1] = [
-    Test {
-        input: "016685e172a749f7426a45259a2f0ca6382072faf89dc058fba39ad2792242eb55db09df7484b85d7e2870dc3e526e87b12ef1716bc52ffcf82aa07743a5d4f512d1aa968cf5c88d44a2a5815242082a27f99d2fa816838338b9532bf3cee22d91c1ac59fdf344e2a9098eb2c3699b9652a9a8efc006c4bda8a1d764b4a0fada3c34e72a0cc4d151a6dd137dde534af29517ca718c450eed935603cd5985ee6bbcfbe2da87e24e64be8fa2d81733e0de9b8a11efd7c73f39898d158fd0c4867e",
-        expected: "000000000000000000000000000000000000000000000000000000000000100073eda753299d7d483339d80809a1d80553bda402fffe5bfeffffffff00000001",
-        name: "kzg regression test",
-        precompile_id: "000000000000000000000000000000000000000a",
-    },
-];
-
-#[test]
-fn test_kzg() {
-    for test in KZG_TESTS.iter() {
         let input = hex::decode(test.input).unwrap();
         let expected = hex::decode(test.expected).unwrap();
         dbg!(test.name);
