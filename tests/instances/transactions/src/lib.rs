@@ -882,7 +882,7 @@ fn test_invalid_transaction_type_failure() {
 }
 
 #[test]
-fn test_point_eval() {
+fn test_point_eval_regression() {
     let mut chain = Chain::empty(None);
     let wallet = PrivateKeySigner::from_str(
         "dcf2cbdd171a21c480aa7f53d77f31bb102282b3ff099c78e3118b37348c72f7",
@@ -934,10 +934,7 @@ fn test_point_eval() {
     let result = chain.run_block(transactions, None, None);
 
     // The transaction should succeed
-    assert!(
-        result.tx_results[0].is_ok(),
-        "Modexp transaction should succeed"
-    );
+    assert!(result.tx_results[0].is_ok(), "Transaction should succeed");
 
     // Extract the result and check it
     let tx_result = result.tx_results[0].as_ref().unwrap();
