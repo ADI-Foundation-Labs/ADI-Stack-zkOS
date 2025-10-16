@@ -20,12 +20,11 @@ pub mod query_ids;
 pub mod simple_oracle_query;
 pub mod usize_serialization;
 
-use core::num::NonZeroU32;
-
 use crate::internal_error;
 use crate::oracle::query_ids::NEXT_TX_SIZE_QUERY_ID;
 use crate::oracle::usize_serialization::{UsizeDeserializable, UsizeSerializable};
 use crate::system::errors::internal::InternalError;
+use core::num::NonZeroU32;
 
 /// Core trait for querying external, non-deterministic data during ZKsync OS execution. This is
 /// an abstraction boundary on how ZKsync OS (system) gets IO information and eventually
