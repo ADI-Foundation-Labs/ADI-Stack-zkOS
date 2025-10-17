@@ -101,9 +101,9 @@ fn point_evaluation_as_system_function_inner<D: ?Sized + TryExtend<u8>, R: Resou
     let prepared_g2_generator: <crypto::bls12_381::curves::Bls12_381 as crypto::ark_ec::pairing::Pairing>::G2Prepared = crypto::bls12_381::G2Affine::generator().into();
 
     if input.len() != 192 {
-        return Err(PointEvaluationSubsystemError::LeafUsage(interface_error!(
+        return Err(interface_error!(
             PointEvaluationInterfaceError::InvalidInputSize
-        )));
+        ));
     }
 
     // Each check without any parsing
@@ -112,34 +112,34 @@ fn point_evaluation_as_system_function_inner<D: ?Sized + TryExtend<u8>, R: Resou
 
     // so far it's just one version
     if versioned_hash_for_kzg(commitment) != versioned_hash {
-        return Err(PointEvaluationSubsystemError::LeafUsage(interface_error!(
+        return Err(interface_error!(
             PointEvaluationInterfaceError::InvalidVersionedHash
-        )));
+        ));
     }
 
     // Parse the commitment and proof
     let Ok(commitment_point) = parse_g1_compressed(commitment) else {
-        return Err(PointEvaluationSubsystemError::LeafUsage(interface_error!(
+        return Err(interface_error!(
             PointEvaluationInterfaceError::InvalidPoint
-        )));
+        ));
     };
     let proof = &input[144..192];
     let Ok(proof) = parse_g1_compressed(proof) else {
-        return Err(PointEvaluationSubsystemError::LeafUsage(interface_error!(
+        return Err(interface_error!(
             PointEvaluationInterfaceError::InvalidPoint
-        )));
+        ));
     };
 
     let Ok(z) = parse_scalar(input[32..64].try_into().unwrap()) else {
-        return Err(PointEvaluationSubsystemError::LeafUsage(interface_error!(
+        return Err(interface_error!(
             PointEvaluationInterfaceError::InvalidScalar
-        )));
+        ));
     };
 
     let Ok(y) = parse_scalar(input[64..96].try_into().unwrap()) else {
-        return Err(PointEvaluationSubsystemError::LeafUsage(interface_error!(
+        return Err(interface_error!(
             PointEvaluationInterfaceError::InvalidScalar
-        )));
+        ));
     };
 
     // e(y - P, G₂) * e(proof, X - z) == 1
@@ -162,9 +162,9 @@ fn point_evaluation_as_system_function_inner<D: ?Sized + TryExtend<u8>, R: Resou
         dst.try_extend(POINT_EVAL_PRECOMPILE_SUCCESS_RESPONSE).map_err(|_| out_of_return_memory!())?;
         Ok(())
     } else {
-        Err(PointEvaluationSubsystemError::LeafUsage(
+        Err(
             interface_error!(PointEvaluationInterfaceError::PairingMismatch),
-        ))
+        )
     }
 }
 
