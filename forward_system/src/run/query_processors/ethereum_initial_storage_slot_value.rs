@@ -47,7 +47,9 @@ impl<M: MemorySource> OracleQueryProcessor<M> for InMemoryEthereumInitialStorage
         assert!(Self::SUPPORTED_QUERY_IDS.contains(&query_id));
 
         let address = StorageAddress::<EthereumIOTypesConfig>::from_iter(&mut query.into_iter())
-            .expect("must deserialize hash value");
+            .expect("must deserialize address value");
+
+        // println!("Reading for address 0x{:040x} and key {:?}", address.address.as_uint(), address.key);
 
         let data = self
             .source
@@ -57,6 +59,7 @@ impl<M: MemorySource> OracleQueryProcessor<M> for InMemoryEthereumInitialStorage
         let initial_root = data.storage_root;
         let mut value = Bytes32::ZERO;
         if data.is_empty() == false && initial_root != EMPTY_ROOT_HASH {
+            // println!("Expecting non-empty value");
             use crypto::MiniDigest;
             let hash = crypto::sha3::Keccak256::digest(address.key.as_u8_array_ref());
             let digits = digits_from_key(&hash);

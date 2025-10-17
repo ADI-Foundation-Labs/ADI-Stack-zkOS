@@ -17,7 +17,8 @@ basic_system = { path = "../basic_system", default-features = false }
 
 ruint = { workspace = true, default-features = false }
 
-risc_v_simulator = { git = "https://github.com/matter-labs/zksync-airbender", branch = "dev", optional = true }
+risc_v_simulator = { git = "https://github.com/matter-labs/zksync-airbender", branch = "av_use_new_vm", optional = true }
+riscv_transpiler = { git = "https://github.com/matter-labs/zksync-airbender", branch = "av_use_new_vm", optional = true }
 num-bigint = { version = "*", optional = true }
 num-traits = { version = "*", optional = true }
 
@@ -26,4 +27,4 @@ hex = "*"
 
 [features]
 default = ["evaluate"]
-evaluate = ["risc_v_simulator", "num-bigint", "num-traits"]
+evaluate = ["risc_v_simulator", "riscv_transpiler", "num-bigint", "num-traits"]

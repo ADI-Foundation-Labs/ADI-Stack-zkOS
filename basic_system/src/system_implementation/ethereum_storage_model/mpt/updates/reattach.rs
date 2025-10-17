@@ -114,6 +114,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         // we should test and descend further - maybe next branch needs to be detached
         if child.is_unlinked() {
             Ok(None)
+        } else if child.is_unreferenced_key() {
+            Ok(None)
         } else if child.is_branch() {
             if let Some(mut attachment_form_child) =
                 self.detach_and_propagate(child, preimages_oracle, interner, hasher)?

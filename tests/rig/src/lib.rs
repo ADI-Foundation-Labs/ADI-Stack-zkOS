@@ -15,6 +15,7 @@ pub use chain::Chain;
 pub use ethers;
 pub use forward_system;
 pub use log;
+pub use env_logger;
 pub use risc_v_simulator::sim::ProfilerConfig;
 pub use ruint;
 pub use zk_ee;

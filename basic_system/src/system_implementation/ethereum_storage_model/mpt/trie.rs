@@ -787,7 +787,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             }
         } else if parent_node.is_extension() {
             let parent_extension_node = &mut self.capacities.extension_nodes[parent_node.index()];
-            if parent_extension_node.child_node.is_unlinked() {
+            if parent_extension_node.child_node.is_unlinked() || parent_extension_node.child_node.is_unreferenced_key() {
                 parent_extension_node.child_node = child_node;
             } else if child_node != parent_extension_node.child_node {
                 // then it must be the same node, and we rely on indexing to do it

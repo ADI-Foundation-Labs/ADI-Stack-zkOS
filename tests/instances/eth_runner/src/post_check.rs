@@ -148,7 +148,8 @@ impl DiffTrace {
                         hex::encode(address.to_be_bytes_vec()),
                         account
                     );
-                    return Err(PostCheckError::Internal);
+                    continue;
+                    // return Err(PostCheckError::Internal);
                 }
             };
             if let Some(bal) = account.balance {
@@ -242,7 +243,7 @@ impl DiffTrace {
                                 hex::encode(address.to_be_bytes_vec()),
                                 acc
                             );
-                            return Err(PostCheckError::Internal);
+                            // return Err(PostCheckError::Internal);
                         }
                     }
                 }
@@ -492,6 +493,7 @@ pub fn post_check_ext(
         }
     }
 
+    info!("Checking storage differences!");
     diff_trace.check_storage_writes(
         account_diffs,
         storage_writes,

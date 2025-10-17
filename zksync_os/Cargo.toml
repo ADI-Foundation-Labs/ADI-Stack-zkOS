@@ -16,7 +16,7 @@ riscv = "0.11"
 heapless = { version = "*", default-features = false }
 proof_running_system = { path = "../proof_running_system", default-features = false}
 crypto = { path = "../crypto", optional = true }
-riscv_common = { git = "https://github.com/matter-labs/zksync-airbender", branch = "dev", features = ["custom_panic", "custom_allocator"]}
+riscv_common = { git = "https://github.com/matter-labs/zksync-airbender", branch = "av_use_new_vm", features = ["custom_panic", "custom_allocator"]}
 
 [profile.dev]
 opt-level = 0
@@ -49,7 +49,7 @@ debug = true
 [features]
 scalloc = ["proof_running_system/scalloc"]
 no_exception_handling = []
-print_debug_info = [ "proof_running_system/error_origins"]
+print_debug_info = ["proof_running_system/error_origins"]
 single_round_with_control = ["crypto", "crypto/single_round_with_control"]
 bigint_delegation = ["crypto", "crypto/bigint_ops"]
 delegation = ["bigint_delegation", "single_round_with_control"]
@@ -64,6 +64,7 @@ evm-compatibility = ["proof_running_system/evm-compatibility"]
 evm_refunds = ["proof_running_system/evm_refunds"]
 pectra = ["proof_running_system/pectra"]
 disable_system_contracts = ["proof_running_system/disable_system_contracts"]
+global-alloc = ["proof_running_system/global-alloc"]
 
 
 # [patch."https://github.com/matter-labs/zksync-airbender"]
