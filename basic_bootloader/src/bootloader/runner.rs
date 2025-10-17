@@ -8,10 +8,12 @@ use errors::internal::InternalError;
 use ruint::aliases::B160;
 use system_hooks::*;
 use zk_ee::common_structs::CalleeAccountProperties;
+use zk_ee::error_ctx;
 use zk_ee::execution_environment_type::ExecutionEnvironmentType;
 use zk_ee::interface_error;
 use zk_ee::memory::slice_vec::SliceVec;
 use zk_ee::out_of_return_memory;
+use zk_ee::system::errors::context::contextualized::Contextualized as _;
 use zk_ee::system::errors::root_cause::GetRootCause;
 use zk_ee::system::errors::root_cause::RootCause;
 use zk_ee::system::errors::runtime::RuntimeError;
@@ -352,7 +354,13 @@ impl<'external, S: EthereumLikeTypes> ExecutionContext<'_, 'external, S> {
                         match caller_ee_type {
                             ExecutionEnvironmentType::NoEE => Err(interface_error!(
                                 BootloaderInterfaceError::TopLevelInsufficientBalance
-                            )),
+                            ))
+                            .with_context(|| {
+                                error_ctx! {
+                                     "caller" => debug_format(call_request.caller),
+                                     "target" => debug_format(target),
+                                }
+                            }),
                             ExecutionEnvironmentType::EVM => {
                                 // Following EVM, a call with insufficient balance is not a revert,
                                 // but rather a normal failing call.
@@ -365,6 +373,11 @@ impl<'external, S: EthereumLikeTypes> ExecutionContext<'_, 'external, S> {
                         RuntimeError::FatalRuntimeError(_) => Err(wrap_error!(e)),
                         RuntimeError::OutOfErgs(_) => {
                             Err(internal_error!("Out of ergs on infinite ergs").into())
+                                .with_context(|| {
+                                    error_ctx! {
+                                        "inner" => runtime_error,
+                                    }
+                                })
                         }
                     },
                     SubsystemError::Cascaded(cascaded_error) => match cascaded_error {},
