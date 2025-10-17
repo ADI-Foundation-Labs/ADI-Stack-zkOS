@@ -9,6 +9,7 @@ use rig::log::info;
 use rig::*;
 use std::fs::{self, File};
 use std::io::BufReader;
+use zksync_os_interface::traits::EncodedTx;
 
 #[allow(clippy::too_many_arguments)]
 fn run<const RANDOMIZED: bool>(
@@ -17,7 +18,7 @@ fn run<const RANDOMIZED: bool>(
     block_number: u64,
     miner: alloy::primitives::Address,
     ps_trace: PrestateTrace,
-    transactions: Vec<Vec<u8>>,
+    transactions: Vec<EncodedTx>,
     receipts: Vec<TransactionReceipt>,
     diff_trace: DiffTrace,
     calltrace: CallTrace,
@@ -37,15 +38,15 @@ fn run<const RANDOMIZED: bool>(
         suffix.push_str("_witness");
         std::path::Path::new(&dir).join(suffix)
     });
-
+    let run_config = rig::chain::RunConfig {
+        witness_output_file: output_path,
+        only_forward: false,
+        app: Some("evm_replay".to_string()),
+        check_storage_diff_hashes: true,
+        ..Default::default()
+    };
     let (output, stats, _) = chain
-        .run_block_with_extra_stats(
-            transactions,
-            Some(block_context),
-            None,
-            output_path,
-            Some("evm_replay".to_string()),
-        )
+        .run_block_with_extra_stats(transactions, Some(block_context), Some(run_config))
         .unwrap();
 
     let _ratio = compute_ratio(stats);
