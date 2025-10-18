@@ -71,6 +71,8 @@ impl IntoInterface<InvalidTransaction>
             basic_bootloader::bootloader::errors::InvalidTransaction::BlockNativeLimitReached => { InvalidTransaction::BlockNativeLimitReached }
             basic_bootloader::bootloader::errors::InvalidTransaction::BlockPubdataLimitReached => { InvalidTransaction::BlockPubdataLimitReached }
             basic_bootloader::bootloader::errors::InvalidTransaction::BlockL2ToL1LogsLimitReached => { InvalidTransaction::BlockL2ToL1LogsLimitReached }
+            basic_bootloader::bootloader::errors::InvalidTransaction::AuthListIsEmpty => {InvalidTransaction::AuthListIsEmpty}
+            basic_bootloader::bootloader::errors::InvalidTransaction::EIP7702HasNullDestination => {InvalidTransaction::EIP7702HasNullDestination}
         }
     }
 }

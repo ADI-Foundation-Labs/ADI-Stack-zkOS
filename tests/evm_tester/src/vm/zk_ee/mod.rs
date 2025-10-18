@@ -7,8 +7,10 @@ use zk_ee::utils::u256_to_u64_saturated;
 use zk_ee::utils::Bytes32;
 use zksync_os_basic_bootloader::bootloader::constants::MAX_BLOCK_GAS_LIMIT;
 use zksync_os_basic_bootloader::bootloader::errors::BootloaderSubsystemError;
+use zksync_os_rig::chain::RunConfig;
 use zksync_os_rig::zksync_os_api::helpers;
 use zksync_os_rig::zksync_os_interface::error::InvalidTransaction;
+use zksync_os_rig::zksync_os_interface::traits::EncodedTx;
 use zksync_os_rig::zksync_os_interface::types::{BlockOutput, TxOutput};
 use zksync_os_rig::BlockContext;
 use zksync_os_rig::Chain;
@@ -60,8 +62,9 @@ impl ZKsyncOS {
         &mut self,
         transactions: Vec<Transaction>,
         system_context: ZKsyncOSEVMContext,
+        proof_run: bool,
     ) -> anyhow::Result<Vec<ZKsyncOSTxExecutionResult>, String> {
-        let encoded_txs: Vec<Vec<u8>> = transactions
+        let encoded_txs: Vec<EncodedTx> = transactions
             .iter()
             .map(|transaction| encode_transaction(transaction, &system_context))
             .collect();
@@ -91,9 +94,15 @@ impl ZKsyncOS {
             mix_hash: system_context.mix_hash,
         };
 
+        let run_config = RunConfig {
+            app: Some("evm_tester".to_string()),
+            only_forward: !proof_run,
+            check_storage_diff_hashes: proof_run,
+            ..Default::default()
+        };
         let result = self
             .chain
-            .run_block_no_panic(encoded_txs, Some(context), None, true);
+            .run_block_no_panic(encoded_txs, Some(context), Some(run_config));
 
         self.get_block_execution_result(result)
     }
