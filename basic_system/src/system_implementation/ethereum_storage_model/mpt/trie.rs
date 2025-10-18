@@ -275,6 +275,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         let mut current_node = self.root;
         let (mut key_encoding, mut parent_branch_index) = loop {
             debug_assert!(current_node.is_empty() == false);
+            debug_assert_eq!(self.ensure_linked(), ());
             match self.descend_through_existing_nodes(&mut path, current_node)? {
                 DescendPath::PathDiverged { .. } => {
                     debug_assert_eq!(self.ensure_linked(), ());
@@ -346,6 +347,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 } => {
                     debug_assert_ne!(current_node, allocated_node);
                     self.link_if_needed(current_node, parent_branch_index, allocated_node)?;
+                    debug_assert_eq!(self.ensure_linked(), ());
                     current_node = allocated_node;
                     parent_branch_index = branch_index;
                     key_encoding = next_key;
@@ -364,11 +366,10 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 } => {
                     debug_assert_ne!(current_node, final_branch_node);
                     self.link_if_needed(current_node, parent_branch_index, final_branch_node)?;
+                    debug_assert_eq!(self.ensure_linked(), ());
                     if child_to_use.is_empty() {
-                        debug_assert_eq!(self.ensure_linked(), ());
                         return Ok(&[]);
                     } else {
-                        debug_assert_eq!(self.ensure_linked(), ());
                         return Ok(self.capacities.leaf_nodes[child_to_use.index()]
                             .value
                             .data());
@@ -378,8 +379,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                     allocated_node,
                     next_key,
                 } => {
-                    self.link_if_needed(current_node, parent_branch_index, allocated_node)?;
                     debug_assert_ne!(current_node, allocated_node);
+                    self.link_if_needed(current_node, parent_branch_index, allocated_node)?;
                     current_node = allocated_node;
                     key_encoding = next_key;
                 }
@@ -779,7 +780,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             // link
             let parent_branch_node = &mut self.capacities.branch_nodes[parent_node.index()];
             let branch_child = parent_branch_node.child_nodes[parent_branch_index];
-            if branch_child.is_unreferenced_key() {
+            if branch_child.is_unlinked() || branch_child.is_unreferenced_key() {
                 parent_branch_node.child_nodes[parent_branch_index] = child_node;
             } else if child_node != branch_child {
                 // then it must be the same node, and we rely on indexing to do it
@@ -787,7 +788,9 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             }
         } else if parent_node.is_extension() {
             let parent_extension_node = &mut self.capacities.extension_nodes[parent_node.index()];
-            if parent_extension_node.child_node.is_unlinked() || parent_extension_node.child_node.is_unreferenced_key() {
+            if parent_extension_node.child_node.is_unlinked()
+                || parent_extension_node.child_node.is_unreferenced_key()
+            {
                 parent_extension_node.child_node = child_node;
             } else if child_node != parent_extension_node.child_node {
                 // then it must be the same node, and we rely on indexing to do it
@@ -850,11 +853,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 self.capacities.extension_nodes[index].child_node,
             );
         } else if child_node.is_unlinked() {
-            assert!(
-                parent.is_extension(),
-                "got unlinked child for parent {:?}",
-                parent
-            );
+            panic!("Unlinked child node for parent {:?}", parent);
         } else if child_node.is_branch() {
             assert_eq!(self.capacities.branch_nodes[index].parent_node, parent);
             for next_child in self.capacities.branch_nodes[index].child_nodes.into_iter() {

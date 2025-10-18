@@ -1,5 +1,5 @@
-use oracle_provider::MemorySource;
 use oracle_provider::OracleQueryProcessor;
+use oracle_provider::U32Memory;
 use serde::{Deserialize, Serialize};
 use zk_ee::kv_markers::{UsizeDeserializable, UsizeSerializable};
 use zk_ee::system_io_oracle::dyn_usize_iterator::DynUsizeIterator;

@@ -16,7 +16,7 @@ impl ZKProofDataResponder {
         &[ZKProofDataQuery::<EthereumIOTypesConfig, FlatStorageCommitment<TREE_HEIGHT>>::QUERY_ID];
 }
 
-impl<M: MemorySource> OracleQueryProcessor<M> for ZKProofDataResponder {
+impl<M: U32Memory> OracleQueryProcessor<M> for ZKProofDataResponder {
     fn supported_query_ids(&self) -> Vec<u32> {
         Self::SUPPORTED_QUERY_IDS.to_vec()
     }

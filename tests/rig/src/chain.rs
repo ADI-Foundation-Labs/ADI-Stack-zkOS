@@ -173,6 +173,29 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
         result
     }
 
+    /// TODO: duplicated from API, unify. That is also buggy as it doesn't account for ROM in the machine
+    /// Runs a batch in riscV - using zksync_os binary - and returns the
+    /// witness that can be passed to the prover subsystem.
+    pub fn run_batch_via_transpiler<
+        const FLAMEGRAPH: bool,
+        const ROM_BOUND_SECOND_WORD_BITS: usize,
+    >(
+        oracle: ZkEENonDeterminismSource<
+            riscv_transpiler::vm::RamWithRomRegion<ROM_BOUND_SECOND_WORD_BITS>,
+        >,
+        app: &Option<String>,
+    ) -> Vec<u32> {
+        let image = get_zksync_os_img_path(app);
+        let text = get_zksync_os_text_path(app);
+
+        let output = zksync_os_runner::run_transpiler::run(image, text, None, 1 << 36, oracle);
+
+        // We return 0s in case of failure.
+        assert_ne!(output, [0u32; 8]);
+
+        vec![]
+    }
+
     ///
     /// Simulate block, do not validate transactions
     ///
@@ -597,12 +620,13 @@ impl<const RANDOMIZED_TREE: bool> Chain<RANDOMIZED_TREE> {
             oracle.add_external_processor(cl_responder);
             oracle.add_external_processor(UARTPrintReponsder);
             oracle.add_external_processor(callable_oracles::arithmetic::ArithmeticQuery::default());
-            let result = Self::run_batch_generate_witness::<false>(oracle, &app);
-            let mut file = File::create(&path).expect("should create file");
-            let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
-            let hex = hex::encode(witness);
-            file.write_all(hex.as_bytes())
-                .expect("should write to file");
+            let _ = Self::run_batch_via_transpiler::<false, 5>(oracle, &app);
+            // let result = Self::run_batch_generate_witness::<false>(oracle, &app);
+            // let mut file = File::create(&path).expect("should create file");
+            // let witness: Vec<u8> = result.iter().flat_map(|x| x.to_be_bytes()).collect();
+            // let hex = hex::encode(witness);
+            // file.write_all(hex.as_bytes())
+            //     .expect("should write to file");
         }
 
         result_keeper
@@ -771,6 +795,10 @@ fn get_zksync_os_img_path(app_name: &Option<String>) -> PathBuf {
 
 fn get_zksync_os_sym_path(app_name: &Option<String>) -> PathBuf {
     get_zksync_os_path(app_name, "elf")
+}
+
+fn get_zksync_os_text_path(app_name: &Option<String>) -> PathBuf {
+    get_zksync_os_path(app_name, "text")
 }
 
 pub fn is_account_properties_address(address: &B160) -> bool {

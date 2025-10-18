@@ -4,14 +4,14 @@ use crate::utils::evaluate::read_memory_as_u8;
 use crate::MemoryRegionDescriptionParams;
 use evaluate::compute::compute_from_entropy;
 use oracle_provider::OracleQueryProcessor;
-use risc_v_simulator::abstractions::memory::MemorySource;
+use oracle_provider::U32Memory;
 use zk_ee::kv_markers::UsizeDeserializable;
 
-pub struct HashToPrimeSource<M: MemorySource> {
+pub struct HashToPrimeSource<M: U32Memory> {
     marker: std::marker::PhantomData<M>,
 }
 
-impl<M: MemorySource> OracleQueryProcessor<M> for HashToPrimeSource<M> {
+impl<M: U32Memory> OracleQueryProcessor<M> for HashToPrimeSource<M> {
     fn supported_query_ids(&self) -> Vec<u32> {
         vec![HASH_TO_PRIME_ORACLE_ID]
     }

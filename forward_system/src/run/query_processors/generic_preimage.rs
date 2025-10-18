@@ -24,7 +24,7 @@ impl<PS: PreimageSource> GenericPreimageResponder<PS> {
     ];
 }
 
-impl<PS: PreimageSource, M: MemorySource> OracleQueryProcessor<M> for GenericPreimageResponder<PS> {
+impl<PS: PreimageSource, M: U32Memory> OracleQueryProcessor<M> for GenericPreimageResponder<PS> {
     fn supported_query_ids(&self) -> Vec<u32> {
         Self::SUPPORTED_QUERY_IDS.to_vec()
     }

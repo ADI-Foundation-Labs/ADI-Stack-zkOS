@@ -18,7 +18,7 @@ use basic_bootloader::bootloader::config::{
     BasicBootloaderForwardSimulationConfig,
 };
 use errors::ForwardSubsystemError;
-use oracle_provider::MemorySource;
+use oracle_provider::U32Memory;
 use zk_ee::common_structs::ProofData;
 use zk_ee::system::tracer::Tracer;
 use zk_ee::utils::Bytes32;
@@ -127,7 +127,7 @@ pub fn make_oracle_for_proofs_and_dumps<
     T: ReadStorageTree,
     PS: PreimageSource,
     TS: TxSource,
-    M: MemorySource + 'static,
+    M: U32Memory + 'static,
 >(
     batch_context: BatchContext,
     tree: T,
@@ -150,7 +150,7 @@ pub fn make_oracle_for_proofs_and_dumps_for_init_data<
     T: ReadStorageTree,
     PS: PreimageSource,
     TS: TxSource,
-    M: MemorySource + 'static,
+    M: U32Memory + 'static,
 >(
     batch_context: BatchContext,
     tree: T,

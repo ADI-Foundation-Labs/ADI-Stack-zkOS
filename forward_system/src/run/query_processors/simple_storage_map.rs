@@ -16,7 +16,7 @@ impl InMemoryInitialStorageSlotValueResponder {
     const SUPPORTED_QUERY_IDS: &[u32] = &[INITIAL_STORAGE_SLOT_VALUE_QUERY_ID];
 }
 
-impl<M: MemorySource> OracleQueryProcessor<M> for InMemoryInitialStorageSlotValueResponder {
+impl<M: U32Memory> OracleQueryProcessor<M> for InMemoryInitialStorageSlotValueResponder {
     fn supported_query_ids(&self) -> Vec<u32> {
         Self::SUPPORTED_QUERY_IDS.to_vec()
     }

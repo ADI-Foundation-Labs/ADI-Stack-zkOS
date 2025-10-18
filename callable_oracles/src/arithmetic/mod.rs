@@ -1,17 +1,17 @@
 use basic_system::system_functions::modexp::{ModExpAdviseParams, MODEXP_ADVISE_QUERY_ID};
 use oracle_provider::OracleQueryProcessor;
-use risc_v_simulator::abstractions::memory::MemorySource;
+use oracle_provider::U32Memory;
 
 use crate::utils::{
     evaluate::{read_memory_as_u64, read_struct},
     usize_slice_iterator::UsizeSliceIteratorOwned,
 };
 
-pub struct ArithmeticQuery<M: MemorySource> {
+pub struct ArithmeticQuery<M: U32Memory> {
     _marker: std::marker::PhantomData<M>,
 }
 
-impl<M: MemorySource> Default for ArithmeticQuery<M> {
+impl<M: U32Memory> Default for ArithmeticQuery<M> {
     fn default() -> Self {
         Self {
             _marker: std::marker::PhantomData,
@@ -19,7 +19,7 @@ impl<M: MemorySource> Default for ArithmeticQuery<M> {
     }
 }
 
-impl<M: MemorySource> OracleQueryProcessor<M> for ArithmeticQuery<M> {
+impl<M: U32Memory> OracleQueryProcessor<M> for ArithmeticQuery<M> {
     fn supported_query_ids(&self) -> Vec<u32> {
         vec![MODEXP_ADVISE_QUERY_ID]
     }

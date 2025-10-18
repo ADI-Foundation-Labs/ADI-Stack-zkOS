@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use super::*;
 use alloy::consensus::Header;
 use basic_bootloader::bootloader::block_flow::ethereum_block_flow::oracle_queries::{
@@ -7,7 +5,7 @@ use basic_bootloader::bootloader::block_flow::ethereum_block_flow::oracle_querie
     ETHEREUM_HISTORICAL_HEADER_BUFFER_LEN_QUERY_ID, ETHEREUM_WITHDRAWALS_BUFFER_DATA_QUERY_ID,
     ETHEREUM_WITHDRAWALS_BUFFER_LEN_QUERY_ID,
 };
-use crypto::{ark_ec::AffineRepr, MiniDigest};
+use crypto::MiniDigest;
 use oracle_provider::OracleQueryProcessor;
 use zk_ee::{oracle::ReadIterWrapper, system_io_oracle::HISTORICAL_BLOCK_HASH_QUERY_ID};
 
@@ -29,7 +27,7 @@ impl EthereumCLResponder {
     ];
 }
 
-impl<M: MemorySource> OracleQueryProcessor<M> for EthereumCLResponder {
+impl<M: U32Memory> OracleQueryProcessor<M> for EthereumCLResponder {
     fn supported_query_ids(&self) -> Vec<u32> {
         Self::SUPPORTED_QUERY_IDS.to_vec()
     }

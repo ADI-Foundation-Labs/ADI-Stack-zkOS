@@ -250,13 +250,19 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
         assert!(final_node.is_leaf());
         let _ = self.update_leaf_node(final_node, pre_encoded_value, interner)?;
 
+        debug_assert_eq!(self.ensure_linked(), ());
+
         Ok(())
     }
 
     pub fn delete(&mut self, path: Path<'_>) -> Result<(), ()> {
         let final_node = self.find_terminal_node_for_update_or_delete(path)?;
         assert!(final_node.is_leaf());
-        self.delete_leaf_node(final_node, path)
+        let _ = self.delete_leaf_node(final_node, path)?;
+
+        debug_assert_eq!(self.ensure_linked(), ());
+
+        Ok(())
     }
 
     pub fn insert(
@@ -294,6 +300,8 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 value,
             };
             self.root = self.push_leaf(leaf_node);
+
+            debug_assert_eq!(self.ensure_linked(), ());
 
             return Ok(());
         }

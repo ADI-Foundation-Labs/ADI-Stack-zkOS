@@ -55,6 +55,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 self.detach_and_propagate(self.root, preimages_oracle, interner, hasher)?
             {
                 self.root = self.collapse_detached(attachment, NodeType::empty(), interner)?;
+                debug_assert_eq!(self.ensure_linked(), ());
             }
 
             Ok(())
@@ -63,6 +64,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                 self.detach_and_propagate(self.root, preimages_oracle, interner, hasher)?
             {
                 self.root = self.collapse_detached(attachment, NodeType::empty(), interner)?;
+                debug_assert_eq!(self.ensure_linked(), ());
             }
 
             Ok(())
@@ -120,6 +122,7 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             if let Some(mut attachment_form_child) =
                 self.detach_and_propagate(child, preimages_oracle, interner, hasher)?
             {
+                debug_assert_eq!(self.ensure_linked(), ());
                 let extension = &self.capacities.extension_nodes[extension_node.index()];
                 attachment_form_child.add_prefix(extension.path_segment)?;
                 Ok(Some(attachment_form_child))
@@ -301,11 +304,12 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
             if child.is_empty() || child.is_unreferenced_key() || child.is_leaf() {
                 continue;
             } else {
-                if let Some(attachment_form_child) =
+                if let Some(attachment_from_child) =
                     self.detach_and_propagate(*child, preimages_oracle, interner, hasher)?
                 {
+                    debug_assert_eq!(self.ensure_linked(), ());
                     *child =
-                        self.collapse_detached(attachment_form_child, branch_node, interner)?;
+                        self.collapse_detached(attachment_from_child, branch_node, interner)?;
                 }
             }
         }
@@ -333,8 +337,31 @@ impl<'a, A: Allocator + Clone, VC: VecLikeCtor> EthereumMPT<'a, A, VC> {
                         interner,
                         hasher,
                     )? {
+                        AppendPath::Follow {
+                            allocated_node,
+                            next_key,
+                        } => {
+                            // we need to remember next key if it's an extension, as we will not
+                            // go further
+                            if allocated_node.is_extension() {
+                                // make unreferenced key
+                                let unreferenced = UnreferencedKey {
+                                    cached_key: next_key,
+                                    parent_node: allocated_node,
+                                    branch_index: 16,
+                                };
+                                let unreferenced_key = self.push_unreferenced_key(unreferenced);
+                                debug_assert!(self.capacities.extension_nodes
+                                    [allocated_node.index()]
+                                .child_node
+                                .is_unlinked());
+                                self.capacities.extension_nodes[allocated_node.index()]
+                                    .child_node = unreferenced_key;
+                            }
+
+                            allocated_node
+                        }
                         AppendPath::PathDiverged { allocated_node }
-                        | AppendPath::Follow { allocated_node, .. }
                         | AppendPath::LeafReached { allocated_node, .. }
                         | AppendPath::BranchReached {
                             final_branch_node: allocated_node,

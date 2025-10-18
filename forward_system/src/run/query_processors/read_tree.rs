@@ -29,7 +29,7 @@ impl<T: ReadStorageTree> ReadTreeResponder<T> {
     ];
 }
 
-impl<T: ReadStorageTree, M: MemorySource> OracleQueryProcessor<M> for ReadTreeResponder<T> {
+impl<T: ReadStorageTree, M: U32Memory> OracleQueryProcessor<M> for ReadTreeResponder<T> {
     fn supported_query_ids(&self) -> Vec<u32> {
         Self::SUPPORTED_QUERY_IDS.to_vec()
     }

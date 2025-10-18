@@ -9,6 +9,8 @@ use risc_v_simulator::{
 };
 use std::{io::Read, path::PathBuf, str::FromStr};
 
+pub mod run_transpiler;
+
 /// Runs the zksync_os binary on a simulator with a given non_determinism source for that many cycles.
 /// If you enable diagnostics, it will print the flamegraph - but the run will be a lot slower.
 pub fn run_default(

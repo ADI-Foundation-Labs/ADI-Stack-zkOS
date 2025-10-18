@@ -10,7 +10,7 @@ impl UARTPrintReponsder {
     const SUPPORTED_QUERY_IDS: &[u32] = &[UART_QUERY_ID];
 }
 
-impl<M: MemorySource> OracleQueryProcessor<M> for UARTPrintReponsder {
+impl<M: U32Memory> OracleQueryProcessor<M> for UARTPrintReponsder {
     fn supported_query_ids(&self) -> Vec<u32> {
         Self::SUPPORTED_QUERY_IDS.to_vec()
     }

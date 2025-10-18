@@ -11,6 +11,7 @@ categories.workspace = true
 
 [dependencies]
 risc_v_simulator = { git = "https://github.com/matter-labs/zksync-airbender", branch = "av_use_new_vm", features = ["delegation"] }
+riscv_transpiler = { git = "https://github.com/matter-labs/zksync-airbender", branch = "av_use_new_vm" }
 prover_examples = { git = "https://github.com/matter-labs/zksync-airbender", branch = "av_use_new_vm", optional = true }
 trace_and_split = { git = "https://github.com/matter-labs/zksync-airbender", branch = "av_use_new_vm", optional = true }
 execution_utils = { git = "https://github.com/matter-labs/zksync-airbender", branch = "av_use_new_vm", optional = true }

@@ -59,9 +59,18 @@ impl CallTraceItem {
     }
 
     pub fn has_call_to_unsupported_precompile(&self) -> bool {
-        self.to == Some("0000000000000000000000000000000000000009".parse::<Address>().unwrap())
+        self.to
+            == Some(
+                "0000000000000000000000000000000000000009"
+                    .parse::<Address>()
+                    .unwrap(),
+            )
             || self.to
-                == Some("000000000000000000000000000000000000000a".parse::<Address>().unwrap())
+                == Some(
+                    "000000000000000000000000000000000000000a"
+                        .parse::<Address>()
+                        .unwrap(),
+                )
             || self
                 .calls
                 .as_ref()

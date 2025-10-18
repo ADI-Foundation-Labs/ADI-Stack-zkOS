@@ -14,24 +14,41 @@ use zk_ee::{internal_error, system_io_oracle::*};
 pub use risc_v_simulator::abstractions::memory::MemorySource;
 use risc_v_simulator::abstractions::non_determinism::NonDeterminismCSRSource;
 
+pub trait U32Memory {
+    fn read_word(&self, address: u32) -> u32;
+}
+
+impl U32Memory for risc_v_simulator::abstractions::memory::VectorMemoryImpl {
+    fn read_word(&self, address: u32) -> u32 {
+        <Self as risc_v_simulator::abstractions::memory::MemorySource>::get_noexcept(
+            self,
+            address as u64,
+        )
+    }
+}
+
+impl U32Memory for risc_v_simulator::abstractions::memory::VectorMemoryImplWithRom {
+    fn read_word(&self, address: u32) -> u32 {
+        <Self as risc_v_simulator::abstractions::memory::MemorySource>::get_noexcept(
+            self,
+            address as u64,
+        )
+    }
+}
+
+impl<const ROM_BOUND_SECOND_WORD_BITS: usize> U32Memory
+    for riscv_transpiler::vm::RamWithRomRegion<ROM_BOUND_SECOND_WORD_BITS>
+{
+    fn read_word(&self, address: u32) -> u32 {
+        use riscv_transpiler::vm::RAM;
+        self.peek_word(address)
+    }
+}
+
 pub struct DummyMemorySource;
 
-impl MemorySource for DummyMemorySource {
-    fn get(
-        &self,
-        _phys_address: u64,
-        _access_type: risc_v_simulator::abstractions::memory::AccessType,
-        _trap: &mut risc_v_simulator::cycle::status_registers::TrapReason,
-    ) -> u32 {
-        unreachable!()
-    }
-    fn set(
-        &mut self,
-        _phys_address: u64,
-        _value: u32,
-        _access_type: risc_v_simulator::abstractions::memory::AccessType,
-        _trap: &mut risc_v_simulator::cycle::status_registers::TrapReason,
-    ) {
+impl U32Memory for DummyMemorySource {
+    fn read_word(&self, _address: u32) -> u32 {
         unreachable!()
     }
 }
@@ -40,7 +57,7 @@ impl MemorySource for DummyMemorySource {
 /// Structure that is responsible to buffer incoming queries till the end,
 /// and then dispatch it to various responders. When constructed it checks
 /// that responders do not try to serve the same query ID.
-pub struct ZkEENonDeterminismSource<M: MemorySource> {
+pub struct ZkEENonDeterminismSource<M: U32Memory> {
     query_buffer: Option<QueryBuffer>,
     current_query_id: Option<u32>,
     current_iterator: Option<Box<dyn ExactSizeIterator<Item = usize> + 'static>>,
@@ -53,7 +70,7 @@ pub struct ZkEENonDeterminismSource<M: MemorySource> {
     ranges: BTreeMap<u32, usize>,
 }
 
-impl<M: MemorySource> Default for ZkEENonDeterminismSource<M> {
+impl<M: U32Memory> Default for ZkEENonDeterminismSource<M> {
     fn default() -> Self {
         Self {
             query_buffer: None,
@@ -68,7 +85,7 @@ impl<M: MemorySource> Default for ZkEENonDeterminismSource<M> {
     }
 }
 
-impl<M: MemorySource> ZkEENonDeterminismSource<M> {
+impl<M: U32Memory> ZkEENonDeterminismSource<M> {
     #[track_caller]
     pub fn add_external_processor<P: OracleQueryProcessor<M> + 'static>(&mut self, processor: P) {
         let query_ids = processor.supported_query_ids();
@@ -227,7 +244,7 @@ impl IOOracle for ZkEENonDeterminismSource<DummyMemorySource> {
     }
 }
 
-pub trait OracleQueryProcessor<M: MemorySource> {
+pub trait OracleQueryProcessor<M: U32Memory> {
     /// List of different query ids that are supported (for example NextTxSize or BlockLevelMetadataIterator).
     fn supported_query_ids(&self) -> Vec<u32>;
     fn supports_query_id(&self, query_id: u32) -> bool {
@@ -288,7 +305,28 @@ impl QueryBuffer {
 }
 
 // now we hook an access
-impl<M: MemorySource> NonDeterminismCSRSource<M> for ZkEENonDeterminismSource<M> {
+impl<M: MemorySource> NonDeterminismCSRSource<M> for ZkEENonDeterminismSource<M>
+where
+    M: U32Memory,
+{
+    #[allow(clippy::let_and_return)]
+    fn read(&mut self) -> u32 {
+        let value = self.read_impl();
+        // println!("`NonDeterminismCSRSource` returned 0x{:08x}", value);
+        value
+    }
+
+    fn write_with_memory_access(&mut self, memory: &M, value: u32) {
+        // println!("`NonDeterminismCSRSource` received 0x{:08x}", value);
+        self.write_impl(memory, value);
+    }
+}
+
+impl<M: riscv_transpiler::vm::RAM> riscv_transpiler::vm::NonDeterminismCSRSource<M>
+    for ZkEENonDeterminismSource<M>
+where
+    M: U32Memory,
+{
     #[allow(clippy::let_and_return)]
     fn read(&mut self) -> u32 {
         let value = self.read_impl();
@@ -303,12 +341,12 @@ impl<M: MemorySource> NonDeterminismCSRSource<M> for ZkEENonDeterminismSource<M>
 }
 
 /// Wraps the original source and remembers all the read accesses.
-pub struct ReadWitnessSource<M: MemorySource> {
+pub struct ReadWitnessSource<M: U32Memory> {
     original_source: ZkEENonDeterminismSource<M>,
     read_items: Rc<RefCell<Vec<u32>>>,
 }
 
-impl<M: MemorySource> ReadWitnessSource<M> {
+impl<M: U32Memory> ReadWitnessSource<M> {
     pub fn new(original_source: ZkEENonDeterminismSource<M>) -> Self {
         Self {
             original_source,
@@ -321,7 +359,10 @@ impl<M: MemorySource> ReadWitnessSource<M> {
     }
 }
 
-impl<M: MemorySource> NonDeterminismCSRSource<M> for ReadWitnessSource<M> {
+impl<M: MemorySource> NonDeterminismCSRSource<M> for ReadWitnessSource<M>
+where
+    M: U32Memory,
+{
     fn read(&mut self) -> u32 {
         let item = self.original_source.read();
         // on read - remember the items.

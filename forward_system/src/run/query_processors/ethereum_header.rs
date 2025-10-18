@@ -19,7 +19,7 @@ impl EthereumTargetBlockHeaderResponder {
     ];
 }
 
-impl<M: MemorySource> OracleQueryProcessor<M> for EthereumTargetBlockHeaderResponder {
+impl<M: U32Memory> OracleQueryProcessor<M> for EthereumTargetBlockHeaderResponder {
     fn supported_query_ids(&self) -> Vec<u32> {
         Self::SUPPORTED_QUERY_IDS.to_vec()
     }

@@ -21,7 +21,7 @@ impl InMemoryEthereumInitialAccountStateResponder {
     const SUPPORTED_QUERY_IDS: &[u32] = &[ETHEREUM_ACCOUNT_INITIAL_STATE_QUERY_ID];
 }
 
-impl<M: MemorySource> OracleQueryProcessor<M> for InMemoryEthereumInitialAccountStateResponder {
+impl<M: U32Memory> OracleQueryProcessor<M> for InMemoryEthereumInitialAccountStateResponder {
     fn supported_query_ids(&self) -> Vec<u32> {
         Self::SUPPORTED_QUERY_IDS.to_vec()
     }
