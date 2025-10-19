@@ -277,7 +277,7 @@ fn recover_authority<S: EthereumLikeTypes>(
     resources: &mut S::Resources,
     auth_sig_data: (u8, &[u8], &[u8]),
     msg: &[u8; 32],
-) -> Result<Option<B160>, TxError> {
+) -> Result<Option<B160>, TxError> where S::IO: IOSubsystemExt{
     use zk_ee::system::SystemFunctions;
     let mut ecrecover_input = [0u8; 128];
     let (parity, r, s) = auth_sig_data;
@@ -289,11 +289,21 @@ fn recover_authority<S: EthereumLikeTypes>(
     // Recover is counted in intrinsic gas
     resources
         .with_infinite_ergs(|inf_ergs| {
-            S::SystemFunctions::secp256k1_ec_recover(
+            // S::SystemFunctions::secp256k1_ec_recover(
+            //     ecrecover_input.as_slice(),
+            //     &mut ecrecover_output,
+            //     inf_ergs,
+            //     system.get_allocator(),
+            // )
+            let allocator = system.get_allocator();
+            let mut logger = system.get_logger();
+            S::SystemFunctionsExt::secp256k1_ec_recover_ext(
                 ecrecover_input.as_slice(),
                 &mut ecrecover_output,
                 inf_ergs,
-                system.get_allocator(),
+                system.io.oracle(),
+                &mut logger,
+                allocator,
             )
         })
         .map_err(SystemError::from)?;
@@ -556,11 +566,22 @@ where
             tx_resources
                 .main_resources
                 .with_infinite_ergs(|resources| {
-                    S::SystemFunctions::secp256k1_ec_recover(
-                        &ecrecover_input[..],
+                    // S::SystemFunctions::secp256k1_ec_recover(
+                    //     &ecrecover_input[..],
+                    //     &mut ecrecover_output,
+                    //     resources,
+                    //     system.get_allocator(),
+                    // )
+                    // .map_err(SystemError::from)
+                    let allocator = system.get_allocator();
+                    let mut logger = system.get_logger();
+                    S::SystemFunctionsExt::secp256k1_ec_recover_ext(
+                        ecrecover_input.as_slice(),
                         &mut ecrecover_output,
                         resources,
-                        system.get_allocator(),
+                        system.io.oracle(),
+                        &mut logger,
+                        allocator,
                     )
                     .map_err(SystemError::from)
                 })?;

@@ -19,7 +19,7 @@ pub struct ECMultContext {
 }
 
 #[cfg(feature = "secp256k1-static-context")]
-pub(crate) const ECRECOVER_CONTEXT: ECMultContext = ECMultContext::const_new();
+pub static ECRECOVER_CONTEXT: ECMultContext = ECMultContext::const_new();
 
 impl ECMultContext {
     /// Creates a new context instance on the stack.

@@ -37,6 +37,8 @@ pub mod secp256r1;
 pub mod sha256;
 pub mod sha3;
 
+pub use ::k256 as rust_k256;
+
 #[cfg(any(
     all(target_arch = "riscv32", feature = "bigint_ops"),
     feature = "proving",

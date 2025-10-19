@@ -117,7 +117,7 @@ impl FieldElementConst {
 pub struct FieldElement(pub(crate) FieldElementImpl);
 
 impl FieldElement {
-    pub(crate) const ZERO: Self = Self(FieldElementImpl::ZERO);
+    pub const ZERO: Self = Self(FieldElementImpl::ZERO);
     pub(crate) const ONE: Self = Self(FieldElementImpl::ONE);
     // 0x7ae96a2b657c07106e64479eac3434e99cf0497512f58995c1396c28719501ee
     pub(crate) const BETA: Self = Self(FieldElementImpl::BETA);
@@ -127,7 +127,7 @@ impl FieldElement {
         Self(FieldElementImpl::from_bytes_unchecked(bytes))
     }
 
-    pub(crate) fn from_bytes(bytes: &[u8; 32]) -> Option<Self> {
+    pub fn from_bytes(bytes: &[u8; 32]) -> Option<Self> {
         FieldElementImpl::from_bytes(bytes).map(Self)
     }
 
@@ -139,11 +139,11 @@ impl FieldElement {
         self.0.mul_int_in_place(rhs);
     }
 
-    pub(crate) fn square_in_place(&mut self) {
+    pub fn square_in_place(&mut self) {
         self.0.square_in_place();
     }
 
-    pub(crate) fn add_in_place(&mut self, rhs: &Self) {
+    pub fn add_in_place(&mut self, rhs: &Self) {
         self.0.add_in_place(&rhs.0);
     }
 
@@ -151,7 +151,7 @@ impl FieldElement {
         self.0.double_in_place();
     }
 
-    pub(crate) fn sub_in_place(&mut self, rhs: &Self) {
+    pub fn sub_in_place(&mut self, rhs: &Self) {
         self.0.sub_in_place(&rhs.0);
     }
 
@@ -159,7 +159,7 @@ impl FieldElement {
         self.0.add_int_in_place(rhs);
     }
 
-    pub(crate) fn invert_in_place(&mut self) {
+    pub fn invert_in_place(&mut self) {
         self.0.invert_in_place()
     }
 
@@ -212,7 +212,7 @@ impl FieldElement {
         self.pow2k_in_place(2);
     }
 
-    pub(crate) fn sqrt_in_place(&mut self) -> bool {
+    pub fn sqrt_in_place(&mut self) -> bool {
         let original = *self;
         self.sqrt_in_place_unchecked();
 
@@ -223,7 +223,7 @@ impl FieldElement {
 
         is_root.normalizes_to_zero()
     }
-    pub(crate) fn negate_in_place(&mut self, magnitude: u32) {
+    pub fn negate_in_place(&mut self, magnitude: u32) {
         self.0.negate_in_place(magnitude);
     }
 
@@ -231,11 +231,11 @@ impl FieldElement {
         self.0.normalize_in_place();
     }
 
-    pub(crate) fn is_odd(&self) -> bool {
+    pub fn is_odd(&self) -> bool {
         self.0.is_odd()
     }
 
-    pub(crate) fn normalizes_to_zero(&self) -> bool {
+    pub fn normalizes_to_zero(&self) -> bool {
         self.0.normalizes_to_zero()
     }
 
@@ -246,7 +246,7 @@ impl FieldElement {
         }
     }
 
-    pub(crate) fn to_bytes(mut self) -> FieldBytes {
+    pub fn to_bytes(mut self) -> FieldBytes {
         self.normalize_in_place();
         self.0.to_bytes()
     }

@@ -41,6 +41,8 @@ wrap-in-batch = []
 proving = ["crypto/proving"]
 evm_refunds = []
 
+ecrecover_with_oracle = []
+
 [dev-dependencies]
 hex = "*"
 proptest = "1.6.0"

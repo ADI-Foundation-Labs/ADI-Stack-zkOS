@@ -39,7 +39,7 @@ pub(super) struct ScalarInner(BigInt<4>);
 
 impl ScalarInner {
     pub(super) const ZERO: Self = Self(BigInt::zero());
-    pub(super) const ONE: Self = Self::from_words([4624529908474429119, 4994812053365940164, 1, 0]);
+    pub const ONE: Self = Self::from_words([4624529908474429119, 4994812053365940164, 1, 0]);
     const ONE_REPR: Self = Self(BigInt::one());
     const R2: Self = Self::from_words([
         9902555850136342848,

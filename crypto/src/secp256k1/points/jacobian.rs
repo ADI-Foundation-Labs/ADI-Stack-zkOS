@@ -37,7 +37,7 @@ impl JacobianConst {
         }
     }
 
-    pub(crate) const fn is_infinity(&self) -> bool {
+    pub const fn is_infinity(&self) -> bool {
         self.z.normalizes_to_zero() || (self.y.normalizes_to_zero() && self.x.normalizes_to_zero())
     }
 
@@ -177,7 +177,7 @@ impl JacobianConst {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct Jacobian {
+pub struct Jacobian {
     pub(crate) x: FieldElement,
     pub(crate) y: FieldElement,
     pub(crate) z: FieldElement,
@@ -210,6 +210,18 @@ impl Jacobian {
 
     pub(crate) fn is_infinity(&self) -> bool {
         self.z.normalizes_to_zero() || (self.y.normalizes_to_zero() && self.x.normalizes_to_zero())
+    }
+
+    pub const fn x(&self) -> &FieldElement {
+        &self.x
+    }
+
+    pub const fn y(&self) -> &FieldElement {
+        &self.y
+    }
+
+    pub const fn z(&self) -> &FieldElement {
+        &self.z
     }
 
     pub(crate) fn to_affine(self) -> Affine {

@@ -16,6 +16,7 @@
 
 pub mod arithmetic;
 pub mod utils;
+pub mod field_hints;
 
 use zk_ee::{
     kv_markers::{ExactSizeChain, UsizeDeserializable, UsizeSerializable},

@@ -133,6 +133,14 @@ impl Affine {
         self.infinity || (self.x.normalizes_to_zero() && self.y.normalizes_to_zero())
     }
 
+    pub unsafe fn from_xy_unchecked(x: FieldElement, y: FieldElement) -> Self {
+        Self {
+            x,
+            y,
+            infinity: false,
+        }
+    }
+
     pub(crate) fn decompress(x_bytes: &FieldBytes, y_is_odd: bool) -> Option<Self> {
         debug_assert!(x_bytes.as_slice().len() == 32);
 
@@ -206,7 +214,7 @@ impl Affine {
         self.infinity = a.infinity;
     }
 
-    pub(crate) const fn to_jacobian(self) -> Jacobian {
+    pub const fn to_jacobian(self) -> Jacobian {
         Jacobian {
             x: self.x,
             y: self.y,

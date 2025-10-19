@@ -32,12 +32,10 @@ const ORDER_HEX: &str = "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8
 pub struct Scalar(pub(crate) ScalarInner);
 
 impl Scalar {
-    #[cfg(test)]
     pub(crate) const ZERO: Self = Self(ScalarInner::ZERO);
-    #[cfg(test)]
-    pub(crate) const ONE: Self = Self(ScalarInner::ONE);
-    #[cfg(test)]
+    pub const ONE: Self = Self(ScalarInner::ONE);
     const ORDER: Self = Self(ScalarInner::ORDER);
+
     #[cfg(test)]
     const MINUS_LAMBDA: Self = Self(ScalarInner::MINUS_LAMBDA);
 
@@ -56,23 +54,22 @@ impl Scalar {
         Self(ScalarInner::from_be_hex(hex))
     }
 
-    pub(crate) fn from_signature(signature: &crate::k256::ecdsa::Signature) -> (Self, Self) {
+    pub fn from_signature(signature: &crate::k256::ecdsa::Signature) -> (Self, Self) {
         let (r, s) = signature.split_scalars();
         (Self::from_k256_scalar(*r), Self::from_k256_scalar(*s))
     }
 
-    pub(crate) fn to_repr(self) -> FieldBytes {
+    pub fn to_repr(self) -> FieldBytes {
         self.0.to_be_bytes().into()
     }
 
-    #[cfg(test)]
     pub(crate) fn from_repr(bytes: FieldBytes) -> Self {
         let bytes = bytes.as_slice().try_into().unwrap();
         Self(ScalarInner::from_be_bytes(bytes))
     }
 
     #[inline(always)]
-    pub(crate) fn from_k256_scalar(s: crate::k256::Scalar) -> Self {
+    pub fn from_k256_scalar(s: crate::k256::Scalar) -> Self {
         Self(ScalarInner::from_k256_scalar(s))
     }
 
@@ -94,11 +91,11 @@ impl Scalar {
         self.0.bits_var(offset, count)
     }
 
-    pub(crate) fn is_zero(&self) -> bool {
+    pub fn is_zero(&self) -> bool {
         self.0.is_zero()
     }
 
-    pub(crate) fn negate_in_place(&mut self) {
+    pub fn negate_in_place(&mut self) {
         self.0.negate_in_place();
     }
 }
@@ -154,7 +151,6 @@ impl PartialOrd for Scalar {
     }
 }
 
-#[cfg(test)]
 impl core::ops::Neg for Scalar {
     type Output = Self;
 
@@ -165,7 +161,6 @@ impl core::ops::Neg for Scalar {
     }
 }
 
-#[cfg(test)]
 impl core::ops::Mul for Scalar {
     type Output = Self;
 
@@ -176,7 +171,6 @@ impl core::ops::Mul for Scalar {
     }
 }
 
-#[cfg(test)]
 impl core::ops::Add for Scalar {
     type Output = Self;
 
@@ -187,7 +181,6 @@ impl core::ops::Add for Scalar {
     }
 }
 
-#[cfg(test)]
 impl core::ops::Sub for Scalar {
     type Output = Self;
 

@@ -17,7 +17,19 @@ pub use context::ECMultContext;
 pub use recover::recover_with_context;
 
 #[cfg(feature = "secp256k1-static-context")]
+pub use context::ECRECOVER_CONTEXT;
+
+#[cfg(feature = "secp256k1-static-context")]
 pub use recover::recover;
+
+// #[cfg(target_arch = "riscv32")]
+pub use scalars::Scalar;
+// #[cfg(target_arch = "riscv32")]
+pub use field::FieldElement;
+// #[cfg(target_arch = "riscv32")]
+pub use points::{Affine, Jacobian};
+// #[cfg(target_arch = "riscv32")]
+pub use recover::ecmult;
 
 #[cfg(any(all(target_arch = "riscv32", feature = "bigint_ops"), test))]
 pub fn init() {

@@ -12,6 +12,41 @@ pub mod p256_verify;
 pub mod ripemd160;
 pub mod sha256;
 
+pub const FIELD_OPS_ADVISE_QUERY_ID: u32 = zk_ee::system_io_oracle::ADVISE_SUBSPACE_MASK | 0x11;
+
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct FieldOpsHint {
+    pub op: u32,
+    pub src_ptr: u32,
+    pub src_len_u32_words: u32,
+}
+
+#[repr(u32)]
+#[non_exhaustive]
+pub enum FieldHintOp {
+    Secp256k1BaseFieldSqrt = 0,
+    Secp256k1BaseFieldInverse,
+    Secp256k1ScalarFieldInverse,
+}
+
+impl FieldHintOp {
+    pub fn parse_u32(value: u32) -> Option<Self> {
+        match value {
+            a if a == (Self::Secp256k1BaseFieldSqrt as u32) => {
+                Some(Self::Secp256k1BaseFieldSqrt)
+            }
+            a if a == (Self::Secp256k1BaseFieldInverse as u32) => {
+                Some(Self::Secp256k1BaseFieldInverse)
+            }
+            a if a == (Self::Secp256k1ScalarFieldInverse as u32) => {
+                Some(Self::Secp256k1ScalarFieldInverse)
+            }
+            _ => None
+        }
+    }
+}
+
 ///
 /// Internal utility function to reverse byte array
 ///
@@ -47,4 +82,5 @@ impl<R: Resources> SystemFunctions<R> for NoStdSystemFunctions {
 
 impl<R: Resources> SystemFunctionsExt<R> for NoStdSystemFunctions {
     type ModExp = modexp::ModExpImpl;
+    type Secp256k1ECRecover = ecrecover::EcRecoverImpl;
 }

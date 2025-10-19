@@ -247,7 +247,10 @@ where
     /// Adds EVM precompiles hooks.
     ///
     pub fn add_precompiles(&mut self) {
-        self.add_precompile::<<S::SystemFunctions as SystemFunctions<_>>::Secp256k1ECRecover, Secp256k1ECRecoverErrors>(
+        // self.add_precompile::<<S::SystemFunctions as SystemFunctions<_>>::Secp256k1ECRecover, Secp256k1ECRecoverErrors>(
+        //     ECRECOVER_HOOK_ADDRESS_LOW,
+        // );
+        self.add_precompile_ext::<<S::SystemFunctionsExt as SystemFunctionsExt<_>>::Secp256k1ECRecover, Secp256k1ECRecoverErrors>(
             ECRECOVER_HOOK_ADDRESS_LOW,
         );
         self.add_precompile::<<S::SystemFunctions as SystemFunctions<_>>::Sha256, Sha256Errors>(

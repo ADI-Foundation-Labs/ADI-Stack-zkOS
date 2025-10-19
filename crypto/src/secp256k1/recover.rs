@@ -56,6 +56,12 @@ pub fn recover_with_context(
 
     let xj = x.to_jacobian();
 
+    // This case is unreachable if we were able to decompress the point,
+    // but easier to check again
+    if sigr.is_zero() {
+        return Err(Secp256k1Err::InvalidParams);
+    }
+
     sigr.invert_in_place();
     sigs *= sigr;
 
@@ -74,7 +80,7 @@ pub fn recover_with_context(
 
 /// Compute na*a+ng*g where g is the generator.
 /// Algorithm adapted from https://github.com/bitcoin-core/secp256k1/blob/master/src/ecmult_impl.h#L237
-fn ecmult(a: &Jacobian, na: &Scalar, ng: &Scalar, context: &ECMultContext) -> Jacobian {
+pub fn ecmult(a: &Jacobian, na: &Scalar, ng: &Scalar, context: &ECMultContext) -> Jacobian {
     let mut z = FieldElement::ONE;
 
     let mut prea: [Affine; ECMULT_TABLE_SIZE_A] = [Affine::DEFAULT; ECMULT_TABLE_SIZE_A];

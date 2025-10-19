@@ -24,7 +24,7 @@ impl core::fmt::Debug for ScalarInner {
 
 impl ScalarInner {
     pub(super) const ZERO: Self = Self(U256::ZERO);
-    pub(super) const ONE: Self = Self(U256::ONE);
+    pub const ONE: Self = Self(U256::ONE);
     pub(super) const ORDER: Self = Self::from_be_hex(super::ORDER_HEX);
 
     pub(super) const MINUS_LAMBDA: Self = Self::from_be_bytes_unchecked(&[
@@ -61,7 +61,6 @@ impl ScalarInner {
         Self(U256::from_be_slice(bytes))
     }
 
-    #[cfg(test)]
     pub(super) fn from_be_bytes(bytes: &[u8; 32]) -> Self {
         Self(U256::from_be_slice(bytes))
     }

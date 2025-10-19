@@ -286,4 +286,22 @@ pub trait SystemFunctionsExt<R: Resources> {
     ) -> Result<(), SubsystemError<ModExpErrors>> {
         Self::ModExp::execute(input, output, resources, oracle, logger, allocator)
     }
+
+    type Secp256k1ECRecover: SystemFunctionExt<R, Secp256k1ECRecoverErrors>;
+
+    fn secp256k1_ec_recover_ext<
+        O: IOOracle,
+        L: Logger,
+        D: Extend<u8> + ?Sized,
+        A: core::alloc::Allocator + Clone,
+    >(
+        input: &[u8],
+        output: &mut D,
+        resources: &mut R,
+        oracle: &mut O,
+        logger: &mut L,
+        allocator: A,
+    ) -> Result<(), SubsystemError<Secp256k1ECRecoverErrors>> {
+        Self::Secp256k1ECRecover::execute(input, output, resources, oracle, logger, allocator)
+    }
 }
