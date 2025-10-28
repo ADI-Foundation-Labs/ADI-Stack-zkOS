@@ -57,7 +57,7 @@ zksync_os_runner = {package = "zksync_os_runner", path = "../../zksync_os_runner
 zksync_os_crypto = { package = "crypto", path="../../crypto" }
 zksync_os_rig = { package = "rig", path="../../tests/rig", features = ["pectra", "prevrandao", "p256_precompile"]}
 
-risc_v_simulator = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System", tag = "v0.3.1-a", features=["delegation", "opcode_stats"]}
+risc_v_simulator = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System", tag = "v0.3.1-b", features=["delegation", "opcode_stats"]}
 
 [dependencies.web3]
 version = "=0.19.0"

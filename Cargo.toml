@@ -56,11 +56,11 @@ categories = ["cryptography"]
 zksync_os_evm_errors = { version = "=0.0.7", default-features = false }
 zksync_os_interface = { version = "=0.0.7" }
 
-risc_v_simulator = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System.git", tag = "v0.4.3-a"}
-blake2s_u32 = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System.git", tag = "v0.4.3-a"}
-prover_examples = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System.git", tag = "v0.4.3-a"}
-execution_utils = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System.git", tag = "v0.4.3-a"}
-prover = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System.git", tag = "v0.4.3-a" }
+risc_v_simulator = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System.git", tag = "v0.4.3-b"}
+blake2s_u32 = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System.git", tag = "v0.4.3-b"}
+prover_examples = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System.git", tag = "v0.4.3-b"}
+execution_utils = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System.git", tag = "v0.4.3-b"}
+prover = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System.git", tag = "v0.4.3-b" }
 
 # [profile.dev]
 # opt-level = 0
