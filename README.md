@@ -1,8 +1,8 @@
-# ZKsync OS
+# ADI Stack OS
 
-[![Logo](zksync-os-logo.png)](https://zksync.io/)
+ADI Stack OS is a new state transition function implementation that enables multiple execution environments (EVM, EraVM, Wasm, etc.) to operate within a unified ecosystem. It is implemented in Rust and compiled into a RISC-V binary, which can later be proven using the `adi-stack-airbender-system`.
 
-ZKsync OS is a state transition function implementation that enables multiple execution environments (EVM, EraVM, Wasm, etc.) to operate within a unified ecosystem. It is implemented in Rust and compiled into a RISC-V binary, which can later be proven using [ZKsync Airbender](https://github.com/matter-labs/zksync-airbender).
+ADI Stack utilizing the [MatterLabs zkOS stack](https://github.com/matter-labs/zksync-os)
 
 ## Documentation
 
@@ -100,7 +100,6 @@ cd tests/evm_tester && cargo run --bin evm-tester --release --features zksync_os
 
 ## Policies
 
-- [Security policy](SECURITY.md)
 - [Contribution policy](CONTRIBUTING.md)
 
 ## License
@@ -114,11 +113,10 @@ at your option.
 
 ## Official Links
 
-- [Website](https://zksync.io/)
-- [GitHub](https://github.com/matter-labs)
-- [ZK Credo](https://github.com/zksync/credo)
-- [Twitter](https://twitter.com/zksync)
-- [Twitter for Developers](https://twitter.com/zkSyncDevs)
-- [Discord](https://join.zksync.dev/)
-- [Mirror](https://zksync.mirror.xyz/)
-- [YouTube](https://www.youtube.com/@zkSync-era)
+- [Website](https://adi.foundation)
+- [Docs](https://docs.adi.foundation/)
+- [Github](https://github.com/ADI-Foundation-Labs/)
+- [X](https://x.com/adi_foundation)
+- [X for ADI Chain announcements](https://x.com/ADIChain_)
+- [LinkedIn](https://www.linkedin.com/company/adifoundation/)
+- [Discord](http://discord.gg/adi-foundation)
