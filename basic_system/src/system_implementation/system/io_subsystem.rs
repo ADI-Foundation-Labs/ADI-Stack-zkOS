@@ -673,6 +673,10 @@ impl<
                 .expect("Failed to finish storage");
             Default::default() // Unused
         };
+        if self.da_commitment_scheme == Some(DACommitmentScheme::PubdataKeccak256) {
+            // Without `state-diffs-pi` we keep zero state diff hash for this commitment scheme.
+            da_commitment_generator.set_state_diff_hash(state_diffs_hash);
+        }
 
         self.logs_storage
             .apply_pubdata(da_commitment_generator.as_mut(), result_keeper);
