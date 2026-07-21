@@ -20,8 +20,8 @@ mkdir /tmp/witness
 cargo run -p eth_runner --release --features rig/no_print,evm_replay -- single-run --block-dir tests/instances/eth_runner/blocks/19299001 --randomized --witness-output-dir /tmp/witness
 ```
 
-Now, clone [zksync-airbender](https://github.com/matter-labs/zksync-airbender/tree/main) (suggested version v0.3.0).
-From Airbender's [tools/cli directory](https://github.com/matter-labs/zksync-airbender/tree/main/tools/cli) run the prover with GPU or CPU as follows:
+Now, clone [adi-stack-airbender-system](https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System) (suggested version v0.3.0).
+From Airbender's [tools/cli directory](https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System/tree/main/tools/cli) run the prover with GPU or CPU as follows:
 
 ### With GPU (requires at least 22GB of device RAM):
 ```shell
