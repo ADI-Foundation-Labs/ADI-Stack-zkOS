@@ -1,8 +1,8 @@
-# ZKsync OS
+# ADI Stack OS
 
-[![Logo](zksync-os-logo.png)](https://zksync.io/)
+ADI Stack OS is a new state transition function implementation that enables multiple execution environments (EVM, EraVM, Wasm, etc.) to operate within a unified ecosystem. It is implemented in Rust and compiled into a RISC-V binary, which can later be proven using the `adi-stack-airbender-system`.
 
-ZKsync OS is a new state transition function implementation that enables multiple execution environments (EVM, EraVM, Wasm, etc.) to operate within a unified ecosystem. It is implemented in Rust and compiled into a RISC-V binary, which can later be proven using the `zksync-airbender`.
+ADI Stack utilizing the [MatterLabs zkOS stack](https://github.com/matter-labs/zksync-os)
 
 ## Documentation
 
@@ -77,7 +77,7 @@ It will create a CSR file with the path `CSR_READS_DUMP`.
 
 **Using the Prover CLI**
 
-The Prover CLI is part of the `zksync-airbender` repository, located in the [tools/cli](https://github.com/matter-labs/zksync-airbender/tree/main/tools/cli) directory.
+The Prover CLI is part of the `adi-stack-airbender-system` repository, located in the [tools/cli](https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System/tree/main/tools/cli) directory.
 
 Run the following from the zksync-airbender repository:
 
@@ -87,46 +87,10 @@ mkdir zkee_output
 cargo run --profile cli --no-default-features -p cli prove --bin ../zksync-os/zksync_os/for_tests.bin --input-file ${CSR_READS_DUMP} --output-dir zkee_output
 ```
 
-This generates multiple proof files in the `zkee_output` directory. For recursion (compressing proofs into fewer files), refer to the instructions in the `zksync-airbender` repository.
-
-
-### Proving workflow with anvil-zksync
-
-1. Build ZKsync OS
-2. Run anvil-zksync
-3. Send transactions
-4. Tell prover cli to get the witnesses from anvil-zksync
-
-**Anvil ZKsync**
-
-Run [anvil-zksync from GitHub](https://github.com/matter-labs/anvil-zksync) - **IMPORTANT** - make sure to use the `zkos-dev` branch.
-
-```shell
-cargo run  -- --use-zkos --zkos-bin-path=../zksync-os/zksync_os/for_tests.bin
-```
-
-**Send transactions**
-
-You can use any tool (for example, forge) to send transactions to the anvil binary.
-
-**Tell prover cli to get the witnesses from anvil-zksync**
-
-From the zksync-airbender repo:
-```
-    cargo run --no-default-features -- run --bin ../zksync-os/zksync_os/for_tests.bin --input-rpc http://localhost:8012 --input-batch 15
-```
-
-You can get the witness via the RPC call, where you pass the batch ID as a parameter:
-
-```
-http POST http://127.0.0.1:8011 \
-    Content-Type:application/json \
-    id:=1 jsonrpc="2.0" method="zkos_getWitness" params:='[1]'
-```
+This generates multiple proof files in the `zkee_output` directory. For recursion (compressing proofs into fewer files), refer to the instructions in the `adi-stack-airbender-system` repository.
 
 ## Policies
 
-- [Security policy](SECURITY.md)
 - [Contribution policy](CONTRIBUTING.md)
 
 ## License
@@ -140,11 +104,10 @@ at your option.
 
 ## Official Links
 
-- [Website](https://zksync.io/)
-- [GitHub](https://github.com/matter-labs)
-- [ZK Credo](https://github.com/zksync/credo)
-- [Twitter](https://twitter.com/zksync)
-- [Twitter for Developers](https://twitter.com/zkSyncDevs)
-- [Discord](https://join.zksync.dev/)
-- [Mirror](https://zksync.mirror.xyz/)
-- [Youtube](https://youtube.com/@zksync-io)
+- [Website](https://adi.foundation)
+- [Docs](https://docs.adi.foundation/)
+- [Github](https://github.com/ADI-Foundation-Labs/)
+- [X](https://x.com/adi_foundation)
+- [X for ADI Chain announcements](https://x.com/ADIChain_)
+- [LinkedIn](https://www.linkedin.com/company/adifoundation/)
+- [Discord](http://discord.gg/adi-foundation)
