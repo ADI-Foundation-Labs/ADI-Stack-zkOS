@@ -1,0 +1,22 @@
+[package]
+name = "storage_models_proving"
+resolver = "2"
+version = "0.1.0"
+edition = "2021"
+authors = ["ADI Foundation"]
+homepage = "https://adi.foundation/"
+repository = "https://github.com/ADI-Foundation-Labs/ADI-Stack-zkOS/"
+license = "MIT OR Apache-2.0"
+keywords = ["blockchain", "zksync", "zk", "risc-v"]
+categories = ["cryptography"]
+
+[lib]
+path = "../../../../../storage_models/src/lib.rs"
+
+[dependencies]
+zk_ee = { package = "zk_ee_proving", path = "../zk_ee_proving" }
+crypto = { package = "crypto_proving", path = "../crypto_proving", default-features = false }
+
+[features]
+testing = ["zk_ee/testing"]
+evm_refunds = ["zk_ee/evm_refunds"]

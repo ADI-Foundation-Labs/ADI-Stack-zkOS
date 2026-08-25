@@ -1,8 +1,8 @@
-# ZKsync OS
+# ADI Stack OS
 
-[![Logo](zksync-os-logo.png)](https://zksync.io/)
+ADI Stack OS is a new state transition function implementation that enables multiple execution environments (EVM, EraVM, Wasm, etc.) to operate within a unified ecosystem. It is implemented in Rust and compiled into a RISC-V binary, which can later be proven using the `adi-stack-airbender-system`.
 
-ZKsync OS is a new state transition function implementation that enables multiple execution environments (EVM, EraVM, Wasm, etc.) to operate within a unified ecosystem. It is implemented in Rust and compiled into a RISC-V binary, which can later be proven using the `zksync-airbender`.
+ADI Stack utilizing the [MatterLabs zkOS stack](https://github.com/matter-labs/zksync-os)
 
 ## Documentation
 
@@ -77,7 +77,7 @@ It will create csr file with path `CSR_READS_DUMP`.
 
 **Using the Prover CLI**
 
-The Prover CLI is part of the `zksync-airbender` repository, located in the [tools/cli](https://github.com/matter-labs/zksync-airbender/tree/main/tools/cli) directory.
+The Prover CLI is part of the `adi-stack-airbender-system` repository, located in the [tools/cli](https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System/tree/main/tools/cli) directory.
 
 Run the following from the zksync-airbender repository:
 
@@ -126,7 +126,6 @@ http POST http://127.0.0.1:8011 \
 
 ## Policies
 
-- [Security policy](SECURITY.md)
 - [Contribution policy](CONTRIBUTING.md)
 
 ## License
@@ -140,11 +139,10 @@ at your option.
 
 ## Official Links
 
-- [Website](https://zksync.io/)
-- [GitHub](https://github.com/matter-labs)
-- [ZK Credo](https://github.com/zksync/credo)
-- [Twitter](https://twitter.com/zksync)
-- [Twitter for Developers](https://twitter.com/zkSyncDevs)
-- [Discord](https://join.zksync.dev/)
-- [Mirror](https://zksync.mirror.xyz/)
-- [Youtube](https://www.youtube.com/@zkSync-era)
+- [Website](https://adi.foundation)
+- [Docs](https://docs.adi.foundation/)
+- [Github](https://github.com/ADI-Foundation-Labs/)
+- [X](https://x.com/adi_foundation)
+- [X for ADI Chain announcements](https://x.com/ADIChain_)
+- [LinkedIn](https://www.linkedin.com/company/adifoundation/)
+- [Discord](http://discord.gg/adi-foundation)
