@@ -2,13 +2,13 @@
 name = "circuit_test_program"
 version = "0.1.0"
 edition = "2021"
-authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
-homepage = "https://zksync.io/"
-repository = "https://github.com/matter-labs/zksync-os/"
+authors = ["ADI Foundation"]
+homepage = "https://adi.foundation/"
+repository = "https://github.com/ADI-Foundation-Labs/ADI-Stack-zkOS/"
 license = "MIT OR Apache-2.0"
 keywords = ["blockchain", "zksync", "zk", "risc-v"]
 categories = ["cryptography"]
 
 [dependencies]
-airbender = { package = "airbender-sdk", git = "https://github.com/matter-labs/airbender-platform", tag = "v0.2.4" }
-crypto = { git = "https://github.com/matter-labs/airbender-platform", tag = "v0.2.4", package = "airbender-crypto", default-features = false, features = ["proving"] }
+airbender = { package = "airbender-sdk", git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-Platform", tag = "v0.2.4-b" }
+crypto = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-Platform", tag = "v0.2.4-b", package = "airbender-crypto", default-features = false, features = ["proving"] }
