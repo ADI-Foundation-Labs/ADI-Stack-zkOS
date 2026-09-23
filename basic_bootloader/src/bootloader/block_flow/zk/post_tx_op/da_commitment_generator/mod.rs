@@ -6,12 +6,14 @@ use zk_ee::utils::Bytes32;
 mod blake2s_commitment_generator;
 pub mod blob_commitment_generator;
 mod keccak256_commitment_generator;
+mod pubdata_keccak256_commitment_generator;
 
 pub use blake2s_commitment_generator::Blake2sCommitmentGenerator;
 pub use blob_commitment_generator::commitment_and_proof_advice::KZGCommitmentAndProof;
 pub use blob_commitment_generator::commitment_and_proof_advice::BLOB_COMMITMENT_AND_PROOF_QUERY_ID;
 pub use blob_commitment_generator::BlobCommitmentGenerator;
 pub use keccak256_commitment_generator::Keccak256CommitmentGenerator;
+pub use pubdata_keccak256_commitment_generator::PubdataKeccak256CommitmentGenerator;
 use zk_ee::common_structs::da_commitment_scheme::DACommitmentScheme;
 use zk_ee::internal_error;
 use zk_ee::oracle::IOOracle;
@@ -25,6 +27,14 @@ pub trait DACommitmentGenerator<O: IOOracle>: WriteBytes {
     /// It accepts `&mut self` to make the trait dyn compatible.
     ///
     fn finalize(&mut self, oracle: &mut O) -> Bytes32;
+
+    ///
+    /// Allows commitment generators that need it to consume state diff hash from the caller.
+    ///
+    /// State diffs are not a part of the public input yet, so generators that commit to the
+    /// state diff hash keep it zero unless this is called.
+    ///
+    fn set_state_diff_hash(&mut self, _state_diff_hash: Bytes32) {}
 }
 
 pub struct NopCommitmentGenerator;
@@ -44,6 +54,10 @@ pub fn da_commitment_generator_from_scheme<A: Allocator, O: IOOracle>(
     alloc: A,
 ) -> Result<Box<dyn DACommitmentGenerator<O>, A>, InternalError> {
     match da_commitment_scheme {
+        DACommitmentScheme::PubdataKeccak256 => Ok(alloc::boxed::Box::new_in(
+            PubdataKeccak256CommitmentGenerator::new(),
+            alloc,
+        )),
         DACommitmentScheme::BlobsAndPubdataKeccak256 => Ok(alloc::boxed::Box::new_in(
             Keccak256CommitmentGenerator::new(),
             alloc,

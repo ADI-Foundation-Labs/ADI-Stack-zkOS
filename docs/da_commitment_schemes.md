@@ -35,9 +35,23 @@ ZKsync OS implements five distinct DA commitment schemes, defined in [`da_commit
 ### 3. PubdataKeccak256 (ID: 2)
 **Purpose**: Custom DA solutions using keccak256
 
-**Status**: Currently not supported
+**Implementation**: [`PubdataKeccak256CommitmentGenerator`](../basic_bootloader/src/bootloader/block_flow/zk/post_tx_op/da_commitment_generator/pubdata_keccak256_commitment_generator.rs)
+
+**Commitment Calculation**:
+```
+da_commitment = keccak256(
+    state_diffs_hash,     // 32 bytes (zero-filled for now)
+    pubdata_keccak        // 32 bytes (keccak256 of full pubdata)
+)
+```
 
 **Use Case**: Third-party DA layers (Celestia, Avail, etc.)
+
+**Technical Details**:
+- The pubdata itself is published to the external DA layer by the operator, ZKsync OS only
+  commits to its hash, so the settlement layer can validate the operator's DA input against it
+- State diffs hash is zero-filled, as state diffs are not a part of the public input yet;
+  the generator accepts it via `DACommitmentGenerator::set_state_diff_hash` once they become one
 
 ### 4. BlobsAndPubdataKeccak256 (ID: 3)
 **Purpose**: Traditional rollup mode using Ethereum calldata

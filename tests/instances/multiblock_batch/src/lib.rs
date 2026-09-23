@@ -118,3 +118,8 @@ fn run_multiblock_batch_proof_run_calldata() {
 fn run_multiblock_batch_proof_run_blobs() {
     run_multiblock_batch_proof_run(DACommitmentScheme::BlobsZKsyncOS);
 }
+
+#[test]
+fn run_multiblock_batch_proof_run_pubdata_keccak256() {
+    run_multiblock_batch_proof_run(DACommitmentScheme::PubdataKeccak256);
+}
