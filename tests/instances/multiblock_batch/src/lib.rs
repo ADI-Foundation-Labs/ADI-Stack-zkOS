@@ -416,3 +416,8 @@ fn run_singleblock_batch_proof_run_calldata() {
         .join()
         .unwrap();
 }
+
+#[test]
+fn run_multiblock_batch_proof_run_pubdata_keccak256() {
+    run_multiblock_batch_proof_run(DACommitmentScheme::PubdataKeccak256);
+}

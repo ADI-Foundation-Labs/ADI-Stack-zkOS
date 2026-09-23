@@ -17,4 +17,6 @@ runs:
       run: |
         rustup set profile minimal
         cargo install cargo-binutils --locked
-        cargo install cargo-airbender --git https://github.com/matter-labs/airbender-platform --rev ${{ inputs.rev }} --locked
+        # CI only needs `cargo airbender build`; skip the default `gpu-prover`
+        # feature, which requires a CUDA toolkit on the runner.
+        cargo install cargo-airbender --git https://github.com/matter-labs/airbender-platform --rev ${{ inputs.rev }} --locked --no-default-features
