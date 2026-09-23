@@ -17,7 +17,7 @@ dependencies = [
 [[package]]
 name = "airbender-codec"
 version = "0.2.4"
-source = "git+https://github.com/matter-labs/airbender-platform?tag=v0.2.4#a350ee3e08bef4cbe2b7bc968966bee45bc98a17"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-Platform?tag=v0.2.4-b#d7c296b5333f23d507ad0cc7230800cd5d58993c"
 dependencies = [
  "airbender-core",
  "bincode 2.0.1",
@@ -27,12 +27,12 @@ dependencies = [
 [[package]]
 name = "airbender-core"
 version = "0.2.4"
-source = "git+https://github.com/matter-labs/airbender-platform?tag=v0.2.4#a350ee3e08bef4cbe2b7bc968966bee45bc98a17"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-Platform?tag=v0.2.4-b#d7c296b5333f23d507ad0cc7230800cd5d58993c"
 
 [[package]]
 name = "airbender-crypto"
 version = "0.2.4"
-source = "git+https://github.com/matter-labs/airbender-platform?tag=v0.2.4#a350ee3e08bef4cbe2b7bc968966bee45bc98a17"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-Platform?tag=v0.2.4-b#d7c296b5333f23d507ad0cc7230800cd5d58993c"
 dependencies = [
  "ark-bls12-381",
  "ark-bn254",
@@ -62,7 +62,7 @@ dependencies = [
 [[package]]
 name = "airbender-guest"
 version = "0.2.4"
-source = "git+https://github.com/matter-labs/airbender-platform?tag=v0.2.4#a350ee3e08bef4cbe2b7bc968966bee45bc98a17"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-Platform?tag=v0.2.4-b#d7c296b5333f23d507ad0cc7230800cd5d58993c"
 dependencies = [
  "airbender-codec",
  "airbender-core",
@@ -73,7 +73,7 @@ dependencies = [
 [[package]]
 name = "airbender-macros"
 version = "0.2.4"
-source = "git+https://github.com/matter-labs/airbender-platform?tag=v0.2.4#a350ee3e08bef4cbe2b7bc968966bee45bc98a17"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-Platform?tag=v0.2.4-b#d7c296b5333f23d507ad0cc7230800cd5d58993c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -83,7 +83,7 @@ dependencies = [
 [[package]]
 name = "airbender-rt"
 version = "0.2.4"
-source = "git+https://github.com/matter-labs/airbender-platform?tag=v0.2.4#a350ee3e08bef4cbe2b7bc968966bee45bc98a17"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-Platform?tag=v0.2.4-b#d7c296b5333f23d507ad0cc7230800cd5d58993c"
 dependencies = [
  "getrandom 0.2.17",
  "riscv_common",
@@ -92,7 +92,7 @@ dependencies = [
 [[package]]
 name = "airbender-sdk"
 version = "0.2.4"
-source = "git+https://github.com/matter-labs/airbender-platform?tag=v0.2.4#a350ee3e08bef4cbe2b7bc968966bee45bc98a17"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-Platform?tag=v0.2.4-b#d7c296b5333f23d507ad0cc7230800cd5d58993c"
 dependencies = [
  "airbender-codec",
  "airbender-guest",
@@ -536,7 +536,7 @@ dependencies = [
 [[package]]
 name = "bigint_with_control_verifier"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "field",
  "unroll",
@@ -592,7 +592,7 @@ dependencies = [
 [[package]]
 name = "blake2_with_compression_verifier"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "field",
  "unroll",
@@ -602,7 +602,7 @@ dependencies = [
 [[package]]
 name = "blake2s_u32"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "common_constants",
  "unroll",
@@ -685,7 +685,7 @@ dependencies = [
 [[package]]
 name = "common_constants"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "seq-macro",
 ]
@@ -813,7 +813,7 @@ dependencies = [
 [[package]]
 name = "cs"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "bincode 1.3.3",
  "blake2s_u32",
@@ -1026,7 +1026,7 @@ dependencies = [
 [[package]]
 name = "fft"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "field",
  "seq-macro",
@@ -1039,7 +1039,7 @@ dependencies = [
 [[package]]
 name = "field"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "rand 0.9.4",
  "seq-macro",
@@ -1073,7 +1073,7 @@ checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
 [[package]]
 name = "full_statement_verifier"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "bigint_with_control_verifier",
  "blake2_with_compression_verifier",
@@ -1351,7 +1351,7 @@ dependencies = [
 [[package]]
 name = "keccak_special5_verifier"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "field",
  "unroll",
@@ -1413,7 +1413,7 @@ version = "0.1.0"
 [[package]]
 name = "non_determinism_source"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 
 [[package]]
 name = "num-bigint"
@@ -1615,7 +1615,7 @@ dependencies = [
 [[package]]
 name = "prover"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "blake2s_u32",
  "common_constants",
@@ -1794,7 +1794,7 @@ dependencies = [
 [[package]]
 name = "riscv_common"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "common_constants",
  "seq-macro",
@@ -1803,7 +1803,7 @@ dependencies = [
 [[package]]
 name = "riscv_transpiler"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "blake2s_u32",
  "common_constants",
@@ -2264,7 +2264,7 @@ dependencies = [
 [[package]]
 name = "trace_holder"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "field",
  "worker",
@@ -2273,7 +2273,7 @@ dependencies = [
 [[package]]
 name = "transcript"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "blake2s_u32",
  "unroll",
@@ -2343,7 +2343,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 [[package]]
 name = "unified_reduced_machine_verifier"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "field",
  "unroll",
@@ -2375,7 +2375,7 @@ checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 [[package]]
 name = "verifier_common"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "blake2s_u32",
  "cs",
@@ -2530,7 +2530,7 @@ checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 [[package]]
 name = "worker"
 version = "0.1.0"
-source = "git+https://github.com/matter-labs/zksync-airbender?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
+source = "git+https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System?rev=73d69b5#73d69b5346b3c2350fa104a56ec4df78840cea99"
 dependencies = [
  "num_cpus",
  "rayon",

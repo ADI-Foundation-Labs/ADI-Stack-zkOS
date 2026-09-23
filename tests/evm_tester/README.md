@@ -1,7 +1,5 @@
 # ZKsync Era: The EVM Implementations Testing Framework
 
-[![Logo](eraLogo.svg)](https://zksync.io/)
-
 [![General state tests](https://github.com/matter-labs/era-evm-tester/actions/workflows/general_state_tests.yaml/badge.svg)](https://github.com/matter-labs/era-evm-tester/actions/workflows/general_state_tests.yaml)
 
 ZKsync Era is a layer 2 rollup that uses zero-knowledge proofs to scale Ethereum without compromising on security
@@ -107,11 +105,13 @@ at your option.
 
 ## Official Links
 
-- [Website](https://zksync.io/)
-- [GitHub](https://github.com/matter-labs)
-- [Twitter](https://twitter.com/zksync)
-- [Twitter for Devs](https://twitter.com/ZKsyncDevs)
-- [Discord](https://join.zksync.dev/)
+- [Website](https://adi.foundation)
+- [Docs](https://docs.adi.foundation/)
+- [Github](https://github.com/ADI-Foundation-Labs/)
+- [X](https://x.com/adi_foundation)
+- [X for ADI Chain announcements](https://x.com/ADIChain_)
+- [LinkedIn](https://www.linkedin.com/company/adifoundation/)
+- [Discord](http://discord.gg/adi-foundation)
 
 
 

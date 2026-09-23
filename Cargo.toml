@@ -97,9 +97,9 @@ exclude = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-authors = ["The Matter Labs Team <hello@matterlabs.dev>"]
-homepage = "https://zksync.io/"
-repository = "https://github.com/matter-labs/zksync-os/"
+authors = ["ADI Foundation"]
+homepage = "https://adi.foundation"
+repository = "https://github.com/ADI-Foundation-Labs/ADI-Stack-zkOS/"
 license = "MIT OR Apache-2.0"
 keywords = ["blockchain", "zksync", "zk", "risc-v"]
 categories = ["cryptography"]
@@ -110,20 +110,20 @@ zksync_os_interface = { version = "0.1.3" }
 
 # zksync-airbender deps pinned to the same commit airbender-platform
 # resolves `branch = "dev"` to at the time of pinning.
-riscv_transpiler = { git = "https://github.com/matter-labs/zksync-airbender", rev = "73d69b5" }
-blake2s_u32 = { git = "https://github.com/matter-labs/zksync-airbender", rev = "73d69b5", default-features = false }
-common_constants = { git = "https://github.com/matter-labs/zksync-airbender", rev = "73d69b5", default-features = false }
-prover_examples = { git = "https://github.com/matter-labs/zksync-airbender", rev = "73d69b5" }
-execution_utils = { git = "https://github.com/matter-labs/zksync-airbender", rev = "73d69b5" }
-prover = { git = "https://github.com/matter-labs/zksync-airbender", rev = "73d69b5" }
-full_statement_verifier = { git = "https://github.com/matter-labs/zksync-airbender", rev = "73d69b5", default-features = false }
-cli = { git = "https://github.com/matter-labs/zksync-airbender", rev = "73d69b5" }
-gpu_prover = { git = "https://github.com/matter-labs/zksync-airbender", rev = "73d69b5" }
+riscv_transpiler = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System", rev = "73d69b5" }
+blake2s_u32 = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System", rev = "73d69b5", default-features = false }
+common_constants = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System", rev = "73d69b5", default-features = false }
+prover_examples = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System", rev = "73d69b5" }
+execution_utils = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System", rev = "73d69b5" }
+prover = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System", rev = "73d69b5" }
+full_statement_verifier = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System", rev = "73d69b5", default-features = false }
+cli = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System", rev = "73d69b5" }
+gpu_prover = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-System", rev = "73d69b5" }
 
-airbender-guest = { git = "https://github.com/matter-labs/airbender-platform", tag = "v0.2.4" }
-airbender-host = { git = "https://github.com/matter-labs/airbender-platform", tag = "v0.2.4", default-features = false }
-airbender-sdk = { git = "https://github.com/matter-labs/airbender-platform", tag = "v0.2.4" }
-crypto = { git = "https://github.com/matter-labs/airbender-platform", tag = "v0.2.4", package = "airbender-crypto", default-features = false }
+airbender-guest = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-Platform", tag = "v0.2.4-b" }
+airbender-host = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-Platform", tag = "v0.2.4-b", default-features = false }
+airbender-sdk = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-Platform", tag = "v0.2.4-b" }
+crypto = { git = "https://github.com/ADI-Foundation-Labs/ADI-Stack-Airbender-Platform", tag = "v0.2.4-b", package = "airbender-crypto", default-features = false }
 
 seq-macro = { version = "0.3.6", default-features = false }
 

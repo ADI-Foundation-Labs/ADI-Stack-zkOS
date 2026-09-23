@@ -5,7 +5,7 @@ More precisely, we will store some state commitment on the settlement layer, and
 It means that the state before and after transition should be a part of ZK proof public input (or part of preimage). But also public input should include other data for different purposes: messaging, DA validation, and inputs validation.
 
 Apart from that, we are going to implement a messaging mechanism that allows sending trustless messages from the settlement layer to chain (L2) and back.
-This mechanism will be [Era VM compatible](https://docs.zksync.io/zksync-protocol/rollup/l1_l2_communication), it includes L1 -> L2 txs and L2 -> L1 messages.
+This mechanism will be Era VM compatible, it includes L1 -> L2 txs and L2 -> L1 messages.
 
 ## Public input structure
 
